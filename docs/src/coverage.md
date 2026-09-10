@@ -21,8 +21,8 @@ as a proposal. The proposal revision inspected during migration is
 | Fixed source phasors, bounds, costs | Per radial island | Exactly one source; grounded-source ampacity rejected |
 | Fixed shunt G/B matrices | Affine voltage-product closure | Full linear current law |
 | Switches, capacitors | Documented fixed-state lowering | Rejected; pending |
-| Transformers/regulators | Single-phase, center-tap, Yd/Dy, autotransformer, open-delta; documented restrictions/lowering | Rejected; pending |
-| `tap_ratio*` on ordinary transformers | Normalized to migrated `tap*` spelling; conflicts rejected | Transformer support pending |
+| Transformers/regulators | Single-phase, center-tap, Yd/Dy, autotransformer, open-delta; documented restrictions/lowering | Fixed single-phase, center-tap, Yd/Dy, single-phase and open-delta regulators; see winding contract |
+| `tap_ratio*` on ordinary transformers | Normalized to migrated `tap*` spelling; conflicts rejected | Fixed setting or equal bounds; adjustable optimization rejected |
 | `n_winding` | Unsupported | Unsupported |
 | IBR/control profiles | Restricted controls, explicit projection policies | Unsupported |
 | DC tables, global time series | Unsupported | Unsupported |
@@ -36,3 +36,5 @@ SDP accepts only its declared fields; unknown nonempty component tables and
 unsupported fields raise `SDPInapplicableError`. The input adapter retains parser
 diagnostics and metadata, but dictionary acceptance is not schema validation.
 A full generated field-level schema ledger is still a follow-up milestone.
+
+See [fixed transformer equations and restrictions](sdp_transformers.md).

@@ -3,6 +3,7 @@ using OpenDSSDirect
 @testset "FormulationLab" begin
     include("boundary_tests.jl")
     include("sdp_tests.jl")
+    include("sdp_transformer_opendss_tests.jl")
     include("lindist3flow_tests.jl")
     include("lindist3flow_contract_tests.jl")
     include("lindist3flow_lowering_tests.jl")

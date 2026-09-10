@@ -5,7 +5,7 @@ Unbalanced power-flow formulations with explicit mathematical scope and solver-o
 Implemented:
 
 - **LinDist3Flow**: migrated from PowerOptLab, including affine/SOC limits, component lowering, applicability diagnostics, per-unit scaling, and IEEE/OpenDSS regression tests. This is a fixed-reference, lossless **approximation**, not an AC lower bound.
-- **IVRSDP**: a first dense semidefinite **relaxation** of current–voltage equations. It retains explicit neutrals and delta connections, eliminates linear electrical equations, and lifts voltage/current products. Its currently supported subset is documented below; transformer and controller support is still pending.
+- **IVRSDP**: a first dense semidefinite **relaxation** of current–voltage equations. It retains explicit neutrals and delta connections, eliminates linear electrical equations, and lifts voltage/current products. Its currently supported subset is documented below; fixed-tap transformers and regulators are supported as documented; controllers remain pending.
 
 ```julia
 using FormulationLab, Clarabel
@@ -43,10 +43,23 @@ julia --project=test/optional test/optional/mosek.jl
 
 The default test environment includes Clarabel, Ipopt (for migrated affine-model comparisons), and OpenDSSDirect. It has no BMOPFTools or Mosek dependency. Nonlinear BMOPFTools replay comparisons are retained separately in [test/integration](test/integration/README.md).
 
-- [Architecture and next steps](docs/architecture.md)
-- [BMOPF coverage](docs/coverage.md)
-- [SDP equations, scope, and numerical interpretation](docs/sdp.md)
-- [LinDist3Flow usage](docs/lindist3flow.md) and [component equations](docs/lindist3flow_components.md)
-- [Migration provenance](docs/migration.md) and [verification results](docs/verification.md)
+- [Architecture and next steps](docs/src/architecture.md)
+- [BMOPF coverage](docs/src/coverage.md)
+- [SDP equations, scope, and numerical interpretation](docs/src/sdp.md)
+- [LinDist3Flow usage](docs/src/lindist3flow.md) and [component equations](docs/src/lindist3flow_components.md)
+- [Migration provenance](docs/src/migration.md) and [verification results](docs/src/verification.md)
 
 ExaModels is deferred until a nonconvex model is implemented. Full BMOPF coverage, chordal SDP, SOC relaxations/cuts, and benchmarked solver profiles are subsequent milestones.
+
+## Documentation
+
+Build the Documenter site locally:
+
+```sh
+julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+julia --project=docs docs/make.jl
+```
+
+Open `docs/build/index.html`. Documentation CI builds the site on every pull
+request and publishes a downloadable HTML artifact. Publication to GitHub Pages
+can be enabled separately; no deployment credentials are needed for the build.

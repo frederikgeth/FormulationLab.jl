@@ -7,8 +7,8 @@ Original copyright and license are retained in LICENSE.md. Dataset provenance
 embedded in the IEEE test constructors is retained; LICENSE-DATA.md is retained.
 
 The six original formulation files and ten L3F test/fixture files have moved.
-PowerOptLab now contains only a forwarding adapter for its L3F study APIs and
-supplies BMOPFTools replay through the new callback. Its shared Kron utility
+The PowerOptLab removal PR deletes the L3F API without a forwarding adapter or
+FormulationLab dependency. Its shared Kron utility
 remains there because other PowerOptLab workflows use it; FormulationLab contains
 the migrated helper it needs, with independent parsing/serialization boundaries.
 

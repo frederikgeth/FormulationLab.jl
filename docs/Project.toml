@@ -1,0 +1,7 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+FormulationLab = "d9599d7b-22e9-4e70-b9e3-fa8663b6a334"
+
+[compat]
+Documenter = "1"
+julia = "1.10"

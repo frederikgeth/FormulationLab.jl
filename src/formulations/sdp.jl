@@ -1,7 +1,8 @@
 """Dense current–voltage SDP reference; a relaxation, with no rank-one constraint.
 
 The first implementation supports one source, fixed lines/pi shunts, grounded and
-explicit-neutral buses, P/Z loads, generators, and fixed shunts. Unsupported
+explicit-neutral buses, P/Z loads, generators, fixed shunts, and fixed-tap
+transformers/regulators. Unsupported
 component fields are rejected before a model is built. `s_base` is in VA.
 """
 Base.@kwdef struct SDPOptions
@@ -44,11 +45,17 @@ function _sdp_fields(data, allowed, label; matrix=())
 end
 
 function _sdp_check(net)
-    tables = ("bus", "line", "linecode", "load", "generator", "voltage_source", "shunt")
+    tables = ("bus", "line", "linecode", "load", "generator", "voltage_source", "shunt", "transformer")
     for (key,value) in net
         key in tables && continue
         key in ("name", "meta", "terminal_conventions", "_meta") && continue
         isempty(value) || _sdp_refuse("table '$key' is not implemented by IVRSDP")
+    end
+    for (subtype,table) in get(net,"transformer",Dict())
+        subtype in _SDP_TRANSFORMERS || _sdp_refuse("transformer/$subtype is not implemented")
+        for (id,d) in table
+            _sdp_transformer_plan(subtype,d,"transformer/$subtype/$id")
+        end
     end
     length(get(net,"voltage_source",Dict())) == 1 || _sdp_refuse("exactly one voltage source is required")
     for (id,b) in get(net,"bus",Dict())
@@ -176,6 +183,7 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
         push!(limits,(vf,cf,ratings));push!(limits,(vt,ct,ratings))
         push!(devices,(:line_from,id,vf,cf,Dict()));push!(devices,(:line_to,id,vt,ct,Dict()))
     end
+    _sdp_stamp_transformers!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
     for (id,d) in get(net,"shunt",Dict())
         rows=terminal_rows(d["bus"],d["terminal_map"])
         Y=_l3f_shunt_matrix(d,length(rows))*zb
@@ -214,6 +222,7 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
     anchor=voltage[(source["bus"],tm[anchor_k])]
     anchor!=0 || _sdp_refuse("nonzero prescribed source voltage on a grounded terminal")
     for k in eachindex(tm)
+        k==anchor_k && continue # Avoid normalizing roundoff in the tautology v_anchor=v_anchor.
         push!(equations,_sdp_add!(copy(vs[k]),vs[anchor_k],-source_v[k]/source_v[anchor_k]))
     end
     # Ground currents are supplied by ideal earth connections and not assigned
@@ -331,7 +340,14 @@ function solve_sdp_opf(input, optimizer=default_optimizer(); options=SDPOptions(
             Dict(k=>fill(ComplexF64(NaN),length(v)) for (k,v) in build.powers),NaN,status)
     end
     H=Matrix{ComplexF64}(JuMP.value.(build.moment));eig=eigen(Hermitian(H))
-    z=build.nullspace*(sqrt(max(0,last(eig.values)))*eig.vectors[:,end])
+    # Recover from the voltage Gram: free auxiliary current completions must
+    # not select the voltage candidate through the largest eigenvalue of H.
+    rows=[i for i in values(build.voltage_indices) if i!=0]
+    sort!(rows)
+    NV=build.nullspace[rows,:]
+    veig=eigen(Hermitian(NV*H*NV'))
+    vv=sqrt(max(0,last(veig.values)))*veig.vectors[:,end]
+    z=zeros(ComplexF64,size(build.nullspace,1));z[rows]=vv
     phase=iszero(z[build.anchor]) ? 1.0+0im : cis(angle(build.anchor_voltage)-angle(z[build.anchor]))
     v=Dict(k=>(i==0 ? 0.0im : build.voltage_base*z[i]*phase) for (k,i) in build.voltage_indices)
     ratio=length(eig.values)>1 ? max(0,eig.values[end-1])/max(eps(),eig.values[end]) : 0.0

@@ -135,3 +135,5 @@ end
     net["line"]["line"]["linecode"]="missing"
     @test_throws SDPInapplicableError build_sdp_opf(net)
 end
+
+include("sdp_transformer_tests.jl")

@@ -43,8 +43,8 @@ rank-one recovery and verification, which this release does not certify.
 
 `SDPBuild` exposes the reduced moment matrix, nullspace, terminal indices, and
 lifted power expressions. `SDPResult.relaxed_powers` is in W+jvar and is distinct
-from `voltage_candidate` (V), reconstructed from the dominant eigenvector and
-aligned to the source. `rank_ratio` is the second-largest nonnegative eigenvalue
+from `voltage_candidate` (V), reconstructed from the dominant eigenvector
+of the voltage Gram, aligned to the source. `rank_ratio` is the second-largest nonnegative eigenvalue
 divided by the largest; it is a diagnostic, not a feasibility test. An auxiliary
 current direction can affect this ratio independently of voltage recoverability.
 
@@ -56,3 +56,8 @@ The reference is verified against analytical loaded two-bus solutions, a floatin
 neutral with mutual impedance, a delta load, reversed branch orientation, a binding
 generator capability limit, current-limit infeasibility, and impedance loads.
 The same suite can run with Clarabel or optional MosekTools.
+
+Fixed-tap transformer winding equations and galvanic regulator bonds are also
+eliminated before lifting. See [transformers and regulators](sdp_transformers.md).
+The global moment rank diagnostic still includes auxiliary current directions;
+voltage recovery uses the voltage Gram to avoid selecting a current-only mode.

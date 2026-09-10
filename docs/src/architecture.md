@@ -1,8 +1,7 @@
 # Architecture
 
 The dependency direction is BMOPF JSON → PowerIO → FormulationLab → optimizer.
-PowerOptLab consumes FormulationLab for studies; FormulationLab never imports it
-or BMOPFTools. JuMP is infrastructure, not the electrical data model.
+FormulationLab never imports PowerOptLab or BMOPFTools. JuMP is infrastructure, not the electrical data model.
 
 `LinDist3Flow` and `IVRSDP` select mathematical formulations. `build_opf` and
 `solve_opf` separately accept optimizer factories. `formulation_kind` distinguishes
@@ -28,8 +27,8 @@ Next milestones, in order:
 
 1. Audit the input boundary against pinned BMOPF schemas, including retained
    transformer/control fields. Expand field-level coverage and refusal tests.
-2. Extend the SDP with transformer coil/terminal maps, physical winding ratings,
-   phase-neutral/phase-phase/sequence limits, and independent component oracles.
+2. Extend the fixed transformer foundation to general multiwinding units,
+   phase-neutral/phase-phase/sequence limits, and broader independent oracles.
 3. Add sparse/chordal representations and establish equivalence to the dense
    reference for each supported domain.
 4. Add an exact nonlinear formulation plus physical residual evaluation and
