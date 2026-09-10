@@ -1,0 +1,28 @@
+name = "FormulationLab"
+uuid = "d9599d7b-22e9-4e70-b9e3-fa8663b6a334"
+version = "0.1.0"
+authors = ["Frederik Geth <frederik.geth@gmail.com>"]
+
+[deps]
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PowerIO = "05ed8b54-f668-4096-9d0d-e8c3dd9dc169"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+
+[weakdeps]
+Clarabel = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
+
+[extensions]
+FormulationLabClarabelExt = "Clarabel"
+
+[compat]
+Clarabel = "0.11"
+JSON3 = "1"
+JuMP = "1.23"
+LinearAlgebra = "1"
+PowerIO = "0.11"
+SHA = "0.7, 1"
+SparseArrays = "1"
+julia = "1.10"

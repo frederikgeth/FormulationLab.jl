@@ -1,0 +1,6 @@
+[deps]
+FormulationLab = "d9599d7b-22e9-4e70-b9e3-fa8663b6a334"
+MosekTools = "1ec41992-ff65-5c91-ac43-2df89e9693a4"
+
+[compat]
+MosekTools = "0.15"
