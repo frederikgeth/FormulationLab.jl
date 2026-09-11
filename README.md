@@ -54,13 +54,14 @@ julia --project=test/optional test/optional/mosek.jl
 
 The default test environment includes Clarabel, Ipopt (for migrated affine-model comparisons), and OpenDSSDirect. It has no BMOPFTools or Mosek dependency. Nonlinear BMOPFTools replay comparisons are retained separately in [test/integration](test/integration/README.md).
 
+- [Formulation decisions, experimental lessons, and scientific origins](docs/src/formulation_choices.md)
 - [Architecture and next steps](docs/src/architecture.md)
 - [BMOPF coverage](docs/src/coverage.md)
 - [SDP equations, scope, and numerical interpretation](docs/src/sdp.md)
 - [LinDist3Flow usage](docs/src/lindist3flow.md) and [component equations](docs/src/lindist3flow_components.md)
 - [Migration provenance](docs/src/migration.md) and [verification results](docs/src/verification.md)
 
-ExaModels is deferred until a nonconvex model is implemented. Full BMOPF coverage, chordal SDP, SOC relaxations/cuts, and benchmarked solver profiles are subsequent milestones.
+ExaModels is deferred until a nonconvex model is implemented. The current focus is fixed SOC solve performance and validated state recovery; DC and time-series semantics remain separately scoped.
 
 ## Documentation
 

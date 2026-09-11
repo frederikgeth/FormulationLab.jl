@@ -108,7 +108,7 @@ cone; see [Fawzi (2016)](https://arxiv.org/abs/1610.04901).
 bound-tightening provenance, map labels, and missing DER capability fields.
 The common preprocessing propagates triangle and reverse-triangle inequalities
 through complex electrical equations, KCL, connection maps and fixed taps.
-Declared bounds and exact source phasors seed it. Power boxes and nameplates
+Declared bounds and exact source phasors seed it. Power boxes and operating capability limits
 can imply current limits when the same physical voltage has a positive lower
 bound. `bound_sweeps` (default 8) bounds the preprocessing work; it performs no
 optimization. Propagated domains feed current cuts, load envelopes, and LNCs.
@@ -150,7 +150,9 @@ API and are not measurements of the current fixed profiles.
 
 Julia 1.12.6, Clarabel 0.11.1, one BLAS thread; one warmed measurement per
 variant. Times are indicative, not statistical averages. The default `:linear`
-profile returned `OPTIMAL` on every reduced ENWL feeder:
+profile returned `OPTIMAL` on all four feeders in this historical panel.
+The later, wider panel includes failures; see [formulation decisions](formulation_choices.md)
+for the current evidence and recommended configurations:
 
 | Buses | SOC import (W) | Cached NLP minus SOC (W) | SOC solve (s) | SDP solve (s) | SOC build (s) |
 |---:|---:|---:|---:|---:|---:|

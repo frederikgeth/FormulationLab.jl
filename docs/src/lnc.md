@@ -1,9 +1,8 @@
 # Lifted nonlinear cuts
 
-LNCs are optional linear inequalities intersected with the dense SDP. They add
-no variables or cone types. The generic `add_lnc!` primitive also accepts affine
-products supplied by a SOC formulation; FormulationLab does not yet provide a
-standalone SOC OPF formulation. No PowerModels dependency is introduced.
+LNCs are optional linear inequalities intersected with `IVRSDP` or `IVRSOC`.
+They add no variables or cone types. The generic `add_lnc!` primitive accepts
+affine products supplied by either formulation. No PowerModels dependency is introduced.
 
 The equations follow Coffrin, Hijazi and Van Hentenryck,
 [Strengthening the SDP Relaxation of AC Power Flows](https://arxiv.org/abs/1512.04644),

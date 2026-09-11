@@ -3,7 +3,7 @@
 The dependency direction is BMOPF JSON → PowerIO → FormulationLab → optimizer.
 FormulationLab never imports PowerOptLab or BMOPFTools. JuMP is infrastructure, not the electrical data model.
 
-`LinDist3Flow` and `IVRSDP` select mathematical formulations. `build_opf` and
+`LinDist3Flow`, `IVRSDP` and `IVRSOC` select mathematical formulations. `build_opf` and
 `solve_opf` separately accept optimizer factories. `formulation_kind` distinguishes
 an approximation from a relaxation; LP/SOCP/SDP cone types alone do not do so.
 
@@ -23,16 +23,17 @@ approximations. Shared matrix decoding and connection-incidence helpers have no
 solver state. A dense nullspace implementation is a reference for small cases;
 it is not intended as the scalable production representation.
 
-Next milestones, in order:
+Sparse/chordal SDP representations, fixed SOC relaxations, LNCs, shared network
+reduction, and original-network reconstruction are implemented. Formulation,
+reduction, strengthening, numerical settings and recovery remain separate layers.
+The [formulation decision record](formulation_choices.md) identifies the retained
+configurations, scientific lineage, measured limitations and next experiments.
 
-1. Add sparse/chordal representations and establish equivalence to the dense
-   reference for each supported domain.
-2. Add an exact nonlinear formulation plus physical residual evaluation and
-   feasible-solution recovery. ExaModels becomes an optional backend here.
-3. Derive named SOC relaxations and extend the LNC cut family with explicit assumptions,
-   then benchmark gap, residuals, success rate, build/solve time, and memory.
-4. Expand to DC and time-series semantics in separately scoped work. Geometry
-   compilation belongs upstream of the electrical coefficient boundary.
+The next performance work targets Clarabel solve time. An exact nonlinear
+formulation and optional ExaModels backend remain future work; physical residual
+evaluation already exists, while AC-feasible recovery is not guaranteed. DC and
+time-series semantics remain separately scoped. Geometry compilation belongs
+upstream of the electrical coefficient boundary.
 
 The static AC extension now covers general multiwinding transformers, voltage
 sequence limits, static IBRs, and explicit load envelopes. The pinned field

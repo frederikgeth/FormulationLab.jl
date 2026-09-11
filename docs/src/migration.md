@@ -26,6 +26,8 @@ The original nonlinear replay testsets were moved to `test/integration/replay.jl
 They remain executable with BMOPFTools supplied by a separate environment. Main
 suite callback tests use a labeled test double solely to test API plumbing.
 
-The first SDP and generic formulation API are new code. Their support is narrower
-than L3F's and is explicitly listed in coverage.md; neither is advertised as full
-BMOPF support.
+The SDP, SOC and generic formulation API are new code. Static AC support has
+expanded since the initial migration; it is not a simple subset of L3F support.
+See [component coverage](coverage.md) for current scope and
+[formulation decisions](formulation_choices.md) for scientific lineage.
+None is advertised as full BMOPF support.

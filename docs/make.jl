@@ -10,6 +10,7 @@ makedocs(;
     pages=[
         "Home"=>"index.md",
         "Architecture"=>"architecture.md",
+        "Formulation decisions"=>"formulation_choices.md",
         "Component coverage"=>"coverage.md",
         "Schema field inventory"=>"schema_fields.md",
         "SDP"=>["Current–voltage relaxation"=>"sdp.md",
