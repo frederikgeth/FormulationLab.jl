@@ -9,7 +9,8 @@ function _lnc_voltage_bounds(net,bus,row,terminal_rows,fixed)
 end
 _lnc_abs_sum(coeff,bounds)=sum((abs(c)*v for (c,v) in zip(coeff,bounds) if !iszero(c));init=0.0)
 
-function _add_line_lncs!(build,lines,terminal_rows,fixed)
+function _add_line_lncs!(build,lines,terminal_rows,fixed;voltage_range=nothing)
+    physical_bounds(bus,row)=voltage_range===nothing ? _lnc_voltage_bounds(build.network,bus,row,terminal_rows,fixed) : voltage_range(row)
     net=build.network;neutral=_kr_neutral_map(net)
     for line in lines
         (;id,from,to,tmf,tmt,vf,vt,Z,Yf,Yt,ratings)=line
@@ -28,8 +29,8 @@ function _add_line_lncs!(build,lines,terminal_rows,fixed)
             d=zeros(n);d[phases[k]]=1;d[phases[h]]=-1
             push!(pairs,("pair-$(tmf[phases[k]])-$(tmf[phases[h]])",d))
         end
-        highf=[last(_lnc_voltage_bounds(net,from,r,terminal_rows,fixed)) for r in vf]
-        hight=[last(_lnc_voltage_bounds(net,to,r,terminal_rows,fixed)) for r in vt]
+        highf=[last(physical_bounds(from,r)) for r in vf]
+        hight=[last(physical_bounds(to,r)) for r in vt]
         imax=get(ratings,"i_max",nothing)
         current=imax===nothing ? fill(Inf,n) : [min(imax[k]+_lnc_abs_sum(Yf[k,:],highf),
             imax[k]+_lnc_abs_sum(Yt[k,:],hight)) for k in 1:n]
@@ -38,8 +39,8 @@ function _add_line_lncs!(build,lines,terminal_rows,fixed)
             provenance="Coupled line voltage drop; endpoint i_max plus bounded pi-shunt currents; physical voltage bounds"
             a=_SDPRow();b=_SDPRow()
             for k in 1:n;_sdp_add!(a,vf[k],d[k]);_sdp_add!(b,vt[k],d[k]);end
-            lu,hu=_lnc_voltage_bounds(net,from,a,terminal_rows,fixed)
-            lv,hv=_lnc_voltage_bounds(net,to,b,terminal_rows,fixed)
+            lu,hu=physical_bounds(from,a)
+            lv,hv=physical_bounds(to,b)
             reason = if !(0<lu<=hu<Inf && 0<lv<=hv<Inf)
                 "missing positive lower or finite upper magnitude bound"
             elseif imax===nothing

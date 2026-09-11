@@ -96,7 +96,8 @@ function _sdp_voltage_maps(net,b,terminal_rows)
     nt=get(_kr_neutral_map(net),b,nothing);ni=findfirst(==(nt),tm)
     ph=findall(t->t!=nt,tm);vp=v[ph]
     pn=[ni===nothing ? copy(r) : _sdp_add!(copy(r),v[ni],-1) for r in vp]
-    pp=[_sdp_add!(copy(vp[i]),vp[j],-1) for i in eachindex(vp) for j in i+1:length(vp)]
+    pairs=length(vp)==3 ? [(1,2),(2,3),(3,1)] : [(i,j) for i in eachindex(vp) for j in i+1:length(vp)]
+    pp=[_sdp_add!(copy(vp[i]),vp[j],-1) for (i,j) in pairs]
     maps=Dict("vpn"=>pn,"vpp"=>pp)
     if ni!==nothing;maps["vn"]=[v[ni]];end
     if length(ph)==3
@@ -196,7 +197,7 @@ function _sdp_load_range(net,b,u,terminal_rows,vb)
     lo<=hi || _sdp_refuse("inconsistent load voltage bounds")
     lo,hi
 end
-function _sdp_load_law!(model,net,id,d,v,s,lift,terminal_rows,vb,sb)
+function _sdp_load_law!(model,net,id,d,v,s,lift,terminal_rows,vb,sb;voltage_range=nothing)
     n=length(v);p=_sdp_vector(d,"p_nom",n);q=_sdp_vector(d,"q_nom",n)
     law=lowercase(get(d,"model","constant_power"))
     _sdp_is_impedance_load(d) && return # already enforced as a linear current law
@@ -212,6 +213,9 @@ function _sdp_load_law!(model,net,id,d,v,s,lift,terminal_rows,vb,sb)
     for k in 1:n
         x=real(lift(v[k],v[k]))*(vb/vn[k])^2
         low,high=_sdp_load_range(net,d["bus"],v[k],terminal_rows,vb)
+        if voltage_range!==nothing
+            lo,hi=voltage_range(v[k]);low=max(low,(lo/vb)^2);high=min(high,(hi/vb)^2)
+        end
         low*=(vb/vn[k])^2;high*=(vb/vn[k])^2
         cache=Dict{Float64,Any}()
         power(a)=get!(cache,Float64(a)) do;_sdp_power_envelope!(model,x,Float64(a),low,high);end

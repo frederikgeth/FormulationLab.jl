@@ -4,13 +4,13 @@ function no_psd(model)
     all(!occursin("PositiveSemidefinite",string(S)) && !occursin("HermitianPositive",string(S)) for (_,S) in JuMP.list_of_constraint_types(model))
 end
 
-@testset "Complex SOC minors and separating cuts" begin
+@testset "Complex SOC minors and fixed Kim constraints" begin
     model=Model(Clarabel.Optimizer);set_silent(model)
     model.ext[:soc_policy]=(blocks=Any[],)
     H=FormulationLab._sdp_psd(model,3,:real)
     # Pairwise minors cannot detect this negative eigenvalue.
     target=ComplexF64[1 -.75 -.75;-.75 1 -.75;-.75 -.75 1]
-    phases=Diagonal(cis.([0.2,1.1,-0.7]));target=phases*target*phases'
+    phases=Diagonal(ones(3));target=phases*target*phases'
     for i in 1:3,j in 1:i
         @constraint(model,real(H[i,j])==real(target[i,j]))
         i==j || @constraint(model,imag(H[i,j])==imag(target[i,j]))
@@ -19,7 +19,7 @@ end
     @test termination_status(model)==MOI.OPTIMAL
     @test no_psd(model)
     e=eigen(Hermitian(target));u=e.vectors[:,1]
-    FormulationLab._soc_eigencut!(model,H,u)
+    FormulationLab._soc_kim!(model,H,1+0im)
     optimize!(model)
     @test termination_status(model)==MOI.INFEASIBLE
     @test no_psd(model)
@@ -34,7 +34,7 @@ end
         b=build_opf(net,IVRSOC(objective=:source_import,physical_projections=physical))
         @test no_psd(b.model)
         @test_throws ArgumentError solve_sdp_opf(b.electrical)
-        r=solve_soc_opf(b;separation=PSDSeparationOptions(max_rounds=5),solver_options=(verbose=false,))
+        r=solve_soc_opf(b;solver_options=(verbose=false,))
         @test r.solve.optimal
         s=solve_sdp_opf(net;options=SDPOptions(objective=:source_import),solver_options=(verbose=false,))
         @test r.objective<=s.objective+0.01
@@ -49,7 +49,7 @@ end
     add_voltage_lnc!(b,spec)
     @test length(b.electrical.lnc_diagnostics)==1
     @test phasor_products(b,u,v).wu isa JuMP.AffExpr
-    @test_throws ArgumentError solve_soc_opf(build_opf(net,IVRSOC());separation=PSDSeparationOptions(max_rounds=-1))
+    @test_throws ArgumentError build_opf(net,IVRSOC(max_triplets=-1))
     bad=deepcopy(net);bad["bus"]["source"]["v_min"]=[1000.0]
     r=solve_opf(bad,IVRSOC();solver_options=(verbose=false,))
     @test !r.solve.publishable
@@ -91,26 +91,32 @@ end
     @test r.relaxed_powers[(:load,"load")] ≈ [10_000+2_000im] rtol=1e-7
 end
 
-@testset "OA iterations and budgets" begin
-    function toy()
-        b=build_opf(_l3f_case(),IVRSOC())
-        H=FormulationLab._sdp_psd(b.model,3,:real)
-        for i in 1:3;@constraint(b.model,real(H[i,i])==1);end
-        @objective(b.model,Min,real(H[1,2]+H[1,3]+H[2,3]))
-        b
+@testset "Fixed profiles and budgets" begin
+    for profile in (:none,:linear,:kim)
+        b=build_opf(_l3f_case(),IVRSOC(strengthening=profile,max_triplets=0))
+        before=JuMP.num_constraints(b.model;count_variable_in_set_constraints=true)
+        r=solve_soc_opf(b;solver_options=(verbose=false,))
+        @test r.solve.optimal
+        @test r.stop_reason==:one_shot
+        @test length(r.history)==1 && r.cuts==0
+        @test JuMP.num_constraints(b.model;count_variable_in_set_constraints=true)==before
+        @test isempty(b.electrical.numerical_diagnostics[:fixed_strengthening].triplets)
+        @test !isempty(bound_report(b).entries)
+        @test no_psd(b.model)
     end
-    b=toy();r=solve_soc_opf(b;separation=PSDSeparationOptions(max_cuts=0),solver_options=(verbose=false,))
-    @test r.stop_reason==:cut_limit
-    @test r.cuts==0
-    @test r.objective/b.electrical.objective_scale ≈ -3 atol=1e-5
-    b=toy();set_time_limit_sec(b.model,120.)
-    r=solve_soc_opf(b;separation=PSDSeparationOptions(max_rounds=5),solver_options=(verbose=false,))
-    @test r.stop_reason==:psd_tolerance
-    @test time_limit_sec(b.model)==120.
-    @test r.cuts>=1
-    @test length(r.history)>=2
-    @test r.objective/b.electrical.objective_scale ≈ -1.5 atol=1e-5
-    @test no_psd(b.model)
+    @test_throws ArgumentError build_opf(_l3f_case(),IVRSOC(strengthening=:iterative))
+    # The chord bounds every rank-one constant-power state on its voltage domain.
+    a,b,c=0.81,1.21,0.37
+    for w in range(a,b;length=101)
+        @test c/w <= c*(a+b-w)/(a*b)+1e-12
+    end
+    # Complex expansion of the projected Schur inequality, including i direction.
+    z=ComplexF64[1+im,2-im,3+2im];G=z*z'
+    for eta in (1+0im,1im,-1im),p in 1:3
+        j,k=filter(!=(p),1:3)
+        t=real(G[j,j]+abs2(eta)*G[k,k]+eta*G[j,k]+conj(eta)*G[k,j])
+        @test abs2(G[p,j]+eta*G[p,k]) ≈ real(G[p,p])*t
+    end
 end
 
 @testset "SOC fixed transformer and regulator fixtures" begin
@@ -125,4 +131,53 @@ end
         @test r.solve.optimal
         @test r.objective ≈ s.objective atol=1e-3
     end
+end
+
+@testset "BMOPF bounds and physical propagation" begin
+    # Three-phase line-line bounds follow AB, BC, CA, even when asymmetric.
+    net=Dict("bus"=>Dict("b"=>Dict("terminal_names"=>["a","b","c"])))
+    rows=(b,tm)->[Dict(findfirst(==(t),["a","b","c"])=>1.0+0im) for t in tm]
+    maps=FormulationLab._sdp_voltage_maps(net,"b",rows)
+    @test maps["vpp"]==[Dict(1=>1+0im,2=>-1+0im),Dict(2=>1+0im,3=>-1+0im),Dict(3=>1+0im,1=>-1+0im)]
+    # Phase-only source P/Q arrays and line apparent ratings with explicit neutral.
+    net=_l3f_case(;explicit_neutral=true)
+    merge!(net["voltage_source"]["source"],Dict("p_min"=>[0.],"p_max"=>[20000.],"q_min"=>[-10000.],"q_max"=>[10000.]))
+    net["linecode"]["lc"]["s_max"]=[20000.]
+    b=build_opf(net,IVRSOC())
+    @test solve_soc_opf(b;solver_options=(verbose=false,)).solve.optimal
+    net["line"]["line"]["s_max"]=[1.]
+    @test !solve_opf(net,IVRSOC();solver_options=(verbose=false,)).solve.optimal
+    net=_l3f_case(;generator=true)
+    for key in ("q_min","q_max");delete!(net["generator"]["pv"],key);end
+    report=bound_report(build_opf(net,IVRSOC()))
+    @test only(report.missing_capabilities).fields==["q_min","q_max","s_max","i_max"]
+    @test any(e->isfinite(e.upper_pu) && occursin("derived",e.provenance),report.entries)
+end
+
+@testset "Three-wire dispatch rates conductor powers" begin
+    v=230cis.([0.,-2pi/3,2pi/3]);i=ComplexF64[1+.2im,-.3+.1im,-.7-.3im];s=v.*conj.(i)
+    for family in ("generator","ibr")
+        d=Dict{String,Any}("bus"=>"b","terminal_map"=>["a","b","c"],"s_max"=>fill(1000.,3),
+            "p_min"=>real.(s),"p_max"=>real.(s),"q_min"=>imag.(s),"q_max"=>imag.(s),"i_max"=>abs.(i).*(1+1e-6))
+        family=="generator" ? (d["configuration"]="DELTA") : (d["topology"]="THREE_LEG")
+        net=Dict{String,Any}("bus"=>Dict("b"=>Dict("terminal_names"=>["a","b","c"])),
+            "voltage_source"=>Dict("s"=>Dict("bus"=>"b","terminal_map"=>["a","b","c"],"v_magnitude"=>abs.(v),"v_angle"=>angle.(v))),family=>Dict("g"=>d))
+        r=solve_opf(net,IVRSOC(objective=:source_import);solver_options=(verbose=false,))
+        @test r.solve.optimal
+        @test r.relaxed_powers[(Symbol(family),"g")] ≈ s atol=1e-3
+        @test r.relaxed_powers[(:voltage_source,"s")] ≈ -s atol=1e-3
+    end
+end
+
+@testset "Static Kim selection is budgeted and reproducible" begin
+    net=_l3f_dy_case("delta_wye";line=true)
+    a=build_opf(net,IVRSOC(strengthening=:kim,max_triplets=1))
+    b=build_opf(deepcopy(net),IVRSOC(strengthening=:kim,max_triplets=1))
+    da=a.electrical.numerical_diagnostics[:fixed_strengthening]
+    db=b.electrical.numerical_diagnostics[:fixed_strengthening]
+    @test length(da.triplets)==1
+    @test da.triplets==db.triplets
+    @test da.cones==9
+    @test no_psd(a.model)
+    @test !has_values(a.model)
 end

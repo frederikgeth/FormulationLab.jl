@@ -30,6 +30,11 @@ function benchmark_sdp(input;remove_source_generators=false,s_base=1e4,
         set_silent(b.model);set_time_limit_sec(b.model,time_limit)
         solve_seconds=@elapsed optimize!(b.model)
         accepted=termination_status(b.model)==MOI.OPTIMAL && primal_status(b.model)==MOI.FEASIBLE_POINT
+        numerics=copy(b.numerical_diagnostics)
+        report=bound_report(b)
+        numerics[:bound_report]=(sweeps=report.sweeps, maps=length(report.entries),
+            finite_upper_bounds=count(e->isfinite(e.upper_pu),report.entries),
+            missing_capabilities=report.missing_capabilities)
         row=Dict("variant"=>string(variant),"s_base_VA"=>s_base,"v_base_V"=>b.voltage_base,
             "objective"=>"source_import_W","removed_generators"=>sort(removed),
             "build_seconds"=>build_seconds,"solve_seconds"=>solve_seconds,
@@ -37,7 +42,7 @@ function benchmark_sdp(input;remove_source_generators=false,s_base=1e4,
             "source_import_W"=>accepted ? objective_value(b.model)*b.objective_scale : nothing,
             "solver_dual_W"=>accepted && has_duals(b.model) ? dual_objective_value(b.model)*b.objective_scale : nothing,
             "max_scaled_violation"=>has_values(b.model) ? maximum(values(primal_feasibility_report(b.model;atol=0.0));init=0.0) : nothing,
-            "variables"=>num_variables(b.model),"numerics"=>b.numerical_diagnostics,
+            "variables"=>num_variables(b.model),"numerics"=>numerics,
             "lncs_applied"=>count(d->d.status==:applied,b.lnc_diagnostics))
         push!(rows,row)
     end

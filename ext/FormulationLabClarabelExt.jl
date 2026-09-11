@@ -12,5 +12,6 @@ FormulationLab.default_sdp_optimizer(::Val{:clarabel},::Val{:chordal}) = JuMP.op
     "static_regularization_constant"=>1e-5, "iterative_refinement_max_iter"=>30)
 FormulationLab.default_optimizer(::Val{:clarabel_soc}) = JuMP.optimizer_with_attributes(
     Clarabel.Optimizer, "chordal_decomposition_enable"=>false,
-    "static_regularization_constant"=>1e-7, "iterative_refinement_max_iter"=>30)
+    "static_regularization_constant"=>1e-7, "iterative_refinement_max_iter"=>30,
+    "tol_gap_abs"=>1e-7)
 end

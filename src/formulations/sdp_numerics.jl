@@ -56,7 +56,7 @@ function _sdp_current_bounds(devices,limits,voltage_range)
         elseif family in (:generator,:voltage_source,:ibr)
             names=("p_min","p_max","q_min","q_max")
             if all(haskey(d,key) for key in names)
-                values=[_sdp_vector(d,key,n) for key in names]
+                values=[family==:voltage_source ? d[key] : _sdp_vector(d,key,n) for key in names]
                 for k in 1:n
                     p=max(abs(values[1][k]),abs(values[2][k]))
                     q=max(abs(values[3][k]),abs(values[4][k]))

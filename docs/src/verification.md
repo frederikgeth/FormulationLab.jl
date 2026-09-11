@@ -2,8 +2,8 @@
 
 | Check | Result |
 |---|---|
-| Default suite, Julia 1.10.11 | 3,274 passed, no skips |
-| Default suite, Julia 1.12.6 | 3,274 passed, no skips |
+| Default suite, Julia 1.10.11 | 3,527 passed, no skips |
+| Default suite, Julia 1.12.6 | 3,532 passed, no skips |
 | Optional MosekTools analytical SDP suite | 1,986 passed |
 | New fixed-transformer OpenDSS comparisons (included above) | 42 passed |
 | Documenter build and cross-reference checks | Passed |
@@ -52,7 +52,7 @@ rigorous numerical lower-bound certificates, or AC feasibility of a recovered
 SDP voltage candidate.
 
 The LNC extension adds 1,766 checks of normalized coefficients, rank-one validity,
-SOC separation, explicit interphase/winding domains, diagnostics, automatic
+fixed SOC projections, explicit interphase/winding domains, diagnostics, automatic
 line-angle bounds, shunt correction and neutral/mutual coupling. Automatic cuts
 are opt-in and preserve the original problem domain; explicit operating domains
 are distinguished in diagnostics. No unbalanced benchmark-wide gap or speedup
@@ -63,3 +63,11 @@ The warmed comparison script on the analytical two-bus case returned approximate
 violations below 4e-8. The pair added nine linear constraints (including its
 magnitude/sector domain) and no variables: four scalar variables in both models.
 This already-exact case demonstrates consistency, not an OPF gap improvement.
+
+The fixed SOC extension removes iterative separation, adds bounded complex
+three-map projections and constant-power secants, and audits propagated physical
+bounds. Its regressions cover complex projection validity, unchanged model size
+across a solve, deterministic triplet budgets, phase-pair ordering, phase-only
+source/line limits, and three-wire generator/converter conductor powers. The
+five additional budget checks were also run in the focused Julia 1.12 SOC suite.
+The Mosek and replay counts above are prior checks, not reruns of this extension.

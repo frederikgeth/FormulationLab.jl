@@ -1,0 +1,1685 @@
+{
+  "julia": "1.12.6",
+  "selection": "fixed, data only",
+  "time_limit_seconds": 90,
+  "clarabel": "0.11.1",
+  "cases": [
+    {
+      "sha256": "3daaf7cca92c08bd0302a5d5a4fdc4924ec4fc4856d85ce1c38116d9fe3224b5",
+      "buses": 5,
+      "file": "network_23_Feeder_3.json",
+      "results": [
+        {
+          "solve_seconds": 0.0047025,
+          "build_seconds": 0.01386975,
+          "s_base_VA": 1333.3333333333333,
+          "max_scaled_violation": 2.0389245847241e-13,
+          "stop_reason": null,
+          "secants": 0,
+          "finite_magnitude_bounds": 103,
+          "solver_bound_W": -1705.6104597582548,
+          "variant": "sdp",
+          "variables": 36,
+          "history": [],
+          "objective_W": -1705.61044495294,
+          "derived_current_bounds": 2,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.PositiveSemidefiniteConeTriangle"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": null,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_58"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": -9.707177923701238e-07
+        },
+        {
+          "solve_seconds": 0.005627458,
+          "build_seconds": 0.018357667,
+          "s_base_VA": 1333.3333333333333,
+          "max_scaled_violation": 3.5911185136683343e-10,
+          "stop_reason": "one_shot",
+          "secants": 0,
+          "finite_magnitude_bounds": 103,
+          "solver_bound_W": -1705.6106030261492,
+          "variant": "physical",
+          "variables": 168,
+          "history": [
+            {
+              "optimizer_seconds": 0.004333374,
+              "objective": -1705.6104201273874,
+              "elapsed": 0.005619291,
+              "bound": -1705.6106030261492,
+              "round": 0,
+              "cuts": 0,
+              "psd_residual": 0.0025598382682832607
+            }
+          ],
+          "objective_W": -1705.6104201273874,
+          "derived_current_bounds": 2,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": 0.0025598382682832607,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_58"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": -2.579627039267507e-05
+        },
+        {
+          "solve_seconds": 0.005783542,
+          "build_seconds": 0.018585041,
+          "s_base_VA": 1333.3333333333333,
+          "max_scaled_violation": 2.6928392848901694e-10,
+          "stop_reason": "one_shot",
+          "secants": 2,
+          "finite_magnitude_bounds": 103,
+          "solver_bound_W": -1705.6105034272575,
+          "variant": "linear",
+          "variables": 168,
+          "history": [
+            {
+              "optimizer_seconds": 0.0045243340000000005,
+              "objective": -1705.6104407818063,
+              "elapsed": 0.005777167,
+              "bound": -1705.6105034272575,
+              "round": 0,
+              "cuts": 0,
+              "psd_residual": 0.0004799112514713199
+            }
+          ],
+          "objective_W": -1705.6104407818063,
+          "derived_current_bounds": 2,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": 0.0004799112514713199,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_58"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": -5.141851488588145e-06
+        },
+        {
+          "solve_seconds": 0.037022042,
+          "build_seconds": 0.035614584,
+          "s_base_VA": 1333.3333333333333,
+          "max_scaled_violation": 8.368580828310712e-11,
+          "stop_reason": "one_shot",
+          "secants": 2,
+          "finite_magnitude_bounds": 103,
+          "solver_bound_W": -1705.6105266291986,
+          "variant": "kim",
+          "variables": 744,
+          "history": [
+            {
+              "optimizer_seconds": 0.034282625000000004,
+              "objective": -1705.6104419890762,
+              "elapsed": 0.037014,
+              "bound": -1705.6105266291986,
+              "round": 0,
+              "cuts": 0,
+              "psd_residual": 2.1940737170629724e-06
+            }
+          ],
+          "objective_W": -1705.6104419890762,
+          "derived_current_bounds": 2,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 144,
+          "triplets": 16,
+          "psd_residual": 2.1940737170629724e-06,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_58"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": -3.934581627618172e-06
+        },
+        {
+          "solve_seconds": 0.006477167,
+          "build_seconds": 0.019973416,
+          "s_base_VA": 1333.3333333333333,
+          "max_scaled_violation": 4.646256712703689e-10,
+          "stop_reason": "one_shot",
+          "lncs_applied": 12,
+          "finite_magnitude_bounds": 103,
+          "secants": 2,
+          "variant": "lnc",
+          "solver_bound_W": -1705.610578095439,
+          "variables": 168,
+          "history": [
+            {
+              "round": 0,
+              "objective": -1705.610435900408,
+              "bound": -1705.610578095439,
+              "psd_residual": 0.00041363452818078407,
+              "cuts": 0,
+              "elapsed": 0.006465292,
+              "optimizer_seconds": 0.004944166000000001
+            }
+          ],
+          "objective_W": -1705.610435900408,
+          "derived_current_bounds": 2,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": 0.00041363452818078407,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "component": "generator/der_58",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            }
+          ],
+          "cuts": 0,
+          "nlp_minus_objective_W": -1.00232498425612e-05
+        }
+      ],
+      "cached_nlp_source_W": -1705.6104459236578
+    },
+    {
+      "sha256": "d0641d7009a89048a11ea1382202deff95f3431018613d8aa102bbce3d2ff1e3",
+      "buses": 8,
+      "file": "network_11_Feeder_2.json",
+      "results": [
+        {
+          "solve_seconds": 0.008430875,
+          "build_seconds": 0.026434459,
+          "s_base_VA": 1829.4736842105265,
+          "max_scaled_violation": 5.136724379184443e-13,
+          "stop_reason": null,
+          "secants": 0,
+          "finite_magnitude_bounds": 167,
+          "solver_bound_W": 1221.8979907079847,
+          "variant": "sdp",
+          "variables": 55,
+          "history": [],
+          "objective_W": 1221.897996343846,
+          "derived_current_bounds": 3,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.PositiveSemidefiniteConeTriangle"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": null,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_214"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": -4.389016794448253e-07
+        },
+        {
+          "solve_seconds": 0.012069625,
+          "build_seconds": 0.030709583,
+          "s_base_VA": 1829.4736842105265,
+          "max_scaled_violation": 1.3316377946992475e-06,
+          "stop_reason": "one_shot",
+          "secants": 0,
+          "finite_magnitude_bounds": 167,
+          "solver_bound_W": 1221.8875221748076,
+          "variant": "physical",
+          "variables": 277,
+          "history": [
+            {
+              "optimizer_seconds": 0.010096833000000001,
+              "objective": 1221.8875656474504,
+              "elapsed": 0.012060542,
+              "bound": 1221.8875221748076,
+              "round": 0,
+              "cuts": 0,
+              "psd_residual": 0.08117927162127074
+            }
+          ],
+          "objective_W": 1221.8875656474504,
+          "derived_current_bounds": 3,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": 0.08117927162127074,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_214"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": 0.010430257493908357
+        },
+        {
+          "solve_seconds": 0.011667375,
+          "build_seconds": 0.030346417,
+          "s_base_VA": 1829.4736842105265,
+          "max_scaled_violation": 7.073392094270048e-09,
+          "stop_reason": "one_shot",
+          "secants": 3,
+          "finite_magnitude_bounds": 167,
+          "solver_bound_W": 1221.8956944314918,
+          "variant": "linear",
+          "variables": 277,
+          "history": [
+            {
+              "optimizer_seconds": 0.009621207000000001,
+              "objective": 1221.895773039643,
+              "elapsed": 0.011658292,
+              "bound": 1221.8956944314918,
+              "round": 0,
+              "cuts": 0,
+              "psd_residual": 0.023174044650177222
+            }
+          ],
+          "objective_W": 1221.895773039643,
+          "derived_current_bounds": 3,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": 0.023174044650177222,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_214"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": 0.0022228653012916766
+        },
+        {
+          "solve_seconds": 0.059637583,
+          "build_seconds": 0.048653208,
+          "s_base_VA": 1829.4736842105265,
+          "max_scaled_violation": 1.2309430141854705e-09,
+          "stop_reason": "one_shot",
+          "secants": 3,
+          "finite_magnitude_bounds": 167,
+          "solver_bound_W": 1221.8979514158004,
+          "variant": "kim",
+          "variables": 853,
+          "history": [
+            {
+              "optimizer_seconds": 0.056309791000000005,
+              "objective": 1221.898047371715,
+              "elapsed": 0.059629375,
+              "bound": 1221.8979514158004,
+              "round": 0,
+              "cuts": 0,
+              "psd_residual": 6.089226576029811e-05
+            }
+          ],
+          "objective_W": 1221.898047371715,
+          "derived_current_bounds": 3,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 144,
+          "triplets": 16,
+          "psd_residual": 6.089226576029811e-05,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_214"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": -5.146677062839444e-05
+        },
+        {
+          "solve_seconds": 0.023162459,
+          "build_seconds": 0.035874708,
+          "s_base_VA": 1829.4736842105265,
+          "max_scaled_violation": 1.3559597888956887e-10,
+          "stop_reason": "one_shot",
+          "lncs_applied": 21,
+          "finite_magnitude_bounds": 167,
+          "secants": 3,
+          "variant": "lnc",
+          "solver_bound_W": 1221.8956605942876,
+          "variables": 277,
+          "history": [
+            {
+              "round": 0,
+              "objective": 1221.8957730806287,
+              "bound": 1221.8956605942876,
+              "psd_residual": 0.023241872776027222,
+              "cuts": 0,
+              "elapsed": 0.023152,
+              "optimizer_seconds": 0.020754292
+            }
+          ],
+          "objective_W": 1221.8957730806287,
+          "derived_current_bounds": 3,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": 0.023241872776027222,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "component": "generator/der_214",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            }
+          ],
+          "cuts": 0,
+          "nlp_minus_objective_W": 0.002222824315595062
+        }
+      ],
+      "cached_nlp_source_W": 1221.8979959049443
+    },
+    {
+      "sha256": "539711919067f1ee6b66554fe6fc6f601d2c1e0935577e3dd6c8d3c7338e102d",
+      "buses": 23,
+      "file": "network_9_Feeder_3.json",
+      "results": [
+        {
+          "solve_seconds": 5.768749625,
+          "build_seconds": 0.237198833,
+          "s_base_VA": 6865.263157894738,
+          "max_scaled_violation": 2.3712108665474574e-13,
+          "stop_reason": null,
+          "secants": 0,
+          "finite_magnitude_bounds": 503,
+          "solver_bound_W": -406.69772772220796,
+          "variant": "sdp",
+          "variables": 1378,
+          "history": [],
+          "objective_W": -406.6976885769431,
+          "derived_current_bounds": 20,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.PositiveSemidefiniteConeTriangle"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": null,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_101"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_103"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_88"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_90"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_99"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": -5.103784644688858e-06
+        },
+        {
+          "solve_seconds": 13.919464542,
+          "build_seconds": 0.628739833,
+          "s_base_VA": 6865.263157894738,
+          "max_scaled_violation": 2.6377933171062296e-10,
+          "stop_reason": "one_shot",
+          "secants": 0,
+          "finite_magnitude_bounds": 503,
+          "solver_bound_W": -406.9937218496218,
+          "variant": "physical",
+          "variables": 1492,
+          "history": [
+            {
+              "optimizer_seconds": 13.853917542000001,
+              "objective": -406.9927686853686,
+              "elapsed": 13.919453625,
+              "bound": -406.9937218496218,
+              "round": 0,
+              "cuts": 0,
+              "psd_residual": 0.5059142522567902
+            }
+          ],
+          "objective_W": -406.9927686853686,
+          "derived_current_bounds": 20,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": 0.5059142522567902,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_101"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_103"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_88"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_90"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_99"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": 0.29507500464086434
+        },
+        {
+          "solve_seconds": 13.476053417,
+          "build_seconds": 0.632789709,
+          "s_base_VA": 6865.263157894738,
+          "max_scaled_violation": 3.860394226506969e-10,
+          "stop_reason": "one_shot",
+          "secants": 20,
+          "finite_magnitude_bounds": 503,
+          "solver_bound_W": -406.99357428278256,
+          "variant": "linear",
+          "variables": 1492,
+          "history": [
+            {
+              "optimizer_seconds": 13.407130459000001,
+              "objective": -406.9927719480362,
+              "elapsed": 13.476039792,
+              "bound": -406.99357428278256,
+              "round": 0,
+              "cuts": 0,
+              "psd_residual": 0.505466503790693
+            }
+          ],
+          "objective_W": -406.9927719480362,
+          "derived_current_bounds": 20,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": 0.505466503790693,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_101"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_103"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_88"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_90"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_99"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": 0.29507826730844045
+        },
+        {
+          "solve_seconds": 27.024164292,
+          "build_seconds": 0.758148917,
+          "s_base_VA": 6865.263157894738,
+          "max_scaled_violation": 7.057838480317713e-08,
+          "stop_reason": "solver_failure",
+          "secants": 20,
+          "finite_magnitude_bounds": 503,
+          "solver_bound_W": null,
+          "variant": "kim",
+          "variables": 2068,
+          "history": [],
+          "objective_W": null,
+          "derived_current_bounds": 20,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "ALMOST_OPTIMAL",
+          "projection_cones": 144,
+          "triplets": 16,
+          "psd_residual": null,
+          "primal_status": "NEARLY_FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_101"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_103"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_88"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_90"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_99"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": null
+        },
+        {
+          "solve_seconds": 18.395613,
+          "build_seconds": 0.867089875,
+          "s_base_VA": 6865.263157894738,
+          "max_scaled_violation": 3.8188957551810176e-10,
+          "stop_reason": "one_shot",
+          "lncs_applied": 66,
+          "finite_magnitude_bounds": 503,
+          "secants": 20,
+          "variant": "lnc",
+          "solver_bound_W": -406.9935368605295,
+          "variables": 1492,
+          "history": [
+            {
+              "round": 0,
+              "objective": -406.9927819692105,
+              "bound": -406.9935368605295,
+              "psd_residual": 0.4799691622869643,
+              "cuts": 0,
+              "elapsed": 18.395594459,
+              "optimizer_seconds": 18.308156334
+            }
+          ],
+          "objective_W": -406.9927819692105,
+          "derived_current_bounds": 20,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": 0.4799691622869643,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "component": "generator/der_101",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_103",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_88",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_90",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_99",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            }
+          ],
+          "cuts": 0,
+          "nlp_minus_objective_W": 0.29508828848275925
+        }
+      ],
+      "cached_nlp_source_W": -406.69769368072775
+    },
+    {
+      "sha256": "7d8469bf8d247b4c999ec267c483260eec2ad98d7075aaadc629ab70dd04df43",
+      "buses": 87,
+      "file": "network_18_Feeder_5.json",
+      "results": [
+        {
+          "solve_seconds": 1.979200625,
+          "build_seconds": 13.953428875,
+          "s_base_VA": 14666.666666666666,
+          "max_scaled_violation": 3.596456465970732e-12,
+          "stop_reason": null,
+          "secants": 0,
+          "finite_magnitude_bounds": 1875,
+          "solver_bound_W": -2664.267787061743,
+          "variant": "sdp",
+          "variables": 4172,
+          "history": [],
+          "objective_W": -2664.267678936577,
+          "derived_current_bounds": 42,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.PositiveSemidefiniteConeTriangle"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": null,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_111"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_184"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_368"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_40"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_495"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_516"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_610"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_729"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_849"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_897"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_976"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": -2.6709213670983445e-05
+        },
+        {
+          "solve_seconds": 0.473392417,
+          "build_seconds": 13.846189083,
+          "s_base_VA": 14666.666666666666,
+          "max_scaled_violation": 5.235511024714867e-08,
+          "stop_reason": "solver_failure",
+          "secants": 0,
+          "finite_magnitude_bounds": 1875,
+          "solver_bound_W": null,
+          "variant": "physical",
+          "variables": 3852,
+          "history": [],
+          "objective_W": null,
+          "derived_current_bounds": 42,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "ALMOST_OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": null,
+          "primal_status": "NEARLY_FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_111"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_184"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_368"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_40"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_495"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_516"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_610"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_729"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_849"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_897"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_976"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": null
+        },
+        {
+          "solve_seconds": 0.523876833,
+          "build_seconds": 13.775599708,
+          "s_base_VA": 14666.666666666666,
+          "max_scaled_violation": 5.027505545207589e-08,
+          "stop_reason": "one_shot",
+          "secants": 42,
+          "finite_magnitude_bounds": 1875,
+          "solver_bound_W": -2667.50510058239,
+          "variant": "linear",
+          "variables": 3852,
+          "history": [
+            {
+              "optimizer_seconds": 0.49960825000000003,
+              "objective": -2667.5016890413135,
+              "elapsed": 0.523865625,
+              "bound": -2667.50510058239,
+              "round": 0,
+              "cuts": 0,
+              "psd_residual": 0.0525463665655025
+            }
+          ],
+          "objective_W": -2667.5016890413135,
+          "derived_current_bounds": 42,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": 0.0525463665655025,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_111"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_184"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_368"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_40"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_495"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_516"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_610"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_729"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_849"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_897"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_976"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": 3.233983395522955
+        },
+        {
+          "solve_seconds": 0.598157,
+          "build_seconds": 13.9840305,
+          "s_base_VA": 14666.666666666666,
+          "max_scaled_violation": 7.695970971610677e-09,
+          "stop_reason": "one_shot",
+          "secants": 42,
+          "finite_magnitude_bounds": 1875,
+          "solver_bound_W": -2667.287215515023,
+          "variant": "kim",
+          "variables": 4428,
+          "history": [
+            {
+              "optimizer_seconds": 0.5719862490000001,
+              "objective": -2667.2802059703317,
+              "elapsed": 0.598145625,
+              "bound": -2667.287215515023,
+              "round": 0,
+              "cuts": 0,
+              "psd_residual": 0.051746448622006794
+            }
+          ],
+          "objective_W": -2667.2802059703317,
+          "derived_current_bounds": 42,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "projection_cones": 144,
+          "triplets": 16,
+          "psd_residual": 0.051746448622006794,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_111"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_184"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_368"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_40"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_495"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_516"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_610"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_729"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_849"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_897"
+            },
+            {
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ],
+              "component": "generator/der_976"
+            }
+          ],
+          "cuts": 0,
+          "lncs_applied": 0,
+          "nlp_minus_objective_W": 3.012500324541179
+        },
+        {
+          "solve_seconds": 0.59917975,
+          "build_seconds": 4.265720167,
+          "s_base_VA": 14666.666666666666,
+          "max_scaled_violation": 2.4804336362649337e-09,
+          "stop_reason": "solver_failure",
+          "lncs_applied": 258,
+          "finite_magnitude_bounds": 1875,
+          "secants": 42,
+          "variant": "lnc",
+          "solver_bound_W": null,
+          "variables": 3639,
+          "history": [],
+          "objective_W": null,
+          "derived_current_bounds": 42,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "ALMOST_OPTIMAL",
+          "projection_cones": 0,
+          "triplets": 0,
+          "psd_residual": null,
+          "primal_status": "NEARLY_FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "bound_sweeps": 8,
+          "missing_capabilities": [
+            {
+              "component": "generator/der_111",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_184",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_368",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_40",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_495",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_516",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_610",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_729",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_849",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_897",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            },
+            {
+              "component": "generator/der_976",
+              "fields": [
+                "q_min",
+                "q_max",
+                "s_max",
+                "i_max"
+              ]
+            }
+          ],
+          "cuts": 0,
+          "nlp_minus_objective_W": null
+        }
+      ],
+      "cached_nlp_source_W": -2664.2677056457906
+    }
+  ],
+  "blas_threads": 1,
+  "warmup": "all fixed variants on the 5-bus feeder",
+  "soc_tol_gap_abs": 1e-07,
+  "soc_tol_feas": 1e-08,
+  "measurement_note": "Single warmed runs; times are indicative, not repeated statistical measurements. LNC variant warmed and measured separately."
+}

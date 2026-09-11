@@ -172,7 +172,7 @@ end
         net["bus"]["b"]=Dict{String,Any}("terminal_names"=>tm,"perfectly_grounded_terminals"=>topology=="FOUR_LEG" ? ["n"] : String[])
         volts=230cis.([0.0,-2pi/3,2pi/3]);topology=="FOUR_LEG" && push!(volts,0)
         net["voltage_source"]["s"]=Dict("bus"=>"b","terminal_map"=>tm,"v_magnitude"=>abs.(volts),"v_angle"=>angle.(volts))
-        ps=[100.0,200.0,300.0]
+        ps=topology=="FOUR_LEG" ? [100.0,200.0,300.0] : fill(200.0,3)
         d=Dict{String,Any}("bus"=>"b","terminal_map"=>tm,"topology"=>topology,"s_max"=>fill(1000.0,3),"p_min"=>ps,"p_max"=>ps,"q_min"=>zeros(3),"q_max"=>zeros(3))
         net["ibr"]=Dict("g"=>d)
         r=_tx_solve(net)

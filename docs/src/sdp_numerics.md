@@ -144,8 +144,8 @@ strictly positive bound `|V| ≥ Vmin` imply
 
 This is a valid cut for the AC model, not an identity already implied by the SDP.
 The implementation uses constant-power load magnitudes, finite generator/source
-power boxes, and declared apparent-power ratings. It uses only matching physical
-voltage maps and prescribed source phasors. Delta and terminal-pair channels need
+power boxes, and declared apparent-power ratings. It uses matching physical
+voltage maps, prescribed source phasors and conservatively propagated domains. Delta and terminal-pair channels need
 a positive bound on their coil voltage; terminal-to-ground bounds are not
 substituted for line-to-line bounds. Missing positive bounds cause the cut to be
 skipped. Voltage-dependent loads are not assigned constant-power current bounds.
@@ -225,3 +225,38 @@ with JSON3, then call `benchmark_sdp` from `examples/benchmark_sdp.jl` with
 `remove_source_generators=true`, the corresponding power base from the table,
 and `variants=(:clarabel,)`. BMOPFTools/Ipopt were used externally for comparison;
 neither was added as a runtime dependency.
+
+## Bound provenance and schema conventions
+
+`bound_report(build)` returns `PhysicalBoundReport`. Entries contain a normalized
+physical map, lower/upper magnitudes in per unit, a descriptive label, and the
+last tightening provenance. Infinite endpoints mean no finite bound was derived.
+The report also lists absent generator/IBR capability fields. An omitted reactive
+limit is not silently replaced with a value inferred from active power.
+
+Up to `bound_sweeps` (default 8) passes apply triangle and reverse-triangle
+inequalities to the homogeneous electrical equations and registered connection
+maps. Source phasors and declared voltage/current limits seed propagation;
+constant powers or finite capability boxes can imply current bounds in subsequent
+passes. No OPF, power-flow incumbent, or optimization-based bound tightening is
+used. Derived domains feed load envelopes and automatic line LNCs as well as
+current bounds. Small outward rounding margins are used, without claiming
+interval-arithmetic certification. Disabling propagation with `bound_sweeps=0`
+retains directly declared bounds and power/voltage deductions.
+
+The pinned BMOPF 0.2.0 schema supplies the following conventions:
+
+- Three-phase `vpp_min/max` entries follow `(1,2), (2,3), (3,1)` in phase-map order.
+- Line `i_max` covers every conductor at both ends; line `s_max` covers phase
+  conductors only. Line-specific values override linecode values.
+- Source P/Q arrays can cover phase conductors without a neutral entry. Legacy
+  full-terminal arrays remain accepted; a missing neutral power limit is unbounded.
+- Generator and IBR three-wire dispatch/nameplate limits constrain phase-conductor
+  powers. Delta **load** powers instead constrain line-to-line sub-elements.
+  Delta converter filter/internal winding maps retain their winding interpretation.
+- Transformer `s_rating` is a power-base field, not an extra thermal operating
+  constraint. Explicit winding current ratings retain their schema meaning.
+
+A bound report is an audit of this static AC model, not a claim that a dataset
+contains realistic engineering capability limits. In particular, the reduced ENWL
+DERs omit reactive boxes and nameplates. Supplying those requires engineering data.

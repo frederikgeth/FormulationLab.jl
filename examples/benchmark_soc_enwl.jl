@@ -2,7 +2,9 @@
 include("benchmark_soc.jl")
 using SHA
 
-function benchmark_soc_enwl(directory,output)
+function benchmark_soc_enwl(directory,output;
+        reference_path=joinpath(@__DIR__,"results","enwl_cached_nlp_reference_2026-09-11.json"))
+    references=isfile(reference_path) ? JSON3.read(read(reference_path,String),Dict{String,Any})["cases"] : []
     files=["network_23_Feeder_3.json","network_11_Feeder_2.json",
            "network_9_Feeder_3.json","network_18_Feeder_5.json"]
     function input(file)
@@ -15,16 +17,24 @@ function benchmark_soc_enwl(directory,output)
     end
     BLAS.set_num_threads(1)
     raw,sb=input(first(files))
-    benchmark_soc(raw;s_base=sb,remove_source_generators=true,max_rounds=2)
+    benchmark_soc(raw;s_base=sb,remove_source_generators=true)
     data=Dict("julia"=>string(VERSION),"clarabel"=>string(pkgversion(Clarabel)),
-              "blas_threads"=>1,"separation_tolerance"=>1e-6,"max_rounds"=>30,
-              "time_limit_seconds"=>90.,"warmup"=>"all variants on the 5-bus feeder, two cut rounds",
+              "blas_threads"=>1,"selection"=>"fixed, data only",
+              "time_limit_seconds"=>90.,"soc_tol_gap_abs"=>1e-7,"soc_tol_feas"=>1e-8,"warmup"=>"all fixed variants on the 5-bus feeder",
               "cases"=>Any[])
     for file in files
         raw,sb=input(file)
         rows=benchmark_soc(raw;s_base=sb,remove_source_generators=true)
-        push!(data["cases"],Dict("file"=>file,"sha256"=>bytes2hex(sha256(read(joinpath(directory,file)))),
-             "buses"=>length(raw["bus"]),"results"=>rows))
+        hash=bytes2hex(sha256(read(joinpath(directory,file))))
+        case=Dict("file"=>file,"sha256"=>hash,"buses"=>length(raw["bus"]),"results"=>rows)
+        ref=findfirst(r->r["file"]==file && r["sha256"]==hash,references)
+        if ref!==nothing
+            value=references[ref]["source_W"];case["cached_nlp_source_W"]=value
+            for row in rows
+                row["nlp_minus_objective_W"]=row["objective_W"]===nothing ? nothing : value-row["objective_W"]
+            end
+        end
+        push!(data["cases"],case)
         open(io->JSON3.write(io,data),output,"w")
         println("Completed ",file);flush(stdout)
     end

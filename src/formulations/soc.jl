@@ -4,14 +4,9 @@ default_soc_optimizer()=default_optimizer(Val(:clarabel_soc))
 Base.@kwdef struct SOCOptions
     electrical::SDPOptions=SDPOptions()
     physical_projections::Bool=true
-end
-
-"""Budgets and relative spectral tolerance for optional PSD separation."""
-Base.@kwdef struct PSDSeparationOptions
-    max_rounds::Int=30
-    max_cuts::Int=2000
-    time_limit::Float64=60.0
-    tolerance::Float64=1e-6
+    strengthening::Symbol=:linear
+    max_triplets::Int=16
+    directions::Tuple=(1.0+0im,1.0im)
 end
 
 struct SOCBuild
@@ -73,7 +68,10 @@ end
 
 """Build the shared electrical relaxation using only pairwise SOC moment cones."""
 function build_soc_opf(input,optimizer=default_soc_optimizer();options::SOCOptions=SOCOptions())
-    policy=(blocks=Any[],physical=options.physical_projections)
+    options.strengthening in (:none,:linear,:kim) || throw(ArgumentError("strengthening must be :none, :linear or :kim"))
+    options.max_triplets>=0 || throw(ArgumentError("max_triplets must be nonnegative"))
+    all(c->c isa Number && isfinite(c),options.directions) || throw(ArgumentError("directions must be finite constants"))
+    policy=(blocks=Any[],physical=options.physical_projections,options=options)
     b=build_sdp_opf(input,optimizer;options=options.electrical,_soc=policy)
     b.numerical_diagnostics[:cone]=:soc
     b.numerical_diagnostics[:physical_projections]=options.physical_projections
@@ -97,80 +95,32 @@ solve_status(r::SOCResult)=r.solve
 solve_diagnostics(r::SOCResult)=(;r.metadata...,psd_residual=r.psd_residual,stop_reason=r.stop_reason,
     cuts=r.cuts,physical_feasibility_certified=false,bound_certified=false)
 
-function _soc_eigencut!(model,H,u)
-    f=JuMP.AffExpr(0.0)
-    for i in eachindex(u),j in eachindex(u)
-        JuMP.add_to_expression!(f,real(conj(u[i])*u[j]*H[i,j]))
-    end
-    scale=max(1.0,maximum(abs,values(f.terms);init=0.0))
-    @constraint(model,f/scale>=0)
-end
+bound_report(b::SOCBuild)=bound_report(b.electrical)
 
 function solve_soc_opf(input,optimizer=default_soc_optimizer();options=SOCOptions(),kwargs...)
     solve_soc_opf(build_soc_opf(input,optimizer;options);kwargs...)
 end
 
-"""Solve once, or tighten by valid linear eigenvector cuts. No PSD cones are added."""
-function solve_soc_opf(b::SOCBuild;separation::Union{Nothing,PSDSeparationOptions}=nothing,solver_options=())
-    o=separation===nothing ? PSDSeparationOptions(max_rounds=0,time_limit=Inf) : separation
-    o.max_rounds>=0 && o.max_cuts>=0 && o.time_limit>0 && isfinite(o.tolerance) && o.tolerance>0 || throw(ArgumentError("invalid separation budget or tolerance"))
+"""Solve the fixed conic formulation once. Spectral diagnostics never select constraints."""
+function solve_soc_opf(b::SOCBuild;solver_options=())
     metadata=(omitted_controls=copy(b.electrical.omitted_controls),
-        load_envelopes=copy(b.electrical.load_envelopes),
-        lnc_diagnostics=copy(b.electrical.lnc_diagnostics),
+        load_envelopes=copy(b.electrical.load_envelopes),lnc_diagnostics=copy(b.electrical.lnc_diagnostics),
         numerics=copy(b.electrical.numerical_diagnostics))
-    make_result(args...)=SOCResult(args...,metadata)
     model=b.model;_set_solver_options!(model,solver_options)
-    solver_limit=JuMP.time_limit_sec(model)
-    start=time_ns(); elapsed()=(time_ns()-start)/1e9
-    history=NamedTuple[]; cuts=0; directions=Dict{Int,Vector{Vector{ComplexF64}}}()
-    result=nothing
-    try
-        for round in 0:o.max_rounds
-            remaining=o.time_limit-elapsed()
-            remaining>0 || break
-            isfinite(remaining) && JuMP.set_time_limit_sec(model,solver_limit===nothing ? remaining : min(remaining,solver_limit))
-            JuMP.optimize!(model); status=SolveStatus(_solve_outcome(model))
-            if !status.publishable
-                return make_result(NaN,NaN,Matrix{ComplexF64}[],Dict{Tuple{Symbol,String},Vector{ComplexF64}}(),status,:solver_failure,history,cuts,NaN)
-            end
-            values=[Matrix{ComplexF64}(JuMP.value.(H)) for H in b.blocks]
-            candidates=Tuple{Float64,Int,Vector{ComplexF64}}[]; residual=0.0
-            for (k,H) in enumerate(values)
-                isempty(H) && continue
-                e=eigen(Hermitian(H)); scale=max(1.0,maximum(abs,e.values))
-                residual=max(residual,max(0.0,-minimum(e.values))/scale)
-                for j in eachindex(e.values)
-                    e.values[j] < -o.tolerance*scale || continue
-                    push!(candidates,(e.values[j]/scale,k,e.vectors[:,j]))
-                end
-            end
-            objective=JuMP.objective_value(model)*b.electrical.objective_scale
-            bound=try JuMP.objective_bound(model) catch; NaN end
-            isfinite(bound) || (bound=try JuMP.dual_objective_value(model) catch; NaN end)
-            bound*=b.electrical.objective_scale
-            push!(history,(round=round,objective=objective,bound=bound,psd_residual=residual,cuts=cuts,elapsed=elapsed(),optimizer_seconds=try JuMP.solve_time(model) catch; NaN end))
-            powers=Dict(k=>ComplexF64.(JuMP.value.(s)).*b.options.electrical.s_base for (k,s) in b.electrical.powers)
-            reason= isempty(candidates) ? :psd_tolerance : separation===nothing ? :one_shot : round==o.max_rounds ? :round_limit : cuts>=o.max_cuts ? :cut_limit : elapsed()>=o.time_limit ? :time_limit : :continue
-            result=make_result(objective,bound,values,powers,status,reason,copy(history),cuts,residual)
-            reason==:continue || return result
-            added=0
-            for (_,k,u) in sort!(candidates;by=first)
-                cuts>=o.max_cuts && break
-                prior=get!(directions,k,Vector{ComplexF64}[])
-                any(v->abs(dot(v,u))>1-1e-10,prior) && continue
-                _soc_eigencut!(model,b.blocks[k],u);push!(prior,u);cuts+=1;added+=1
-            end
-            added==0 && return make_result(objective,bound,values,powers,status,:stalled,history,cuts,residual)
-        end
-        # A budget expiry after cut insertion retains the last solved iterate.
-        if result===nothing
-            status=SolveStatus("TIME_LIMIT","NO_SOLUTION",false,false,false,false)
-            return make_result(NaN,NaN,Matrix{ComplexF64}[],Dict{Tuple{Symbol,String},Vector{ComplexF64}}(),status,:time_limit,history,0,NaN)
-        end
-        make_result(result.objective,result.solver_objective_bound,result.blocks,result.relaxed_powers,
-            result.solve,:time_limit,result.history,result.cuts,result.psd_residual)
-    finally
-        # A per-call OA budget must not shorten subsequent solves of this build.
-        JuMP.set_time_limit_sec(model,solver_limit)
+    start=time_ns();JuMP.optimize!(model);status=SolveStatus(_solve_outcome(model))
+    if !status.publishable
+        return SOCResult(NaN,NaN,Matrix{ComplexF64}[],Dict{Tuple{Symbol,String},Vector{ComplexF64}}(),status,:solver_failure,NamedTuple[],0,NaN,metadata)
     end
+    blocks=[Matrix{ComplexF64}(JuMP.value.(H)) for H in b.blocks]
+    residual=maximum((begin
+        e=eigvals(Hermitian(H));isempty(e) ? 0.0 : max(0.0,-minimum(e))/max(1.0,maximum(abs,e))
+    end for H in blocks);init=0.0)
+    objective=JuMP.objective_value(model)*b.electrical.objective_scale
+    bound=try JuMP.objective_bound(model) catch;NaN end
+    isfinite(bound) || (bound=try JuMP.dual_objective_value(model) catch;NaN end)
+    bound*=b.electrical.objective_scale
+    powers=Dict(k=>ComplexF64.(JuMP.value.(s)).*b.options.electrical.s_base for (k,s) in b.electrical.powers)
+    history=NamedTuple[(round=0,objective=objective,bound=bound,psd_residual=residual,cuts=0,
+        elapsed=(time_ns()-start)/1e9,optimizer_seconds=try JuMP.solve_time(model) catch;NaN end)]
+    SOCResult(objective,bound,blocks,powers,status,:one_shot,history,0,residual,metadata)
 end

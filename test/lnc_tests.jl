@@ -100,8 +100,9 @@ end
     record=only(build.lnc_diagnostics)
     @test record.status==:applied
     epsilon=abs((.2+.1im)-(.02+.01im))*100+abs((.02+.01im)-(.1+.05im))*200
-    @test record.bounds.angle[2] ≈ 2asin(epsilon/(2sqrt(230*180))) rtol=1e-10
-    # Without a phase-neutral upper/lower bound, a phase-ground bound cannot substitute.
+    @test record.bounds.angle[2] <= 2asin(epsilon/(2sqrt(230*180)))*(1+1e-10)
+    # Electrical propagation can now derive phase-neutral bounds from phase-ground bounds.
     delete!(bus,"vpn_min");delete!(bus,"vpn_max")
-    @test only(build_sdp_opf(net,nothing;options=SDPOptions(lnc=:lines)).lnc_diagnostics).status==:skipped
+    @test only(build_sdp_opf(net,nothing;options=SDPOptions(lnc=:lines)).lnc_diagnostics).status==:applied
+    @test only(build_sdp_opf(net,nothing;options=SDPOptions(lnc=:lines,bound_sweeps=0)).lnc_diagnostics).status==:skipped
 end

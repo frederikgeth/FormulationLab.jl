@@ -1,0 +1,77 @@
+{
+  "provenance": "Cached BMOPFTools/Ipopt source-import comparison from the preceding benchmark work; no NLP rerun for fixed SOC implementation. Source-bus grid generator removed; finite neutral shunt retained.",
+  "cases": [
+    {
+      "file": "network_23_Feeder_3.json",
+      "source_W": -1705.6104459236578,
+      "termination_status": "LOCALLY_SOLVED",
+      "primal_status": "FEASIBLE_POINT",
+      "max_scaled_violation": 4.440892099789057e-16,
+      "s_base": 1333.3333333333333,
+      "sha256": "3daaf7cca92c08bd0302a5d5a4fdc4924ec4fc4856d85ce1c38116d9fe3224b5",
+      "unassessed_dimensions": [
+        "branch_and_device_equations",
+        "terminal_kcl",
+        "objective_optimality",
+        "independent_loss_reconstruction",
+        "receiving_end_branch_limits",
+        "branch_angle_limits",
+        "complete_limit_coverage"
+      ]
+    },
+    {
+      "file": "network_11_Feeder_2.json",
+      "source_W": 1221.8979959049443,
+      "termination_status": "LOCALLY_SOLVED",
+      "primal_status": "FEASIBLE_POINT",
+      "max_scaled_violation": 4.440892098500626e-16,
+      "s_base": 1829.4736842105265,
+      "sha256": "d0641d7009a89048a11ea1382202deff95f3431018613d8aa102bbce3d2ff1e3",
+      "unassessed_dimensions": [
+        "branch_and_device_equations",
+        "terminal_kcl",
+        "objective_optimality",
+        "independent_loss_reconstruction",
+        "receiving_end_branch_limits",
+        "branch_angle_limits",
+        "complete_limit_coverage"
+      ]
+    },
+    {
+      "file": "network_9_Feeder_3.json",
+      "source_W": -406.69769368072775,
+      "termination_status": "LOCALLY_SOLVED",
+      "primal_status": "FEASIBLE_POINT",
+      "max_scaled_violation": 1.5265566588595902e-16,
+      "s_base": 6865.263157894738,
+      "sha256": "539711919067f1ee6b66554fe6fc6f601d2c1e0935577e3dd6c8d3c7338e102d",
+      "unassessed_dimensions": [
+        "branch_and_device_equations",
+        "terminal_kcl",
+        "objective_optimality",
+        "independent_loss_reconstruction",
+        "receiving_end_branch_limits",
+        "branch_angle_limits",
+        "complete_limit_coverage"
+      ]
+    },
+    {
+      "file": "network_18_Feeder_5.json",
+      "source_W": -2664.2677056457906,
+      "termination_status": "LOCALLY_SOLVED",
+      "primal_status": "FEASIBLE_POINT",
+      "max_scaled_violation": 1.7828349473808514e-16,
+      "s_base": 14666.666666666666,
+      "sha256": "7d8469bf8d247b4c999ec267c483260eec2ad98d7075aaadc629ab70dd04df43",
+      "unassessed_dimensions": [
+        "branch_and_device_equations",
+        "terminal_kcl",
+        "objective_optimality",
+        "independent_loss_reconstruction",
+        "receiving_end_branch_limits",
+        "branch_angle_limits",
+        "complete_limit_coverage"
+      ]
+    }
+  ]
+}

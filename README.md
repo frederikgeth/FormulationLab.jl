@@ -7,7 +7,7 @@ Implemented:
 - **LinDist3Flow**: migrated from PowerOptLab, including affine/SOC limits, component lowering, applicability diagnostics, per-unit scaling, and IEEE/OpenDSS regression tests. This is a fixed-reference, lossless **approximation**, not an AC lower bound.
 - **IVRSDP**: a dense or chordal semidefinite **relaxation** of current–voltage equations. It retains explicit neutrals and delta connections, eliminates linear electrical equations, and lifts voltage/current products. It supports the static AC electrical component families, including general multiwinding transformers and inverter capability models. Nonlinear loads use additional convex envelopes; control laws are not evaluated.
 
-- **IVRSOC**: shares the SDP electrical model, replacing PSD cones with complex pairwise SOC minors, physical voltage–current projections, and optional eigenvector cuts. Load power cones are retained. See [the formulation and benchmarks](docs/src/soc.md).
+- **IVRSOC**: shares the SDP electrical model, replacing PSD cones with complex pairwise SOC minors, physical voltage–current projections, constant-power secants, and optional fixed complex three-map projections. Load power cones are retained. See [the formulation and benchmarks](docs/src/soc.md).
 
 ```julia
 using FormulationLab, Clarabel
@@ -20,9 +20,9 @@ result = solve_opf(input, LinDist3Flow(unsupported=:lower);
 sdp = solve_opf(input, IVRSDP(objective=:source_import);
                solver_options=(verbose=false,))
 
-# SOC outer approximation, optionally tightened toward the SDP:
+# Fixed SOC relaxation, built once and solved once:
 soc = solve_opf(input, IVRSOC(objective=:source_import);
-                separation=PSDSeparationOptions(), solver_options=(verbose=false,))
+                solver_options=(verbose=false,))
 
 # Build without attaching a solver, for inspection or customization:
 build = build_opf(input, IVRSDP(); optimizer=nothing)
@@ -30,7 +30,7 @@ build = build_opf(input, IVRSDP(); optimizer=nothing)
 
 Programmatic BMOPF dictionaries are also accepted. They are copied, not modified, and do not imply schema validation. A PowerIO read preserves diagnostics; it does not certify that a formulation supports the document. Unsupported SDP fields are rejected explicitly.
 
-Solvers are optional. Loading Clarabel enables formulation-specific defaults; explicit factories such as `optimizer=Clarabel.Optimizer` keep their own defaults. The SDP and SOC numerical profiles and measured tradeoffs are documented in [SDP numerics](docs/src/sdp_numerics.md) and [SOC outer approximation](docs/src/soc.md).
+Solvers are optional. Loading Clarabel enables formulation-specific defaults; explicit factories such as `optimizer=Clarabel.Optimizer` keep their own defaults. The SDP and SOC numerical profiles and measured tradeoffs are documented in [SDP numerics](docs/src/sdp_numerics.md) and [Fixed SOC relaxation](docs/src/soc.md).
 
 MosekTools can be passed as `optimizer=MosekTools.Optimizer` when installed by the caller. It is an **optional test dependency only** in this repository.
 

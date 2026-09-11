@@ -63,7 +63,7 @@ function _sdp_transformer_plan(subtype, d, label)
     y=complex(scalar("g_no_load"),scalar("b_no_load"))
     real(y)>=0 || _sdp_refuse("$label negative core conductance")
     rating=haskey(d,"s_rating") ? scalar("s_rating") : nothing
-    rating === nothing || rating>0 || _sdp_refuse("$label s_rating must be positive")
+    rating === nothing || rating>=0 || _sdp_refuse("$label s_rating must be nonnegative")
     incidence(n,pairs) = [Float64(j==p)-Float64(j==q) for (p,q) in pairs, j in 1:n]
     pair(n) = n in (1,2) ? [(1,n==2 ? 2 : 0)] : _sdp_refuse("$label expects one coil on this side")
     wye(n) = n in (3,4) ? [(k,n==4 ? 4 : 0) for k in 1:3] : _sdp_refuse("$label wye map needs 3 phases and optional trailing neutral")
@@ -178,9 +178,7 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
                 delta=(subtype=="delta_wye" && side==:from)||(subtype=="wye_delta" && side==:to)
                 push!(limits,(delta ? u : v,delta ? j : i,Dict("i_max"=>d[ratingkey])))
             end
-            if p.rating!==nothing && side==p.rated_side
-                push!(limits,(u,j,Dict("s_max"=>fill(p.rating/p.rating_count,length(u)))))
-            end
+            # s_rating is a schema power base, not an operating limit.
         end
     end
 end

@@ -111,12 +111,10 @@ bus terminals. Each vector must cover the declared map, including any explicit
 return. This corrects the earlier delta terminal-current interpretation. These
 limits use affine squared-current moments.
 
-`s_rating`, if supplied, must be positive. Its SOC limit applies to series-coil
-power: the from coil for single-phase and center-tap units, each wye coil at
-one-third nameplate for Yd/Dy, and from-side through-power per regulator. The
-center-tap rating is the shared primary nameplate, not an independent rating for
-each secondary. No-load current is included in terminal-current limits but not
-these series-coil power limits. Omitted ratings do not create implicit limits.
+`s_rating` is a nonnegative power-base parameter in the pinned BMOPF schema,
+not an operating apparent-power limit. It does not impose a thermal constraint.
+Use the declared winding current limits to restrict loading. This corrects an
+earlier implementation that imposed an additional, unjustified nameplate cap.
 
 `relaxed_powers` exposes keys `(:transformer_from, "subtype/id")` and
 `(:transformer_to, "subtype/id")` in terminal order, including excitation.
@@ -137,7 +135,7 @@ The input conventions were checked against BMOPFTools source at commit
 Independent OpenDSS comparisons cover single-phase, center-tap, Yd and Dy
 leakage at unity and 1.04 taps, including complex input power.
 Analytical tests cover impedance-load solutions, center-tap shared-arm coupling,
-Yd/Dy phase shifts, asymmetric loads, regulator bonds, tap validation, and rating
+Yd/Dy phase shifts, asymmetric loads, regulator bonds, tap validation, and current-rating
 infeasibility. The optional Mosek runner executes the analytical SDP suite.
 
 General `n_winding` and internal neutral grounding are now supported as described

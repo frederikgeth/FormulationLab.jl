@@ -8,6 +8,7 @@ power-cone envelopes. Controls are not evaluated. `s_base` is in VA.
 `voltage_lncs` adds explicit domains/cuts independently of that setting.
 """
 Base.@kwdef struct SDPOptions
+    bound_sweeps::Int = 8
     profile::Symbol = :clarabel
     decomposition::Symbol = profile==:clarabel ? :auto : :dense
     s_base::Float64 = 1e4
@@ -131,6 +132,7 @@ state lifts to a feasible SDP point. Fixed source phasor ratios are in A; one
 source magnitude anchors the lifted model. No neutral is Kron-reduced.
 """
 function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOptions=SDPOptions(), _soc=nothing)
+    options.bound_sweeps>=0 || throw(ArgumentError("bound_sweeps must be nonnegative"))
     options.profile in (:clarabel,:reference) || throw(ArgumentError("unknown SDP profile"))
     isfinite(options.s_base) && options.s_base > 0 || throw(ArgumentError("s_base must be positive and finite"))
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown SDP objective"))
@@ -213,7 +215,14 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
         for k in 1:n;_sdp_add!(cf[k],current[k]);_sdp_add!(ct[k],current[k],-1);end
         inject(l["bus_from"],tmf,cf);inject(l["bus_to"],tmt,ct)
         ratings=Dict(k=>get(l,k,get(code,k,nothing)) for k in ("i_max","s_max") if haskey(l,k)||haskey(code,k))
-        push!(limits,(vf,cf,ratings));push!(limits,(vt,ct,ratings))
+        current_ratings=Dict(k=>ratings[k] for k in ("i_max",) if haskey(ratings,k))
+        push!(limits,(vf,cf,current_ratings));push!(limits,(vt,ct,current_ratings))
+        if haskey(ratings,"s_max")
+            neutral=get(_kr_neutral_map(net),l["bus_from"],nothing)
+            phases=findall(!=(neutral),tmf)
+            push!(limits,(vf[phases],cf[phases],Dict("s_max"=>ratings["s_max"])))
+            push!(limits,(vt[phases],ct[phases],Dict("s_max"=>ratings["s_max"])))
+        end
         options.lnc==:lines && push!(lnc_lines,(;id,from=l["bus_from"],to=l["bus_to"],tmf,tmt,vf,vt,
             Z=Z*zb,Yf=Yf/zb,Yt=Yt/zb,ratings))
         passive=all(M->minimum(eigvals(Hermitian((M+M')/2));init=0.0)>=0,(Z,Yf,Yt))
@@ -281,7 +290,12 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
                 push!(equations,_sdp_add!(copy(ic[k]),vc[k],-y))
             end
         end
-        push!(devices,(Symbol(family),id,vc,ic,d))
+        # BMOPF generator/converter dispatch is per phase conductor; unlike
+        # load powers it is not per delta sub-load. Keep winding coordinates
+        # for KCL/filter laws and use terminal products for a three-wire port.
+        port_v,port_i = family in ("generator","ibr") && cfg=="DELTA" && length(tm)==3 ?
+            (vr,terminal_current) : (vc,ic)
+        push!(devices,(Symbol(family),id,port_v,port_i,d))
         if family in ("generator","ibr")
             bounds=Dict(k=>d[k] for k in ("s_max",) if haskey(d,k))
             if haskey(d,"i_max")
@@ -294,7 +308,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
                     _sdp_refuse("$family/$id current ratings must match coils or terminals")
                 end
             end
-            push!(limits,(vc,ic,bounds))
+            push!(limits,(port_v,port_i,bounds))
         end
     end
     tm=source["terminal_map"]; vs=terminal_rows(source["bus"],tm)
@@ -319,10 +333,32 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
         any(isempty,rows) && haskey(d,"i_max") && _sdp_refuse("source ground-terminal current allocation is not implemented")
         is=[isempty(v) ? _SDPRow() : _sdp_e(newvar()) for v in rows]
         inject(d["bus"],d["terminal_map"],is,-1)
-        push!(devices,(:voltage_source,source_id,rows,is,d));push!(limits,(rows,is,d))
+        # Power boxes are per phase; current limits, where supported, are per conductor.
+        neutral=get(_kr_neutral_map(net),d["bus"],nothing)
+        phases=findall(!=(neutral),d["terminal_map"])
+        powerdata=copy(d)
+        for key in ("p_min","p_max","q_min","q_max")
+            haskey(d,key) || continue
+            raw=values_for(d,key,length(d[key])==length(rows) ? length(rows) : length(phases))
+            # Preserve the full terminal powers for result reporting, including neutral power.
+            expanded=fill(key in ("p_min","q_min") ? -Inf : Inf,length(rows))
+            length(raw)==length(rows) ? (expanded=raw) : (expanded[phases]=raw)
+            powerdata[key]=expanded
+        end
+        for key in ("cost","energy_cost_rate")
+            haskey(d,key) && length(d[key])==length(phases) || continue
+            expanded=zeros(length(rows));expanded[phases]=values_for(d,key,length(phases));powerdata[key]=expanded
+        end
+        push!(devices,(:voltage_source,source_id,rows,is,powerdata));push!(limits,(rows,is,Dict(k=>d[k] for k in ("i_max",) if haskey(d,k))))
     end
     fixed_physical=Dict(k=>v*vb for (k,v) in fixed_source_coordinates)
-    voltage_range=_sdp_voltage_ranges(net,terminal_rows,fixed_physical)
+    declared_voltage_range=_sdp_voltage_ranges(net,terminal_rows,fixed_physical)
+    range_pu,bound_info=_sdp_bound_profile(net,terminal_rows,fixed_source_coordinates,
+        vcat(equations,collect(values(kcl))),devices,limits,coordinate_count[],vb,ib;sweeps=options.bound_sweeps)
+    voltage_range(row)=begin
+        lo,hi=declared_voltage_range(row);a,b=range_pu(row)
+        (max(lo,a*vb),min(hi,b*vb))
+    end
     derived=options.current_bounds ? _sdp_current_bounds(devices,limits,voltage_range) : []
     # Exact zero upper bounds expose a face of the PSD cone. Eliminate the
     # corresponding linear state maps before lifting, including sequence maps.
@@ -352,7 +388,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     end
     diagnostics=Dict{Symbol,Any}(:basis=>options.basis,:cone=>options.cone,
         :decomposition=>options.decomposition,:state_dimension=>size(A,2),
-        :face_equations=>face_rows,:derived_current_bounds=>length(derived))
+        :bound_report=>bound_info,:face_equations=>face_rows,:derived_current_bounds=>length(derived))
     model=optimizer===nothing || optimizer isa _SDPDefaultOptimizer ? JuMP.Model() : JuMP.Model(optimizer)
     _soc===nothing || (model.ext[:soc_policy]=_soc)
     if options.decomposition==:dense
@@ -383,6 +419,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     end
     lift(a,b)=_lnc_lift(H,N,a,b)
     _soc===nothing || _soc_physical!(model,lift,devices,limits,voltage,_soc)
+    _soc===nothing || _soc_strengthen!(model,H,N,lift,devices,range_pu,sb,diagnostics,_soc;fixed=fixed_source_coordinates)
     @constraint(model,real(lift(vs[anchor_k],vs[anchor_k]))==abs2(source_v[anchor_k]/vb))
     _sdp_bus_limits!(model,net,terminal_rows,lift,vb;fixed=fixed_physical)
     powers=Dict{Tuple{Symbol,String},Vector{Any}}()
@@ -390,7 +427,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     for (family,id,v,i,d) in devices
         s=Any[lift(v[k],i[k]) for k in eachindex(v)];powers[(family,id)]=s;n=length(s)
         if family==:load
-            _sdp_load_law!(model,net,id,d,v,s,lift,terminal_rows,vb,sb)
+            _sdp_load_law!(model,net,id,d,v,s,lift,terminal_rows,vb,sb;voltage_range)
         elseif family==:ibr_internal
             if get(d,"dc_link_coupled",false)
                 for (key,lower) in (("p_dc_min",true),("p_dc_max",false))
@@ -424,7 +461,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
                 end
             end
             for (lowkey,highkey,active) in (("p_min","p_max",true),("q_min","q_max",false))
-                low=values_for(d,lowkey,n);high=values_for(d,highkey,n)
+                low=family==:voltage_source ? get(d,lowkey,nothing) : values_for(d,lowkey,n);high=family==:voltage_source ? get(d,highkey,nothing) : values_for(d,highkey,n)
                 for k in 1:n
                     f=active ? real(s[k]) : imag(s[k])
                     if low!==nothing && high!==nothing && low[k]==high[k]
@@ -432,8 +469,8 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
                         # opposing cone inequalities with no strict interior.
                         @constraint(model,f==low[k]/sb)
                     else
-                        low===nothing || @constraint(model,f>=low[k]/sb)
-                        high===nothing || @constraint(model,f<=high[k]/sb)
+                        low===nothing || !isfinite(low[k]) || @constraint(model,f>=low[k]/sb)
+                        high===nothing || !isfinite(high[k]) || @constraint(model,f<=high[k]/sb)
                     end
                 end
             end
@@ -490,7 +527,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     for spec in options.voltage_lncs;add_voltage_lnc!(build,spec);end
     if options.lnc==:lines
         fixed=Dict(k=>value*vb for (k,value) in fixed_source_coordinates)
-        _add_line_lncs!(build,lnc_lines,terminal_rows,fixed)
+        _add_line_lncs!(build,lnc_lines,terminal_rows,fixed;voltage_range)
     end
     diagnostics[:removed_affine_constraints]=options.preprocess ? _sdp_preprocess_affine!(model) : 0
     if optimizer isa _SDPDefaultOptimizer
@@ -574,3 +611,6 @@ function solve_sdp_opf(build::SDPBuild;solver_options=())
     powers=Dict(k=>ComplexF64.(JuMP.value.(s)).*options.s_base for (k,s) in build.powers)
     SDPResult(JuMP.objective_value(build.model)*build.objective_scale,bound,H,v,powers,ratio,status,build.omitted_controls,build.load_envelopes,copy(build.lnc_diagnostics),copy(build.numerical_diagnostics))
 end
+
+"""Inspect declared/derived physical magnitude bounds and missing capability data."""
+bound_report(b::SDPBuild)=b.numerical_diagnostics[:bound_report]
