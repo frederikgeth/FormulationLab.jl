@@ -122,6 +122,11 @@ end
 function _sdp_bus_limits!(model,net,terminal_rows,lift,vb;fixed=Dict())
     for (b,d) in net["bus"]
         maps=_sdp_voltage_maps(net,b,terminal_rows)
+        if haskey(model.ext,:soc_policy) && model.ext[:soc_policy].physical
+            for rows in values(maps), r in rows
+                @constraint(model,real(lift(r,r))>=0)
+            end
+        end
         for key in ("v_min","v_max","vpn_min","vpn_max","vpp_min","vpp_max","vn_max","vpos_min","vpos_max","vneg_max","vzero_max")
             haskey(d,key) || continue
             prefix=startswith(key,"v_") ? key : first(split(key,"_"))

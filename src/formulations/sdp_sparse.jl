@@ -15,6 +15,11 @@ function Base.getindex(H::SDPSparseMoment,i::Int,j::Int)
 end
 
 function _sdp_psd(model,m,cone)
+    if haskey(model.ext,:soc_policy)
+        H=@variable(model,[1:m,1:m] in HermitianMatrixSpace())
+        _soc_block!(model,H)
+        return H
+    end
     m==0 && return zeros(ComplexF64,0,0)
     if m==1
         x=@variable(model,lower_bound=0)
@@ -165,7 +170,9 @@ function _sdp_sparse_moment(model,A,supports,options,diagnostics)
         push!(grams,[entries[(i,j)] for i in clique,j in clique])
         r=length(selected)
         C=[entries[(i,j)] for i in selected,j in selected]
-        if r==1
+        if haskey(model.ext,:soc_policy)
+            _soc_block!(model,C)
+        elseif r==1
             @constraint(model,real(C[1,1])>=0)
         elseif r==2
             @constraint(model,[real(C[1,1]),real(C[2,2]),sqrt(2)*real(C[1,2]),sqrt(2)*imag(C[1,2])] in RotatedSecondOrderCone())

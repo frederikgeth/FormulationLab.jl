@@ -17,6 +17,7 @@ makedocs(;
                  "Clarabel and numerical profiles"=>"sdp_numerics.md",
                  "Lifted nonlinear cuts"=>"lnc.md",
                  "Fixed transformers and regulators"=>"sdp_transformers.md"],
+        "SOC outer approximation"=>"soc.md",
         "LinDist3Flow"=>["Formulation and usage"=>"lindist3flow.md",
                          "Component equations"=>"lindist3flow_components.md"],
         "API"=>"api.md",

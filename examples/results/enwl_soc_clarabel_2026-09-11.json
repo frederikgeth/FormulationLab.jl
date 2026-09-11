@@ -1,0 +1,948 @@
+{
+  "julia": "1.12.6",
+  "clarabel": "0.11.1",
+  "blas_threads": 1,
+  "separation_tolerance": 1e-06,
+  "max_rounds": 30,
+  "time_limit_seconds": 90.0,
+  "warmup": "all variants on the 5-bus feeder, two cut rounds",
+  "notes": [
+    "Single warm run; build time excluded from solve time.",
+    "SDP uses its default profile; SOC uses static regularization 1e-7 and iterative refinement max 30.",
+    "Source-bus generator grid removed in memory; finite -1e10 S source neutral shunt retained.",
+    "Cached BMOPFTools/Ipopt local solutions use identical data, bases and import objective.",
+    "Objectives and solver bounds are numerical, not certificates; failures remain null."
+  ],
+  "cases": [
+    {
+      "buses": 5,
+      "file": "network_23_Feeder_3.json",
+      "results": [
+        {
+          "solve_seconds": 0.004994958,
+          "build_seconds": 0.011517708,
+          "s_base_VA": 1333.3333333333333,
+          "max_scaled_violation": 1.6892043319671757e-13,
+          "stop_reason": null,
+          "history": [],
+          "variables": 36,
+          "solver_bound_W": -1705.610454985419,
+          "variant": "sdp",
+          "objective_W": -1705.6104453766027,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.PositiveSemidefiniteConeTriangle"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": null,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 0.001734625,
+          "build_seconds": 0.013670084,
+          "s_base_VA": 1333.3333333333333,
+          "max_scaled_violation": 3.233469048069537e-12,
+          "stop_reason": "one_shot",
+          "history": [
+            {
+              "round": 0,
+              "objective": -1715.6519783930028,
+              "bound": -1715.6519872282322,
+              "psd_residual": 0.0745717446920159,
+              "cuts": 0,
+              "elapsed": 0.001490834,
+              "optimizer_seconds": 0.000773751
+            }
+          ],
+          "variables": 16,
+          "solver_bound_W": -1715.6519872282322,
+          "variant": "pairwise",
+          "objective_W": -1715.6519783930028,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": 0.0745717446920159,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 0.00555275,
+          "build_seconds": 0.0170635,
+          "s_base_VA": 1333.3333333333333,
+          "max_scaled_violation": 5.457976648415297e-08,
+          "stop_reason": "one_shot",
+          "history": [
+            {
+              "round": 0,
+              "objective": -1705.6104369135878,
+              "bound": -1705.6104511206102,
+              "psd_residual": 0.002039238710375409,
+              "cuts": 0,
+              "elapsed": 0.005332042,
+              "optimizer_seconds": 0.004276916
+            }
+          ],
+          "variables": 168,
+          "solver_bound_W": -1705.6104511206102,
+          "variant": "physical",
+          "objective_W": -1705.6104369135878,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": 0.002039238710375409,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 0.03837875,
+          "build_seconds": 0.015076333,
+          "s_base_VA": 1333.3333333333333,
+          "max_scaled_violation": 1.7617018954751984e-10,
+          "stop_reason": "psd_tolerance",
+          "history": [
+            {
+              "round": 0,
+              "objective": -1705.6104369135878,
+              "bound": -1705.6104511206102,
+              "psd_residual": 0.002039238710375409,
+              "cuts": 0,
+              "elapsed": 0.0054265,
+              "optimizer_seconds": 0.004320541000000001
+            },
+            {
+              "round": 1,
+              "objective": -1705.6104455865902,
+              "bound": -1705.6104512974143,
+              "psd_residual": 6.821832642256696e-05,
+              "cuts": 1,
+              "elapsed": 0.010637667,
+              "optimizer_seconds": 0.004028917
+            },
+            {
+              "round": 2,
+              "objective": -1705.6104444416849,
+              "bound": -1705.610458792374,
+              "psd_residual": 1.846854086956883e-05,
+              "cuts": 2,
+              "elapsed": 0.015996542,
+              "optimizer_seconds": 0.004221542
+            },
+            {
+              "round": 3,
+              "objective": -1705.6104457562342,
+              "bound": -1705.6104484920922,
+              "psd_residual": 2.291588402704464e-06,
+              "cuts": 3,
+              "elapsed": 0.021767625,
+              "optimizer_seconds": 0.0045629170000000005
+            },
+            {
+              "round": 4,
+              "objective": -1705.610444754759,
+              "bound": -1705.610463677154,
+              "psd_residual": 5.011568897786321e-06,
+              "cuts": 4,
+              "elapsed": 0.026994125,
+              "optimizer_seconds": 0.004094625
+            },
+            {
+              "round": 5,
+              "objective": -1705.6104447834466,
+              "bound": -1705.6104556563973,
+              "psd_residual": 2.0737310525150762e-06,
+              "cuts": 5,
+              "elapsed": 0.032629334,
+              "optimizer_seconds": 0.004505541
+            },
+            {
+              "round": 6,
+              "objective": -1705.6104451290396,
+              "bound": -1705.610455619101,
+              "psd_residual": 5.237617080258228e-07,
+              "cuts": 6,
+              "elapsed": 0.038145292,
+              "optimizer_seconds": 0.004286166
+            }
+          ],
+          "variables": 168,
+          "solver_bound_W": -1705.610455619101,
+          "variant": "oa",
+          "objective_W": -1705.6104451290396,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": 5.237617080258228e-07,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 6
+        }
+      ],
+      "sha256": "3daaf7cca92c08bd0302a5d5a4fdc4924ec4fc4856d85ce1c38116d9fe3224b5",
+      "ipopt_reference_W": -1705.6104459236578
+    },
+    {
+      "buses": 8,
+      "file": "network_11_Feeder_2.json",
+      "results": [
+        {
+          "solve_seconds": 0.00828125,
+          "build_seconds": 0.020540417,
+          "s_base_VA": 1829.4736842105265,
+          "max_scaled_violation": 5.334899189080033e-13,
+          "stop_reason": null,
+          "history": [],
+          "variables": 55,
+          "solver_bound_W": 1221.897991923898,
+          "variant": "sdp",
+          "objective_W": 1221.8979962593937,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.PositiveSemidefiniteConeTriangle"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": null,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 0.002754875,
+          "build_seconds": 0.0206645,
+          "s_base_VA": 1829.4736842105265,
+          "max_scaled_violation": 1.722894049649426e-11,
+          "stop_reason": "one_shot",
+          "history": [
+            {
+              "round": 0,
+              "objective": 1211.3034452972884,
+              "bound": 1211.3034346725397,
+              "psd_residual": 0.2775614305307869,
+              "cuts": 0,
+              "elapsed": 0.002240625,
+              "optimizer_seconds": 0.001548417
+            }
+          ],
+          "variables": 25,
+          "solver_bound_W": 1211.3034346725397,
+          "variant": "pairwise",
+          "objective_W": 1211.3034452972884,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": 0.2775614305307869,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 0.012519042,
+          "build_seconds": 0.025851833,
+          "s_base_VA": 1829.4736842105265,
+          "max_scaled_violation": 1.1955938526320153e-05,
+          "stop_reason": "one_shot",
+          "history": [
+            {
+              "round": 0,
+              "objective": 1221.887563797984,
+              "bound": 1221.8875480711342,
+              "psd_residual": 0.0811780364191004,
+              "cuts": 0,
+              "elapsed": 0.012023833,
+              "optimizer_seconds": 0.010548792000000001
+            }
+          ],
+          "variables": 277,
+          "solver_bound_W": 1221.8875480711342,
+          "variant": "physical",
+          "objective_W": 1221.887563797984,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": 0.0811780364191004,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 0.453508417,
+          "build_seconds": 0.026888667,
+          "s_base_VA": 1829.4736842105265,
+          "max_scaled_violation": 1.0692401630763015e-07,
+          "stop_reason": "round_limit",
+          "history": [
+            {
+              "round": 0,
+              "objective": 1221.887563797984,
+              "bound": 1221.8875480711342,
+              "psd_residual": 0.0811780364191004,
+              "cuts": 0,
+              "elapsed": 0.012236667,
+              "optimizer_seconds": 0.010585041
+            },
+            {
+              "round": 1,
+              "objective": 1221.895983614163,
+              "bound": 1221.895974152837,
+              "psd_residual": 0.02865855052788192,
+              "cuts": 2,
+              "elapsed": 0.026627667,
+              "optimizer_seconds": 0.012529876
+            },
+            {
+              "round": 2,
+              "objective": 1221.896358771817,
+              "bound": 1221.896347341311,
+              "psd_residual": 0.03880113417125346,
+              "cuts": 4,
+              "elapsed": 0.03962,
+              "optimizer_seconds": 0.011119125
+            },
+            {
+              "round": 3,
+              "objective": 1221.897717776708,
+              "bound": 1221.8976971948236,
+              "psd_residual": 0.015086097342695944,
+              "cuts": 6,
+              "elapsed": 0.052073625,
+              "optimizer_seconds": 0.010676751
+            },
+            {
+              "round": 4,
+              "objective": 1221.8978055737473,
+              "bound": 1221.8977961748524,
+              "psd_residual": 0.006416824980055889,
+              "cuts": 8,
+              "elapsed": 0.065627875,
+              "optimizer_seconds": 0.011768959
+            },
+            {
+              "round": 5,
+              "objective": 1221.8978433910024,
+              "bound": 1221.897835293055,
+              "psd_residual": 0.010741555258900306,
+              "cuts": 10,
+              "elapsed": 0.080370334,
+              "optimizer_seconds": 0.012599
+            },
+            {
+              "round": 6,
+              "objective": 1221.8979428423743,
+              "bound": 1221.8979399605003,
+              "psd_residual": 0.003563864548888134,
+              "cuts": 12,
+              "elapsed": 0.094541625,
+              "optimizer_seconds": 0.012128374
+            },
+            {
+              "round": 7,
+              "objective": 1221.8979548439727,
+              "bound": 1221.8979528387076,
+              "psd_residual": 0.0029002241761342407,
+              "cuts": 14,
+              "elapsed": 0.107348,
+              "optimizer_seconds": 0.011002834000000001
+            },
+            {
+              "round": 8,
+              "objective": 1221.8979550408199,
+              "bound": 1221.8979426292146,
+              "psd_residual": 0.0014931191595289085,
+              "cuts": 16,
+              "elapsed": 0.120309209,
+              "optimizer_seconds": 0.01122125
+            },
+            {
+              "round": 9,
+              "objective": 1221.897974931165,
+              "bound": 1221.8979665932354,
+              "psd_residual": 0.0012615378344708918,
+              "cuts": 18,
+              "elapsed": 0.133540917,
+              "optimizer_seconds": 0.011473209000000002
+            },
+            {
+              "round": 10,
+              "objective": 1221.897973314377,
+              "bound": 1221.8979709852144,
+              "psd_residual": 0.0005289666009520321,
+              "cuts": 19,
+              "elapsed": 0.147707542,
+              "optimizer_seconds": 0.012266167000000001
+            },
+            {
+              "round": 11,
+              "objective": 1221.8979755305818,
+              "bound": 1221.8979681583894,
+              "psd_residual": 0.0006812136535733558,
+              "cuts": 20,
+              "elapsed": 0.161003959,
+              "optimizer_seconds": 0.011462668
+            },
+            {
+              "round": 12,
+              "objective": 1221.8979751829254,
+              "bound": 1221.897964653312,
+              "psd_residual": 0.00039707532718876083,
+              "cuts": 22,
+              "elapsed": 0.174556125,
+              "optimizer_seconds": 0.011706501000000001
+            },
+            {
+              "round": 13,
+              "objective": 1221.8979814706638,
+              "bound": 1221.897957423055,
+              "psd_residual": 0.00019436748657904936,
+              "cuts": 23,
+              "elapsed": 0.188474125,
+              "optimizer_seconds": 0.011917417000000001
+            },
+            {
+              "round": 14,
+              "objective": 1221.8979851620002,
+              "bound": 1221.8979626649743,
+              "psd_residual": 0.00013428812594432638,
+              "cuts": 24,
+              "elapsed": 0.202840625,
+              "optimizer_seconds": 0.012506417
+            },
+            {
+              "round": 15,
+              "objective": 1221.8979848028298,
+              "bound": 1221.8979694163663,
+              "psd_residual": 7.22656311632921e-05,
+              "cuts": 25,
+              "elapsed": 0.232303292,
+              "optimizer_seconds": 0.027556835000000002
+            },
+            {
+              "round": 16,
+              "objective": 1221.8979886327634,
+              "bound": 1221.8979671543887,
+              "psd_residual": 5.820337065958472e-05,
+              "cuts": 26,
+              "elapsed": 0.246471417,
+              "optimizer_seconds": 0.012256791000000001
+            },
+            {
+              "round": 17,
+              "objective": 1221.8979874948157,
+              "bound": 1221.8979749054743,
+              "psd_residual": 3.265704173458579e-05,
+              "cuts": 27,
+              "elapsed": 0.261074917,
+              "optimizer_seconds": 0.012807333
+            },
+            {
+              "round": 18,
+              "objective": 1221.8979894481565,
+              "bound": 1221.897971211085,
+              "psd_residual": 3.0691741125268944e-05,
+              "cuts": 28,
+              "elapsed": 0.275531209,
+              "optimizer_seconds": 0.012645001000000001
+            },
+            {
+              "round": 19,
+              "objective": 1221.8979912108034,
+              "bound": 1221.8979723653003,
+              "psd_residual": 2.07907407286095e-05,
+              "cuts": 29,
+              "elapsed": 0.292052792,
+              "optimizer_seconds": 0.014620166
+            },
+            {
+              "round": 20,
+              "objective": 1221.8979896767503,
+              "bound": 1221.8979821351468,
+              "psd_residual": 1.4427115994696284e-05,
+              "cuts": 30,
+              "elapsed": 0.306624334,
+              "optimizer_seconds": 0.01276525
+            },
+            {
+              "round": 21,
+              "objective": 1221.8979891726897,
+              "bound": 1221.897974626037,
+              "psd_residual": 2.3954629970524522e-05,
+              "cuts": 31,
+              "elapsed": 0.321465917,
+              "optimizer_seconds": 0.013024043
+            },
+            {
+              "round": 22,
+              "objective": 1221.897992922603,
+              "bound": 1221.8979685755971,
+              "psd_residual": 8.552327144166256e-06,
+              "cuts": 32,
+              "elapsed": 0.335838959,
+              "optimizer_seconds": 0.012624125
+            },
+            {
+              "round": 23,
+              "objective": 1221.8979907280795,
+              "bound": 1221.8979792855844,
+              "psd_residual": 7.224693977866398e-06,
+              "cuts": 33,
+              "elapsed": 0.349870125,
+              "optimizer_seconds": 0.012301791000000001
+            },
+            {
+              "round": 24,
+              "objective": 1221.8979923661307,
+              "bound": 1221.897981959255,
+              "psd_residual": 5.616170448164068e-06,
+              "cuts": 35,
+              "elapsed": 0.364829959,
+              "optimizer_seconds": 0.013161833000000001
+            },
+            {
+              "round": 25,
+              "objective": 1221.897992379702,
+              "bound": 1221.8979831767117,
+              "psd_residual": 4.452818605867382e-06,
+              "cuts": 36,
+              "elapsed": 0.379150375,
+              "optimizer_seconds": 0.012548209000000001
+            },
+            {
+              "round": 26,
+              "objective": 1221.897992925502,
+              "bound": 1221.8979816335197,
+              "psd_residual": 3.138870867865871e-06,
+              "cuts": 37,
+              "elapsed": 0.39373625,
+              "optimizer_seconds": 0.012709833
+            },
+            {
+              "round": 27,
+              "objective": 1221.8979951081276,
+              "bound": 1221.8979740675877,
+              "psd_residual": 3.6829241496520686e-06,
+              "cuts": 38,
+              "elapsed": 0.408147459,
+              "optimizer_seconds": 0.012653418000000001
+            },
+            {
+              "round": 28,
+              "objective": 1221.8979957519584,
+              "bound": 1221.8979760359584,
+              "psd_residual": 1.3253653039130453e-06,
+              "cuts": 39,
+              "elapsed": 0.422624792,
+              "optimizer_seconds": 0.012655208000000001
+            },
+            {
+              "round": 29,
+              "objective": 1221.8979952763195,
+              "bound": 1221.8979764663277,
+              "psd_residual": 2.1026566928127593e-06,
+              "cuts": 40,
+              "elapsed": 0.43764475,
+              "optimizer_seconds": 0.013173792
+            },
+            {
+              "round": 30,
+              "objective": 1221.8979950659345,
+              "bound": 1221.897985206253,
+              "psd_residual": 1.7721832334314244e-06,
+              "cuts": 41,
+              "elapsed": 0.453008,
+              "optimizer_seconds": 0.013548459
+            }
+          ],
+          "variables": 277,
+          "solver_bound_W": 1221.897985206253,
+          "variant": "oa",
+          "objective_W": 1221.8979950659345,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": 1.7721832334314244e-06,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 41
+        }
+      ],
+      "sha256": "d0641d7009a89048a11ea1382202deff95f3431018613d8aa102bbce3d2ff1e3",
+      "ipopt_reference_W": 1221.8979959049443
+    },
+    {
+      "buses": 23,
+      "file": "network_9_Feeder_3.json",
+      "results": [
+        {
+          "solve_seconds": 5.656182334,
+          "build_seconds": 0.2025525,
+          "s_base_VA": 6865.263157894738,
+          "max_scaled_violation": 2.3712108665474574e-13,
+          "stop_reason": null,
+          "history": [],
+          "variables": 1378,
+          "solver_bound_W": -406.69772772220796,
+          "variant": "sdp",
+          "objective_W": -406.6976885769431,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.PositiveSemidefiniteConeTriangle"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": null,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 0.54791575,
+          "build_seconds": 0.160580542,
+          "s_base_VA": 6865.263157894738,
+          "max_scaled_violation": 0.005493333137899015,
+          "stop_reason": "one_shot",
+          "history": [
+            {
+              "round": 0,
+              "objective": -5118.673450577038,
+              "bound": -5118.673462627938,
+              "psd_residual": 0.6973257060458026,
+              "cuts": 0,
+              "elapsed": 0.513961667,
+              "optimizer_seconds": 0.5054801250000001
+            }
+          ],
+          "variables": 676,
+          "solver_bound_W": -5118.673462627938,
+          "variant": "pairwise",
+          "objective_W": -5118.673450577038,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": 0.6973257060458026,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 13.342904166,
+          "build_seconds": 0.557207667,
+          "s_base_VA": 6865.263157894738,
+          "max_scaled_violation": 1.3087320116511592e-10,
+          "stop_reason": "one_shot",
+          "history": [
+            {
+              "round": 0,
+              "objective": -406.9928001110727,
+              "bound": -406.99284780862376,
+              "psd_residual": 0.505392820212258,
+              "cuts": 0,
+              "elapsed": 13.308244708,
+              "optimizer_seconds": 13.1146635
+            }
+          ],
+          "variables": 1492,
+          "solver_bound_W": -406.99284780862376,
+          "variant": "physical",
+          "objective_W": -406.9928001110727,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": 0.505392820212258,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 102.763924709,
+          "build_seconds": 0.565977375,
+          "s_base_VA": 6865.263157894738,
+          "max_scaled_violation": 3.1419994384052075e-10,
+          "stop_reason": "time_limit",
+          "history": [
+            {
+              "round": 0,
+              "objective": -406.9928001110727,
+              "bound": -406.99284780862376,
+              "psd_residual": 0.505392820212258,
+              "cuts": 0,
+              "elapsed": 13.253882958,
+              "optimizer_seconds": 13.227710959000001
+            },
+            {
+              "round": 1,
+              "objective": -406.9927941274096,
+              "bound": -406.9928418879387,
+              "psd_residual": 0.21158065351603045,
+              "cuts": 6,
+              "elapsed": 27.242653125,
+              "optimizer_seconds": 13.940006416000001
+            },
+            {
+              "round": 2,
+              "objective": -406.9926473692133,
+              "bound": -406.99273700017494,
+              "psd_residual": 0.2341347724252795,
+              "cuts": 16,
+              "elapsed": 42.421511,
+              "optimizer_seconds": 15.124796417
+            },
+            {
+              "round": 3,
+              "objective": -406.9922683562712,
+              "bound": -406.99235486132073,
+              "psd_residual": 0.2573976857482772,
+              "cuts": 27,
+              "elapsed": 59.00068425,
+              "optimizer_seconds": 16.519210918000002
+            },
+            {
+              "round": 4,
+              "objective": -406.98831763147444,
+              "bound": -406.9883729636774,
+              "psd_residual": 0.24087362331068843,
+              "cuts": 40,
+              "elapsed": 73.291893833,
+              "optimizer_seconds": 14.077635500000001
+            },
+            {
+              "round": 5,
+              "objective": -406.9850606636897,
+              "bound": -406.9850974097098,
+              "psd_residual": 0.23372325443200556,
+              "cuts": 52,
+              "elapsed": 88.663884417,
+              "optimizer_seconds": 15.317213417000001
+            },
+            {
+              "round": 6,
+              "objective": -406.9813895845555,
+              "bound": -406.98148473311846,
+              "psd_residual": 0.24740377477741043,
+              "cuts": 65,
+              "elapsed": 102.729665375,
+              "optimizer_seconds": 14.007374167
+            }
+          ],
+          "variables": 1492,
+          "solver_bound_W": -406.98148473311846,
+          "variant": "oa",
+          "objective_W": -406.9813895845555,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": 0.24740377477741043,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 65
+        }
+      ],
+      "sha256": "539711919067f1ee6b66554fe6fc6f601d2c1e0935577e3dd6c8d3c7338e102d",
+      "ipopt_reference_W": -406.69769368072775
+    },
+    {
+      "buses": 87,
+      "file": "network_18_Feeder_5.json",
+      "results": [
+        {
+          "solve_seconds": 1.737827584,
+          "build_seconds": 13.536538042,
+          "s_base_VA": 14666.666666666666,
+          "max_scaled_violation": 3.596456465970732e-12,
+          "stop_reason": null,
+          "history": [],
+          "variables": 4172,
+          "solver_bound_W": -2664.267787061743,
+          "variant": "sdp",
+          "objective_W": -2664.267678936577,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.PositiveSemidefiniteConeTriangle"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": null,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 0.240745584,
+          "build_seconds": 13.254833,
+          "s_base_VA": 14666.666666666666,
+          "max_scaled_violation": 1.6084016563056025e-08,
+          "stop_reason": "one_shot",
+          "history": [
+            {
+              "round": 0,
+              "objective": -2733.684068244109,
+              "bound": -2733.6849502302102,
+              "psd_residual": 0.14773662014038688,
+              "cuts": 0,
+              "elapsed": 0.235510084,
+              "optimizer_seconds": 0.22522787600000002
+            }
+          ],
+          "variables": 1948,
+          "solver_bound_W": -2733.6849502302102,
+          "variant": "pairwise",
+          "objective_W": -2733.684068244109,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": 0.14773662014038688,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 0.499808833,
+          "build_seconds": 13.342059167,
+          "s_base_VA": 14666.666666666666,
+          "max_scaled_violation": 1.8327166986242815e-06,
+          "stop_reason": "one_shot",
+          "history": [
+            {
+              "round": 0,
+              "objective": -2668.3368063162397,
+              "bound": -2668.3376011751093,
+              "psd_residual": 0.059566559369990606,
+              "cuts": 0,
+              "elapsed": 0.494578084,
+              "optimizer_seconds": 0.47489466700000005
+            }
+          ],
+          "variables": 3852,
+          "solver_bound_W": -2668.3376011751093,
+          "variant": "physical",
+          "objective_W": -2668.3368063162397,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "OPTIMAL",
+          "psd_residual": 0.059566559369990606,
+          "primal_status": "FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 0
+        },
+        {
+          "solve_seconds": 0.999838958,
+          "build_seconds": 13.368323375,
+          "s_base_VA": 14666.666666666666,
+          "max_scaled_violation": 4.714110998227383e-07,
+          "stop_reason": "solver_failure",
+          "history": [
+            {
+              "round": 0,
+              "objective": -2668.3368063162397,
+              "bound": -2668.3376011751093,
+              "psd_residual": 0.059566559369990606,
+              "cuts": 0,
+              "elapsed": 0.504354042,
+              "optimizer_seconds": 0.484757417
+            }
+          ],
+          "variables": 3852,
+          "solver_bound_W": null,
+          "variant": "oa",
+          "objective_W": null,
+          "cone_types": [
+            "MathOptInterface.EqualTo{Float64}",
+            "MathOptInterface.GreaterThan{Float64}",
+            "MathOptInterface.LessThan{Float64}",
+            "MathOptInterface.RotatedSecondOrderCone"
+          ],
+          "termination": "ALMOST_OPTIMAL",
+          "psd_residual": null,
+          "primal_status": "NEARLY_FEASIBLE_POINT",
+          "removed_generators": [
+            "grid"
+          ],
+          "cuts": 111
+        }
+      ],
+      "sha256": "7d8469bf8d247b4c999ec267c483260eec2ad98d7075aaadc629ab70dd04df43",
+      "ipopt_reference_W": -2664.2677056457906
+    }
+  ]
+}

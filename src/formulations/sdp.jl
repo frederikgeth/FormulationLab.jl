@@ -130,7 +130,7 @@ The model uses H ≽ 0 in place of y*yᴴ. Thus every rank-one feasible electric
 state lifts to a feasible SDP point. Fixed source phasor ratios are in A; one
 source magnitude anchors the lifted model. No neutral is Kron-reduced.
 """
-function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOptions=SDPOptions())
+function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOptions=SDPOptions(), _soc=nothing)
     options.profile in (:clarabel,:reference) || throw(ArgumentError("unknown SDP profile"))
     isfinite(options.s_base) && options.s_base > 0 || throw(ArgumentError("s_base must be positive and finite"))
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown SDP objective"))
@@ -216,7 +216,8 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
         push!(limits,(vf,cf,ratings));push!(limits,(vt,ct,ratings))
         options.lnc==:lines && push!(lnc_lines,(;id,from=l["bus_from"],to=l["bus_to"],tmf,tmt,vf,vt,
             Z=Z*zb,Yf=Yf/zb,Yt=Yt/zb,ratings))
-        push!(devices,(:line_from,id,vf,cf,Dict()));push!(devices,(:line_to,id,vt,ct,Dict()))
+        passive=all(M->minimum(eigvals(Hermitian((M+M')/2));init=0.0)>=0,(Z,Yf,Yt))
+        push!(devices,(:line_from,id,vf,cf,Dict("passive"=>passive)));push!(devices,(:line_to,id,vt,ct,Dict()))
     end
     _sdp_stamp_transformers!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
     _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
@@ -353,6 +354,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
         :decomposition=>options.decomposition,:state_dimension=>size(A,2),
         :face_equations=>face_rows,:derived_current_bounds=>length(derived))
     model=optimizer===nothing || optimizer isa _SDPDefaultOptimizer ? JuMP.Model() : JuMP.Model(optimizer)
+    _soc===nothing || (model.ext[:soc_policy]=_soc)
     if options.decomposition==:dense
         N=_sdp_basis(A,options.basis)
         size(N,2)>0 || _sdp_refuse("electrical equations leave no nonzero source state")
@@ -380,6 +382,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
         H,N=_sdp_sparse_moment(model,A,supports,options,diagnostics)
     end
     lift(a,b)=_lnc_lift(H,N,a,b)
+    _soc===nothing || _soc_physical!(model,lift,devices,limits,voltage,_soc)
     @constraint(model,real(lift(vs[anchor_k],vs[anchor_k]))==abs2(source_v[anchor_k]/vb))
     _sdp_bus_limits!(model,net,terminal_rows,lift,vb;fixed=fixed_physical)
     powers=Dict{Tuple{Symbol,String},Vector{Any}}()
@@ -455,6 +458,12 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
             end
         end
     end
+    if _soc!==nothing && _soc.physical
+        for (family,id,_,_,d) in devices
+            family==:line_from && get(d,"passive",false) || continue
+            @constraint(model,sum(real,powers[(:line_from,id)])+sum(real,powers[(:line_to,id)])>=0)
+        end
+    end
     for (v,i,d) in limits
         n=length(v);imax=values_for(d,"i_max",n);smax=values_for(d,"s_max",n)
         for k in 1:n
@@ -526,6 +535,7 @@ end
 
 """Solve an already-built SDP without rebuilding its constraints or cuts."""
 function solve_sdp_opf(build::SDPBuild;solver_options=())
+    haskey(build.model.ext,:soc_policy) && throw(ArgumentError("use solve_soc_opf for an SOC build; PSD completion is not valid for indefinite moments"))
     options=build.options
     _set_solver_options!(build.model,solver_options);JuMP.optimize!(build.model)
     outcome=_solve_outcome(build.model);status=SolveStatus(outcome)

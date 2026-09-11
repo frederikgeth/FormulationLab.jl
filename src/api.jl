@@ -27,3 +27,12 @@ solve_opf(input, f::LinDist3Flow; optimizer=default_optimizer(), kwargs...) =
     solve_l3f_opf(input, optimizer; options=f.options, kwargs...)
 solve_opf(input, f::IVRSDP; optimizer=default_sdp_optimizer(), kwargs...) =
     solve_sdp_opf(input, optimizer; options=f.options, kwargs...)
+
+"""SOC outer approximation of the current–voltage SDP with optional PSD separation."""
+struct IVRSOC <: AbstractFormulation
+    options::SOCOptions
+end
+IVRSOC(;physical_projections=true,kwargs...)=IVRSOC(SOCOptions(electrical=SDPOptions(;kwargs...),physical_projections=physical_projections))
+formulation_kind(::IVRSOC)=:relaxation
+build_opf(input,f::IVRSOC;optimizer=default_soc_optimizer(),kwargs...)=build_soc_opf(input,optimizer;options=f.options,kwargs...)
+solve_opf(input,f::IVRSOC;optimizer=default_soc_optimizer(),kwargs...)=solve_soc_opf(input,optimizer;options=f.options,kwargs...)
