@@ -125,7 +125,12 @@ function _lnc_lift(H,N,a,b)
     ca=zeros(ComplexF64,size(N,2));cb=copy(ca)
     for (i,c) in a;ca .+= c.*N[i,:];end
     for (i,c) in b;cb .+= c.*N[i,:];end
-    sum(ca[i]*conj(cb[j])*H[i,j] for i in eachindex(ca),j in eachindex(cb))
+    out=JuMP.GenericAffExpr{ComplexF64,JuMP.VariableRef}(0im)
+    for i in eachindex(ca),j in eachindex(cb)
+        c=ca[i]*conj(cb[j])
+        iszero(c) || JuMP.add_to_expression!(out,c,H[i,j])
+    end
+    out
 end
 
 """Return the physical squared magnitudes and complex cross-product of two voltage maps."""

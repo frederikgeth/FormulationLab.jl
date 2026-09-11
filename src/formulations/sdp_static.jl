@@ -119,7 +119,7 @@ function _sdp_voltage_maps(net,b,terminal_rows)
     end
     maps
 end
-function _sdp_bus_limits!(model,net,terminal_rows,lift,vb)
+function _sdp_bus_limits!(model,net,terminal_rows,lift,vb;fixed=Dict())
     for (b,d) in net["bus"]
         maps=_sdp_voltage_maps(net,b,terminal_rows)
         for key in ("v_min","v_max","vpn_min","vpn_max","vpp_min","vpp_max","vn_max","vpos_min","vpos_max","vneg_max","vzero_max")
@@ -129,7 +129,21 @@ function _sdp_bus_limits!(model,net,terminal_rows,lift,vb)
             rows=maps[prefix];bound=_sdp_vector(d,key,length(rows))
             for (r,value) in zip(rows,bound)
                 value>=0 || _sdp_refuse("bus/$b negative voltage bound")
-                w=real(lift(r,r));lim=(value/vb)^2
+                # Source maps are known before the floating-point nullspace.
+                # Remove only satisfied fixed bounds; retain contradictions as
+                # explicit constant constraints, so infeasibility is preserved.
+                if all(haskey(fixed,k) for k in keys(r))
+                    known=abs(sum((c*fixed[k] for (k,c) in r);init=0im))
+                    satisfied=endswith(key,"min") ? known>=value : known<=value
+                    satisfied && continue
+                    w=JuMP.AffExpr((known/vb)^2)
+                else
+                    endswith(key,"min") && iszero(value) && continue
+                    # Zero upper voltage maps have been eliminated before lifting.
+                    endswith(key,"max") && iszero(value) && continue
+                    w=real(lift(r,r))
+                end
+                lim=(value/vb)^2
                 endswith(key,"min") ? @constraint(model,w>=lim) : @constraint(model,w<=lim)
             end
         end

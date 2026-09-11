@@ -6,8 +6,7 @@ Call twice to exclude initial Julia compilation from timing. Residuals below are
 JuMP constraint violations in the model's scaled units, not AC recovery residuals.
 An optimizer keyword permits the same comparison with optional MosekTools.
 """
-function compare_lncs(input;optimizer=optimizer_with_attributes(Clarabel.Optimizer,
-        "chordal_decomposition_enable"=>false),s_base=1e4,objective=:source_import)
+function compare_lncs(input;optimizer=FormulationLab.default_sdp_optimizer(),s_base=1e4,objective=:source_import)
     records=[]
     for mode in (:off,:lines)
         build_seconds=@elapsed build=build_opf(input,IVRSDP(;lnc=mode,s_base,objective);optimizer)
@@ -17,10 +16,10 @@ function compare_lncs(input;optimizer=optimizer_with_attributes(Clarabel.Optimiz
         violations=primal ? primal_feasibility_report(build.model;atol=0.0) : Dict()
         record=(;mode,build_seconds,solve_seconds,
             status=string(termination_status(build.model)),primal_status=string(primal_status(build.model)),
-            objective=primal ? objective_value(build.model) : NaN,
-            solver_bound=try objective_bound(build.model) catch;NaN;end,
+            objective=primal ? objective_value(build.model)*build.objective_scale : NaN,
+            solver_bound=try objective_bound(build.model)*build.objective_scale catch;NaN;end,
             dual_status=string(dual_status(build.model)),
-            dual_objective=has_duals(build.model) ? dual_objective_value(build.model) : NaN,
+            dual_objective=has_duals(build.model) ? dual_objective_value(build.model)*build.objective_scale : NaN,
             max_scaled_constraint_violation=primal ? maximum(values(violations);init=0.0) : NaN,
             variables=num_variables(build.model),
             constraints=num_constraints(build.model;count_variable_in_set_constraints=true),

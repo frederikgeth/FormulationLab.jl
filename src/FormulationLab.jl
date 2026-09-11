@@ -17,6 +17,15 @@ function default_optimizer(::Val)
     throw(ArgumentError("Load Clarabel (`using Clarabel`) or pass an optimizer explicitly."))
 end
 
+# Defer SDP solver selection until the actual cone layout is known. An explicit
+# optimizer factory remains entirely owned by the caller.
+struct _SDPDefaultOptimizer end
+default_sdp_optimizer() = _SDPDefaultOptimizer()
+default_sdp_optimizer(decomposition::Symbol) = default_sdp_optimizer(Val(:clarabel),Val(decomposition))
+function default_sdp_optimizer(::Val,::Val)
+    throw(ArgumentError("Load Clarabel (`using Clarabel`) or pass an optimizer explicitly."))
+end
+
 include("formulations/lindist3flow/types.jl")
 include("formulations/lindist3flow/coefficients.jl")
 include("formulations/lindist3flow/lowering.jl")
@@ -39,6 +48,8 @@ include("cuts/lnc.jl")
 include("formulations/sdp.jl")
 include("formulations/sdp_transformers.jl")
 include("formulations/sdp_static.jl")
+include("formulations/sdp_numerics.jl")
+include("formulations/sdp_sparse.jl")
 include("formulations/sdp_nwinding.jl")
 include("cuts/lnc_lines.jl")
 include("api.jl")

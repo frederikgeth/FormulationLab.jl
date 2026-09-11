@@ -14,6 +14,7 @@ makedocs(;
         "Schema field inventory"=>"schema_fields.md",
         "SDP"=>["Current–voltage relaxation"=>"sdp.md",
                  "Static AC components"=>"sdp_static.md",
+                 "Clarabel and numerical profiles"=>"sdp_numerics.md",
                  "Lifted nonlinear cuts"=>"lnc.md",
                  "Fixed transformers and regulators"=>"sdp_transformers.md"],
         "LinDist3Flow"=>["Formulation and usage"=>"lindist3flow.md",

@@ -19,11 +19,11 @@ formulation_kind(::IVRSDP) = :relaxation
 """Build an inspectable formulation with a separately supplied optimizer factory."""
 build_opf(input, f::LinDist3Flow; optimizer=default_optimizer(), kwargs...) =
     build_l3f_opf(input, optimizer; options=f.options, kwargs...)
-build_opf(input, f::IVRSDP; optimizer=default_optimizer(), kwargs...) =
+build_opf(input, f::IVRSDP; optimizer=default_sdp_optimizer(), kwargs...) =
     build_sdp_opf(input, optimizer; options=f.options, kwargs...)
 
 """Solve a formulation. A relaxation result is not an AC-feasibility certificate."""
 solve_opf(input, f::LinDist3Flow; optimizer=default_optimizer(), kwargs...) =
     solve_l3f_opf(input, optimizer; options=f.options, kwargs...)
-solve_opf(input, f::IVRSDP; optimizer=default_optimizer(), kwargs...) =
+solve_opf(input, f::IVRSDP; optimizer=default_sdp_optimizer(), kwargs...) =
     solve_sdp_opf(input, optimizer; options=f.options, kwargs...)

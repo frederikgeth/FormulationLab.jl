@@ -1,4 +1,4 @@
-"""Dense current–voltage SDP reference; a relaxation, with no rank-one constraint.
+"""Current–voltage SDP with Clarabel and dense reference profiles; a relaxation, with no rank-one constraint.
 
 Supports static AC lines, sources, loads, generators, inverters, shunts,
 capacitors, switches, and fixed-tap transformers/regulators, including general
@@ -8,8 +8,19 @@ power-cone envelopes. Controls are not evaluated. `s_base` is in VA.
 `voltage_lncs` adds explicit domains/cuts independently of that setting.
 """
 Base.@kwdef struct SDPOptions
+    profile::Symbol = :clarabel
+    decomposition::Symbol = profile==:clarabel ? :auto : :dense
     s_base::Float64 = 1e4
     objective::Symbol = :cost
+    basis::Symbol = profile==:clarabel ? :auto : :orthonormal
+    cone::Symbol = profile==:clarabel ? :real : :hermitian
+    shunt_coordinates::Symbol = profile==:clarabel ? :current : :admittance
+    scale_objective::Bool = profile==:clarabel
+    current_bounds::Bool = profile==:clarabel
+    preprocess::Bool = profile==:clarabel
+    clique_size::Int = 32
+    consistency::Symbol = :auto
+    recovery::Symbol = profile==:clarabel ? :anchor : :dominant
     lnc::Symbol = :off
     voltage_lncs::Vector{VoltageLNC} = VoltageLNC[]
 end
@@ -108,6 +119,8 @@ struct SDPBuild
     omitted_controls::Vector{String}
     load_envelopes::Vector{String}
     lnc_diagnostics::Vector{LNCDiagnostic}
+    objective_scale::Float64
+    numerical_diagnostics::Dict{Symbol,Any}
 end
 
 """Build the dense IVRSDP reference, eliminating homogeneous electrical equalities.
@@ -117,10 +130,18 @@ The model uses H ≽ 0 in place of y*yᴴ. Thus every rank-one feasible electric
 state lifts to a feasible SDP point. Fixed source phasor ratios are in A; one
 source magnitude anchors the lifted model. No neutral is Kron-reduced.
 """
-function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions=SDPOptions())
+function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOptions=SDPOptions())
+    options.profile in (:clarabel,:reference) || throw(ArgumentError("unknown SDP profile"))
     isfinite(options.s_base) && options.s_base > 0 || throw(ArgumentError("s_base must be positive and finite"))
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown SDP objective"))
     options.lnc in (:off,:lines) || throw(ArgumentError("lnc must be :off or :lines"))
+    options.decomposition in (:auto,:dense,:chordal) || throw(ArgumentError("unknown SDP decomposition"))
+    options.consistency in (:auto,:local,:shared) || throw(ArgumentError("unknown clique consistency"))
+    options.clique_size>=1 || throw(ArgumentError("clique_size must be positive"))
+    options.recovery in (:anchor,:dominant) || throw(ArgumentError("unknown SDP recovery"))
+    options.basis in (:auto,:orthonormal,:physical,:sparse) || throw(ArgumentError("unknown SDP basis"))
+    options.cone in (:hermitian,:real) || throw(ArgumentError("unknown SDP cone"))
+    options.shunt_coordinates in (:admittance,:current) || throw(ArgumentError("unknown shunt coordinates"))
     net = _l3f_input(input)
     _sdp_check(net)
     candidates=[d for (_,d) in sort!(collect(net["voltage_source"]);by=first) if any(!iszero,d["v_magnitude"])]
@@ -203,7 +224,23 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
     for (id,d) in get(net,"shunt",Dict())
         rows=terminal_rows(d["bus"],d["terminal_map"])
         Y=_l3f_shunt_matrix(d,length(rows))*zb
-        inject(d["bus"],d["terminal_map"],matrows(Y,rows))
+        if options.shunt_coordinates==:current
+            currents=_SDPRow[]
+            for k in eachindex(rows)
+                scale=maximum(abs,Y[k,:];init=0.0)
+                if iszero(scale)
+                    push!(currents,_SDPRow())
+                else
+                    j=_sdp_e(newvar());push!(currents,j)
+                    equation=_sdp_add!(_SDPRow(),j,1/scale)
+                    for h in eachindex(rows);_sdp_add!(equation,rows[h],-Y[k,h]/scale);end
+                    push!(equations,equation)
+                end
+            end
+            inject(d["bus"],d["terminal_map"],currents)
+        else
+            inject(d["bus"],d["terminal_map"],matrows(Y,rows))
+        end
     end
     for family in ("load","generator","ibr"), (id,d) in sort!(collect(get(net,family,Dict()));by=first)
         tm=d["terminal_map"]; vr=terminal_rows(d["bus"],tm)
@@ -283,6 +320,28 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
         inject(d["bus"],d["terminal_map"],is,-1)
         push!(devices,(:voltage_source,source_id,rows,is,d));push!(limits,(rows,is,d))
     end
+    fixed_physical=Dict(k=>v*vb for (k,v) in fixed_source_coordinates)
+    voltage_range=_sdp_voltage_ranges(net,terminal_rows,fixed_physical)
+    derived=options.current_bounds ? _sdp_current_bounds(devices,limits,voltage_range) : []
+    # Exact zero upper bounds expose a face of the PSD cone. Eliminate the
+    # corresponding linear state maps before lifting, including sequence maps.
+    face_rows=0
+    for (bus,_) in net["bus"], rows in values(_sdp_voltage_maps(net,bus,terminal_rows)), row in rows
+        _,hi=voltage_range(row)
+        if iszero(hi) && !isempty(row)
+            push!(equations,copy(row));face_rows+=1
+        end
+    end
+    for (v,i,d) in limits
+        imax=values_for(d,"i_max",length(i))
+        imax===nothing && continue
+        for k in eachindex(i)
+            if iszero(imax[k]) && !isempty(i[k]);push!(equations,copy(i[k]));face_rows+=1;end
+        end
+    end
+    for (i,imax,_) in derived
+        if iszero(imax) && !isempty(i);push!(equations,copy(i));face_rows+=1;end
+    end
     append!(equations,values(kcl))
     A=zeros(ComplexF64,length(equations),coordinate_count[])
     for (r,row) in enumerate(equations), (c,value) in row;A[r,c]=value;end
@@ -290,19 +349,39 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
     for r in axes(A,1)
         scale=norm(A[r,:]);iszero(scale) || (A[r,:]./=scale)
     end
-    N=nullspace(A)
-    size(N,2)>0 || _sdp_refuse("electrical equations leave no nonzero source state")
-    model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
-    m=size(N,2)
-    H=@variable(model,[1:m,1:m] in HermitianPSDCone())
-    function lift(a,b)
-        ca=zeros(ComplexF64,m);cb=similar(ca);fill!(cb,0)
-        for (i,c) in a;ca .+= c.*N[i,:];end
-        for (i,c) in b;cb .+= c.*N[i,:];end
-        sum((ca[i]*conj(cb[j]))*H[i,j] for i in 1:m,j in 1:m)
+    diagnostics=Dict{Symbol,Any}(:basis=>options.basis,:cone=>options.cone,
+        :decomposition=>options.decomposition,:state_dimension=>size(A,2),
+        :face_equations=>face_rows,:derived_current_bounds=>length(derived))
+    model=optimizer===nothing || optimizer isa _SDPDefaultOptimizer ? JuMP.Model() : JuMP.Model(optimizer)
+    if options.decomposition==:dense
+        N=_sdp_basis(A,options.basis)
+        size(N,2)>0 || _sdp_refuse("electrical equations leave no nonzero source state")
+        diagnostics[:basis]=options.basis==:auto ? (size(N,2)<=32 ? :physical : :sparse) : options.basis
+        diagnostics[:electrical_residual]=norm(A*N,Inf)
+        diagnostics[:reduced_dimension]=size(N,2)
+        H=_sdp_psd(model,size(N,2),options.cone)
+    else
+        supports=[collect(keys(row)) for row in equations]
+        for (_,_,v,i,_) in devices, k in eachindex(v)
+            push!(supports,union(collect(keys(v[k])),collect(keys(i[k]))))
+        end
+        for (v,i,_) in limits,k in eachindex(v)
+            push!(supports,union(collect(keys(v[k])),collect(keys(i[k]))))
+        end
+        for (bus,_) in net["bus"], rows in values(_sdp_voltage_maps(net,bus,terminal_rows)),row in rows
+            push!(supports,collect(keys(row)))
+        end
+        for spec in options.voltage_lncs
+            push!(supports,union(collect(keys(_lnc_row(spec.u,voltage))),collect(keys(_lnc_row(spec.v,voltage)))))
+        end
+        for line in lnc_lines
+            push!(supports,unique([k for row in [line.vf;line.vt] for k in keys(row)]))
+        end
+        H,N=_sdp_sparse_moment(model,A,supports,options,diagnostics)
     end
+    lift(a,b)=_lnc_lift(H,N,a,b)
     @constraint(model,real(lift(vs[anchor_k],vs[anchor_k]))==abs2(source_v[anchor_k]/vb))
-    _sdp_bus_limits!(model,net,terminal_rows,lift,vb)
+    _sdp_bus_limits!(model,net,terminal_rows,lift,vb;fixed=fixed_physical)
     powers=Dict{Tuple{Symbol,String},Vector{Any}}()
     objective=JuMP.AffExpr(0.0)
     for (family,id,v,i,d) in devices
@@ -381,7 +460,7 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
         for k in 1:n
             if imax!==nothing
                 imax[k]>=0 || _sdp_refuse("negative current limit")
-                @constraint(model,real(lift(i[k],i[k])) <= (imax[k]/ib)^2)
+                iszero(imax[k]) || @constraint(model,real(lift(i[k],i[k])) <= (imax[k]/ib)^2)
             end
             if smax!==nothing
                 smax[k]>=0 || _sdp_refuse("negative apparent-power limit")
@@ -389,14 +468,28 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
             end
         end
     end
-    @objective(model,Min,objective)
+    for (i,imax,_) in derived
+        iszero(imax) && continue # already removed through the electrical basis
+        @constraint(model,real(lift(i,i)) <= (imax/ib)^2)
+    end
+    objective_scale=options.scale_objective ? max(maximum(abs,values(objective.terms);init=0.0),1e-12) : 1.0
+    diagnostics[:objective_scale]=objective_scale
+    @objective(model,Min,objective/objective_scale)
     omitted=sort!(["ibr/$id/$(d["control_profile"])" for (id,d) in get(net,"ibr",Dict()) if haskey(d,"control_profile")])
     envelopes=sort!([id for (id,d) in get(net,"load",Dict()) if _sdp_has_load_envelope(d)])
-    build=SDPBuild(model,H,N,voltage,powers,net,options,vb,anchor,source_v[anchor_k],omitted,envelopes,LNCDiagnostic[])
+    build=SDPBuild(model,H,N,voltage,powers,net,options,vb,anchor,source_v[anchor_k],omitted,envelopes,LNCDiagnostic[],objective_scale,diagnostics)
     for spec in options.voltage_lncs;add_voltage_lnc!(build,spec);end
     if options.lnc==:lines
         fixed=Dict(k=>value*vb for (k,value) in fixed_source_coordinates)
         _add_line_lncs!(build,lnc_lines,terminal_rows,fixed)
+    end
+    diagnostics[:removed_affine_constraints]=options.preprocess ? _sdp_preprocess_affine!(model) : 0
+    if optimizer isa _SDPDefaultOptimizer
+        local_cliques=diagnostics[:decomposition]==:chordal && get(diagnostics,:consistency,:shared)==:local
+        JuMP.set_optimizer(model,default_sdp_optimizer(local_cliques ? :chordal : :dense))
+        diagnostics[:optimizer_profile]=local_cliques ? :clarabel_chordal : :clarabel_dense
+    else
+        diagnostics[:optimizer_profile]=:caller_supplied
     end
     build
 end
@@ -412,27 +505,34 @@ struct SDPResult <: AbstractSolveResult
     omitted_controls::Vector{String}
     load_envelopes::Vector{String}
     lnc_diagnostics::Vector{LNCDiagnostic}
+    numerical_diagnostics::Dict{Symbol,Any}
 end
 solve_status(r::SDPResult)=r.solve
 solve_diagnostics(r::SDPResult)=(model_kind=:relaxation, rank_ratio=r.rank_ratio,
     omitted_controls=r.omitted_controls, load_envelopes=r.load_envelopes,
-    lnc_diagnostics=r.lnc_diagnostics,
+    lnc_diagnostics=r.lnc_diagnostics, numerical=r.numerical_diagnostics,
     physical_feasibility_certified=false, bound_certified=false)
 
-"""Solve IVRSDP. The dominant-eigenvector voltage candidate is not an AC certificate.
+"""Solve IVRSDP. The recovered voltage candidate is not an AC certificate.
 
 `solver_objective_bound` is reported as numerical solver evidence only. It is
 not a rigorous, residual-corrected certificate. A feasible AC upper bound is
 required before reporting an OPF optimality gap.
 """
-function solve_sdp_opf(input, optimizer=default_optimizer(); options=SDPOptions(),solver_options=())
+function solve_sdp_opf(input, optimizer=default_sdp_optimizer(); options=SDPOptions(),solver_options=())
     build=build_sdp_opf(input,optimizer;options)
+    solve_sdp_opf(build;solver_options)
+end
+
+"""Solve an already-built SDP without rebuilding its constraints or cuts."""
+function solve_sdp_opf(build::SDPBuild;solver_options=())
+    options=build.options
     _set_solver_options!(build.model,solver_options);JuMP.optimize!(build.model)
     outcome=_solve_outcome(build.model);status=SolveStatus(outcome)
     if !outcome.optimal
         return SDPResult(NaN,NaN,fill(ComplexF64(NaN),size(build.moment)),
             Dict(k=>ComplexF64(NaN) for k in keys(build.voltage_indices)),
-            Dict(k=>fill(ComplexF64(NaN),length(v)) for (k,v) in build.powers),NaN,status,build.omitted_controls,build.load_envelopes,copy(build.lnc_diagnostics))
+            Dict(k=>fill(ComplexF64(NaN),length(v)) for (k,v) in build.powers),NaN,status,build.omitted_controls,build.load_envelopes,copy(build.lnc_diagnostics),copy(build.numerical_diagnostics))
     end
     H=Matrix{ComplexF64}(JuMP.value.(build.moment));eig=eigen(Hermitian(H))
     # Recover from the voltage Gram: free auxiliary current completions must
@@ -441,12 +541,26 @@ function solve_sdp_opf(input, optimizer=default_optimizer(); options=SDPOptions(
     sort!(rows)
     NV=build.nullspace[rows,:]
     veig=eigen(Hermitian(NV*H*NV'))
-    vv=sqrt(max(0,last(veig.values)))*veig.vectors[:,end]
-    z=zeros(ComplexF64,size(build.nullspace,1));z[rows]=vv
-    phase=iszero(z[build.anchor]) ? 1.0+0im : cis(angle(build.anchor_voltage)-angle(z[build.anchor]))
-    v=Dict(k=>(i==0 ? 0.0im : build.voltage_base*z[i]*phase) for (k,i) in build.voltage_indices)
+    build.numerical_diagnostics[:voltage_rank_ratio]=length(veig.values)>1 ? max(0,veig.values[end-1])/max(eps(),veig.values[end]) : 0.0
+    if options.recovery==:anchor
+        # Conditional mean relative to the prescribed source phasor preserves
+        # homogeneous electrical equations and the reference, even when free
+        # floating-current/voltage modes dominate the Gram's eigenvectors.
+        z=build.nullspace*H*conj.(build.nullspace[build.anchor,:])/conj(build.anchor_voltage/build.voltage_base)
+        v=Dict(k=>(i==0 ? 0.0im : build.voltage_base*z[i]) for (k,i) in build.voltage_indices)
+    else
+        vv=sqrt(max(0,last(veig.values)))*veig.vectors[:,end]
+        z=zeros(ComplexF64,size(build.nullspace,1));z[rows]=vv
+        phase=iszero(z[build.anchor]) ? 1.0+0im : cis(angle(build.anchor_voltage)-angle(z[build.anchor]))
+        v=Dict(k=>(i==0 ? 0.0im : build.voltage_base*z[i]*phase) for (k,i) in build.voltage_indices)
+    end
+    build.numerical_diagnostics[:recovery]=options.recovery
     ratio=length(eig.values)>1 ? max(0,eig.values[end-1])/max(eps(),eig.values[end]) : 0.0
     bound=try JuMP.objective_bound(build.model) catch; NaN end
+    if !isfinite(bound)
+        bound=try JuMP.dual_objective_value(build.model) catch; NaN end
+    end
+    bound*=build.objective_scale
     powers=Dict(k=>ComplexF64.(JuMP.value.(s)).*options.s_base for (k,s) in build.powers)
-    SDPResult(JuMP.objective_value(build.model),bound,H,v,powers,ratio,status,build.omitted_controls,build.load_envelopes,copy(build.lnc_diagnostics))
+    SDPResult(JuMP.objective_value(build.model)*build.objective_scale,bound,H,v,powers,ratio,status,build.omitted_controls,build.load_envelopes,copy(build.lnc_diagnostics),copy(build.numerical_diagnostics))
 end

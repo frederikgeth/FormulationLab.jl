@@ -1,4 +1,8 @@
-# Dense IVRSDP reference
+# IVRSDP relaxation
+
+The default numerical profile is tuned for Clarabel; `profile=:reference` retains
+the dense reference settings. See [numerical profiles](sdp_numerics.md) for PSD
+representations, decomposition, current cuts, scaling and candidate recovery.
 
 Let z contain scaled terminal voltages and device channel currents. Current bases
 are S_b/V_b, impedance bases V_b²/S_b. The first implementation uses one voltage
@@ -6,7 +10,7 @@ base, taken from the largest magnitude across all sources, and a user-specified 
 
 Line equations, nodal current balance, constant-impedance current laws, and fixed
 source phasor ratios are homogeneous linear equations A z = 0. Grounded voltage
-coordinates are removed exactly. With an orthonormal nullspace basis N, z=N y.
+coordinates are removed exactly. With a nullspace basis N, z=N y.
 The electrical core lifts H=y yᴴ and drops its rank-one requirement:
 
 ```math
@@ -43,8 +47,8 @@ rank-one recovery and verification, which this release does not certify.
 
 `SDPBuild` exposes the reduced moment matrix, nullspace, terminal indices, and
 lifted power expressions. `SDPResult.relaxed_powers` is in W+jvar and is distinct
-from `voltage_candidate` (V), reconstructed from the dominant eigenvector
-of the voltage Gram, aligned to the source. `rank_ratio` is the second-largest nonnegative eigenvalue
+from `voltage_candidate` (V), reconstructed from the source-anchored voltage Gram column by default
+(or its dominant eigenvector in the reference profile). `rank_ratio` is the second-largest nonnegative eigenvalue
 divided by the largest; it is a diagnostic, not a feasibility test. An auxiliary
 current direction can affect this ratio independently of voltage recoverability.
 
