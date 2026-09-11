@@ -1,0 +1,59 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "repositories": {
+    "FormulationLab.jl": {
+      "path": "/Users/uqfgeth/Documents/GitHub/FormulationLab.jl",
+      "revision": "cdeefe933e8f7cb62891feb31e5f36be094c935f",
+      "working_tree_clean": false
+    },
+    "BMOPFTools.jl": {
+      "path": "/Users/uqfgeth/Documents/GitHub/BMOPFTools.jl",
+      "revision": "ddd588f7143ae218142e4176e8086199179722c3",
+      "working_tree_clean": true
+    },
+    "BMOPFDraftData": {
+      "path": "/Users/uqfgeth/Documents/GitHub/BMOPFDraftData",
+      "revision": "e2601a2db7fbdea075c2cbb08ff00a759d734402",
+      "working_tree_clean": false
+    },
+    "DistributionTestCases.jl": {
+      "path": "/Users/uqfgeth/Documents/GitHub/DistributionTestCases.jl",
+      "revision": "d7177256cfac4925a7b97223a167fba654cffe6f",
+      "working_tree_clean": false
+    }
+  },
+  "integration_manifest_sha256": "b2a2a2b84108ee17656389c07b82c45293d3d73aecb8af18b54031a1d124e50b",
+  "note": "Repository cleanliness includes unrelated files; exact benchmark input hashes are in the run records. No library source changes were made during the runs.",
+  "packages": {
+    "PowerIO": {
+      "version": "0.11.0",
+      "git-tree-sha1": "f283e791c88df505ec28f33409d3bf390fc3e641"
+    },
+    "JuMP": {
+      "version": "1.31.2",
+      "git-tree-sha1": "4f27b21df3b47e8c08a83ead049afb621b2f5b3c"
+    },
+    "BMOPFTools": {
+      "version": "0.1.0"
+    },
+    "Clarabel": {
+      "version": "0.11.1",
+      "git-tree-sha1": "9f5dcd866a1cee6fb2e853db82286e4cdf06c622"
+    },
+    "QDLDL": {
+      "version": "0.4.1",
+      "git-tree-sha1": "5a3c14e534faf5b66c4633b5770a665ec1a87503"
+    },
+    "MathOptInterface": {
+      "version": "1.53.0",
+      "git-tree-sha1": "d10ba577e0b5a0481fab01dfd31fb20af3326954"
+    },
+    "Ipopt": {
+      "version": "1.16.0",
+      "git-tree-sha1": "d5a4fb77d030c56258a33a7046195506055ce5cc"
+    },
+    "SuiteSparse_jll": {
+      "version": "7.8.3+2"
+    }
+  }
+}

@@ -11,6 +11,7 @@ makedocs(;
         "Home"=>"index.md",
         "Architecture"=>"architecture.md",
         "Formulation decisions"=>"formulation_choices.md",
+        "Clarabel solve-time study and plan"=>"soc_performance_plan.md",
         "Component coverage"=>"coverage.md",
         "Schema field inventory"=>"schema_fields.md",
         "SDP"=>["Current–voltage relaxation"=>"sdp.md",

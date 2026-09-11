@@ -223,6 +223,11 @@ the matching input preparation, scaling and time limit in the study manifests.
 
 ## Next experiments, not locked-in claims
 
+The subsequent [controlled comparison and implementation plan](soc_performance_plan.md)
+measures native solver time and identifies the small-state physical-basis path
+as the main performance problem. The historical decisions above remain the
+baseline; that study adds an explicit sparse-coordinate speed–strength option.
+
 The next target is **Clarabel solve time**, superseding the earlier report's
 emphasis on construction caching. First record native solver time, iterations,
 KKT factorization/refinement work, cone counts and sizes, and repeated timings at
