@@ -29,7 +29,7 @@ Next milestones, in order:
    reference for each supported domain.
 2. Add an exact nonlinear formulation plus physical residual evaluation and
    feasible-solution recovery. ExaModels becomes an optional backend here.
-3. Derive named SOC relaxations and valid-cut families with explicit assumptions,
+3. Derive named SOC relaxations and extend the LNC cut family with explicit assumptions,
    then benchmark gap, residuals, success rate, build/solve time, and memory.
 4. Expand to DC and time-series semantics in separately scoped work. Geometry
    compilation belongs upstream of the electrical coefficient boundary.

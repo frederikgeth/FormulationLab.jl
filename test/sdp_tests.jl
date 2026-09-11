@@ -139,3 +139,5 @@ end
 include("sdp_transformer_tests.jl")
 
 include("sdp_static_tests.jl")
+
+include("lnc_tests.jl")

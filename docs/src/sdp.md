@@ -67,3 +67,7 @@ capability and filters, multiple sources, bus voltage limits, and general load
 laws. Nonlinear load laws introduce additional power-cone envelopes beyond rank
 relaxation; affected load IDs and excluded control profiles are exposed in
 `solve_diagnostics`. A rank-one voltage Gram alone does not certify these laws.
+
+Optional [lifted nonlinear cuts](lnc.md) act on physical voltage maps. Enable
+`lnc=:lines` for conservative automatic line bounds or pass explicit
+`voltage_lncs` with documented domain provenance.

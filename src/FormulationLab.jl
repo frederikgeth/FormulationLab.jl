@@ -35,11 +35,14 @@ export L3FOptions, L3FFinding, L3FApplicabilityReport, L3FInapplicableError,
        l3f_reference_from_powerflow,
        validate_l3f_solution, l3f_model_class
 
+include("cuts/lnc.jl")
 include("formulations/sdp.jl")
 include("formulations/sdp_transformers.jl")
 include("formulations/sdp_static.jl")
 include("formulations/sdp_nwinding.jl")
+include("cuts/lnc_lines.jl")
 include("api.jl")
+export LNCBounds, VoltagePhasor, VoltageLNC, LNCDiagnostic, add_lnc!, add_voltage_lnc!, phasor_products
 export AbstractFormulation, LinDist3Flow, IVRSDP, formulation_kind, build_opf, solve_opf
 export SDPOptions, SDPBuild, SDPResult, SDPInapplicableError, build_sdp_opf, solve_sdp_opf
 export BMOPFInput, read_bmopf, SolveStatus, solve_status, solve_diagnostics

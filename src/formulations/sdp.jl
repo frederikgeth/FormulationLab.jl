@@ -4,10 +4,14 @@ Supports static AC lines, sources, loads, generators, inverters, shunts,
 capacitors, switches, and fixed-tap transformers/regulators, including general
 multiwinding units and explicit neutrals. Nonlinear load laws use additional
 power-cone envelopes. Controls are not evaluated. `s_base` is in VA.
+`lnc=:lines` enables derived line-voltage cuts; `:off` is the default.
+`voltage_lncs` adds explicit domains/cuts independently of that setting.
 """
 Base.@kwdef struct SDPOptions
     s_base::Float64 = 1e4
     objective::Symbol = :cost
+    lnc::Symbol = :off
+    voltage_lncs::Vector{VoltageLNC} = VoltageLNC[]
 end
 
 struct SDPInapplicableError <: Exception
@@ -103,6 +107,7 @@ struct SDPBuild
     anchor_voltage::ComplexF64
     omitted_controls::Vector{String}
     load_envelopes::Vector{String}
+    lnc_diagnostics::Vector{LNCDiagnostic}
 end
 
 """Build the dense IVRSDP reference, eliminating homogeneous electrical equalities.
@@ -115,6 +120,7 @@ source magnitude anchors the lifted model. No neutral is Kron-reduced.
 function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions=SDPOptions())
     isfinite(options.s_base) && options.s_base > 0 || throw(ArgumentError("s_base must be positive and finite"))
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown SDP objective"))
+    options.lnc in (:off,:lines) || throw(ArgumentError("lnc must be :off or :lines"))
     net = _l3f_input(input)
     _sdp_check(net)
     candidates=[d for (_,d) in sort!(collect(net["voltage_source"]);by=first) if any(!iszero,d["v_magnitude"])]
@@ -160,6 +166,7 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
     # Constraints recorded as physical channel voltage/current pairs.
     devices = []
     limits = []
+    lnc_lines = []
     for (id,l) in sort!(collect(get(net,"line",Dict()));by=first)
         tmf=l["terminal_map_from"]; tmt=l["terminal_map_to"]; n=length(tmf)
         n==length(tmt) || _sdp_refuse("line/$id endpoint arity mismatch")
@@ -186,6 +193,8 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
         inject(l["bus_from"],tmf,cf);inject(l["bus_to"],tmt,ct)
         ratings=Dict(k=>get(l,k,get(code,k,nothing)) for k in ("i_max","s_max") if haskey(l,k)||haskey(code,k))
         push!(limits,(vf,cf,ratings));push!(limits,(vt,ct,ratings))
+        options.lnc==:lines && push!(lnc_lines,(;id,from=l["bus_from"],to=l["bus_to"],tmf,tmt,vf,vt,
+            Z=Z*zb,Yf=Yf/zb,Yt=Yt/zb,ratings))
         push!(devices,(:line_from,id,vf,cf,Dict()));push!(devices,(:line_to,id,vt,ct,Dict()))
     end
     _sdp_stamp_transformers!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
@@ -383,7 +392,13 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
     @objective(model,Min,objective)
     omitted=sort!(["ibr/$id/$(d["control_profile"])" for (id,d) in get(net,"ibr",Dict()) if haskey(d,"control_profile")])
     envelopes=sort!([id for (id,d) in get(net,"load",Dict()) if _sdp_has_load_envelope(d)])
-    SDPBuild(model,H,N,voltage,powers,net,options,vb,anchor,source_v[anchor_k],omitted,envelopes)
+    build=SDPBuild(model,H,N,voltage,powers,net,options,vb,anchor,source_v[anchor_k],omitted,envelopes,LNCDiagnostic[])
+    for spec in options.voltage_lncs;add_voltage_lnc!(build,spec);end
+    if options.lnc==:lines
+        fixed=Dict(k=>value*vb for (k,value) in fixed_source_coordinates)
+        _add_line_lncs!(build,lnc_lines,terminal_rows,fixed)
+    end
+    build
 end
 
 struct SDPResult <: AbstractSolveResult
@@ -396,10 +411,12 @@ struct SDPResult <: AbstractSolveResult
     solve::SolveStatus
     omitted_controls::Vector{String}
     load_envelopes::Vector{String}
+    lnc_diagnostics::Vector{LNCDiagnostic}
 end
 solve_status(r::SDPResult)=r.solve
 solve_diagnostics(r::SDPResult)=(model_kind=:relaxation, rank_ratio=r.rank_ratio,
     omitted_controls=r.omitted_controls, load_envelopes=r.load_envelopes,
+    lnc_diagnostics=r.lnc_diagnostics,
     physical_feasibility_certified=false, bound_certified=false)
 
 """Solve IVRSDP. The dominant-eigenvector voltage candidate is not an AC certificate.
@@ -415,7 +432,7 @@ function solve_sdp_opf(input, optimizer=default_optimizer(); options=SDPOptions(
     if !outcome.optimal
         return SDPResult(NaN,NaN,fill(ComplexF64(NaN),size(build.moment)),
             Dict(k=>ComplexF64(NaN) for k in keys(build.voltage_indices)),
-            Dict(k=>fill(ComplexF64(NaN),length(v)) for (k,v) in build.powers),NaN,status,build.omitted_controls,build.load_envelopes)
+            Dict(k=>fill(ComplexF64(NaN),length(v)) for (k,v) in build.powers),NaN,status,build.omitted_controls,build.load_envelopes,copy(build.lnc_diagnostics))
     end
     H=Matrix{ComplexF64}(JuMP.value.(build.moment));eig=eigen(Hermitian(H))
     # Recover from the voltage Gram: free auxiliary current completions must
@@ -431,5 +448,5 @@ function solve_sdp_opf(input, optimizer=default_optimizer(); options=SDPOptions(
     ratio=length(eig.values)>1 ? max(0,eig.values[end-1])/max(eps(),eig.values[end]) : 0.0
     bound=try JuMP.objective_bound(build.model) catch; NaN end
     powers=Dict(k=>ComplexF64.(JuMP.value.(s)).*options.s_base for (k,s) in build.powers)
-    SDPResult(JuMP.objective_value(build.model),bound,H,v,powers,ratio,status,build.omitted_controls,build.load_envelopes)
+    SDPResult(JuMP.objective_value(build.model),bound,H,v,powers,ratio,status,build.omitted_controls,build.load_envelopes,copy(build.lnc_diagnostics))
 end

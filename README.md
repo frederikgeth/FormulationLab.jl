@@ -63,3 +63,8 @@ julia --project=docs docs/make.jl
 Open `docs/build/index.html`. Documentation CI builds the site on every pull
 request and publishes a downloadable HTML artifact. Publication to GitHub Pages
 can be enabled separately; no deployment credentials are needed for the build.
+
+Optional lifted nonlinear cuts can strengthen the SDP on physical voltage maps:
+use `IVRSDP(lnc=:lines)` for conservatively derived line bounds, or supply
+`voltage_lncs` with explicit domain provenance. See the
+[LNC formulation and usage](docs/src/lnc.md).
