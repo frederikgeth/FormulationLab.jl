@@ -392,6 +392,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
         :bound_report=>bound_info,:face_equations=>face_rows,:derived_current_bounds=>length(derived))
     model=optimizer===nothing || optimizer isa _SDPDefaultOptimizer ? JuMP.Model() : JuMP.Model(optimizer)
     _soc===nothing || (model.ext[:soc_policy]=_soc)
+    model.ext[:state_channels]=devices
     if options.audit
         model.ext[:ac_audit]=(equations=A,devices=deepcopy(devices),limits=deepcopy(limits),
             voltage=copy(voltage),real_embeddings=Any[],envelopes=Any[])
@@ -550,6 +551,7 @@ struct SDPResult <: AbstractSolveResult
     solver_objective_bound::Float64
     moment::Matrix{ComplexF64}
     voltage_candidate::Dict{Tuple{String,String},ComplexF64}
+    current_candidate::Dict{Tuple{Symbol,String},Vector{ComplexF64}}
     relaxed_powers::Dict{Tuple{Symbol,String},Vector{ComplexF64}}
     rank_ratio::Float64
     solve::SolveStatus
@@ -584,6 +586,7 @@ function solve_sdp_opf(build::SDPBuild;solver_options=())
     if !outcome.optimal
         return SDPResult(NaN,NaN,fill(ComplexF64(NaN),size(build.moment)),
             Dict(k=>ComplexF64(NaN) for k in keys(build.voltage_indices)),
+            Dict{Tuple{Symbol,String},Vector{ComplexF64}}(),
             Dict(k=>fill(ComplexF64(NaN),length(v)) for (k,v) in build.powers),NaN,status,build.omitted_controls,build.load_envelopes,copy(build.lnc_diagnostics),copy(build.numerical_diagnostics))
     end
     H=Matrix{ComplexF64}(JuMP.value.(build.moment));eig=eigen(Hermitian(H))
@@ -614,7 +617,7 @@ function solve_sdp_opf(build::SDPBuild;solver_options=())
     end
     bound*=build.objective_scale
     powers=Dict(k=>ComplexF64.(JuMP.value.(s)).*options.s_base for (k,s) in build.powers)
-    SDPResult(JuMP.objective_value(build.model)*build.objective_scale,bound,H,v,powers,ratio,status,build.omitted_controls,build.load_envelopes,copy(build.lnc_diagnostics),copy(build.numerical_diagnostics))
+    SDPResult(JuMP.objective_value(build.model)*build.objective_scale,bound,H,v,_candidate_state(build).currents,powers,ratio,status,build.omitted_controls,build.load_envelopes,copy(build.lnc_diagnostics),copy(build.numerical_diagnostics))
 end
 
 """Inspect declared/derived physical magnitude bounds and missing capability data."""

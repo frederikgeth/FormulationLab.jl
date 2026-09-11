@@ -32,7 +32,7 @@ solve_opf(input, f::IVRSDP; optimizer=default_sdp_optimizer(), kwargs...) =
 struct IVRSOC <: AbstractFormulation
     options::SOCOptions
 end
-IVRSOC(;physical_projections=true,strengthening=:linear,max_triplets=16,directions=(1.0+0im,1.0im),kwargs...)=IVRSOC(SOCOptions(electrical=SDPOptions(;kwargs...),physical_projections=physical_projections,strengthening=strengthening,max_triplets=max_triplets,directions=directions))
+IVRSOC(;physical_projections=true,voltage_recovery=:voltage_tree,strengthening=:linear,max_triplets=16,directions=(1.0+0im,1.0im),kwargs...)=IVRSOC(SOCOptions(electrical=SDPOptions(;kwargs...),physical_projections=physical_projections,voltage_recovery=voltage_recovery,strengthening=strengthening,max_triplets=max_triplets,directions=directions))
 formulation_kind(::IVRSOC)=:relaxation
 build_opf(input,f::IVRSOC;optimizer=default_soc_optimizer(),kwargs...)=build_soc_opf(input,optimizer;options=f.options,kwargs...)
 solve_opf(input,f::IVRSOC;optimizer=default_soc_optimizer(),kwargs...)=solve_soc_opf(input,optimizer;options=f.options,kwargs...)

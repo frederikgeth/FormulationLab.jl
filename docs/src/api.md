@@ -8,3 +8,17 @@ Pages = ["api.jl", "bmopf.jl", "sdp.jl", "soc.jl", "contracts.jl"]
 ```@docs
 kron_reduce_bmopf
 ```
+
+## Network preparation and reconstruction
+
+```@docs
+ReductionOptions
+ReductionPlan
+PreparedNetwork
+prepare_network
+reduction_report
+reconstruction_plan
+restore_prepared_network
+ReconstructedSolution
+reconstruct_solution
+```

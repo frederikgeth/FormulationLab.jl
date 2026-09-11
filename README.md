@@ -24,6 +24,11 @@ sdp = solve_opf(input, IVRSDP(objective=:source_import);
 soc = solve_opf(input, IVRSOC(objective=:source_import);
                 solver_options=(verbose=false,))
 
+# Shared BMOPFTools-compatible reduction and original-network reconstruction:
+prepared = prepare_network(input; reduction=:bmopf)
+reduced = solve_opf(prepared, IVRSOC(); solver_options=(verbose=false,))
+full = reconstruct_solution(prepared, reduced)
+
 # Build without attaching a solver, for inspection or customization:
 build = build_opf(input, IVRSDP(); optimizer=nothing)
 ```
@@ -34,7 +39,7 @@ Solvers are optional. Loading Clarabel enables formulation-specific defaults; ex
 
 MosekTools can be passed as `optimizer=MosekTools.Optimizer` when installed by the caller. It is an **optional test dependency only** in this repository.
 
-Results use SI units. SDP `relaxed_powers` are lifted power quantities; `voltage_candidate` uses source-column recovery by default and is not certified AC feasible. SOC results expose moment blocks without assuming PSD completion or recovering a voltage candidate. A solver-reported objective bound is numerical evidence, not a rigorous certificate. No AC optimality gap is claimed without a separately verified feasible upper bound.
+Results use SI units. SDP `relaxed_powers` are lifted power quantities; `voltage_candidate` uses source-column recovery by default and is not certified AC feasible. SOC results expose moment blocks and an estimated voltage state recovered through a voltage-correlation tree, without assuming PSD completion. A solver-reported objective bound is numerical evidence, not a rigorous certificate. No AC optimality gap is claimed without a separately verified feasible upper bound.
 
 ## Tests
 
@@ -74,3 +79,5 @@ Optional lifted nonlinear cuts can strengthen the SDP on physical voltage maps:
 use `IVRSDP(lnc=:lines)` for conservatively derived line bounds, or supply
 `voltage_lncs` with explicit domain provenance. See the
 [LNC formulation and usage](docs/src/lnc.md).
+
+See [network reduction and state reconstruction](docs/src/reduction.md) for policies, approximation warnings, portable plans, and the [numerical study](examples/results/reduction_study_2026-09-11.md).

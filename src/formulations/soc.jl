@@ -4,6 +4,7 @@ default_soc_optimizer()=default_optimizer(Val(:clarabel_soc))
 Base.@kwdef struct SOCOptions
     electrical::SDPOptions=SDPOptions()
     physical_projections::Bool=true
+    voltage_recovery::Symbol=:voltage_tree
     strengthening::Symbol=:linear
     max_triplets::Int=16
     directions::Tuple=(1.0+0im,1.0im)
@@ -68,6 +69,7 @@ end
 
 """Build the shared electrical relaxation using only pairwise SOC moment cones."""
 function build_soc_opf(input,optimizer=default_soc_optimizer();options::SOCOptions=SOCOptions())
+    options.voltage_recovery in (:voltage_tree,:conditional) || throw(ArgumentError("voltage_recovery must be :voltage_tree or :conditional"))
     options.strengthening in (:none,:linear,:kim) || throw(ArgumentError("strengthening must be :none, :linear or :kim"))
     options.max_triplets>=0 || throw(ArgumentError("max_triplets must be nonnegative"))
     all(c->c isa Number && isfinite(c),options.directions) || throw(ArgumentError("directions must be finite constants"))
@@ -122,5 +124,8 @@ function solve_soc_opf(b::SOCBuild;solver_options=())
     powers=Dict(k=>ComplexF64.(JuMP.value.(s)).*b.options.electrical.s_base for (k,s) in b.electrical.powers)
     history=NamedTuple[(round=0,objective=objective,bound=bound,psd_residual=residual,cuts=0,
         elapsed=(time_ns()-start)/1e9,optimizer_seconds=try JuMP.solve_time(model) catch;NaN end)]
+    candidate=b.options.voltage_recovery==:voltage_tree ? _soc_voltage_state(b.electrical) : _candidate_state(b.electrical)
+    metadata=(metadata...,candidate=candidate,recovery=b.options.voltage_recovery,
+        unanchored_voltage_coordinates=get(b.electrical.numerical_diagnostics,:recovery_unanchored_coordinates,0))
     SOCResult(objective,bound,blocks,powers,status,:one_shot,history,0,residual,metadata)
 end

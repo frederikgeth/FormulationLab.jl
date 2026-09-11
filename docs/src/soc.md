@@ -201,3 +201,11 @@ Raw records are in `examples/results/enwl_fixed_soc_clarabel_2026-09-11.json`,
 The ENWL script attaches the cached reference only when the input hash matches.
 For the transformer fixtures, run
 `julia --project=test examples/benchmark_soc_transformers.jl output.json`.
+
+## Original-network output
+
+`prepare_network` applies the shared BMOPFTools-compatible topology reduction.
+`reconstruct_solution` restores original buses and lines from the SOC voltage
+correlation-tree estimate, while retaining the raw relaxed solution separately.
+See [Network reduction and original-network states](@ref) for the recovery
+equations, approximation diagnostics, and limitations.

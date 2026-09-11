@@ -198,12 +198,13 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
     end
     maxima=Dict(u=>maximum((r.residual for r in records if r.unit==u);init=0.) for u in (:voltage,:current,:power))
     passed=isempty(unassessed) && all(maxima[u]<=getproperty(atol,u) for u in keys(maxima))
-    (;passed,maxima,records,unassessed=unique(unassessed),tolerances=atol)
+    (;passed,maxima,records,unassessed=unique(unassessed),tolerances=atol,nodal_balance=kcl)
 end
 
 function _physical_transformers!(net,point,V,current,check,bounds,inject,unassessed)
     for (kind,table) in get(net,"transformer",Dict()),(id,d) in table
         key="$kind/$id"
+        if !(kind in (_SDP_TRANSFORMERS...,"n_winding"));push!(unassessed,"transformer/$key");continue;end
         kind=="n_winding" && (_physical_nwinding!(net,d,key,V,current,check,bounds,inject,unassessed);continue)
         mf,mt=d["terminal_map_from"],d["terminal_map_to"];nf,nt=length(mf),length(mt)
         vf,vt=V(d["bus_from"],mf),V(d["bus_to"],mt)

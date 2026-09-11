@@ -1,0 +1,28 @@
+[
+  {
+    "name": "network_23_Feeder_3.json",
+    "path": "/Users/uqfgeth/Documents/GitHub/BMOPFDraftData/benchmarks/ENWLbenchmark/reduced/network_23_Feeder_3.json",
+    "collection": "ENWL",
+    "profiles": [
+      "linear32"
+    ]
+  },
+  {
+    "name": "ieee34/ieee34_pmd.dss",
+    "path": "/Users/uqfgeth/Documents/GitHub/DistributionTestCases.jl/src/data/ieee34/ieee34_pmd.dss",
+    "collection": "DistributionTestCases",
+    "profiles": [
+      "linear32"
+    ],
+    "no_nameplate_caps": true
+  },
+  {
+    "name": "cigre/CIGRE_test_case.dss",
+    "path": "/Users/uqfgeth/Documents/GitHub/DistributionTestCases.jl/src/data/cigre/CIGRE_test_case.dss",
+    "collection": "DistributionTestCases",
+    "profiles": [
+      "linear32"
+    ],
+    "no_nameplate_caps": true
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "name": "network_23_Feeder_3.json",
+    "path": "/Users/uqfgeth/Documents/GitHub/BMOPFDraftData/benchmarks/ENWLbenchmark/reduced/network_23_Feeder_3.json",
+    "collection": "ENWL",
+    "profiles": [
+      "linear32",
+      "kim12_8"
+    ]
+  },
+  {
+    "name": "network_18_Feeder_9.json",
+    "path": "/Users/uqfgeth/Documents/GitHub/BMOPFDraftData/benchmarks/ENWLbenchmark/reduced/network_18_Feeder_9.json",
+    "collection": "ENWL",
+    "profiles": [
+      "linear32",
+      "kim12_8"
+    ]
+  },
+  {
+    "name": "lvtestcase/snapshots/lvtestcase_pmd_t500.dss",
+    "path": "/Users/uqfgeth/Documents/GitHub/DistributionTestCases.jl/src/data/lvtestcase/snapshots/lvtestcase_pmd_t500.dss",
+    "collection": "DistributionTestCases",
+    "profiles": [
+      "linear32",
+      "kim12_8"
+    ]
+  },
+  {
+    "name": "lvtestcase/snapshots/lvtestcase_pmd_t1000.dss",
+    "path": "/Users/uqfgeth/Documents/GitHub/DistributionTestCases.jl/src/data/lvtestcase/snapshots/lvtestcase_pmd_t1000.dss",
+    "collection": "DistributionTestCases",
+    "profiles": [
+      "linear32",
+      "kim12_8"
+    ]
+  }
+]

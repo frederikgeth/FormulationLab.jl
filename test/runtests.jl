@@ -4,6 +4,7 @@ using OpenDSSDirect
     include("boundary_tests.jl")
     include("sdp_tests.jl")
     include("soc_tests.jl")
+    include("network_reduction_tests.jl")
     include("ac_validation_tests.jl")
     include("sdp_transformer_opendss_tests.jl")
     include("sdp_nwinding_opendss_tests.jl")
