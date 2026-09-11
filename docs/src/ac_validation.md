@@ -86,6 +86,14 @@ operation, plus one legacy-excitation case.
 | Wye–delta (4) | BMOPFTools initialization raises a terminal-index `BoundsError` |
 | Single phase with legacy excitation (1) | Reference currents disagree with the excitation placement |
 
+**Parser follow-up:** [BMOPFTools issue #393](https://github.com/frederikgeth/BMOPFTools.jl/issues/393)
+retested the direct-dictionary findings through `parse_bmopf`. The delta–wye
+combined-leakage case then passes: the parser migrates combined fields onto the
+wye winding. It also materializes explicit `no_load_shunt` records, which raw
+solve dictionaries bypass. The table above describes the retained **raw-input**
+audit, not failures of the parsed-input Dy model. The Yd initialization crash and
+center-tap convention discrepancy persist after parsing.
+
 The incompatible cases are retained as findings, not counted as passing
 validation. No model or input convention is silently changed to force agreement.
 The accepted states pass dense SDP, chordal SDP, SOC-linear and SOC-Kim; their

@@ -79,3 +79,45 @@ across a solve, deterministic triplet budgets, phase-pair ordering, phase-only
 source/line limits, and three-wire generator/converter conductor powers. The
 five additional budget checks were also run in the focused Julia 1.12 SOC suite.
 The Mosek and replay counts above are prior checks, not reruns of this extension.
+
+## Broader NLP / SOC panel — 11 September 2026
+
+A size-stratified sample of 12 of the 128 reduced ENWL feeders (5–538 buses)
+was compared with six DistributionTestCases inputs. Both engines received the
+same BMOPFTools-normalized input, with source generators removed, taps fixed,
+control laws omitted, and a source-import objective. One BLAS thread and small
+warm-up cases were used; timings are single observations, not repeated estimates.
+
+| Panel | Ipopt NLP | Default Clarabel SOC |
+|---|---|---|
+| 12 ENWL feeders | 12 locally solved, no error-level post-solve findings | 4 optimal, 5 almost optimal, 3 construction-budget failures |
+| Two 907-bus LV snapshots | Both locally solved, about 0.07 s solve time | Neither completed within its 240 s process budget |
+| Modified IEEE 13 / IEEE 123 | Both rejected missing converted line impedances | Same input failures |
+| Modified IEEE 34 | Locally infeasible with nameplate caps | Slow progress |
+| CIGRE test case | Locally infeasible with nameplate caps | Optimal; no feasible NLP reference for an original-input gap |
+
+The 538-bus ENWL NLP took 0.24 s to build and 0.39 s to solve. SOC construction
+already took 54 s at 140 buses. Bounded retries at 178, 241 and 538 buses stopped
+in construction; their 240 s process budgets include startup and warm-up.
+
+Fixed Kim strengthening reached optimal status on 3 of the 9 completed ENWL
+comparisons. It reduced the 45-bus gap from 20.7 W to 9.0 W but increased total
+time from 47 s to 71 s. Modestly relaxed stopping tolerances recovered optimal
+status on 3 of 5 almost-optimal default-SOC cases, but did not address build cost.
+
+The transformer `s_rating` interpretation materially affects the imported
+comparisons. In **separate derived-input diagnostics**, removing those fields
+made both CIGRE and IEEE 34 NLPs locally solved with no error-level findings.
+CIGRE then had a numerical NLP-minus-SOC objective gap of 1006.7 W on a 1.837 MW
+import (0.055%); IEEE 34 SOC still returned slow progress. Restoring IEEE 13's
+explicitly stated missing line impedance allowed model construction but did not
+produce a successful solve with its original nameplate caps. The IEEE 123
+converter also warned that a delta–delta transformer was dropped: these imported
+outcomes cannot establish feasibility of the unchanged DSS circuits.
+
+The full report and numerical evidence are in
+`examples/results/nlp_soc_combined_2026-09-11.md` and its JSON companion.
+`examples/README_nlp_soc_experiments.md` documents the runners, bounds on execution,
+controlled changes and interpretation caveats. These numerical objectives are
+not certified global bounds; Ipopt results are local candidates, and solver
+status alone does not establish physical equivalence across input conventions.
