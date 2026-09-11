@@ -207,6 +207,11 @@ checks. These five cases are a screening panel, not a universal performance clai
 
 ## Proposed delivery sequence
 
+Implemented in the subsequent [SOC profiles and structural sparsity](soc_profiles.md)
+work: named presets, guarded structural physical elimination, updated small-state
+automatic selection, containment tests, fixed-budget and backend comparisons.
+The historical recommendations below explain the starting point.
+
 First add documented fast and balanced profile constructors and retain all raw
 options. Validate both against rank-one AC points and the existing transformer,
 neutral, load and bound tests; run the larger ENWL panel to detect regressions.

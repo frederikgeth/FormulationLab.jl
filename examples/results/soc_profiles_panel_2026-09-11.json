@@ -1,0 +1,77 @@
+{
+  "note": "Serial screening, one solve per completed case/profile; large-process caps include startup/build, not only optimization.",
+  "jobs": [
+    {
+      "name": "small",
+      "budget_seconds": 900,
+      "manifest": "soc_profiles_panel_small_manifest.json",
+      "raw": "soc_profiles_panel_small.json",
+      "log": "soc_profiles_panel_small.log",
+      "exit_code": 0,
+      "outcome": "completed",
+      "wall_seconds": 399.3265161670279,
+      "last_stage": "complete"
+    },
+    {
+      "name": "network_13_Feeder_4_fast",
+      "budget_seconds": 120,
+      "manifest": "soc_profiles_panel_network_13_Feeder_4_fast_manifest.json",
+      "raw": "soc_profiles_panel_network_13_Feeder_4_fast.json",
+      "log": "soc_profiles_panel_network_13_Feeder_4_fast.log",
+      "outcome": "process_budget",
+      "wall_seconds": 120.03679920901777,
+      "last_stage": "build_fast"
+    },
+    {
+      "name": "network_13_Feeder_4_balanced",
+      "budget_seconds": 120,
+      "manifest": "soc_profiles_panel_network_13_Feeder_4_balanced_manifest.json",
+      "raw": "soc_profiles_panel_network_13_Feeder_4_balanced.json",
+      "log": "soc_profiles_panel_network_13_Feeder_4_balanced.log",
+      "outcome": "process_budget",
+      "wall_seconds": 120.04322283295915,
+      "last_stage": "build_balanced"
+    },
+    {
+      "name": "network_2_Feeder_4_fast",
+      "budget_seconds": 120,
+      "manifest": "soc_profiles_panel_network_2_Feeder_4_fast_manifest.json",
+      "raw": "soc_profiles_panel_network_2_Feeder_4_fast.json",
+      "log": "soc_profiles_panel_network_2_Feeder_4_fast.log",
+      "outcome": "process_budget",
+      "wall_seconds": 120.02855933300452,
+      "last_stage": "build_fast"
+    },
+    {
+      "name": "network_2_Feeder_4_balanced",
+      "budget_seconds": 120,
+      "manifest": "soc_profiles_panel_network_2_Feeder_4_balanced_manifest.json",
+      "raw": "soc_profiles_panel_network_2_Feeder_4_balanced.json",
+      "log": "soc_profiles_panel_network_2_Feeder_4_balanced.log",
+      "outcome": "process_budget",
+      "wall_seconds": 120.03732424997725,
+      "last_stage": "build_balanced"
+    },
+    {
+      "name": "Network_8_Feeder_2_fast",
+      "budget_seconds": 120,
+      "manifest": "soc_profiles_panel_Network_8_Feeder_2_fast_manifest.json",
+      "raw": "soc_profiles_panel_Network_8_Feeder_2_fast.json",
+      "log": "soc_profiles_panel_Network_8_Feeder_2_fast.log",
+      "outcome": "process_budget",
+      "wall_seconds": 120.03917695803102,
+      "last_stage": "build_fast"
+    },
+    {
+      "name": "Network_8_Feeder_2_balanced",
+      "budget_seconds": 120,
+      "manifest": "soc_profiles_panel_Network_8_Feeder_2_balanced_manifest.json",
+      "raw": "soc_profiles_panel_Network_8_Feeder_2_balanced.json",
+      "log": "soc_profiles_panel_Network_8_Feeder_2_balanced.log",
+      "outcome": "process_budget",
+      "wall_seconds": 120.03498712502187,
+      "last_stage": "build_balanced"
+    }
+  ],
+  "complete": true
+}

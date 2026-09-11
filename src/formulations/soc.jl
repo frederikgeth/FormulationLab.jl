@@ -2,6 +2,7 @@ default_soc_optimizer()=default_optimizer(Val(:clarabel_soc))
 
 """SOC outer relaxation options. `electrical` selects the matching SDP layout and cuts."""
 Base.@kwdef struct SOCOptions
+    profile::Symbol=:custom # provenance label; IVRSOC resolves presets
     electrical::SDPOptions=SDPOptions()
     physical_projections::Bool=true
     voltage_recovery::Symbol=:voltage_tree
@@ -75,6 +76,10 @@ function build_soc_opf(input,optimizer=default_soc_optimizer();options::SOCOptio
     all(c->c isa Number && isfinite(c),options.directions) || throw(ArgumentError("directions must be finite constants"))
     policy=(blocks=Any[],physical=options.physical_projections,options=options)
     b=build_sdp_opf(input,optimizer;options=options.electrical,_soc=policy)
+    b.numerical_diagnostics[:soc_profile]=options.profile
+    b.numerical_diagnostics[:soc_options]=(physical_projections=options.physical_projections,
+        strengthening=options.strengthening,max_triplets=options.max_triplets,
+        directions=options.directions,voltage_recovery=options.voltage_recovery)
     b.numerical_diagnostics[:cone]=:soc
     b.numerical_diagnostics[:physical_projections]=options.physical_projections
     SOCBuild(b,policy.blocks,options)

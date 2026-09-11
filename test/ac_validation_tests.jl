@@ -1,5 +1,9 @@
 using Test,FormulationLab,JuMP,LinearAlgebra
 include("ac_validation_fixtures.jl")
+_performance_audits(;kwargs...)=(IVRSOC(profile=:fast,audit=true;kwargs...),
+    IVRSOC(profile=:balanced,audit=true;kwargs...),
+    IVRSOC(basis=:physical_sparse,audit=true;kwargs...),
+    IVRSDP(basis=:physical_sparse,audit=true;kwargs...))
 
 @testset "Independent transformer states survive every relaxation" begin
     for kind in ("single_phase","center_tap","delta_wye","wye_delta","single_phase_autotransformer","open_delta_regulator"),reverse in (false,true)
@@ -12,7 +16,8 @@ include("ac_validation_fixtures.jl")
                 IVRSDP(audit=true,s_base=sb,decomposition=:chordal,consistency=:shared,clique_size=4),
                 IVRSOC(audit=true,s_base=sb,strengthening=:none),
                 IVRSOC(audit=true,s_base=sb,strengthening=:linear),
-                IVRSOC(audit=true,s_base=sb,strengthening=:kim,max_triplets=2))
+                IVRSOC(audit=true,s_base=sb,strengthening=:kim,max_triplets=2),
+                _performance_audits(s_base=sb)...)
             for f in profiles
                 b=build_opf(net,f;optimizer=nothing)
                 before=num_constraints(b.model;count_variable_in_set_constraints=true)
@@ -64,7 +69,7 @@ end
         p=ACPoint(voltage=Dict(("source","a")=>230+0im,("load","a")=>vl),
             currents=Dict((:load,"load")=>[i],(:line_from,"line")=>[i],(:line_to,"line")=>[-i],(:voltage_source,"source")=>[i]))
         @test physical_residuals(net,p).passed
-        for f in (IVRSOC(audit=true,lnc=:lines),IVRSDP(audit=true))
+        for f in (IVRSOC(audit=true,lnc=:lines),IVRSDP(audit=true),_performance_audits(lnc=:lines)...)
             b=build_opf(net,f;optimizer=nothing);r=containment_report(b,p)
             @test r.max_bound_violation_pu<1e-7
             @test r.binding_residual<1e-7
@@ -77,7 +82,7 @@ end
     net,p=_audit_nwinding_state()
     @test physical_residuals(net,p).passed
     for f in (IVRSDP(audit=true,decomposition=:dense),IVRSDP(audit=true,decomposition=:chordal,clique_size=4),
-        IVRSOC(audit=true,strengthening=:linear),IVRSOC(audit=true,strengthening=:kim,max_triplets=2))
+        IVRSOC(audit=true,strengthening=:linear),IVRSOC(audit=true,strengthening=:kim,max_triplets=2),_performance_audits()...)
         b=build_opf(net,f;optimizer=nothing);r=containment_report(b,p)
         @test r.state_residual_pu<1e-7
         @test r.max_bound_violation_pu<1e-7
@@ -97,7 +102,7 @@ end
                 (:transformer_coil_from,"single_phase/tx")=>[complex(.5il)],(:transformer_coil_to,"single_phase/tx")=>[-complex(il)],
                 (:transformer_from,"single_phase/tx")=>complex.([.5il,-.5il]),(:transformer_to,"single_phase/tx")=>[-complex(il),0im]))
         @test physical_residuals(net,p).passed
-        for f in (IVRSDP(audit=true),IVRSOC(audit=true))
+        for f in (IVRSDP(audit=true),IVRSOC(audit=true),_performance_audits()...)
             r=containment_report(build_opf(net,f;optimizer=nothing),p)
             @test max(r.state_residual_pu,r.binding_residual,r.max_constraint_violation)<1e-7
         end
@@ -120,7 +125,7 @@ end
         @test physical_residuals(net,p).passed
         bad=deepcopy(p);bad.currents[(:ibr_internal,"g")][1]+=.1
         @test !physical_residuals(net,bad).passed
-        for f in (IVRSDP(audit=true),IVRSOC(audit=true))
+        for f in (IVRSDP(audit=true),IVRSOC(audit=true),_performance_audits()...)
             r=containment_report(build_opf(net,f;optimizer=nothing),p)
             @test max(r.state_residual_pu,r.binding_residual,r.max_constraint_violation)<1e-7
         end
@@ -139,7 +144,7 @@ end
     @test !physical_residuals(net,bad).passed
     bad=deepcopy(p);empty!(bad.voltage)
     @test !physical_residuals(net,bad).passed
-    for f in (IVRSDP(audit=true),IVRSOC(audit=true))
+    for f in (IVRSDP(audit=true),IVRSOC(audit=true),_performance_audits()...)
         r=containment_report(build_opf(net,f;optimizer=nothing),p)
         @test max(r.state_residual_pu,r.binding_residual,r.max_constraint_violation)<1e-7
     end

@@ -24,6 +24,10 @@ sdp = solve_opf(input, IVRSDP(objective=:source_import);
 soc = solve_opf(input, IVRSOC(objective=:source_import);
                 solver_options=(verbose=false,))
 
+# Named fixed profiles (explicit keyword options override presets):
+fast = IVRSOC(profile=:fast)
+balanced = IVRSOC(profile=:balanced)
+
 # Shared BMOPFTools-compatible reduction and original-network reconstruction:
 prepared = prepare_network(input; reduction=:bmopf)
 reduced = solve_opf(prepared, IVRSOC(); solver_options=(verbose=false,))
@@ -54,6 +58,7 @@ julia --project=test/optional test/optional/mosek.jl
 
 The default test environment includes Clarabel, Ipopt (for migrated affine-model comparisons), and OpenDSSDirect. It has no BMOPFTools or Mosek dependency. Nonlinear BMOPFTools replay comparisons are retained separately in [test/integration](test/integration/README.md).
 
+- [SOC profiles and structural sparsity](docs/src/soc_profiles.md)
 - [Formulation decisions, experimental lessons, and scientific origins](docs/src/formulation_choices.md)
 - [Architecture and next steps](docs/src/architecture.md)
 - [BMOPF coverage](docs/src/coverage.md)

@@ -6,6 +6,8 @@ multiwinding units and explicit neutrals. Nonlinear load laws use additional
 power-cone envelopes. Controls are not evaluated. `s_base` is in VA.
 `lnc=:lines` enables derived line-voltage cuts; `:off` is the default.
 `voltage_lncs` adds explicit domains/cuts independently of that setting.
+`basis=:auto` uses guarded structural physical elimination up to 32 independent
+coordinates and sparse QR above that; `:physical` retains the legacy basis.
 """
 Base.@kwdef struct SDPOptions
     audit::Bool = false
@@ -142,7 +144,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     options.consistency in (:auto,:local,:shared) || throw(ArgumentError("unknown clique consistency"))
     options.clique_size>=1 || throw(ArgumentError("clique_size must be positive"))
     options.recovery in (:anchor,:dominant) || throw(ArgumentError("unknown SDP recovery"))
-    options.basis in (:auto,:orthonormal,:physical,:sparse) || throw(ArgumentError("unknown SDP basis"))
+    options.basis in (:auto,:orthonormal,:physical,:physical_sparse,:sparse) || throw(ArgumentError("unknown SDP basis"))
     options.cone in (:hermitian,:real) || throw(ArgumentError("unknown SDP cone"))
     options.shunt_coordinates in (:admittance,:current) || throw(ArgumentError("unknown shunt coordinates"))
     net = _l3f_input(input)
@@ -398,9 +400,9 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
             voltage=copy(voltage),real_embeddings=Any[],envelopes=Any[])
     end
     if options.decomposition==:dense
-        N=_sdp_basis(A,options.basis)
+        N=_sdp_basis(A,options.basis;diagnostics)
         size(N,2)>0 || _sdp_refuse("electrical equations leave no nonzero source state")
-        diagnostics[:basis]=options.basis==:auto ? (size(N,2)<=32 ? :physical : :sparse) : options.basis
+        diagnostics[:basis]=options.basis==:auto ? (size(N,2)<=32 ? :physical_sparse : :sparse) : options.basis
         diagnostics[:electrical_residual]=norm(A*N,Inf)
         diagnostics[:reduced_dimension]=size(N,2)
         H=_sdp_psd(model,size(N,2),options.cone)

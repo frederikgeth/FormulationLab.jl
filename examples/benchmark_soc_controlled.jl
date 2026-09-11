@@ -21,13 +21,16 @@ function controlled_model(p,sb,v)
         clique_size=v.size,basis=v.basis,max_triplets=8,lnc=:off,
         voltage_recovery=:voltage_tree);optimizer=nothing)
 end
-function controlled_run(b,p,v;recover=false)
+function controlled_run(b,p,v;recover=false,solver_options=())
     # Reset optimizer every time: fresh setup and default start, no warm start reuse.
     set_optimizer(b.model,FormulationLab.default_soc_optimizer())
     for (key,value) in ("verbose"=>false,"tol_feas"=>1e-7,"tol_gap_abs"=>1e-6,
                         "tol_gap_rel"=>1e-7,"iterative_refinement_max_iter"=>v.refinement,
                         "time_limit"=>90.)
         set_optimizer_attribute(b.model,key,value)
+    end
+    for (key,value) in pairs(solver_options)
+        set_optimizer_attribute(b.model,string(key),value)
     end
     GC.gc()
     attach=@elapsed MOI.Utilities.attach_optimizer(backend(b.model))

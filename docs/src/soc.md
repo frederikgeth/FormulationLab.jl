@@ -13,6 +13,9 @@ Blocks of order at most two are represented exactly. Larger blocks can remain
 indefinite. Power cones for voltage-dependent loads are retained. No profile
 introduces a PSD cone. The coordinates and clique cover affect strength.
 
+See [profiles and structural sparsity](soc_profiles.md) for named configurations,
+the updated automatic basis and its validation.
+
 ## Usage
 
 ```julia

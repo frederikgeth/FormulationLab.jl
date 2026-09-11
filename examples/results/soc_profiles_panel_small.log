@@ -1,0 +1,70 @@
+CASE network_23_Feeder_3.json
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+build_clarabel
+clarabel OPTIMAL 0.001994333
+build_fast
+fast OPTIMAL 0.001518084
+build_balanced
+balanced OPTIMAL 0.003811
+CASE network_9_Feeder_4.json
+build_clarabel
+clarabel OPTIMAL 0.040821833
+build_fast
+fast OPTIMAL 0.840407083
+build_balanced
+balanced OPTIMAL 1.313746875
+CASE network_5_Feeder_6.json
+build_clarabel
+clarabel OPTIMAL 0.413124916
+build_fast
+fast OPTIMAL 0.6994867920000001
+build_balanced
+balanced OPTIMAL 0.983979
+CASE network_18_Feeder_6.json
+build_clarabel
+clarabel OPTIMAL 0.49846525
+build_fast
+fast OPTIMAL 2.086824209
+build_balanced
+balanced OPTIMAL 2.865274667
+CASE network_22_Feeder_4.json
+build_clarabel
+clarabel ALMOST_OPTIMAL 0.40158841700000003
+build_fast
+fast ALMOST_OPTIMAL 0.409477541
+build_balanced
+balanced ALMOST_OPTIMAL 0.424084709
+CASE network_13_Feeder_1.json
+build_clarabel
+clarabel ALMOST_OPTIMAL 0.533248417
+build_fast
+fast ALMOST_OPTIMAL 0.517664042
+build_balanced
+balanced ALMOST_OPTIMAL 0.552433708
+CASE network_18_Feeder_9.json
+build_clarabel
+clarabel OPTIMAL 1.347686291
+build_fast
+fast OPTIMAL 1.4955508750000002
+build_balanced
+balanced OPTIMAL 1.5485995830000001
+CASE network_19_Feeder_4.json
+build_clarabel
+clarabel OPTIMAL 0.8887538330000001
+build_fast
+fast OPTIMAL 0.824971458
+build_balanced
+balanced OPTIMAL 0.772158208
+CASE network_3_Feeder_2.json
+build_clarabel
+clarabel OPTIMAL 0.8796747090000001
+build_fast
+fast OPTIMAL 0.878128042
+build_balanced
+balanced OPTIMAL 0.909542833

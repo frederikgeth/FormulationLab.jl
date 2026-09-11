@@ -36,10 +36,10 @@ function _sdp_psd(model,m,cone)
     [(X[i,j]+X[m+i,m+j]+im*(X[m+i,j]-X[i,m+j]))/2 for i in 1:m,j in 1:m]
 end
 
-function _sdp_basis(A,kind)
+function _sdp_basis(A,kind;diagnostics=nothing)
     if kind in (:sparse,:auto)
         F=qr(sparse(A));r=rank(F);n=size(A,2);m=n-r
-        kind==:auto && m<=32 && return _sdp_basis(A,:physical)
+        kind==:auto && m<=32 && return _sdp_basis(A,:physical_sparse;diagnostics)
         R=F.R
         coefficients=UpperTriangular(Matrix{ComplexF64}(R[1:r,1:r])) \ Matrix{ComplexF64}(-R[1:r,r+1:n])
         N=zeros(ComplexF64,n,m)
@@ -47,12 +47,71 @@ function _sdp_basis(A,kind)
         return N
     end
     N=nullspace(A)
-    if kind==:physical && size(N,2)>0
+    if kind in (:physical,:physical_sparse) && size(N,2)>0
         pivots=qr(Matrix{ComplexF64}(N'),ColumnNorm()).p[1:size(N,2)]
         N=N/N[pivots,:]
         N[pivots,:]=Matrix{ComplexF64}(I,length(pivots),length(pivots))
+        kind==:physical_sparse && return _sdp_physical_sparse(A,pivots,N,diagnostics)
     end
     N
+end
+
+# With free physical coordinates fixed, disconnected components of the dependent
+# column incidence graph cannot respond to free coordinates outside their rows.
+# Solve only structurally present RHS columns. No magnitude threshold removes data.
+function _sdp_physical_sparse(A,free,reference,diagnostics)
+    n=size(A,2);m=length(free);dependent=setdiff(1:n,free)
+    N=zeros(ComplexF64,n,m);N[free,:]=Matrix{ComplexF64}(I,m,m)
+    B=sparse(A[:,dependent]);C=sparse(A[:,free])
+    rowcols=[Int[] for _ in axes(A,1)]
+    for j in axes(B,2), k in nzrange(B,j)
+        iszero(nonzeros(B)[k]) || push!(rowcols[rowvals(B)[k]],j)
+    end
+    parent=collect(eachindex(dependent))
+    function root(i)
+        while parent[i]!=i
+            parent[i]=parent[parent[i]];i=parent[i]
+        end
+        i
+    end
+    for js in rowcols
+        isempty(js) && continue
+        for j in js;parent[root(j)]=root(first(js));end
+    end
+    groups=Dict{Int,Vector{Int}}()
+    for j in eachindex(dependent);push!(get!(groups,root(j),Int[]),j);end
+    components=sort!(collect(values(groups));by=first)
+    solved_columns=0
+    for js in components
+        rows=findall(r->!isempty(rowcols[r]) && root(first(rowcols[r]))==root(first(js)),axes(A,1))
+        # A dependent component with no forcing is exactly zero in every basis column.
+        rhs=findall(j->any(!iszero,C[rows,j]),1:m)
+        isempty(rhs) && continue
+        F=qr(B[rows,js])
+        if rank(F)!=length(js)
+            if diagnostics!==nothing
+                diagnostics[:basis_structural_components]=length(components)
+                diagnostics[:basis_fallback]=true
+                diagnostics[:basis_fallback_reason]=:dependent_rank
+            end
+            return reference
+        end
+        N[dependent[js],rhs]=F \ Matrix(-C[rows,rhs])
+        solved_columns+=length(rhs)
+    end
+    difference=norm(N-reference,Inf)/max(1.,norm(reference,Inf))
+    residual=norm(A*N,Inf)/max(1.,norm(A,Inf)*norm(N,Inf))
+    # Retain the original representation when floating-point solves disagree.
+    fallback=!isfinite(difference) || !isfinite(residual) || difference>1e-8 || residual>1e-10
+    if diagnostics!==nothing
+        diagnostics[:basis_structural_components]=length(components)
+        diagnostics[:basis_rhs_columns]=solved_columns
+        diagnostics[:basis_map_difference]=difference
+        diagnostics[:basis_relative_residual]=residual
+        diagnostics[:basis_fallback]=fallback
+        diagnostics[:basis_fallback_reason]=fallback ? :map_residual : :none
+    end
+    fallback ? reference : N
 end
 
 function _sdp_cliques(n,supports)
@@ -122,8 +181,8 @@ function _sdp_merge_cliques(cliques,parents,limit)
 end
 
 function _sdp_sparse_moment(model,A,supports,options,diagnostics)
-    N=_sdp_basis(A,options.basis);m=size(N,2)
-    diagnostics[:basis]=options.basis==:auto ? (m<=32 ? :physical : :sparse) : options.basis
+    N=_sdp_basis(A,options.basis;diagnostics);m=size(N,2)
+    diagnostics[:basis]=options.basis==:auto ? (m<=32 ? :physical_sparse : :sparse) : options.basis
     n=size(A,2)
     if options.decomposition==:auto && m<=32
         diagnostics[:decomposition]=:dense

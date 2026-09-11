@@ -52,14 +52,18 @@ starting point for choosing it; power-base selection alone does not fix a poorly
 conditioned cone representation.
 
 The electrical rows are equilibrated before nullspace elimination. Automatic
-basis selection retains the physical basis for reduced orders at most 32 and
+basis selection uses the structure-preserving physical basis (`:physical_sparse`)
+for reduced orders at most 32 and
 uses the sparse basis for larger systems. The `:sparse` basis uses SuiteSparse QR and a triangular solve for the free state
 coordinates. This preserves structural zeros instead of introducing dense
 roundoff-sized coefficients through an SVD. The alternative physical
 basis selects independent physical coordinates using pivoted QR of the nullspace
 transpose. If their row indices are `p`, the change is `N ← N / N[p,:]`. The selected
 rows are the identity by construction. This changes coordinates, not physics.
-No small coefficient is dropped merely because it is small. Rank decisions use
+The `:physical_sparse` path retains the same independent physical coordinates
+but reconstructs their dependent rows using sparse electrical solves; see
+[the derivation and fallback checks](soc_profiles.md). The legacy `:physical`
+option remains available. No small coefficient is dropped merely because it is small. Rank decisions use
 Float64 linear algebra, so this is not an interval-certified elimination.
 
 For shunts, explicit current coordinates impose `j = Y*v` with each row divided

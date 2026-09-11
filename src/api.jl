@@ -28,11 +28,29 @@ solve_opf(input, f::LinDist3Flow; optimizer=default_optimizer(), kwargs...) =
 solve_opf(input, f::IVRSDP; optimizer=default_sdp_optimizer(), kwargs...) =
     solve_sdp_opf(input, optimizer; options=f.options, kwargs...)
 
-"""SOC outer approximation of the current–voltage SDP with fixed data-selected strengthening."""
+"""
+    IVRSOC(; profile=:clarabel, kwargs...)
+
+Fixed SOC/power-cone relaxation. `profile=:fast` selects sparse coordinates and
+linear strengthening; `:balanced` adds up to eight fixed Kim triplets. Both use
+`clique_size=32`. Explicit keyword options override these presets. The existing
+`:clarabel` (default) and `:reference` electrical profiles remain available.
+Presets do not change solver tolerances, reduction, or the electrical contract.
+"""
 struct IVRSOC <: AbstractFormulation
     options::SOCOptions
 end
-IVRSOC(;physical_projections=true,voltage_recovery=:voltage_tree,strengthening=:linear,max_triplets=16,directions=(1.0+0im,1.0im),kwargs...)=IVRSOC(SOCOptions(electrical=SDPOptions(;kwargs...),physical_projections=physical_projections,voltage_recovery=voltage_recovery,strengthening=strengthening,max_triplets=max_triplets,directions=directions))
+function IVRSOC(;profile=:clarabel,physical_projections=true,voltage_recovery=:voltage_tree,
+    strengthening=nothing,max_triplets=nothing,directions=(1.0+0im,1.0im),kwargs...)
+    profile in (:clarabel,:reference,:fast,:balanced) || throw(ArgumentError("unknown SOC profile: $profile"))
+    preset=profile in (:fast,:balanced)
+    defaults=preset ? (profile=:clarabel,basis=:sparse,clique_size=32) : (profile=profile,)
+    electrical=SDPOptions(;merge(defaults,(;kwargs...))...)
+    strength=strengthening===nothing ? (profile==:balanced ? :kim : :linear) : strengthening
+    budget=max_triplets===nothing ? (profile==:balanced ? 8 : 16) : max_triplets
+    IVRSOC(SOCOptions(;profile,electrical,physical_projections,voltage_recovery,
+        strengthening=strength,max_triplets=budget,directions))
+end
 formulation_kind(::IVRSOC)=:relaxation
 build_opf(input,f::IVRSOC;optimizer=default_soc_optimizer(),kwargs...)=build_soc_opf(input,optimizer;options=f.options,kwargs...)
 solve_opf(input,f::IVRSOC;optimizer=default_soc_optimizer(),kwargs...)=solve_soc_opf(input,optimizer;options=f.options,kwargs...)

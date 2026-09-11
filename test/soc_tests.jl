@@ -181,3 +181,55 @@ end
     @test no_psd(a.model)
     @test !has_values(a.model)
 end
+
+@testset "Named fixed SOC profiles and explicit overrides" begin
+    @test IVRSOC().options.electrical.basis==:auto
+    @test IVRSOC().options.strengthening==:linear
+    default_build=build_opf(_l3f_case(),IVRSOC();optimizer=nothing)
+    @test default_build.electrical.numerical_diagnostics[:basis]==:physical_sparse
+    @test !default_build.electrical.numerical_diagnostics[:basis_fallback]
+    @test IVRSOC(profile=:reference).options.electrical.profile==:reference
+    @test_throws ArgumentError IVRSOC(profile=:adaptive)
+    for (name,strength,budget) in ((:fast,:linear,16),(:balanced,:kim,8))
+        f=IVRSOC(profile=name)
+        @test f.options.electrical.basis==:sparse
+        @test f.options.electrical.clique_size==32
+        @test f.options.strengthening==strength
+        @test f.options.max_triplets==budget
+        r=solve_opf(_l3f_case(),f;solver_options=(verbose=false,))
+        @test r.solve.optimal
+        @test r.metadata.numerics[:soc_profile]==name
+        @test r.metadata.numerics[:soc_options].strengthening==strength
+        @test r.stop_reason==:one_shot
+    end
+    f=IVRSOC(profile=:balanced,basis=:physical_sparse,clique_size=12,max_triplets=2,strengthening=:none)
+    @test f.options.electrical.basis==:physical_sparse
+    @test f.options.electrical.clique_size==12
+    @test f.options.max_triplets==2 && f.options.strengthening==:none
+end
+
+@testset "Structure-preserving physical elimination" begin
+    for A in (ComplexF64[1 2 0 0;0 0 1 3],
+              ComplexF64[1 2 0 0;0 0 1 1e-16],
+              zeros(ComplexF64,0,3),
+              ComplexF64[1 2im 3 0 0;0 0 0 1 -im;2 4im 6 0 0])
+        d=Dict{Symbol,Any}()
+        old=FormulationLab._sdp_basis(A,:physical)
+        new=FormulationLab._sdp_basis(A,:physical_sparse;diagnostics=d)
+        @test norm(A*new,Inf)<1e-12
+        @test new ≈ old atol=1e-12 rtol=1e-12
+        @test !get(d,:basis_fallback,false)
+        # Equality of arbitrary complex physical products, not just one objective.
+        y=complex.(1:size(new,2),size(new,2):-1:1)
+        @test (new*y)*(new*y)' ≈ (old*y)*(old*y)' atol=1e-11 rtol=1e-11
+    end
+    A=ComplexF64[1 0 1e-16 0;0 1 0 2]
+    # Prescribed free coordinates expose a real, tiny coefficient that must survive.
+    reference=ComplexF64[-1e-16 0;0 -2;1 0;0 1]
+    d=Dict{Symbol,Any}()
+    N=FormulationLab._sdp_physical_sparse(A,[3,4],reference,d)
+    @test N[1,1] ≈ -1e-16 rtol=1e-14 atol=0
+    @test N[1,2]==N[2,1]==0
+    @test d[:basis_structural_components]==2
+    @test N ≈ reference
+end
