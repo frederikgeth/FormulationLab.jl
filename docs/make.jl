@@ -23,5 +23,6 @@ makedocs(;
         "API"=>"api.md",
         "Provenance"=>"migration.md",
         "Verification"=>"verification.md",
+        "AC containment audit"=>"ac_validation.md",
     ],
 )

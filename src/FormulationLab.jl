@@ -56,6 +56,9 @@ include("cuts/lnc_lines.jl")
 include("formulations/soc.jl")
 include("cuts/soc_fixed.jl")
 include("api.jl")
+include("validation/containment.jl")
+include("validation/physical.jl")
+export ACPoint, containment_report, physical_residuals, complete_ac_point
 export PhysicalBoundReport, bound_report
 export IVRSOC, SOCOptions, SOCBuild, SOCResult, build_soc_opf, solve_soc_opf
 export LNCBounds, VoltagePhasor, VoltageLNC, LNCDiagnostic, add_lnc!, add_voltage_lnc!, phasor_products

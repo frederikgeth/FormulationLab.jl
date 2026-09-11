@@ -162,6 +162,7 @@ function _sdp_power_envelope!(model,x,a,lo,hi)
     a==0 && return 1.0
     a==1 && return x
     t=@variable(model,lower_bound=0)
+    haskey(model.ext,:ac_audit) && push!(model.ext[:ac_audit].envelopes,(x,t,a))
     if 0<a<1
         @constraint(model,[x,1.0,t] in JuMP.MOI.PowerCone(a))
     elseif a>1

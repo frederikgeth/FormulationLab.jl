@@ -8,6 +8,7 @@ power-cone envelopes. Controls are not evaluated. `s_base` is in VA.
 `voltage_lncs` adds explicit domains/cuts independently of that setting.
 """
 Base.@kwdef struct SDPOptions
+    audit::Bool = false
     bound_sweeps::Int = 8
     profile::Symbol = :clarabel
     decomposition::Symbol = profile==:clarabel ? :auto : :dense
@@ -391,6 +392,10 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
         :bound_report=>bound_info,:face_equations=>face_rows,:derived_current_bounds=>length(derived))
     model=optimizer===nothing || optimizer isa _SDPDefaultOptimizer ? JuMP.Model() : JuMP.Model(optimizer)
     _soc===nothing || (model.ext[:soc_policy]=_soc)
+    if options.audit
+        model.ext[:ac_audit]=(equations=A,devices=deepcopy(devices),limits=deepcopy(limits),
+            voltage=copy(voltage),real_embeddings=Any[],envelopes=Any[])
+    end
     if options.decomposition==:dense
         N=_sdp_basis(A,options.basis)
         size(N,2)>0 || _sdp_refuse("electrical equations leave no nonzero source state")

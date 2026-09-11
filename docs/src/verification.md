@@ -1,5 +1,13 @@
 # Verification — 2026-09-11
 
+The new [AC containment audit](ac_validation.md) adds 1,102 passing checks to
+the default suite (4,634 total on Julia 1.12.6). The first 1,097 of these new
+checks also pass on Julia 1.10.11; the five additional passive/missing-observation
+checks were run on Julia 1.12.6. The optional BMOPFTools/Ipopt transformer audit
+passes 180 assertions on 12 compatible reference cases. Nine incompatible
+reference states and four reference initialization failures remain explicit
+findings, not passing coverage. The table below records earlier milestones.
+
 | Check | Result |
 |---|---|
 | Default suite, Julia 1.10.11 | 3,527 passed, no skips |

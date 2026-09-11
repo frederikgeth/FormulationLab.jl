@@ -32,6 +32,7 @@ function _sdp_psd(model,m,cone)
         return @variable(model,[1:m,1:m] in HermitianPSDCone())
     end
     X=@variable(model,[1:2m,1:2m],PSD)
+    haskey(model.ext,:ac_audit) && push!(model.ext[:ac_audit].real_embeddings,X)
     [(X[i,j]+X[m+i,m+j]+im*(X[m+i,j]-X[i,m+j]))/2 for i in 1:m,j in 1:m]
 end
 
