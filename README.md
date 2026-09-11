@@ -5,7 +5,7 @@ Unbalanced power-flow formulations with explicit mathematical scope and solver-o
 Implemented:
 
 - **LinDist3Flow**: migrated from PowerOptLab, including affine/SOC limits, component lowering, applicability diagnostics, per-unit scaling, and IEEE/OpenDSS regression tests. This is a fixed-reference, lossless **approximation**, not an AC lower bound.
-- **IVRSDP**: a first dense semidefinite **relaxation** of current–voltage equations. It retains explicit neutrals and delta connections, eliminates linear electrical equations, and lifts voltage/current products. Its currently supported subset is documented below; fixed-tap transformers and regulators are supported as documented; controllers remain pending.
+- **IVRSDP**: a first dense semidefinite **relaxation** of current–voltage equations. It retains explicit neutrals and delta connections, eliminates linear electrical equations, and lifts voltage/current products. It supports the static AC electrical component families, including general multiwinding transformers and inverter capability models. Nonlinear loads use additional convex envelopes; control laws are not evaluated.
 
 ```julia
 using FormulationLab, Clarabel

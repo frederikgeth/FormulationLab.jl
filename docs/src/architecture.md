@@ -25,18 +25,18 @@ it is not intended as the scalable production representation.
 
 Next milestones, in order:
 
-1. Audit the input boundary against pinned BMOPF schemas, including retained
-   transformer/control fields. Expand field-level coverage and refusal tests.
-2. Extend the fixed transformer foundation to general multiwinding units,
-   phase-neutral/phase-phase/sequence limits, and broader independent oracles.
-3. Add sparse/chordal representations and establish equivalence to the dense
+1. Add sparse/chordal representations and establish equivalence to the dense
    reference for each supported domain.
-4. Add an exact nonlinear formulation plus physical residual evaluation and
+2. Add an exact nonlinear formulation plus physical residual evaluation and
    feasible-solution recovery. ExaModels becomes an optional backend here.
-5. Derive named SOC relaxations and valid-cut families with explicit assumptions,
+3. Derive named SOC relaxations and valid-cut families with explicit assumptions,
    then benchmark gap, residuals, success rate, build/solve time, and memory.
-6. Expand to the proposed BMOPF IBR, DC, and time-series semantics. General load
-   laws and discrete controls require separately specified relaxation policies.
+4. Expand to DC and time-series semantics in separately scoped work. Geometry
+   compilation belongs upstream of the electrical coefficient boundary.
+
+The static AC extension now covers general multiwinding transformers, voltage
+sequence limits, static IBRs, and explicit load envelopes. The pinned field
+inventory records scope exceptions; control laws and adjustable taps remain out.
 
 Cuts must record validity assumptions and safe bounds. Equivalent solver encodings
 must be distinguished from changes in relaxation strength. Benchmark reports must

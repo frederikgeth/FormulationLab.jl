@@ -36,10 +36,12 @@ function _sdp_transformer_plan(subtype, d, label)
     regulator = subtype in ("single_phase_autotransformer", "open_delta_regulator")
     allowed = ("bus_from","bus_to","terminal_map_from","terminal_map_to",
         "r_series_from","x_series_from","r_series_to","x_series_to",
-        "g_no_load","b_no_load","s_rating","i_max_from","i_max_to")
+        "g_no_load","b_no_load","s_rating","i_max_from","i_max_to","no_load_shunt",
+        "r_neutral_from","x_neutral_from","r_neutral_to","x_neutral_to")
     extra = regulator ? ("tap_ratio","tap_ratio_min","tap_ratio_max","regulator_type") :
         ("v_nom_from","v_nom_to","tap","tap_min","tap_max","tap_ratio","tap_ratio_min","tap_ratio_max")
-    _sdp_fields(d,(allowed...,extra...,(subtype=="open_delta_regulator" ? ("connection",) : ())...),label)
+    _sdp_fields(d,(allowed...,extra...,(subtype=="open_delta_regulator" ? ("connection",) : ())...,
+        (subtype in ("wye_delta","delta_wye") ? ("r_series","x_series") : ())...),label)
     required = ("bus_from","bus_to","terminal_map_from","terminal_map_to",
                 (regulator ? () : ("v_nom_from","v_nom_to"))...)
     all(haskey(d,k) for k in required) || _sdp_refuse("$label missing required winding fields")
@@ -51,6 +53,12 @@ function _sdp_transformer_plan(subtype, d, label)
     end
     zf=complex(scalar("r_series_from"),scalar("x_series_from"))
     zt=complex(scalar("r_series_to"),scalar("x_series_to"))
+    if haskey(d,"r_series") || haskey(d,"x_series")
+        any(haskey(d,k) for k in ("r_series_from","x_series_from","r_series_to","x_series_to")) &&
+            _sdp_refuse("$label conflicting combined and split leakage")
+        z=complex(scalar("r_series"),scalar("x_series"))
+        subtype=="wye_delta" ? (zf=z) : (zt=z)
+    end
     real(zf)>=0 && real(zt)>=0 || _sdp_refuse("$label negative winding resistance")
     y=complex(scalar("g_no_load"),scalar("b_no_load"))
     real(y)>=0 || _sdp_refuse("$label negative core conductance")
@@ -66,13 +74,14 @@ function _sdp_transformer_plan(subtype, d, label)
         rt in ("A","B") || _sdp_refuse("$label regulator_type must be A or B")
         ratios=rt=="A" ? tap : inv.(tap)
         if subtype=="open_delta_regulator"
-            nf==nt==3 || _sdp_refuse("$label open delta requires three terminals on each side")
+            nf==nt && nf in (3,4) || _sdp_refuse("$label open delta requires three phases and optional trailing neutral")
             pairs=get(Dict("ABBC"=>[(1,2),(2,3)],"BCAC"=>[(2,3),(1,3)],
                 "CABA"=>[(3,1),(2,1)]),get(d,"connection",""),nothing)
             pairs===nothing && _sdp_refuse("$label unknown open-delta connection")
             pf=pt=pairs
             shared=only(intersect(collect(pairs[1]),collect(pairs[2])))
             push!(bonds,(shared,shared))
+            nf==4 && push!(bonds,(4,4))
         else
             pf=pair(nf);pt=pair(nt)
             nf==nt || _sdp_refuse("$label regulator reference terminals must match")
@@ -105,14 +114,21 @@ function _sdp_transformer_plan(subtype, d, label)
             R=Matrix{Float64}(I,3,3)/(sqrt(3)*a);zf*=3
         end
         Zf=fill(zf*only(tap)^2,length(pf));Zt=fill(zt,length(pt))
-        Yf=zeros(ComplexF64,length(pf));Yt=zeros(ComplexF64,length(pt))
-        if subtype=="center_tap"
-            Yt[1]=y # winding 2 only, not both split legs
-        else
-            Yt .= y/length(pt)
-        end
+        # Canonical BMOPF legacy excitation is on the from winding. Use the
+        # explicit no_load_shunt for other physical locations (e.g. OpenDSS wdg 2).
+        Yf=fill(y/length(pf),length(pf));Yt=zeros(ComplexF64,length(pt))
         rated_side=subtype=="delta_wye" ? :to : :from
         rating_count=subtype in ("wye_delta","delta_wye") ? 3 : 1
+    end
+    if haskey(d,"no_load_shunt")
+        any(haskey(d,k) for k in ("g_no_load","b_no_load")) && _sdp_refuse("$label conflicting excitation representations")
+        sh=d["no_load_shunt"];_sdp_fields(sh,("winding","g","b"),label)
+        k=get(sh,"winding",0);k isa Integer && 1<=k<=(subtype=="center_tap" ? 3 : 2) || _sdp_refuse("$label invalid exciting winding")
+        y=complex(_sdp_scalar(sh,"g"),_sdp_scalar(sh,"b"));real(y)>=0 || _sdp_refuse("$label negative core conductance")
+        fill!(Yf,0);fill!(Yt,0)
+        if k==1;Yf .= y
+        elseif subtype=="center_tap";Yt[k-1]=y
+        else;Yt .= y;end
     end
     all(isfinite,R) && all(isfinite,Zf) && all(isfinite,Zt) ||
         _sdp_refuse("$label nonfinite effective winding coefficients")
@@ -123,6 +139,7 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
                                  equations, devices, limits, zb)
     for (subtype,table) in sort!(collect(get(net,"transformer",Dict()));by=first),
         (id,d) in sort!(collect(table);by=first)
+        subtype=="n_winding" && continue
         label="transformer/$subtype/$id"
         p=_sdp_transformer_plan(subtype,d,label)
         vf=terminal_rows(d["bus_from"],d["terminal_map_from"])
@@ -142,6 +159,12 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
             push!(equations,_sdp_add!(copy(vf[f]),vt[t],-1))
             bond=_sdp_e(newvar());_sdp_add!(tf[f],bond);_sdp_add!(tt[t],bond,-1)
         end
+        for (side,v,terminals) in ((:from,vf,tf),(:to,vt,tt))
+            neutral=get(_kr_neutral_map(net),d["bus_$side"],nothing)
+            ni=findfirst(==(neutral),d["terminal_map_$side"])
+            ground=_sdp_ground!(d,"r_neutral_$side","x_neutral_$side",ni,v,newvar,equations,zb)
+            for k in eachindex(terminals);_sdp_add!(terminals[k],ground[k]);end
+        end
         inject(d["bus_from"],d["terminal_map_from"],tf)
         inject(d["bus_to"],d["terminal_map_to"],tt)
         # Include subtype in IDs: BMOPF IDs need not be globally unique.
@@ -150,7 +173,11 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
             push!(devices,(Symbol("transformer_",side),key,v,i,Dict()))
             push!(devices,(Symbol("transformer_coil_",side),key,u,j,Dict()))
             ratingkey="i_max_$side"
-            haskey(d,ratingkey) && push!(limits,(v,i,Dict("i_max"=>d[ratingkey])))
+            if haskey(d,ratingkey)
+                # Delta limits are on winding coils, not their differences at bus terminals.
+                delta=(subtype=="delta_wye" && side==:from)||(subtype=="wye_delta" && side==:to)
+                push!(limits,(delta ? u : v,delta ? j : i,Dict("i_max"=>d[ratingkey])))
+            end
             if p.rating!==nothing && side==p.rated_side
                 push!(limits,(u,j,Dict("s_max"=>fill(p.rating/p.rating_count,length(u)))))
             end

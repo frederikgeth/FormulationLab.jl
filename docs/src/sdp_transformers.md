@@ -55,7 +55,7 @@ no special role in selecting winding polarity.
 | `wye_delta` | `[a,b,c,n]` / `[a,b,c]`; wye return may be implicit | To coils `a−b,b−c,c−a`; `R = √3/(N₀ τ) I` |
 | `delta_wye` | `[a,b,c]` / `[a,b,c,n]`; wye return may be implicit | From coils `a−c,b−a,c−b`; `R = 1/(√3 N₀ τ) I` |
 | `single_phase_autotransformer` | `[p,q]` / `[p,q]`, or one ground-referenced terminal per side | `R = 1/n_eff`, plus through-bond at `q` |
-| `open_delta_regulator` | Three ordered phase terminals per side | Two regulating coils plus a through-bond on their shared phase |
+| `open_delta_regulator` | Three ordered phase terminals, optionally followed by bonded neutral | Two regulating coils plus a through-bond on their shared phase |
 
 Here `N₀ = v_nom_from/v_nom_to`. Yd/Dy nominal voltages are bus phase-to-neutral
 reference magnitudes, so delta coil ratios contain √3. The opposite delta rolls
@@ -86,9 +86,12 @@ Each secondary has its own leakage arm, retaining load-imbalance coupling.
 Regulator leakage uses the declared through-winding impedances without an extra
 `tap_ratio²` input factor; its referral follows the fixed coupling equation.
 
-For single-phase and Yd/Dy transformers, total `g_no_load + im*b_no_load` is split
-across the to-side coils. For center-tap units it is on the first secondary coil
-only. Regulator excitation is across each from-side regulating coil (the
+Canonical BMOPF legacy `g_no_load + im*b_no_load` is split across the from-side
+coils, including for center-tap units. This corrects the previous implementation
+that followed an older BMOPFTools winding-2 convention. Use `no_load_shunt` for
+an explicit physical location: `{winding, g, b}` specifies admittance per coil
+at that winding, and is mutually exclusive with legacy excitation fields.
+Center-tap indices are 1=primary, 2=first secondary, 3=second secondary. Regulator excitation is across each from-side regulating coil (the
 open-delta value is per regulator). Negative winding resistance or core conductance
 is rejected. Linear excitation is supported; core saturation is not.
 
@@ -101,10 +104,12 @@ fixed operating point, not tap optimization or regulator control simulation.
 
 ## Limits and results
 
-`i_max_from` and `i_max_to` bound **total terminal currents** in map order,
-including exciting and galvanic-bond currents. Each vector must cover the full
-map, including any explicit return. These limits use affine squared-current
-moments, retaining cross-coil terms on delta terminals.
+`i_max_from` and `i_max_to` follow the schema winding/conductor convention in map order,
+including exciting and galvanic-bond currents, except that schema delta-side
+limits rate the individual series **coil currents**, not their differences at
+bus terminals. Each vector must cover the declared map, including any explicit
+return. This corrects the earlier delta terminal-current interpretation. These
+limits use affine squared-current moments.
 
 `s_rating`, if supplied, must be positive. Its SOC limit applies to series-coil
 power: the from coil for single-phase and center-tap units, each wye coil at
@@ -135,8 +140,9 @@ Analytical tests cover impedance-load solutions, center-tap shared-arm coupling,
 Yd/Dy phase shifts, asymmetric loads, regulator bonds, tap validation, and rating
 infeasibility. The optional Mosek runner executes the analytical SDP suite.
 
-General `n_winding`, zigzag/custom banks, winding-neutral grounding impedance
-fields, saturation, controller profiles, and optimized taps are rejected.
+General `n_winding` and internal neutral grounding are now supported as described
+below. Zigzag/custom banks, saturation, time-series evaluation, and optimized
+taps remain outside the input/model scope. Controller profiles are not executed.
 Explicit ideal grounding and separately declared fixed shunts remain available.
 Multi-voltage-base equilibration and scalable sparse SDP representations remain
 future work; this implementation uses the reference model's single voltage base.
@@ -175,3 +181,47 @@ println("Built a fixed-tap transformer SDP without attaching a solver.")
 With Clarabel loaded, call `solve_opf(network, IVRSDP(objective=:source_import))`
 to solve the same model. Interpret its lifted powers and voltage candidate
 according to the [SDP result contract](sdp.md).
+
+## General multiwinding transformers
+
+`transformer.n_winding` accepts any number of ports ≥2, each with `bus`,
+`terminal_map`, coil-voltage `v_nom`, `configuration` (WYE, DELTA, or a
+single-phase dictionary extension), and optional `r_winding`, fixed
+`tap_ratio`, neutral impedance and current limits. Delta `v_nom` is a **coil
+line-to-line voltage**, unlike the two-bus Yd/Dy bus-voltage convention;
+`delta_roll=±1` sets coil orientation. All ports must have the same coil count.
+
+Let `n_k=v_nom[k]/v_nom[1]` and `T_k=n_k*tap_ratio[k]`. Per-coil referred currents
+are `J_k=T_k*j_k`. Resistances are referred with nominal `n_k²`; pairwise `x_sc`
+already uses winding 1's nominal coil-voltage base. Every key `i_j`, `i<j`, must
+be supplied exactly once. Construct
+
+```math
+Z_{ij}=r_i/n_i^2+r_j/n_j^2+jx_{ij},
+Z_B[a,a]=Z_{1,a+1},\qquad
+Z_B[a,b]=(Z_{1,a+1}+Z_{1,b+1}-Z_{a+1,b+1})/2.
+```
+
+The exact linear equations (currents into the transformer) are
+
+```math
+\sum_k J_k=0,\qquad
+u_1/T_1-u_i/T_i+\sum_{k=2}^n Z_B[i-1,k-1]J_k=0,\quad i\ge2.
+```
+
+The full matrix is retained, including non-star four-or-more-winding couplings.
+No matrix inversion or independent star fit is used. Negative resistances and
+materially indefinite leakage-reactance matrices are rejected. Singular/zero
+leakage is permitted. The transformer and winding `s_rating` values are power-base
+metadata; explicit per-winding `i_max` (and dictionary extension `s_max`) impose
+per-coil operating limits. Scalar limits are broadcast across that winding's coils.
+
+Legacy multiwinding excitation is on winding 1, following the inspected schema.
+`no_load_shunt` chooses another physical winding explicitly. Independent OpenDSS
+comparisons use both all-wye and mixed wye/delta three-winding circuits and fixed
+non-unity taps. A separate four-winding analytical case exercises non-star leakage.
+
+Results expose `(:transformer_winding,"n_winding/id/k")` for terminal powers and
+`(:transformer_coil,"n_winding/id/k")` for series-coil powers. Internal grounding
+branches are included in terminal powers; excitation location and fixed taps are
+not silently reinterpreted as control variables.

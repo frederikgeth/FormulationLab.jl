@@ -58,7 +58,7 @@ end
     net=_l3f_case();net["load"]["load"]["model"]="constant_current"
     @test_throws SDPInapplicableError build_sdp_opf(net)
     net=_l3f_case();net["bus"]["load"]["vpn_max"]=[240.0]
-    @test_throws SDPInapplicableError build_sdp_opf(net)
+    @test build_sdp_opf(net) isa SDPBuild
     net=_l3f_case();net["line"]["line"]["i_max"]=[1.0]
     r=_sdp_test_solve(net;solver_options=(verbose=false,))
     @test !r.solve.optimal
@@ -137,3 +137,5 @@ end
 end
 
 include("sdp_transformer_tests.jl")
+
+include("sdp_static_tests.jl")

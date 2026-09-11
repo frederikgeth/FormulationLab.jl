@@ -37,6 +37,8 @@ export L3FOptions, L3FFinding, L3FApplicabilityReport, L3FInapplicableError,
 
 include("formulations/sdp.jl")
 include("formulations/sdp_transformers.jl")
+include("formulations/sdp_static.jl")
+include("formulations/sdp_nwinding.jl")
 include("api.jl")
 export AbstractFormulation, LinDist3Flow, IVRSDP, formulation_kind, build_opf, solve_opf
 export SDPOptions, SDPBuild, SDPResult, SDPInapplicableError, build_sdp_opf, solve_sdp_opf

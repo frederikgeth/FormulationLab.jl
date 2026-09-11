@@ -2,19 +2,19 @@
 
 Let z contain scaled terminal voltages and device channel currents. Current bases
 are S_b/V_b, impedance bases V_b²/S_b. The first implementation uses one voltage
-base, taken from the largest source magnitude, and a user-specified VA base.
+base, taken from the largest magnitude across all sources, and a user-specified VA base.
 
 Line equations, nodal current balance, constant-impedance current laws, and fixed
 source phasor ratios are homogeneous linear equations A z = 0. Grounded voltage
 coordinates are removed exactly. With an orthonormal nullspace basis N, z=N y.
-The implementation lifts H=y yᴴ and drops only its rank-one requirement:
+The electrical core lifts H=y yᴴ and drops its rank-one requirement:
 
 ```math
 H \succeq 0, \qquad
 \widehat{(a z)\overline{(b z)}} = (aN)H(bN)^H.
 ```
 
-One source squared magnitude is fixed. The source's other phasors are related to
+One reference squared magnitude is fixed. All sources' phasors are related to
 that anchor by exact complex ratios in A. This avoids imposing a singular
 multi-phase fixed-source block directly on the PSD cone.
 
@@ -61,3 +61,9 @@ Fixed-tap transformer winding equations and galvanic regulator bonds are also
 eliminated before lifting. See [transformers and regulators](sdp_transformers.md).
 The global moment rank diagnostic still includes auxiliary current directions;
 voltage recovery uses the voltage Gram to avoid selecting a current-only mode.
+
+See [static AC components](sdp_static.md) for switches, capacitors, inverter
+capability and filters, multiple sources, bus voltage limits, and general load
+laws. Nonlinear load laws introduce additional power-cone envelopes beyond rank
+relaxation; affected load IDs and excluded control profiles are exposed in
+`solve_diagnostics`. A rank-one voltage Gram alone does not certify these laws.

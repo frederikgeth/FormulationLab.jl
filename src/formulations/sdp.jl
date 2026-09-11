@@ -1,9 +1,9 @@
 """Dense current–voltage SDP reference; a relaxation, with no rank-one constraint.
 
-The first implementation supports one source, fixed lines/pi shunts, grounded and
-explicit-neutral buses, P/Z loads, generators, fixed shunts, and fixed-tap
-transformers/regulators. Unsupported
-component fields are rejected before a model is built. `s_base` is in VA.
+Supports static AC lines, sources, loads, generators, inverters, shunts,
+capacitors, switches, and fixed-tap transformers/regulators, including general
+multiwinding units and explicit neutrals. Nonlinear load laws use additional
+power-cone envelopes. Controls are not evaluated. `s_base` is in VA.
 """
 Base.@kwdef struct SDPOptions
     s_base::Float64 = 1e4
@@ -45,21 +45,21 @@ function _sdp_fields(data, allowed, label; matrix=())
 end
 
 function _sdp_check(net)
-    tables = ("bus", "line", "linecode", "load", "generator", "voltage_source", "shunt", "transformer")
+    tables = ("bus", "line", "linecode", "load", "generator", "voltage_source", "shunt", "transformer", "switch", "capacitor", "ibr", "control_profile")
     for (key,value) in net
         key in tables && continue
-        key in ("name", "meta", "terminal_conventions", "_meta") && continue
+        key in ("name", "meta", "terminal_conventions", "_meta", "extras", "wire_data", "line_geometry") && continue
         isempty(value) || _sdp_refuse("table '$key' is not implemented by IVRSDP")
     end
     for (subtype,table) in get(net,"transformer",Dict())
-        subtype in _SDP_TRANSFORMERS || _sdp_refuse("transformer/$subtype is not implemented")
+        subtype in (_SDP_TRANSFORMERS...,"n_winding") || _sdp_refuse("transformer/$subtype is not implemented")
         for (id,d) in table
-            _sdp_transformer_plan(subtype,d,"transformer/$subtype/$id")
+            subtype=="n_winding" ? _sdp_nwinding_plan(net,id,d) : _sdp_transformer_plan(subtype,d,"transformer/$subtype/$id")
         end
     end
-    length(get(net,"voltage_source",Dict())) == 1 || _sdp_refuse("exactly one voltage source is required")
+    !isempty(get(net,"voltage_source",Dict())) || _sdp_refuse("at least one voltage source is required")
     for (id,b) in get(net,"bus",Dict())
-        _sdp_fields(b,("terminal_names","perfectly_grounded_terminals","neutral_terminal","v_min","v_max"),"bus/$id")
+        _sdp_fields(b,("terminal_names","perfectly_grounded_terminals","neutral_terminal","v_min","v_max","vn_max","vpn_min","vpn_max","vpp_min","vpp_max","vpos_min","vpos_max","vneg_max","vzero_max"),"bus/$id")
         tm = b["terminal_names"]
         !isempty(tm) && allunique(tm) || _sdp_refuse("bus/$id has empty or repeated terminals")
         all(t -> t in tm, get(b,"perfectly_grounded_terminals",[])) || _sdp_refuse("bus/$id has an undeclared ground terminal")
@@ -73,15 +73,15 @@ function _sdp_check(net)
             _sdp_refuse("line/$id references an unknown linecode")
     end
     for (id,l) in get(net,"linecode",Dict())
-        _sdp_fields(l,("i_max","s_max","source"),"linecode/$id";matrix=("R_series_","X_series_","G_from_","B_from_","G_to_","B_to_"))
+        _sdp_fields(l,("i_max","s_max","source","line_geometry","derivation"),"linecode/$id";matrix=("R_series_","X_series_","G_from_","B_from_","G_to_","B_to_"))
     end
     for family in ("load","generator","voltage_source")
-        allowed = family == "load" ? ("bus","terminal_map","configuration","model","p_nom","q_nom","v_nom") :
-            family == "generator" ? ("bus","terminal_map","configuration","p_min","p_max","q_min","q_max","s_max","i_max","cost") :
-            ("bus","terminal_map","configuration","v_magnitude","v_angle","p_min","p_max","q_min","q_max","s_max","i_max","cost")
+        allowed = family == "load" ? ("bus","terminal_map","configuration","model","p_nom","q_nom","v_nom","alpha_z","alpha_i","alpha_p","beta_z","beta_i","beta_p","gamma_p","gamma_q") :
+            family == "generator" ? ("bus","terminal_map","configuration","p_min","p_max","q_min","q_max","s_max","i_max","cost","energy_cost_rate") :
+            ("bus","terminal_map","configuration","v_magnitude","v_angle","p_min","p_max","q_min","q_max","s_max","i_max","cost","energy_cost_rate")
         for (id,d) in get(net,family,Dict())
             _sdp_fields(d,allowed,"$family/$id")
-            family == "load" && lowercase(get(d,"model","constant_power")) ∉ ("constant_power","constant_impedance") &&
+            family == "load" && lowercase(get(d,"model","constant_power")) ∉ ("constant_power","constant_impedance","constant_current","zip","exponential") &&
                 _sdp_refuse("load/$id voltage law is not implemented")
         end
     end
@@ -101,6 +101,8 @@ struct SDPBuild
     voltage_base::Float64
     anchor::Int
     anchor_voltage::ComplexF64
+    omitted_controls::Vector{String}
+    load_envelopes::Vector{String}
 end
 
 """Build the dense IVRSDP reference, eliminating homogeneous electrical equalities.
@@ -115,14 +117,17 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown SDP objective"))
     net = _l3f_input(input)
     _sdp_check(net)
-    source = only(values(net["voltage_source"]))
+    candidates=[d for (_,d) in sort!(collect(net["voltage_source"]);by=first) if any(!iszero,d["v_magnitude"])]
+    isempty(candidates) && _sdp_refuse("at least one nonzero reference phasor is required")
+    source = first(candidates)
     source_v = Float64.(source["v_magnitude"]) .* cis.(Float64.(source["v_angle"]))
     vb = maximum(abs,source_v); sb = options.s_base
     isfinite(vb) && vb > 0 || _sdp_refuse("source voltages must be finite with a nonzero magnitude")
     all(isfinite,source_v) || _sdp_refuse("nonfinite source voltage")
+    vb = maximum(maximum(abs,Float64.(d["v_magnitude"])) for d in values(net["voltage_source"]))
     ib = sb/vb; zb = vb/ib
-    count = Ref(0)
-    newvar() = (count[] += 1)
+    coordinate_count = Ref(0)
+    newvar() = (coordinate_count[] += 1)
     voltage = Dict{Tuple{String,String},Int}()
     for (b,d) in sort!(collect(net["bus"]);by=first), t in d["terminal_names"]
         voltage[(b,t)] = t in get(d,"perfectly_grounded_terminals",[]) ? 0 : newvar()
@@ -184,27 +189,43 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
         push!(devices,(:line_from,id,vf,cf,Dict()));push!(devices,(:line_to,id,vt,ct,Dict()))
     end
     _sdp_stamp_transformers!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
+    _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
+    _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
     for (id,d) in get(net,"shunt",Dict())
         rows=terminal_rows(d["bus"],d["terminal_map"])
         Y=_l3f_shunt_matrix(d,length(rows))*zb
         inject(d["bus"],d["terminal_map"],matrows(Y,rows))
     end
-    for family in ("load","generator"), (id,d) in sort!(collect(get(net,family,Dict()));by=first)
+    for family in ("load","generator","ibr"), (id,d) in sort!(collect(get(net,family,Dict()));by=first)
         tm=d["terminal_map"]; vr=terminal_rows(d["bus"],tm)
-        n=length(d[family=="load" ? "p_nom" : "p_min"])
-        cfg=uppercase(d["configuration"])
-        neutral = get(net["bus"][d["bus"]],"neutral_terminal",nothing)
-        neutral===nothing && (neutral = length(tm)==n+1 ? last(tm) : nothing)
-        D = if cfg=="WYE" && length(tm)==n+1
-            # BMOPF's explicit wye neutral is the trailing terminal.
-            neutral==last(tm) || _sdp_refuse("wye/$id neutral must be the trailing terminal")
-            hcat(Matrix{Float64}(I,n,n),-ones(n))
+        if family=="ibr"
+            _sdp_fields(d,("bus","terminal_map","topology","prime_mover","s_max","i_max","p_avail","p_min","p_max","q_min","q_max",
+                "cost","energy_cost_rate","control_profile","voltage_aggregation","dc_link_coupled","p_dc_min","p_dc_max",
+                "r_filter","x_filter","b_filter_shunt","grid_forming","v_ref_internal"),"ibr/$id")
+            cfg=get(Dict("FOUR_LEG"=>"WYE","THREE_LEG"=>"DELTA","SINGLE_PHASE"=>"SINGLE_PHASE"),get(d,"topology",""),nothing)
+            cfg===nothing && _sdp_refuse("ibr/$id unknown topology")
+            n=length(d["s_max"])
         else
-            _l3f_connection_incidence(cfg,length(tm),n)
+            cfg=uppercase(d["configuration"])
+            nt=get(_kr_neutral_map(net),d["bus"],nothing)
+            n=family=="load" ? length(d["p_nom"]) : cfg=="SINGLE_PHASE" ? 1 :
+                cfg=="DELTA" ? (length(tm)==2 ? 1 : 3) : count(!=(nt),tm)
         end
+        D=_sdp_connection(net,d["bus"],tm,cfg,n)
         vc=matrows(D,vr); ic=[_sdp_e(newvar()) for _ in 1:n]
-        inject(d["bus"],tm,matrows(transpose(D),ic),family=="load" ? 1 : -1)
-        if family=="load" && lowercase(get(d,"model","constant_power"))=="constant_impedance"
+        terminal_current=matrows(transpose(D),ic)
+        if family=="ibr"
+            rf=_sdp_vector(d,"r_filter",n;default=zeros(n));xf=_sdp_vector(d,"x_filter",n;default=zeros(n))
+            all(>=(0),rf) || _sdp_refuse("ibr/$id negative filter resistance")
+            bf=_sdp_scalar(d,"b_filter_shunt")
+            # Port powers are measured at PCC. Filter current also supplies the
+            # shunt at PCC; internal voltage is U + Z*(I + jB*U).
+            jf=[_sdp_add!(copy(ic[k]),vc[k],im*bf*zb) for k in 1:n]
+            internal=[_sdp_add!(copy(vc[k]),jf[k],complex(rf[k],xf[k])/zb) for k in 1:n]
+            push!(devices,(:ibr_internal,id,internal,jf,d))
+        end
+        inject(d["bus"],tm,terminal_current,family=="load" ? 1 : -1)
+        if family=="load" && _sdp_is_impedance_load(d)
             p=values_for(d,"p_nom",n);q=values_for(d,"q_nom",n);vn=values_for(d,"v_nom",n)
             vn===nothing && _sdp_refuse("load/$id requires v_nom")
             all(>(0),vn) || _sdp_refuse("load/$id requires positive v_nom")
@@ -214,26 +235,47 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
             end
         end
         push!(devices,(Symbol(family),id,vc,ic,d))
-        family=="generator" && push!(limits,(vc,ic,d))
+        if family in ("generator","ibr")
+            bounds=Dict(k=>d[k] for k in ("s_max",) if haskey(d,k))
+            if haskey(d,"i_max")
+                imax=d["i_max"]
+                if length(imax)==length(tm)
+                    push!(limits,(vr,terminal_current,Dict("i_max"=>imax)))
+                elseif length(imax)==n
+                    bounds["i_max"]=imax
+                else
+                    _sdp_refuse("$family/$id current ratings must match coils or terminals")
+                end
+            end
+            push!(limits,(vc,ic,bounds))
+        end
     end
     tm=source["terminal_map"]; vs=terminal_rows(source["bus"],tm)
     length(source_v)==length(tm) || _sdp_refuse("source phasor arity mismatch")
     anchor_k=findfirst(v -> !iszero(v),source_v)
     anchor=voltage[(source["bus"],tm[anchor_k])]
     anchor!=0 || _sdp_refuse("nonzero prescribed source voltage on a grounded terminal")
-    for k in eachindex(tm)
-        k==anchor_k && continue # Avoid normalizing roundoff in the tautology v_anchor=v_anchor.
-        push!(equations,_sdp_add!(copy(vs[k]),vs[anchor_k],-source_v[k]/source_v[anchor_k]))
+    fixed_source_coordinates=Dict{Int,ComplexF64}()
+    for (source_id,d) in sort!(collect(net["voltage_source"]);by=first)
+        dvolts=Float64.(d["v_magnitude"]).*cis.(Float64.(d["v_angle"]))
+        rows=terminal_rows(d["bus"],d["terminal_map"])
+        length(rows)==length(dvolts) && all(isfinite,dvolts) || _sdp_refuse("source/$source_id invalid phasors")
+        for k in eachindex(rows)
+            idx=voltage[(d["bus"],d["terminal_map"][k])]
+            idx!=0 && (fixed_source_coordinates[idx]=dvolts[k]/vb)
+            # The first anchor equation is an algebraic tautology.
+            d===source && k==anchor_k && continue
+            push!(equations,_sdp_add!(copy(rows[k]),vs[anchor_k],-dvolts[k]/source_v[anchor_k]))
+        end
+        # Ideal source ground-terminal current allocation is underdetermined in
+        # a common-earth model. Do not manufacture a neutral rating certificate.
+        any(isempty,rows) && haskey(d,"i_max") && _sdp_refuse("source ground-terminal current allocation is not implemented")
+        is=[isempty(v) ? _SDPRow() : _sdp_e(newvar()) for v in rows]
+        inject(d["bus"],d["terminal_map"],is,-1)
+        push!(devices,(:voltage_source,source_id,rows,is,d));push!(limits,(rows,is,d))
     end
-    # Ground currents are supplied by ideal earth connections and not assigned
-    # to a particular grounded source terminal. Do not pretend to rate them.
-    any(isempty,vs) && haskey(source,"i_max") && _sdp_refuse("source ground-terminal current allocation is not implemented")
-    is=[isempty(v) ? _SDPRow() : _sdp_e(newvar()) for v in vs]
-    inject(source["bus"],tm,is,-1)
-    push!(devices,(:voltage_source,only(keys(net["voltage_source"])),vs,is,source))
-    push!(limits,(vs,is,source))
     append!(equations,values(kcl))
-    A=zeros(ComplexF64,length(equations),count[])
+    A=zeros(ComplexF64,length(equations),coordinate_count[])
     for (r,row) in enumerate(equations), (c,value) in row;A[r,c]=value;end
     # Row equilibration affects neither the nullspace nor the feasible set.
     for r in axes(A,1)
@@ -251,38 +293,69 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
         sum((ca[i]*conj(cb[j]))*H[i,j] for i in 1:m,j in 1:m)
     end
     @constraint(model,real(lift(vs[anchor_k],vs[anchor_k]))==abs2(source_v[anchor_k]/vb))
-    for ((b,t),i) in voltage
-        d=net["bus"][b]; k=findfirst(==(t),d["terminal_names"]);n=length(d["terminal_names"])
-        w=real(lift(_sdp_e(i),_sdp_e(i)))
-        for (field,lower) in (("v_min",true),("v_max",false))
-            bound=values_for(d,field,n);bound===nothing && continue
-            bound[k]>=0 || _sdp_refuse("negative voltage magnitude bound")
-            lower ? @constraint(model,w >= (bound[k]/vb)^2) : @constraint(model,w <= (bound[k]/vb)^2)
-        end
-    end
+    _sdp_bus_limits!(model,net,terminal_rows,lift,vb)
     powers=Dict{Tuple{Symbol,String},Vector{Any}}()
     objective=JuMP.AffExpr(0.0)
     for (family,id,v,i,d) in devices
         s=Any[lift(v[k],i[k]) for k in eachindex(v)];powers[(family,id)]=s;n=length(s)
-        if family==:load && lowercase(get(d,"model","constant_power"))=="constant_power"
-            p=values_for(d,"p_nom",n);q=values_for(d,"q_nom",n)
-            for k in 1:n
-                @constraint(model,real(s[k])==p[k]/sb);@constraint(model,imag(s[k])==q[k]/sb)
+        if family==:load
+            _sdp_load_law!(model,net,id,d,v,s,lift,terminal_rows,vb,sb)
+        elseif family==:ibr_internal
+            if get(d,"dc_link_coupled",false)
+                for (key,lower) in (("p_dc_min",true),("p_dc_max",false))
+                    haskey(d,key) || continue
+                    lim=_sdp_scalar(d,key)/sb
+                    lower ? @constraint(model,sum(real,s)>=lim) : @constraint(model,sum(real,s)<=lim)
+                end
+            elseif any(haskey(d,k) for k in ("p_dc_min","p_dc_max"))
+                _sdp_refuse("ibr/$id shared-link bounds require dc_link_coupled=true")
             end
-        elseif family in (:generator,:voltage_source)
-            for (field,lower,active) in (("p_min",true,true),("p_max",false,true),("q_min",true,false),("q_max",false,false))
-                bound=values_for(d,field,n);bound===nothing && continue
-                for k in 1:n
-                    f=active ? real(s[k]) : imag(s[k])
-                    lower ? @constraint(model,f>=bound[k]/sb) : @constraint(model,f<=bound[k]/sb)
+            if get(d,"grid_forming",false)
+                ref=_sdp_scalar(d,"v_ref_internal");ref>0 || _sdp_refuse("ibr/$id grid forming requires positive v_ref_internal")
+                for u in v
+                    # A filter-free PCC on a prescribed source already has its
+                    # exact magnitude. Avoid duplicating that equality with
+                    # independently rounded nullspace coefficients.
+                    if all(haskey(fixed_source_coordinates,k) for k in keys(u))
+                        known=sum((c*fixed_source_coordinates[k] for (k,c) in u);init=0.0im)
+                        isapprox(abs2(known),(ref/vb)^2;rtol=1e-12,atol=0) && continue
+                    end
+                    @constraint(model,real(lift(u,u))==(ref/vb)^2)
+                end
+            elseif haskey(d,"v_ref_internal")
+                _sdp_refuse("ibr/$id v_ref_internal requires grid_forming=true")
+            end
+        elseif family in (:generator,:voltage_source,:ibr)
+            if family==:ibr
+                if haskey(d,"p_avail")
+                    avail=_sdp_scalar(d,"p_avail");avail>=0 || _sdp_refuse("ibr/$id negative availability")
+                    @constraint(model,sum(real,s)<=avail/sb)
                 end
             end
-            priced = d
-            if family==:voltage_source && haskey(d,"cost") && length(d["cost"])==Base.count(x -> !isempty(x),v) && length(d["cost"])!=n
-                priced=copy(d); expanded=zeros(n); cursor=1
+            for (lowkey,highkey,active) in (("p_min","p_max",true),("q_min","q_max",false))
+                low=values_for(d,lowkey,n);high=values_for(d,highkey,n)
+                for k in 1:n
+                    f=active ? real(s[k]) : imag(s[k])
+                    if low!==nothing && high!==nothing && low[k]==high[k]
+                        # A fixed dispatch is one equality, avoiding a pair of
+                        # opposing cone inequalities with no strict interior.
+                        @constraint(model,f==low[k]/sb)
+                    else
+                        low===nothing || @constraint(model,f>=low[k]/sb)
+                        high===nothing || @constraint(model,f<=high[k]/sb)
+                    end
+                end
+            end
+            priced = copy(d)
+            if haskey(d,"energy_cost_rate")
+                haskey(d,"cost") && d["cost"]!=d["energy_cost_rate"] && _sdp_refuse("$family/$id conflicting cost aliases")
+                priced["cost"]=d["energy_cost_rate"]
+            end
+            if family==:voltage_source && haskey(priced,"cost") && length(priced["cost"])==Base.count(x -> !isempty(x),v) && length(priced["cost"])!=n
+                expanded=zeros(n); cursor=1
                 for k in eachindex(v)
                     isempty(v[k]) && continue
-                    expanded[k]=d["cost"][cursor];cursor+=1
+                    expanded[k]=priced["cost"][cursor];cursor+=1
                 end
                 priced["cost"]=expanded
             end
@@ -308,7 +381,9 @@ function build_sdp_opf(input, optimizer=default_optimizer(); options::SDPOptions
         end
     end
     @objective(model,Min,objective)
-    SDPBuild(model,H,N,voltage,powers,net,options,vb,anchor,source_v[anchor_k])
+    omitted=sort!(["ibr/$id/$(d["control_profile"])" for (id,d) in get(net,"ibr",Dict()) if haskey(d,"control_profile")])
+    envelopes=sort!([id for (id,d) in get(net,"load",Dict()) if _sdp_has_load_envelope(d)])
+    SDPBuild(model,H,N,voltage,powers,net,options,vb,anchor,source_v[anchor_k],omitted,envelopes)
 end
 
 struct SDPResult <: AbstractSolveResult
@@ -319,9 +394,12 @@ struct SDPResult <: AbstractSolveResult
     relaxed_powers::Dict{Tuple{Symbol,String},Vector{ComplexF64}}
     rank_ratio::Float64
     solve::SolveStatus
+    omitted_controls::Vector{String}
+    load_envelopes::Vector{String}
 end
 solve_status(r::SDPResult)=r.solve
 solve_diagnostics(r::SDPResult)=(model_kind=:relaxation, rank_ratio=r.rank_ratio,
+    omitted_controls=r.omitted_controls, load_envelopes=r.load_envelopes,
     physical_feasibility_certified=false, bound_certified=false)
 
 """Solve IVRSDP. The dominant-eigenvector voltage candidate is not an AC certificate.
@@ -337,7 +415,7 @@ function solve_sdp_opf(input, optimizer=default_optimizer(); options=SDPOptions(
     if !outcome.optimal
         return SDPResult(NaN,NaN,fill(ComplexF64(NaN),size(build.moment)),
             Dict(k=>ComplexF64(NaN) for k in keys(build.voltage_indices)),
-            Dict(k=>fill(ComplexF64(NaN),length(v)) for (k,v) in build.powers),NaN,status)
+            Dict(k=>fill(ComplexF64(NaN),length(v)) for (k,v) in build.powers),NaN,status,build.omitted_controls,build.load_envelopes)
     end
     H=Matrix{ComplexF64}(JuMP.value.(build.moment));eig=eigen(Hermitian(H))
     # Recover from the voltage Gram: free auxiliary current completions must
@@ -353,5 +431,5 @@ function solve_sdp_opf(input, optimizer=default_optimizer(); options=SDPOptions(
     ratio=length(eig.values)>1 ? max(0,eig.values[end-1])/max(eps(),eig.values[end]) : 0.0
     bound=try JuMP.objective_bound(build.model) catch; NaN end
     powers=Dict(k=>ComplexF64.(JuMP.value.(s)).*options.s_base for (k,s) in build.powers)
-    SDPResult(JuMP.objective_value(build.model),bound,H,v,powers,ratio,status)
+    SDPResult(JuMP.objective_value(build.model),bound,H,v,powers,ratio,status,build.omitted_controls,build.load_envelopes)
 end

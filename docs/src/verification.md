@@ -2,9 +2,9 @@
 
 | Check | Result |
 |---|---|
-| Default suite, Julia 1.10.11 | 1,394 passed, no skips |
-| Default suite, Julia 1.12.6 | 1,394 passed, no skips |
-| Optional MosekTools analytical SDP suite | 142 passed |
+| Default suite, Julia 1.10.11 | 1,508 passed, no skips |
+| Default suite, Julia 1.12.6 | 1,508 passed, no skips |
+| Optional MosekTools analytical SDP suite | 220 passed |
 | New fixed-transformer OpenDSS comparisons (included above) | 42 passed |
 | Documenter build and cross-reference checks | Passed |
 | Separate BMOPFTools replay integration | 46 passed |
@@ -34,7 +34,19 @@ in chordal PSD completion. The default optional Clarabel factory disables chorda
 decomposition for this dense reference. Explicitly supplied optimizer factories
 retain their own settings. No claim about a performance-optimal profile is made.
 
-These tests establish the migrated L3F contracts and the declared initial SDP
-subset. They do not establish complete BMOPF coverage, scalable SDP performance,
+The static AC extension adds analytical grounding, switch/capacitor, inverter,
+voltage-limit and load-envelope checks, plus 36 three-winding OpenDSS comparisons.
+A non-star four-winding case checks coupled leakage independently.
+
+A combined three-phase fixed inverter setpoint and delta-capacitor fixture exposed
+Clarabel numerical sensitivity. Fixed P/Q boxes now compile as single equalities,
+and source-fixed internal magnitude equations are not duplicated. The combined
+regression checks optimal status and its analytical power result at the default
+Clarabel settings, as well as with optional Mosek. Near-optimal statuses remain
+unpublished as optimal results. These local encoding fixes are not a general
+performance or reliability guarantee for the dense representation.
+
+These tests establish the migrated L3F contracts and the declared static AC SDP
+models and envelopes. They do not establish complete BMOPF coverage, scalable SDP performance,
 rigorous numerical lower-bound certificates, or AC feasibility of a recovered
 SDP voltage candidate.

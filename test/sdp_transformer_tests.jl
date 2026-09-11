@@ -41,7 +41,7 @@ _tx_solve(net;sb=1e4)=_sdp_test_solve(net;options=SDPOptions(s_base=sb,objective
         tx=net["transformer"]["single_phase"]["tx"]
         zf=0.4+0.3im;zt=0.1+0.2im;y0=0.002-0.001im;yl=0.1-0.03im
         merge!(tx,Dict("r_series_from"=>real(zf),"x_series_from"=>imag(zf),
-            "r_series_to"=>real(zt),"x_series_to"=>imag(zt),"g_no_load"=>real(y0),"b_no_load"=>imag(y0),
+            "r_series_to"=>real(zt),"x_series_to"=>imag(zt),"no_load_shunt"=>Dict("winding"=>2,"g"=>real(y0),"b"=>imag(y0)),
             "s_rating"=>5000.0,"i_max_from"=>[100.0,100.0],"i_max_to"=>[100.0,100.0]))
         _sdp_zload!(net,"l",["p","n"],yl)
         original=deepcopy(net);n=2tap;z=zf*tap^2/n^2+zt
@@ -119,7 +119,7 @@ end
 @testset "SDP transformer refusal and fixed-setting contracts" begin
     for patch in (Dict("tap_min"=>0.9,"tap_max"=>1.1),Dict("tap"=>0.0),
         Dict("tap"=>1.2,"tap_min"=>0.9,"tap_max"=>1.1),Dict("tap_min"=>1.0),
-        Dict("r_neutral_to"=>1.0),Dict("v_nom_to"=>0.0),Dict("r_series_from"=>-1.0))
+        Dict("r_neutral_to"=>-1.0),Dict("v_nom_to"=>0.0),Dict("r_series_from"=>-1.0))
         net=_sdp_tx_case("single_phase");tx=net["transformer"]["single_phase"]["tx"]
         delete!(tx,"tap");merge!(tx,patch)
         @test_throws SDPInapplicableError build_sdp_opf(net,nothing)
