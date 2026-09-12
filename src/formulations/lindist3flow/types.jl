@@ -12,6 +12,9 @@ working coordinates, with system power base `s_base`.
 
 | Field | Values | Meaning |
 |:------|:-------|:--------|
+| `topology` | `:radial` (default), `:meshed_linear` | The meshed approximation retains line cycles and adds fixed-reference angle drops; transformers must be bus-graph bridges. |
+| `infer_terminal_maps` | `Bool` (`true`) | Infer missing Yd/Dy maps only from unambiguous terminal conventions. |
+| `transformer_impedance` | `:unspecified` (default), `:from_terminal`, `:from_coil` | Explicit primary-referred interpretation of r_series/x_series aliases. |
 | `current_limit_policy` | `:voltage_product` | Ampacity is the native rotated-SOC bound `p²+q² ≤ w Iᵐᵃˣ²`, using the live squared terminal or winding voltage. |
 | `validate_nonlinear` | `Bool` (`false`) | Opt in to replaying the optimized dispatch through a supplied `powerflow` callback. Replay is diagnostic and is not required by the one-shot formulation. |
 | `reference_policy` | `:auto`, `:explicit`, `:source_propagated` | Which linearization point to use. `:auto` prefers a supplied `reference` and otherwise propagates the source phasors; `:explicit` requires a supplied `reference`; `:source_propagated` always uses the propagated flat profile and ignores a supplied `reference`. |
@@ -23,6 +26,9 @@ working coordinates, with system power base `s_base`.
 | `s_base` | `Real` (`1e6`) | System VA base for the per-unit working copy. |
 """
 struct L3FOptions
+    topology::Symbol
+    infer_terminal_maps::Bool
+    transformer_impedance::Symbol
     current_limit_policy::Symbol
     validate_nonlinear::Bool
     reference_policy::Symbol
@@ -35,6 +41,9 @@ struct L3FOptions
 end
 
 function L3FOptions(;
+        topology::Symbol=:radial,
+        infer_terminal_maps::Bool=true,
+        transformer_impedance::Symbol=:unspecified,
         current_limit_policy::Symbol=:voltage_product,
         validate_nonlinear::Bool=false,
         reference_policy::Symbol=:auto,
@@ -44,6 +53,9 @@ function L3FOptions(;
         objective::Symbol=:cost,
         per_unit::Bool=true,
         s_base::Real=1e6)
+    topology in (:radial, :meshed_linear) || throw(ArgumentError("unknown topology mode"))
+    transformer_impedance in (:unspecified, :from_terminal, :from_coil) ||
+        throw(ArgumentError("unknown transformer impedance convention"))
     current_limit_policy == :voltage_product ||
         throw(ArgumentError("only current_limit_policy=:voltage_product is defined"))
     reference_policy in (:auto, :explicit, :source_propagated) ||
@@ -54,7 +66,7 @@ function L3FOptions(;
         throw(ArgumentError("objective must be :cost, :feasibility, or :source_import"))
     isfinite(s_base) && s_base > 0 ||
         throw(ArgumentError("s_base must be finite and > 0"))
-    L3FOptions(current_limit_policy, validate_nonlinear, reference_policy, kron_reduce,
+    L3FOptions(topology, infer_terminal_maps, transformer_impedance, current_limit_policy, validate_nonlinear, reference_policy, kron_reduce,
         require_neutral_provenance, unsupported, objective, per_unit, Float64(s_base))
 end
 

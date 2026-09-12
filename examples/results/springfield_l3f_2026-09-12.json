@@ -1,0 +1,2149 @@
+{
+  "julia": "1.12.6",
+  "note": "Both alias interpretations are explicit hypothetical scenarios, not a determination of the input author's convention. Build times include compilation. No branches removed; one solve per scenario.",
+  "revision": "1443ae191fa1fabf39adac27ddc0bca50c2c8a3b",
+  "clarabel": "0.11.1",
+  "runs": [
+    {
+      "problem_class": "SOCP",
+      "min_voltage_relative_reference": 0.9269208162379483,
+      "convention": "from_terminal",
+      "build_seconds": 6.908808125,
+      "native_solve_seconds": 0.39602270900000003,
+      "variables": 18150,
+      "status": "OPTIMAL",
+      "max_voltage_relative_reference": 1.0000000000000002,
+      "lines_after_lowering": 1494,
+      "findings": [
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:162734",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:162734",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:162734",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:163123",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:163123",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:163123",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:163187",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:163187",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:163187",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164481",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164481",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:164481",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164643",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164643",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:164643",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165875",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165875",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165875",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:161761",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:161761",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:161761",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165615",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165615",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165615",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165530",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165530",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165530",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:145876",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:145876",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:145876",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:166810",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:166810",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:166810",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164612",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164612",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:164612",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 14.999191654889943,
+              "r_series": 3.3331537010866534
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164671",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164671",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:164671",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 14.999191654889943,
+              "r_series": 3.3331537010866534
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164634",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164634",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:164634",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165497",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165497",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165497",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165895",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165895",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165895",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165537",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165537",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165537",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 14.999191654889943,
+              "r_series": 3.3331537010866534
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165331",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165331",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165331",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165891",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165891",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165891",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_terminal",
+            "factor": 1.0
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:145876_to'",
+          "id": "energex:network-capacity:transformer:145876",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:145876_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:161761_to'",
+          "id": "energex:network-capacity:transformer:161761",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:161761_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:162734_to'",
+          "id": "energex:network-capacity:transformer:162734",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:162734_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:163123_to'",
+          "id": "energex:network-capacity:transformer:163123",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:163123_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:163187_to'",
+          "id": "energex:network-capacity:transformer:163187",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:163187_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:164481_to'",
+          "id": "energex:network-capacity:transformer:164481",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:164481_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:164612_to'",
+          "id": "energex:network-capacity:transformer:164612",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:164612_to",
+            "side": "to",
+            "x": 0.023241185489121158,
+            "r": 0.005164707886471367
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:164634_to'",
+          "id": "energex:network-capacity:transformer:164634",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:164634_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:164643_to'",
+          "id": "energex:network-capacity:transformer:164643",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:164643_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:164671_to'",
+          "id": "energex:network-capacity:transformer:164671",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:164671_to",
+            "side": "to",
+            "x": 0.023241185489121158,
+            "r": 0.005164707886471367
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165331_to'",
+          "id": "energex:network-capacity:transformer:165331",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165331_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165497_to'",
+          "id": "energex:network-capacity:transformer:165497",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165497_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165530_to'",
+          "id": "energex:network-capacity:transformer:165530",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165530_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165537_to'",
+          "id": "energex:network-capacity:transformer:165537",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165537_to",
+            "side": "to",
+            "x": 0.023241185489121158,
+            "r": 0.005164707886471367
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165615_to'",
+          "id": "energex:network-capacity:transformer:165615",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165615_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165875_to'",
+          "id": "energex:network-capacity:transformer:165875",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165875_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165891_to'",
+          "id": "energex:network-capacity:transformer:165891",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165891_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165895_to'",
+          "id": "energex:network-capacity:transformer:165895",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165895_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:166810_to'",
+          "id": "energex:network-capacity:transformer:166810",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:166810_to",
+            "side": "to",
+            "x": 0.014707847224369191,
+            "r": 0.0029415694448738385
+          }
+        },
+        {
+          "message": "all lines retained with nodal power balance and fixed-reference magnitude/angle drops; no AC feasibility guarantee",
+          "id": null,
+          "severity": "warning",
+          "code": "A.L3F.MESH_LINEARIZED",
+          "evidence": {}
+        }
+      ],
+      "optimize_seconds": 2.659373917,
+      "source_W": 3447444.58063049,
+      "transformers": 19
+    },
+    {
+      "problem_class": "SOCP",
+      "min_voltage_relative_reference": 0.9333058719853694,
+      "convention": "from_coil",
+      "build_seconds": 2.10301225,
+      "native_solve_seconds": 0.18867466600000002,
+      "variables": 18150,
+      "status": "OPTIMAL",
+      "max_voltage_relative_reference": 1.0000000000000002,
+      "lines_after_lowering": 1494,
+      "findings": [
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:162734",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:162734",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:162734",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:163123",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:163123",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:163123",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:163187",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:163187",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:163187",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164481",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164481",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:164481",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164643",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164643",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:164643",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165875",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165875",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165875",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:161761",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:161761",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:161761",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165615",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165615",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165615",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165530",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165530",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165530",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:145876",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:145876",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:145876",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:166810",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:166810",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:166810",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164612",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164612",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:164612",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 14.999191654889943,
+              "r_series": 3.3331537010866534
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164671",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164671",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:164671",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 14.999191654889943,
+              "r_series": 3.3331537010866534
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164634",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:164634",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:164634",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165497",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165497",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165497",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165895",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165895",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165895",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165537",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165537",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165537",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 14.999191654889943,
+              "r_series": 3.3331537010866534
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165331",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165331",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165331",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "terminal_map_from inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165891",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_from",
+            "value": [
+              "1",
+              "2",
+              "3"
+            ]
+          }
+        },
+        {
+          "message": "terminal_map_to inferred from declared terminal conventions",
+          "id": "energex:network-capacity:transformer:165891",
+          "severity": "info",
+          "code": "L.L3F.TERMINAL_MAP_INFERRED",
+          "evidence": {
+            "field": "terminal_map_to",
+            "value": [
+              "1",
+              "2",
+              "3",
+              "4"
+            ]
+          }
+        },
+        {
+          "message": "total primary-referred leakage normalized to side-specific terminal-equivalent ohms",
+          "id": "energex:network-capacity:transformer:165891",
+          "severity": "info",
+          "code": "L.L3F.IMPEDANCE_ALIAS_NORMALIZED",
+          "evidence": {
+            "original": {
+              "x_series": 9.492020940688107,
+              "r_series": 1.8984041881376217
+            },
+            "convention": "from_coil",
+            "factor": 0.3333333333333333
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:145876_to'",
+          "id": "energex:network-capacity:transformer:145876",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:145876_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:161761_to'",
+          "id": "energex:network-capacity:transformer:161761",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:161761_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:162734_to'",
+          "id": "energex:network-capacity:transformer:162734",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:162734_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:163123_to'",
+          "id": "energex:network-capacity:transformer:163123",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:163123_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:163187_to'",
+          "id": "energex:network-capacity:transformer:163187",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:163187_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:164481_to'",
+          "id": "energex:network-capacity:transformer:164481",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:164481_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:164612_to'",
+          "id": "energex:network-capacity:transformer:164612",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:164612_to",
+            "side": "to",
+            "x": 0.007747061829707051,
+            "r": 0.0017215692954904557
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:164634_to'",
+          "id": "energex:network-capacity:transformer:164634",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:164634_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:164643_to'",
+          "id": "energex:network-capacity:transformer:164643",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:164643_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:164671_to'",
+          "id": "energex:network-capacity:transformer:164671",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:164671_to",
+            "side": "to",
+            "x": 0.007747061829707051,
+            "r": 0.0017215692954904557
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165331_to'",
+          "id": "energex:network-capacity:transformer:165331",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165331_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165497_to'",
+          "id": "energex:network-capacity:transformer:165497",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165497_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165530_to'",
+          "id": "energex:network-capacity:transformer:165530",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165530_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165537_to'",
+          "id": "energex:network-capacity:transformer:165537",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165537_to",
+            "side": "to",
+            "x": 0.007747061829707051,
+            "r": 0.0017215692954904557
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165615_to'",
+          "id": "energex:network-capacity:transformer:165615",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165615_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165875_to'",
+          "id": "energex:network-capacity:transformer:165875",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165875_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165891_to'",
+          "id": "energex:network-capacity:transformer:165891",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165891_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:165895_to'",
+          "id": "energex:network-capacity:transformer:165895",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:165895_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "connection-aware Yd/Dy leakage referred to the wye winding and represented by series line '_l3f_leakage_energex:network-capacity:transformer:166810_to'",
+          "id": "energex:network-capacity:transformer:166810",
+          "severity": "info",
+          "code": "L.L3F.TRANSFORMER_LEAKAGE_LOWERED",
+          "evidence": {
+            "line": "_l3f_leakage_energex:network-capacity:transformer:166810_to",
+            "side": "to",
+            "x": 0.004902615741456397,
+            "r": 0.0009805231482912795
+          }
+        },
+        {
+          "message": "all lines retained with nodal power balance and fixed-reference magnitude/angle drops; no AC feasibility guarantee",
+          "id": null,
+          "severity": "warning",
+          "code": "A.L3F.MESH_LINEARIZED",
+          "evidence": {}
+        }
+      ],
+      "optimize_seconds": 0.44688725,
+      "source_W": 3447444.580630486,
+      "transformers": 19
+    }
+  ],
+  "input_sha256": "3ccc98ee7b728aba8fa1a06ba00a7f8b1e1720609ce72e4924afdf3023ac0e0d",
+  "input": "/Users/uqfgeth/Downloads/springfield-2026-09-12/springfield-largest-mv-lv-peak.bmopf.json",
+  "read_seconds": 50.971197375,
+  "implementation_branch": "codex/l3f-input-and-meshed-mode",
+  "working_tree_dirty": true
+}

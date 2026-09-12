@@ -767,6 +767,8 @@ function _l3f_build_model(net, topology, reference, report, optimizer, options;
         end
     end
 
+    options.topology==:meshed_linear && _l3f_mesh_angles!(model,variables,constraints,net,topology,reference,p_line,q_line)
+
     balance_p = Dict(key => JuMP.AffExpr(0.0) for key in keys(w))
     balance_q = Dict(key => JuMP.AffExpr(0.0) for key in keys(w))
     for edge in topology
@@ -895,7 +897,8 @@ end
     build_l3f_opf(net, optimizer=default_optimizer();
                   options=L3FOptions(), reference=nothing)
 
-Build the L3F-BMOPF lossless radial LP/SOCP. Explicit-neutral inputs are
+Build the L3F-BMOPF lossless LP/SOCP (radial by default; opt-in meshed line
+mode adds linear angle consistency). Explicit-neutral inputs are
 Kron-reduced on a copy when enabled. Inapplicable networks raise
 [`L3FInapplicableError`](@ref), whose report contains stable diagnostics.
 Input and extracted results are SI. `options.per_unit` selects only the model's
@@ -1237,6 +1240,8 @@ function solve_l3f_opf(net, optimizer=default_optimizer();
             "model_kind" => "approximation",
             "provides_ac_lower_bound" => false,
             "unsupported_policy" => String(options.unsupported),
+            "topology" => String(options.topology),
+            "transformer_impedance_convention" => String(options.transformer_impedance),
             "network_semantics" => any(f -> startswith(f.code, "A.L3F."),
                 build.applicability.findings) ? "projected" : "as_supplied",
             "physical_feasibility_certified" => false,

@@ -30,6 +30,7 @@ include("formulations/lindist3flow/types.jl")
 include("formulations/lindist3flow/coefficients.jl")
 include("formulations/lindist3flow/lowering.jl")
 include("formulations/lindist3flow/controls.jl")
+include("formulations/lindist3flow/input_mesh.jl")
 include("formulations/lindist3flow/applicability.jl")
 include("formulations/lindist3flow/model.jl")
 

@@ -87,3 +87,6 @@ use `IVRSDP(lnc=:lines)` for conservatively derived line bounds, or supply
 [LNC formulation and usage](docs/src/lnc.md).
 
 See [network reduction and state reconstruction](docs/src/reduction.md) for policies, approximation warnings, portable plans, and the [numerical study](examples/results/reduction_study_2026-09-11.md).
+
+LinDist3Flow also offers explicit impedance-alias normalization and a fixed
+meshed-line approximation; see [the input and mesh contract](docs/src/lindist3flow_mesh.md).

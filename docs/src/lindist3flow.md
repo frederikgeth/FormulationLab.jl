@@ -2,6 +2,8 @@
 
 FormulationLab provides the LinDist3Flow formulation migrated from PowerOptLab.
 PowerIO owns exchange parsing; numerical scaling and model assembly live here.
+See [input normalization and meshed lines](lindist3flow_mesh.md) for unambiguous
+transformer-map inference, explicit impedance aliases and `topology=:meshed_linear`.
 No BMOPFTools or PowerOptLab runtime dependency is required. Optional nonlinear
 replay is supplied explicitly through `powerflow=(network; kwargs...) -> result`.
 The complete equations are in [the component model](lindist3flow_components.md).
@@ -48,7 +50,8 @@ nonideal parameters on known transformer maps, and removes local-bank ratings
 whose coil meaning is undefined. Every change is an `A.L3F.*` warning carrying
 the original field and value. Static snapshot values still have to be present.
 Malformed or non-finite data, unknown connection maps, missing terminals or
-references, disconnected conductors, and meshed topology remain errors.
+references, disconnected conductors, and unsupported topology remain errors. Line cycles require the separate
+`topology=:meshed_linear` option.
 
 All three modes operate on retained, neutral-reduced conductors. Generic explicit
 neutral networks up to four wires are not currently supported: this formulation
