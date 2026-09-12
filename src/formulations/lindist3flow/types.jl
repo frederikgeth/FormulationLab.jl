@@ -12,6 +12,7 @@ working coordinates, with system power base `s_base`.
 
 | Field | Values | Meaning |
 |:------|:-------|:--------|
+| `operating_mode` | `:opf` (default), `:power_flow` | Enforce branch thermal limits, or monitor them at fixed generator/DER P/Q. Power flow uses a zero objective; other bounds remain enforced. |
 | `topology` | `:radial` (default), `:meshed_linear` | The meshed approximation retains line cycles and adds fixed-reference angle drops; transformers must be bus-graph bridges. |
 | `infer_terminal_maps` | `Bool` (`true`) | Infer missing Yd/Dy maps only from unambiguous terminal conventions. |
 | `transformer_impedance` | `:unspecified` (default), `:from_terminal`, `:from_coil`, `:wye_terminal` | Explicit reference-side interpretation of r_series/x_series aliases. |
@@ -26,6 +27,7 @@ working coordinates, with system power base `s_base`.
 | `s_base` | `Real` (`1e6`) | System VA base for the per-unit working copy. |
 """
 struct L3FOptions
+    operating_mode::Symbol
     topology::Symbol
     infer_terminal_maps::Bool
     transformer_impedance::Symbol
@@ -41,6 +43,7 @@ struct L3FOptions
 end
 
 function L3FOptions(;
+        operating_mode::Symbol=:opf,
         topology::Symbol=:radial,
         infer_terminal_maps::Bool=true,
         transformer_impedance::Symbol=:unspecified,
@@ -53,6 +56,7 @@ function L3FOptions(;
         objective::Symbol=:cost,
         per_unit::Bool=true,
         s_base::Real=1e6)
+    operating_mode in (:opf, :power_flow) || throw(ArgumentError("operating_mode must be :opf or :power_flow"))
     topology in (:radial, :meshed_linear) || throw(ArgumentError("unknown topology mode"))
     transformer_impedance in (:unspecified, :from_terminal, :from_coil, :wye_terminal) ||
         throw(ArgumentError("unknown transformer impedance convention"))
@@ -66,7 +70,8 @@ function L3FOptions(;
         throw(ArgumentError("objective must be :cost, :feasibility, or :source_import"))
     isfinite(s_base) && s_base > 0 ||
         throw(ArgumentError("s_base must be finite and > 0"))
-    L3FOptions(topology, infer_terminal_maps, transformer_impedance, current_limit_policy, validate_nonlinear, reference_policy, kron_reduce,
+    objective = operating_mode == :power_flow ? :feasibility : objective
+    L3FOptions(operating_mode, topology, infer_terminal_maps, transformer_impedance, current_limit_policy, validate_nonlinear, reference_policy, kron_reduce,
         require_neutral_provenance, unsupported, objective, per_unit, Float64(s_base))
 end
 

@@ -24,6 +24,7 @@ makedocs(;
         "Network reduction and reconstruction"=>"reduction.md",
         "LinDist3Flow"=>["Formulation and usage"=>"lindist3flow.md",
                          "Component equations"=>"lindist3flow_components.md",
+                         "OPF and power-flow modes"=>"lindist3flow_modes.md",
                          "Input normalization and meshed lines"=>"lindist3flow_mesh.md",
                          "PowerIO compatibility and IEEE roadmap"=>"powerio_compatibility.md"],
         "API"=>"api.md",

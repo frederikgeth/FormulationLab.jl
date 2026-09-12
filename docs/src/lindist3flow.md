@@ -852,3 +852,6 @@ l3f_model_class
 validate_l3f_solution
 solve_l3f_opf
 ```
+
+See [Hard-limit OPF and fixed-dispatch power flow](@ref) for fixed P/Q operation
+with branch overload reporting, and the unchanged hard-limit OPF default.
