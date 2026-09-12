@@ -3,7 +3,9 @@ include("ac_validation_fixtures.jl")
 _performance_audits(;kwargs...)=(IVRSOC(profile=:fast,audit=true;kwargs...),
     IVRSOC(profile=:balanced,audit=true;kwargs...),
     IVRSOC(basis=:physical_sparse,audit=true;kwargs...),
-    IVRSDP(basis=:physical_sparse,audit=true;kwargs...))
+    IVRSDP(basis=:physical_sparse,audit=true;kwargs...),
+    IVRSDP(state_scaling=:voltage_region,clique_merge=:cost,
+        decomposition=:chordal,consistency=:local,clique_size=4,audit=true;kwargs...))
 
 @testset "Independent transformer states survive every relaxation" begin
     for kind in ("single_phase","center_tap","delta_wye","wye_delta","single_phase_autotransformer","open_delta_regulator"),reverse in (false,true)

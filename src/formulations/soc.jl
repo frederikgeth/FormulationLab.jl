@@ -3,7 +3,7 @@ default_soc_optimizer()=default_optimizer(Val(:clarabel_soc))
 """SOC outer relaxation options. `electrical` selects the matching SDP layout and cuts."""
 Base.@kwdef struct SOCOptions
     profile::Symbol=:custom # provenance label; IVRSOC resolves presets
-    electrical::SDPOptions=SDPOptions()
+    electrical::SDPOptions=SDPOptions(state_scaling=:global)
     physical_projections::Bool=true
     voltage_recovery::Symbol=:voltage_tree
     strengthening::Symbol=:linear
