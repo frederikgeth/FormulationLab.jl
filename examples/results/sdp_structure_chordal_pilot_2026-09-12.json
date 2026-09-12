@@ -1,0 +1,287 @@
+{
+  "revision": "1443ae191fa1fabf39adac27ddc0bca50c2c8a3b",
+  "clarabel": "0.11.1",
+  "source_sha256": {
+    "src/formulations/sdp_numerics.jl": "fd5feb6f871d5c20087a12862935ac0bfd84c6350eb4d33be5dadfdbf76f0f78",
+    "src/formulations/sdp.jl": "3c7ef9038273d41de363148262c5d67c550839b8a34eb35284452a764e67af2d",
+    "src/formulations/sdp_sparse.jl": "1fef5cadf4355520f10563230788a8aecdae5c4de8f1d74aed2ebaf17a700467"
+  },
+  "settings": {
+    "time_limit": 60.0,
+    "tol_gap_rel": 1e-07,
+    "tol_feas": 1e-07,
+    "tol_gap_abs": 1e-06,
+    "chordal_static_regularization": 1e-05
+  },
+  "blas_threads": 1,
+  "note": "Fresh optimizer each repeat. Native times exclude JuMP attachment and result recovery. Identical BMOPFTools-style reduced input for all profiles.",
+  "profiles": [
+    {
+      "name": "chordal_size_scaled",
+      "clique_merge": "size",
+      "state_scaling": "voltage_region",
+      "decomposition": "chordal",
+      "consistency": "local"
+    },
+    {
+      "name": "chordal_cost12_w1",
+      "clique_merge": "cost",
+      "state_scaling": "global",
+      "decomposition": "chordal",
+      "consistency": "local",
+      "clique_size": 12,
+      "clique_overlap_weight": 1.0
+    },
+    {
+      "name": "chordal_cost12_w8",
+      "clique_merge": "cost",
+      "state_scaling": "global",
+      "decomposition": "chordal",
+      "consistency": "local",
+      "clique_size": 12,
+      "clique_overlap_weight": 8.0
+    },
+    {
+      "name": "chordal_combined12_w1",
+      "clique_merge": "cost",
+      "state_scaling": "voltage_region",
+      "decomposition": "chordal",
+      "consistency": "local",
+      "clique_size": 12,
+      "clique_overlap_weight": 1.0
+    }
+  ],
+  "julia_threads": 1,
+  "julia": "1.12.6",
+  "repeats": 3,
+  "script_sha256": "a465194da2144c902d590eebfa007cf7a094147ca4e6ab34e7bb590cca075bb3",
+  "cases": [
+    {
+      "collection": "ENWL",
+      "s_base_VA": 8000.0,
+      "changes": [
+        "remove source generator grid"
+      ],
+      "path": "/Users/uqfgeth/Documents/GitHub/BMOPFDraftData/benchmarks/ENWLbenchmark/reduced/network_9_Feeder_4.json",
+      "name": "network_9_Feeder_4.json",
+      "original_buses": 24,
+      "reduced_buses": 24,
+      "input_sha256": "d049569054857a04e649c657d3cc60b3805ccb3224fee505af692f0f1c59e4ca",
+      "profiles": [
+        {
+          "profile": "chordal_size_scaled",
+          "numerics": {
+            "basis_relative_residual": 9.18642271271015e-17,
+            "unmerged_cliques": 145,
+            "basis_fallback": false,
+            "optimizer_profile": "clarabel_chordal",
+            "state_dimension": 219,
+            "cone": "real",
+            "cliques": 42,
+            "state_scaling": {
+              "mode": "voltage_region",
+              "minimum": 1.0,
+              "maximum": 1.0,
+              "regions": 1,
+              "fallback_regions": 0
+            },
+            "derived_current_bounds": 21,
+            "face_equations": 0,
+            "basis_map_difference": 1.1701798079866902e-14,
+            "basis_fallback_reason": "none",
+            "basis_rhs_columns": 28,
+            "electrical_residual": 9.186422712710152e-17,
+            "separator_real_dimension": 4918,
+            "basis": "physical_sparse",
+            "clique_merge": "size",
+            "reduced_dimension": 28,
+            "basis_structural_components": 1,
+            "consistency": "local",
+            "clique_basis_residual": 1.1102230246251577e-15,
+            "clique_cost_proxy": 711496.0,
+            "separator_ranks": [
+              19,
+              13,
+              14,
+              13,
+              22,
+              12,
+              5,
+              13,
+              5,
+              13,
+              5,
+              22,
+              5,
+              12,
+              5,
+              13,
+              5,
+              12,
+              5,
+              22,
+              5,
+              11,
+              5,
+              12,
+              5,
+              11,
+              5,
+              22,
+              5,
+              10,
+              5,
+              11,
+              5,
+              5,
+              5,
+              5,
+              5,
+              4,
+              5,
+              5,
+              5
+            ],
+            "objective_scale": 10392.32630921521,
+            "clique_orders": [
+              19,
+              22,
+              13,
+              14,
+              13,
+              22,
+              12,
+              5,
+              13,
+              5,
+              13,
+              5,
+              22,
+              6,
+              12,
+              6,
+              13,
+              5,
+              12,
+              5,
+              22,
+              5,
+              11,
+              5,
+              12,
+              6,
+              11,
+              5,
+              22,
+              5,
+              10,
+              5,
+              11,
+              5,
+              6,
+              5,
+              5,
+              6,
+              4,
+              5,
+              6,
+              5
+            ],
+            "removed_affine_constraints": 50,
+            "decomposition": "chordal"
+          },
+          "build_seconds": 13.252991084,
+          "runs": [
+            {
+              "reported_solve_seconds": 59.012114918,
+              "max_scaled_violation": 1.3361424189284321e-09,
+              "optimize_wall_seconds": 59.030887041,
+              "native_solve_seconds": 58.402171125,
+              "dual_W": -4025.2963804075475,
+              "status": "OPTIMAL",
+              "objective_W": -4025.2955501721963,
+              "linear_solver": {
+                "direct": true,
+                "name": "qdldl",
+                "nnzA": 4342475,
+                "threads": 1,
+                "nnzL": 11259947
+              },
+              "attach_seconds": 0.024380209,
+              "iterations": 20,
+              "res_dual": 4.2307211604526526e-11,
+              "res_primal": 9.151776672149126e-11,
+              "A_nnz": 865322,
+              "accepted": true,
+              "A_shape": [
+                16616,
+                11350
+              ]
+            },
+            {
+              "reported_solve_seconds": 59.438225209,
+              "max_scaled_violation": 1.3361424189284321e-09,
+              "optimize_wall_seconds": 59.456235917,
+              "native_solve_seconds": 58.84038675,
+              "dual_W": -4025.2963804075475,
+              "status": "OPTIMAL",
+              "objective_W": -4025.2955501721963,
+              "linear_solver": {
+                "direct": true,
+                "name": "qdldl",
+                "nnzA": 4342475,
+                "threads": 1,
+                "nnzL": 11259947
+              },
+              "attach_seconds": 0.01428825,
+              "iterations": 20,
+              "res_dual": 4.2307211604526526e-11,
+              "res_primal": 9.151776672149126e-11,
+              "A_nnz": 865322,
+              "accepted": true,
+              "A_shape": [
+                16616,
+                11350
+              ]
+            }
+          ]
+        }
+      ],
+      "parser_provenance": {
+        "parsed_at": "2026-09-12T16:29:03.850"
+      },
+      "voltage_recovery": "conditional",
+      "reduction": {
+        "events": [
+          {
+            "message": "Series merge skipped: exact circuit and constraint preservation is not supported for this chain.",
+            "detail": {
+              "lines": [
+                "line96",
+                "line117"
+              ],
+              "bus_fields": [
+                "vpn_min",
+                "vpn_max"
+              ]
+            },
+            "severity": "warning",
+            "operation": "merge_series_lines",
+            "code": "INTERMEDIATE_CONSTRAINT",
+            "element_type": "bus",
+            "element_id": "117"
+          }
+        ],
+        "lines_after": 23,
+        "buses_after": 24,
+        "approximation_events": 0,
+        "buses_before": 24,
+        "removed_buses_with_bounds": [],
+        "lines_before": 23,
+        "approximate": false
+      }
+    }
+  ],
+  "study_status": "interrupted_after_slow_variant",
+  "stop_reason": "Exploratory size-based forced chordal variant exceeded 30 s. Remaining profiles were restarted in the conservative study; this is a partial pilot, not a complete panel."
+}

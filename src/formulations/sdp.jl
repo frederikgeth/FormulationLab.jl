@@ -8,6 +8,13 @@ power-cone envelopes. Controls are not evaluated. `s_base` is in VA.
 `voltage_lncs` adds explicit domains/cuts independently of that setting.
 `basis=:auto` uses guarded structural physical elimination up to 32 independent
 coordinates and sparse QR above that; `:physical` retains the legacy basis.
+`clique_merge=:cost` uses a reduced-rank cone/separator cost surrogate instead
+of the default original-coordinate size heuristic. `clique_size` then caps
+the reduced order of proposed merges (default 12 instead of 32).
+The Clarabel profile uses `state_scaling=:voltage_region` to precondition
+electrical elimination; `:global` retains the previous coordinates. Outputs
+and physical bounds keep their original units. Cost merging is experimental;
+both transformations preserve the SDP.
 """
 Base.@kwdef struct SDPOptions
     audit::Bool = false
@@ -22,7 +29,10 @@ Base.@kwdef struct SDPOptions
     scale_objective::Bool = profile==:clarabel
     current_bounds::Bool = profile==:clarabel
     preprocess::Bool = profile==:clarabel
-    clique_size::Int = 32
+    clique_merge::Symbol = :size
+    clique_size::Int = clique_merge==:cost ? 12 : 32
+    clique_overlap_weight::Float64 = 1.0
+    state_scaling::Symbol = profile==:clarabel ? :voltage_region : :global
     consistency::Symbol = :auto
     recovery::Symbol = profile==:clarabel ? :anchor : :dominant
     lnc::Symbol = :off
@@ -143,6 +153,9 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     options.decomposition in (:auto,:dense,:chordal) || throw(ArgumentError("unknown SDP decomposition"))
     options.consistency in (:auto,:local,:shared) || throw(ArgumentError("unknown clique consistency"))
     options.clique_size>=1 || throw(ArgumentError("clique_size must be positive"))
+    options.clique_merge in (:size,:cost) || throw(ArgumentError("unknown clique merge policy"))
+    isfinite(options.clique_overlap_weight) && options.clique_overlap_weight>=0 || throw(ArgumentError("clique_overlap_weight must be finite and nonnegative"))
+    options.state_scaling in (:global,:voltage_region) || throw(ArgumentError("unknown state scaling"))
     options.recovery in (:anchor,:dominant) || throw(ArgumentError("unknown SDP recovery"))
     options.basis in (:auto,:orthonormal,:physical,:physical_sparse,:sparse) || throw(ArgumentError("unknown SDP basis"))
     options.cone in (:hermitian,:real) || throw(ArgumentError("unknown SDP cone"))
@@ -392,6 +405,8 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     diagnostics=Dict{Symbol,Any}(:basis=>options.basis,:cone=>options.cone,
         :decomposition=>options.decomposition,:state_dimension=>size(A,2),
         :bound_report=>bound_info,:face_equations=>face_rows,:derived_current_bounds=>length(derived))
+    scales,scaling_info=_sdp_state_scales(net,voltage,devices,limits,size(A,2),vb,options.state_scaling)
+    diagnostics[:state_scaling]=scaling_info
     model=optimizer===nothing || optimizer isa _SDPDefaultOptimizer ? JuMP.Model() : JuMP.Model(optimizer)
     _soc===nothing || (model.ext[:soc_policy]=_soc)
     model.ext[:state_channels]=devices
@@ -400,7 +415,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
             voltage=copy(voltage),real_embeddings=Any[],envelopes=Any[])
     end
     if options.decomposition==:dense
-        N=_sdp_basis(A,options.basis;diagnostics)
+        N=_sdp_scaled_basis(A,options.basis,scales;diagnostics)
         size(N,2)>0 || _sdp_refuse("electrical equations leave no nonzero source state")
         diagnostics[:basis]=options.basis==:auto ? (size(N,2)<=32 ? :physical_sparse : :sparse) : options.basis
         diagnostics[:electrical_residual]=norm(A*N,Inf)
@@ -423,7 +438,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
         for line in lnc_lines
             push!(supports,unique([k for row in [line.vf;line.vt] for k in keys(row)]))
         end
-        H,N=_sdp_sparse_moment(model,A,supports,options,diagnostics)
+        H,N=_sdp_sparse_moment(model,A,supports,options,diagnostics;scales)
     end
     lift(a,b)=_lnc_lift(H,N,a,b)
     _soc===nothing || _soc_physical!(model,lift,devices,limits,voltage,_soc)

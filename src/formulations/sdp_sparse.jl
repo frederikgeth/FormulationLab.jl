@@ -149,18 +149,36 @@ end
 
 # Amalgamate adjacent tree bags. This adds fill products, preserves running
 # intersection and PSD-completion equivalence, and avoids hundreds of tiny cones.
-function _sdp_merge_cliques(cliques,parents,limit)
+function _sdp_merge_cliques(cliques,parents,limit;N=nothing,weight=1.0)
     bags=copy(cliques);neighbors=[Set{Int}() for _ in bags];active=trues(length(bags))
+    ranks=Dict{Tuple,Int}()
+    reduced(c)=get!(ranks,Tuple(sort(c))) do
+        C=N[c,:];s=svdvals(C)
+        count(>(maximum(size(C))*eps(Float64)*maximum(s;init=0.0)),s)
+    end
+    # Surrogate for cone algebra plus separator coupling, NOT a prediction of
+    # KKT factorization time. A complex separator of rank s has s^2 real rows.
+    cone_cost(r)=Float64(r)^3+8.0
+    overlap_cost(c)=weight*Float64(reduced(c))^3
     for (i,p) in enumerate(parents)
         p==0 && continue
         push!(neighbors[i],p);push!(neighbors[p],i)
     end
     while true
-        best=(limit+1,0,0)
+        best=(N===nothing ? Float64(limit+1) : 0.0,0,0)
         for i in findall(active),j in neighbors[i]
             i<j || continue
-            size=length(union(bags[i],bags[j]))
-            size<best[1] && (best=(size,i,j))
+            merged=union(bags[i],bags[j])
+            if N===nothing
+                score=Float64(length(merged))
+            else
+                r=reduced(merged);r<=limit || continue
+                score=cone_cost(r)-cone_cost(reduced(bags[i]))-cone_cost(reduced(bags[j]))-
+                    overlap_cost(intersect(bags[i],bags[j]))
+                # Adjacent amalgamation leaves other separator ranks unchanged
+                # by running intersection. Only this edge disappears.
+            end
+            score<best[1] && (best=(score,i,j))
         end
         best[2]==0 && break
         _,i,j=best;bags[i]=sort!(union(bags[i],bags[j]))
@@ -180,8 +198,8 @@ function _sdp_merge_cliques(cliques,parents,limit)
     bags[order],outparents
 end
 
-function _sdp_sparse_moment(model,A,supports,options,diagnostics)
-    N=_sdp_basis(A,options.basis;diagnostics);m=size(N,2)
+function _sdp_sparse_moment(model,A,supports,options,diagnostics;scales=ones(size(A,2)))
+    N=_sdp_scaled_basis(A,options.basis,scales;diagnostics);m=size(N,2)
     diagnostics[:basis]=options.basis==:auto ? (m<=32 ? :physical_sparse : :sparse) : options.basis
     n=size(A,2)
     if options.decomposition==:auto && m<=32
@@ -192,13 +210,25 @@ function _sdp_sparse_moment(model,A,supports,options,diagnostics)
     diagnostics[:decomposition]=:chordal
     cliques,parents=_sdp_cliques(n,supports)
     diagnostics[:unmerged_cliques]=length(cliques)
-    cliques,parents=_sdp_merge_cliques(cliques,parents,options.clique_size)
+    diagnostics[:clique_merge]=options.clique_merge
+    cliques,parents=_sdp_merge_cliques(cliques,parents,options.clique_size;
+        N=options.clique_merge==:cost ? N : nothing,weight=options.clique_overlap_weight)
     selections=Vector{Int}[]
     for clique in cliques
         C=N[clique,:];singular=svdvals(C)
         r=count(>(maximum(size(C))*eps(Float64)*maximum(singular;init=0.0)),singular)
         push!(selections,clique[qr(Matrix{ComplexF64}(C'),ColumnNorm()).p[1:r]])
     end
+    separator_ranks=Int[]
+    for (k,p) in enumerate(parents)
+        p==0 && continue
+        C=N[intersect(cliques[k],cliques[p]),:];s=svdvals(C)
+        push!(separator_ranks,count(>(maximum(size(C))*eps(Float64)*maximum(s;init=0.0)),s))
+    end
+    diagnostics[:separator_ranks]=separator_ranks
+    diagnostics[:separator_real_dimension]=sum(abs2,separator_ranks;init=0)
+    diagnostics[:clique_cost_proxy]=sum(r->Float64(r)^3+8.0,length.(selections);init=0.0)+
+        options.clique_overlap_weight*sum(r->Float64(r)^3,separator_ranks;init=0.0)
     if any(length(c)==m for c in selections)
         diagnostics[:decomposition]=:dense
         diagnostics[:electrical_residual]=norm(A*N,Inf)

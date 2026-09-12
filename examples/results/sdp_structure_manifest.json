@@ -1,0 +1,37 @@
+[
+  {
+    "name": "network_9_Feeder_4.json",
+    "path": "/Users/uqfgeth/Documents/GitHub/BMOPFDraftData/benchmarks/ENWLbenchmark/reduced/network_9_Feeder_4.json",
+    "collection": "ENWL",
+    "voltage_recovery": "conditional"
+  },
+  {
+    "name": "network_18_Feeder_6.json",
+    "path": "/Users/uqfgeth/Documents/GitHub/BMOPFDraftData/benchmarks/ENWLbenchmark/reduced/network_18_Feeder_6.json",
+    "collection": "ENWL",
+    "voltage_recovery": "conditional"
+  },
+  {
+    "name": "network_18_Feeder_9.json",
+    "path": "/Users/uqfgeth/Documents/GitHub/BMOPFDraftData/benchmarks/ENWLbenchmark/reduced/network_18_Feeder_9.json",
+    "collection": "ENWL",
+    "voltage_recovery": "conditional"
+  },
+  {
+    "name": "lvtestcase/snapshots/lvtestcase_pmd_t500.dss",
+    "path": "/Users/uqfgeth/Documents/GitHub/DistributionTestCases.jl/src/data/lvtestcase/snapshots/lvtestcase_pmd_t500.dss",
+    "collection": "DistributionTestCases",
+    "voltage_recovery": "conditional"
+  },
+  {
+    "name": "lvtestcase/snapshots/lvtestcase_pmd_t1000.dss",
+    "path": "/Users/uqfgeth/Documents/GitHub/DistributionTestCases.jl/src/data/lvtestcase/snapshots/lvtestcase_pmd_t1000.dss",
+    "collection": "DistributionTestCases",
+    "profiles": [
+      "linear12",
+      "physical12",
+      "kim12_8"
+    ],
+    "voltage_recovery": "conditional"
+  }
+]

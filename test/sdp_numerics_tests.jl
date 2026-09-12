@@ -1,4 +1,10 @@
 @testset "SDP numerical profiles preserve physical objectives" begin
+    @test SDPOptions().state_scaling==:voltage_region
+    @test SDPOptions(profile=:reference).state_scaling==:global
+    @test SOCOptions().electrical.state_scaling==:global
+    @test IVRSOC().options.electrical.state_scaling==:global
+    @test SDPOptions(clique_merge=:cost).clique_size==12
+    @test SDPOptions(clique_merge=:cost).clique_overlap_weight==1.0
     net=_l3f_case()
     for objective in (:cost,:source_import), sb in (1e4,1e6)
         reference=_sdp_test_solve(net;options=SDPOptions(profile=:reference,s_base=sb,objective=objective),solver_options=(verbose=false,))
@@ -8,7 +14,7 @@
         @test improved.voltage_candidate[("load","a")] ≈ reference.voltage_candidate[("load","a")] rtol=2e-5
         @test solve_diagnostics(improved).numerical[:voltage_rank_ratio] < 1e-6
     end
-    for options in (SDPOptions(profile=:bad),SDPOptions(basis=:bad),SDPOptions(cone=:bad),SDPOptions(shunt_coordinates=:bad),SDPOptions(decomposition=:bad),SDPOptions(recovery=:bad),SDPOptions(clique_size=0))
+    for options in (SDPOptions(profile=:bad),SDPOptions(basis=:bad),SDPOptions(cone=:bad),SDPOptions(shunt_coordinates=:bad),SDPOptions(decomposition=:bad),SDPOptions(recovery=:bad),SDPOptions(clique_size=0),SDPOptions(clique_merge=:bad),SDPOptions(state_scaling=:bad),SDPOptions(clique_overlap_weight=-1.),SDPOptions(clique_overlap_weight=Inf))
         @test_throws ArgumentError build_sdp_opf(net;options)
     end
 end
@@ -72,4 +78,68 @@ end
     @test solve_diagnostics(sparse).numerical[:decomposition]==:chordal
     @test maximum(solve_diagnostics(sparse).numerical[:clique_orders])<9
     @test net==original
+    for consistency in (:local,:shared), scaling in (:global,:voltage_region)
+        cost=_sdp_test_solve(net;options=SDPOptions(;s_base=1000.,objective=:source_import,
+            decomposition=:chordal,clique_size=4,clique_merge=:cost,state_scaling=scaling,consistency),
+            solver_options=(verbose=false,))
+        @test cost.solve.optimal
+        @test cost.objective ≈ dense.objective rtol=2e-6
+        @test cost.voltage_candidate[("b8","a")] ≈ dense.voltage_candidate[("b8","a")] atol=2e-3
+        @test solve_diagnostics(cost).numerical[:separator_real_dimension]>=0
+    end
+end
+
+@testset "Voltage-region congruence preserves mixed-voltage transformer physics" begin
+    net=_sdp_tx_case("single_phase")
+    net["transformer"]["single_phase"]["tx"]["v_nom_from"]=23000.
+    net["voltage_source"]["s"]["v_magnitude"][1]=23000.
+    _sdp_zload!(net,"z",["p","n"],0.1-0.02im)
+    original=deepcopy(net)
+    for basis in (:sparse,:physical_sparse,:orthonormal), cone in (:real,:hermitian)
+        r=_sdp_test_solve(net;options=SDPOptions(;state_scaling=:voltage_region,basis,cone,
+            objective=:source_import),solver_options=(verbose=false,))
+        @test r.solve.optimal
+        @test r.voltage_candidate[("t","p")] ≈ 115. atol=1e-3
+        @test r.objective ≈ 0.1*115^2 rtol=1e-6
+        @test r.numerical_diagnostics[:state_scaling].minimum<0.01
+        @test !r.numerical_diagnostics[:scaling_basis_fallback]
+    end
+    @test net==original
+end
+
+@testset "Region scaling leaves a uniform-voltage neutral network unchanged" begin
+    net=_l3f_case(explicit_neutral=true)
+    net["bus"]["load"]["perfectly_grounded_terminals"]=String[]
+    a=build_sdp_opf(net,nothing;options=SDPOptions(state_scaling=:global))
+    b=build_sdp_opf(net,nothing;options=SDPOptions(state_scaling=:voltage_region))
+    @test b.numerical_diagnostics[:state_scaling].minimum==1.0
+    @test b.numerical_diagnostics[:state_scaling].maximum==1.0
+    @test a.nullspace==b.nullspace
+    @test num_variables(a.model)==num_variables(b.model)
+    # A changed numerical rank must not silently change the electrical space.
+    A=ComplexF64[1 0 0;0 1e-18 0];diagnostics=Dict{Symbol,Any}()
+    N=FormulationLab._sdp_scaled_basis(A,:orthonormal,[1.,1e18,1.];diagnostics)
+    @test diagnostics[:scaling_basis_fallback]
+    @test N==FormulationLab._sdp_basis(A,:orthonormal)
+    # An open tie must not pool the voltage bases of separate source regions.
+    regions=Dict("bus"=>Dict("hi"=>Dict(),"lo"=>Dict()),
+        "voltage_source"=>Dict("a"=>Dict("bus"=>"hi","v_magnitude"=>[230.]),
+            "b"=>Dict("bus"=>"lo","v_magnitude"=>[115.])),
+        "switch"=>Dict("tie"=>Dict("bus_from"=>"hi","bus_to"=>"lo","open_switch"=>true)))
+    scales,info=FormulationLab._sdp_state_scales(regions,Dict(("hi","a")=>1,("lo","a")=>2),[],[],2,230.,:voltage_region)
+    @test scales==[1.,0.5]
+    @test info.regions==2
+end
+
+@testset "Cost amalgamation preserves a running-intersection cover" begin
+    bags=[[1,2,3],[2,3,4],[3,4,5],[4,5,6]];parents=[0,1,2,3]
+    N=ComplexF64[1 0 0;0 1 0;0 0 1;1 1 0;0 1 1;1 0 1]
+    for limit in (2,3,4), weight in (0.,8.,100.)
+        merged,ps=FormulationLab._sdp_merge_cliques(bags,parents,limit;N,weight)
+        @test all(any(issubset(b,c) for c in merged) for b in bags)
+        for i in 2:length(merged)
+            @test 1<=ps[i]<i
+            @test issubset(intersect(merged[i],reduce(union,merged[1:i-1])),merged[ps[i]])
+        end
+    end
 end

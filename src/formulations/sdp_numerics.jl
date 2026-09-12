@@ -1,3 +1,100 @@
+# Numerical voltage regions are connected by lines and switches, not by
+# transformers. Hints choose coordinates only: they NEVER create a bound or
+# replace a declared voltage, tap, winding map, or finite grounding impedance.
+function _sdp_state_scales(net,voltage,devices,limits,n,vb,mode)
+    d=ones(n)
+    mode==:global && return d,(mode=:global,minimum=1.0,maximum=1.0,regions=0,fallback_regions=0)
+    buses=sort!(collect(keys(net["bus"])));parent=Dict(b=>b for b in buses)
+    function root(b)
+        while parent[b]!=b
+            parent[b]=parent[parent[b]];b=parent[b]
+        end
+        b
+    end
+    for family in ("line","switch"), e in values(get(net,family,Dict()))
+        family=="switch" && e["open_switch"] && continue
+        a=root(e["bus_from"]);b=root(e["bus_to"]);parent[b]=a
+    end
+    hints=Dict{String,Vector{Tuple{Int,Float64}}}()
+    function hint(bus,raw,priority)
+        xs=raw isa Number ? (raw,) : raw
+        positive=[Float64(x) for x in xs if isfinite(x) && x>0]
+        isempty(positive) || push!(get!(hints,root(bus),Tuple{Int,Float64}[]),(priority,maximum(positive)))
+    end
+    for s in values(net["voltage_source"]);hint(s["bus"],s["v_magnitude"],3);end
+    for (kind,table) in get(net,"transformer",Dict()), t in values(table)
+        if kind=="n_winding"
+            for w in t["windings"];hint(w["bus"],w["v_nom"],2);end
+        else
+            for side in ("from","to")
+                haskey(t,"v_nom_"*side) && hint(t["bus_"*side],t["v_nom_"*side],2)
+            end
+        end
+    end
+    for (b,bus) in net["bus"], key in ("v_max","vpn_max","v_min","vpn_min")
+        haskey(bus,key) && hint(b,bus[key],1)
+    end
+    for l in values(get(net,"load",Dict()))
+        haskey(l,"v_nom") && hint(l["bus"],l["v_nom"],1)
+    end
+    # Powers of two avoid introducing another source of coefficient rounding.
+    bounded_scale(x)=exp2(clamp(round(log2(x)),-40,40))
+    region=Dict{String,Float64}();fallback=0
+    for b in buses
+        r=root(b);haskey(region,r) && continue
+        hs=get(hints,r,Tuple{Int,Float64}[])
+        if isempty(hs)
+            region[r]=1.0;fallback+=1
+        else
+            priority=maximum(first,hs)
+            logs=sort!([log2(x/vb) for (p,x) in hs if p==priority])
+            region[r]=exp2(clamp(round(sum(logs)/length(logs)),-40,40))
+        end
+    end
+    voltage_set=Set(filter(!iszero,collect(values(voltage))))
+    for ((bus,_),i) in voltage;i==0 || (d[i]=region[root(bus)]);end
+    channels=vcat([(v,i) for (_,_,v,i,_) in devices],[(v,i) for (v,i,_) in limits])
+    # Internal voltage coordinates (e.g. inverter filter EMFs) must not be
+    # mistaken for currents merely because an admittance map contains them.
+    for (vs,_) in channels, v in vs;union!(voltage_set,keys(v));end
+    current_hints=Dict{Int,Tuple{Int,Float64}}()
+    for (vs,is) in channels, (v,i) in zip(vs,is)
+        # Use the voltage REGION, not the norm of a delta/neutral incidence row.
+        # On a uniform-voltage feeder this leaves all state scales equal to one.
+        vscale=maximum((d[k] for k in keys(v));init=0.0)
+        vscale>0 || continue
+        direct=length(i)==1 && abs(only(values(i)))==1
+        for (k,c) in i
+            k in voltage_set && continue
+            iszero(c) && continue
+            hint=(direct ? 1 : 0,bounded_scale(inv(vscale)))
+            current_hints[k]=max(get(current_hints,k,(-1,0.0)),hint)
+        end
+    end
+    for (k,(_,s)) in current_hints;d[k]=s;end
+    d,(mode=mode,minimum=minimum(d;init=1.0),maximum=maximum(d;init=1.0),
+        regions=length(region),fallback_regions=fallback)
+end
+
+# z=D*x, (A*D)*x=0, then z=(D*Nx)*y. All downstream expressions,
+# containment audits, and recovery continue to use the original state units.
+function _sdp_scaled_basis(A,kind,scales;diagnostics=nothing)
+    all(==(1.0),scales) && return _sdp_basis(A,kind;diagnostics)
+    reference=_sdp_basis(A,kind)
+    B=A*Diagonal(scales)
+    for r in axes(B,1)
+        s=norm(B[r,:]);iszero(s) || (B[r,:]./=s)
+    end
+    N=Diagonal(scales)*_sdp_basis(B,kind;diagnostics)
+    residual=norm(A*N,Inf)/max(1.0,norm(A,Inf)*norm(N,Inf))
+    fallback=size(N,2)!=size(reference,2) || !isfinite(residual) || residual>1e-10
+    if diagnostics!==nothing
+        diagnostics[:scaling_basis_fallback]=fallback
+        diagnostics[:scaling_basis_residual]=residual
+    end
+    fallback ? reference : N
+end
+
 # Magnitude bounds are indexed by physical voltage maps, including their scale.
 # No nominal phase angles or sampled power-flow voltages enter these bounds.
 function _sdp_map_key(row)

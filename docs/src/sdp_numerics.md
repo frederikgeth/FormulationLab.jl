@@ -28,6 +28,10 @@ formulation = IVRSDP(decomposition=:chordal, current_bounds=true, lnc=:lines)
 | `recovery` | `:anchor` | `:dominant` |
 | `consistency` | `:auto` | unused on dense path |
 | `lnc` | `:off` | `:off` |
+| `clique_merge` | `:size` | unused on dense path |
+| `clique_size` | `32` for `:size`, `12` for `:cost` | unused on dense path |
+| `clique_overlap_weight` | `1.0` | unused on dense path |
+| `state_scaling` | `:voltage_region` | `:global` |
 
 These are engineering choices, not a guarantee that Clarabel will solve every
 instance. `ALMOST_OPTIMAL` and failed solves are not silently promoted to optimal
@@ -65,6 +69,94 @@ but reconstructs their dependent rows using sparse electrical solves; see
 [the derivation and fallback checks](soc_profiles.md). The legacy `:physical`
 option remains available. No small coefficient is dropped merely because it is small. Rank decisions use
 Float64 linear algebra, so this is not an interval-certified elimination.
+
+### Voltage-region preconditioning
+
+`state_scaling=:voltage_region` applies an additional diagonal change of state
+coordinates **before** electrical elimination. If `D` is the positive diagonal
+scaling matrix, the builder eliminates `A*D*x=0` and returns `N=D*Nx` in the
+original per-unit coordinates. Every downstream voltage/current map, power,
+bound, LNC, audit and result therefore keeps the same units and meaning. For a
+moment, this is the invertible congruence `W=D*Wx*D'`; it preserves PSD.
+
+Regions join buses across lines and closed switches, but not transformers. The scale
+hints, in priority order, are prescribed source magnitudes, transformer nominal
+winding voltages, and declared bus voltage bounds or load nominal voltages.
+Among hints of equal priority, the geometric mean is used. A region without a
+hint retains the global base. All live terminals of a bus, including neutrals,
+receive the same voltage scale. Current scales are inferred inversely from the
+voltage-region scales of their physical channels, preferring direct current
+observations over composite maps; unmatched coordinates retain scale one.
+Incidence-row norms do not change the scale of a uniform-voltage feeder.
+Delta coil maps remain explicit. Nominal coil and terminal magnitudes can differ;
+these hints are numerical preconditioners, not inferred operating points.
+
+Scales are rounded to powers of two and bounded between `2^-40` and `2^40`.
+No hint creates an operating bound or changes a tap or finite ground impedance.
+The scaled electrical rows are equilibrated again. If the detected nullity
+differs from the original basis, or the relative electrical residual exceeds
+`1e-10`, the builder uses the original basis. Diagnostics record scale extrema,
+region/fallback counts and whether this basis fallback occurred. This check
+costs an extra basis construction; it is intended to protect numerical behavior,
+not reduce model-building time.
+
+This is the Clarabel SDP profile's default; `state_scaling=:global` retains the
+previous elimination coordinates and remains the reference profile's default.
+Local clique normalization already addresses part of the scaling problem, so
+additional region scaling does not necessarily improve a particular feeder.
+
+### Optional cost-aware clique amalgamation
+
+```julia
+formulation = IVRSDP(
+    clique_merge=:cost,
+    clique_size=12,
+    clique_overlap_weight=1.0,
+    state_scaling=:voltage_region,
+)
+```
+
+The legacy `clique_merge=:size` greedily merges adjacent tree bags up to
+`clique_size` **original state coordinates**. The alternative `:cost` computes
+electrically reduced ranks first. Its `clique_size` caps the **reduced order of
+each proposed merge**; an original indivisible clique may exceed the cap.
+The cost policy defaults to cap 12 and weight 1 following the conservative
+benchmark sweep; explicit keywords can override both. The size policy remains
+the default because the tested cost policies did not consistently improve time.
+It accepts only merges that decrease the structural surrogate
+
+```math
+C=\sum_k (r_k^3+8)+\lambda\sum_{(k,p)}s_{kp}^3,
+```
+
+where `r_k` is a complex PSD order, `s_kp` is an independent separator rank,
+and `λ=clique_overlap_weight`. A rank-`s` complex Hermitian separator requires
+`s^2` real consistency equations. The constant per-cone overhead and separator
+weight are engineering heuristics: this surrogate does **not** estimate actual
+KKT fill, factorization time, or Clarabel's exact treatment of scalar/SOC blocks.
+The separator term is most relevant to local consistency; shared consistency
+has a different linear-system structure and needs separate measurement.
+
+Only adjacent clique-tree bags are amalgamated. This preserves running
+intersection and all required electrical/product supports. Independent separator
+consistency is retained in full, so this changes the representation of the SDP,
+not its strength. Existing dense/full-span shortcuts still apply. Diagnostics
+include separator ranks, total potential real separator dimension, and the
+surrogate cost; these describe the candidate clique cover even if it falls back
+to a dense cone. They are not counts after affine preprocessing.
+
+The approach follows the clique-amalgamation tradeoff studied by
+[Garstka, Cannon and Goulart](https://arxiv.org/abs/1911.05615), with a distinct,
+simple reduced-rank surrogate here. PSD-completion equivalence relies on the
+[Grone–Johnson–Sá–Wolkowicz completion theorem](https://doi.org/10.1016/0024-3795(84)90207-6).
+We do not implement the weaker selective-consistency relaxation proposed by
+[Andersen, Hansson and Vandenberghe](https://arxiv.org/abs/1308.6718) in this mode.
+
+These options also pass through `IVRSOC`, but changing coordinates or the clique
+cover can change the strength of an SOC outer relaxation. SDP equivalence does
+not imply SOC equivalence. Existing SOC presets and `SOCOptions()` explicitly
+retain `state_scaling=:global`. An explicitly supplied `SDPOptions` object in
+`SOCOptions(electrical=...)` uses the supplied object's settings.
 
 For shunts, explicit current coordinates impose `j = Y*v` with each row divided
 by its largest admittance magnitude. KCL then uses `j` directly. Zero admittance

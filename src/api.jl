@@ -44,7 +44,7 @@ function IVRSOC(;profile=:clarabel,physical_projections=true,voltage_recovery=:v
     strengthening=nothing,max_triplets=nothing,directions=(1.0+0im,1.0im),kwargs...)
     profile in (:clarabel,:reference,:fast,:balanced) || throw(ArgumentError("unknown SOC profile: $profile"))
     preset=profile in (:fast,:balanced)
-    defaults=preset ? (profile=:clarabel,basis=:sparse,clique_size=32) : (profile=profile,)
+    defaults=preset ? (profile=:clarabel,basis=:sparse,clique_size=32,state_scaling=:global) : (profile=profile,state_scaling=:global)
     electrical=SDPOptions(;merge(defaults,(;kwargs...))...)
     strength=strengthening===nothing ? (profile==:balanced ? :kim : :linear) : strengthening
     budget=max_triplets===nothing ? (profile==:balanced ? 8 : 16) : max_triplets
