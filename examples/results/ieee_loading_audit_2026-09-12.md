@@ -1,5 +1,10 @@
 # IEEE 8500 / 9500 loading audit — 12 September 2026
 
+> Historical audit of the installed artifact. The transformer diagnosis and proposed
+> generic-winding adapter below are superseded by the [corrected import study](ieee_import_fixes_2026-09-12.md):
+> the root cause was missing XfmrCode inheritance, and the existing PowerIO
+> center-tap exporter works once its winding data are corrected.
+
 PowerIO 0.11.0, Julia 1.12.6, FormulationLab base revision `1748ef0`. No power-flow or optimization solve was run. This is a conversion/applicability audit, not a performance benchmark. Balanced and unbalanced original masters, both converted 9500 archives, and one derived linecode-based 9500 snapshot were inspected.
 
 | Input | BMOPF export | Buses | Loads | Generic n-winding banks | LinDist3Flow |

@@ -195,3 +195,6 @@ the upstream linecode alternative. It replaces the two batteries with named
 assuming the written 60% charge instruction can charge a full battery. This is
 an explicit constant-power scenario with no energy state or storage controls;
 it is not general storage support. The original source directory is untouched.
+
+See [PowerIO compatibility and IEEE feeder roadmap](@ref) for the integration
+dependency, missing parser capabilities and remaining formulation restrictions.
