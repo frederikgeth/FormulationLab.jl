@@ -72,15 +72,18 @@ an incorrect voltage base, omitted branch or wrong winding polarity.
 
 ## Findings that are not established PowerIO bugs
 
-**IEEE 9500 rating infeasibility:** the corrected linecode scenario, with explicit
-idle batteries, passes radial applicability and builds 41,169 variables. Clarabel
-reports `INFEASIBLE` in 1.118 s. A separate diagnostic removing 4,080
-branch/source/transformer rating fields solves in 0.556 s. This implicates the
-rating constraints but does not identify a bad parser bound: genuine overload,
-limit semantics, default ratings or the L3F approximation may be responsible.
-The next step is to isolate conflicting limits and compare their values and
-physical winding interpretation against the source and OpenDSS. Defaults remain
-unchanged; the unrated run is not a solution of the rated problem.
+**IEEE 9500 rating infeasibility is now localized:** line-current limits and
+transformer nameplate constraints independently make the fixed-demand model
+infeasible. `T226192762B` is a source-declared 5 kVA transformer supplying
+5.757 kW before reactive demand or losses. `Tpx338899C0` has an evaluated
+emergency current of 195 A, but its first fixed load needs about 180 V to meet
+that current; maximizing the receiving voltage with branch ratings removed
+reaches only 128 V. Each single constraint is independently infeasible.
+Isolated OpenDSS service checks confirm the overloads. These concrete limits
+agree with the source data; they are not per-unit scaling errors. Hard nameplate
+OPF feasibility is distinct from a converged power flow that permits overload.
+See `examples/results/ieee9500_rating_diagnosis_2026-09-12.md` for raw evidence,
+the full diagnostic method and reproduction commands.
 
 **IEEE 8500 topology:** both load variants fail the radial conductor-cycle check.
 The meshed mode additionally rejects phase-separated parallel regulator banks
@@ -90,7 +93,9 @@ FormulationLab requires a conductor-aware reference and cycle treatment for
 parallel regulator banks; weakening the existing bridge/reachability checks is
 not a compatibility fix.
 
-**AC accuracy:** there is no frozen full-feeder AC replay for these corrected
+**AC accuracy:** isolated overloaded-service checks converge in OpenDSS. An
+unchanged full static-deck replay fails on `PVSystem.PVFarm1 Mode=7`, rejected
+by the installed OpenDSS engine. There is no frozen full-feeder AC replay for these corrected
 large cases yet. The reported times are single feasibility runs with zero
 objective, not repeated benchmarks or relaxation-gap measurements.
 

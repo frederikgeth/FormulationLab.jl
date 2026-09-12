@@ -6,6 +6,10 @@ infeasible. It solves when branch and transformer ratings are removed as a
 separate diagnostic. The 8500 cases still fail topology applicability checks.
 No AC feasibility or relaxation-gap claim follows from these runs.
 
+> Follow-up: the [rating diagnosis](ieee9500_rating_diagnosis_2026-09-12.md)
+> now identifies independent source-consistent transformer and line overloads.
+> The results below preserve the original import experiment.
+
 ## Changes and provenance
 
 PowerIO branch `codex/ieee-service-imports`, commit `f6fb8081`, based on
