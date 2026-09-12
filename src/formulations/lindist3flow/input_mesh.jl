@@ -1,6 +1,7 @@
 # Input normalization is performed on the private SI snapshot, before neutral
 # reduction or lowering. Retained parser extras are not electrical defaults.
 function _l3f_normalize_inputs!(findings, net, options)
+    options.unsupported != :reject && _l3f_merge_duplicate_switch_contacts!(findings,net)
     conventions=get(net,"terminal_conventions",Dict())
     phases=string.(get(conventions,"phase",String[]))
     neutrals=string.(get(conventions,"neutral",String[]))
@@ -27,14 +28,27 @@ function _l3f_normalize_inputs!(findings, net, options)
                 end
             end
         end
+        if kind in ("center_tap","single_phase") && haskey(d,"no_load_shunt")
+            sh=d["no_load_shunt"]
+            if sh isa AbstractDict && get(sh,"winding",0)==2 &&
+               all(k->k in ("winding","g","b"),keys(sh)) &&
+               all(k->!haskey(d,k),("g_no_load","b_no_load")) &&
+               all(v->v isa Real && !(v isa Bool) && isfinite(v),
+                   (get(sh,"g",0.0),get(sh,"b",0.0)))
+                d["g_no_load"]=get(sh,"g",0.0);d["b_no_load"]=get(sh,"b",0.0)
+                delete!(d,"no_load_shunt")
+                _l3f_info!(findings,"L.L3F.NO_LOAD_SHUNT_NORMALIZED",:transformer,id,
+                    "winding-2 exciting admittance normalized to the physical secondary coil")
+            end
+        end
         aliases=filter(k->haskey(d,k),("r_series","x_series"))
         if !isempty(aliases)
             canonical=("r_series_from","x_series_from","r_series_to","x_series_to")
             if options.transformer_impedance==:unspecified
                 _l3f_error!(findings,"E.L3F.IMPEDANCE_CONVENTION_REQUIRED",:transformer,id,
-                    "r_series/x_series require transformer_impedance=:from_terminal or :from_coil";
+                    "r_series/x_series require transformer_impedance=:from_terminal, :from_coil or :wye_terminal";
                     evidence=Dict(k=>d[k] for k in aliases))
-            elseif kind ∉ ("delta_wye","wye_delta","single_phase") || any(k->haskey(d,k),canonical)
+            elseif (options.transformer_impedance==:wye_terminal && kind ∉ ("delta_wye","wye_delta")) || kind ∉ ("delta_wye","wye_delta","single_phase") || any(k->haskey(d,k),canonical)
                 _l3f_error!(findings,"E.L3F.IMPEDANCE_ALIAS_CONFLICT",:transformer,id,
                     "impedance aliases require a supported bank and no side-specific impedance fields")
             elseif any(k->!(d[k] isa Real && !(d[k] isa Bool) && isfinite(d[k])),aliases)
@@ -45,10 +59,11 @@ function _l3f_normalize_inputs!(findings, net, options)
                 # Existing Yd/Dy leakage lowering uses terminal-equivalent ohms:
                 # Z_wye,eq = Z_from,eq / N² for Dy. A delta coil is 3 Z_terminal.
                 factor=options.transformer_impedance==:from_coil && kind=="delta_wye" ? 1/3 : 1.0
-                for k in aliases;d[k*"_from"]=factor*d[k];delete!(d,k);end
+                side=options.transformer_impedance==:wye_terminal && kind=="delta_wye" ? "to" : "from"
+                for k in aliases;d[k*"_"*side]=factor*d[k];delete!(d,k);end
                 _l3f_info!(findings,"L.L3F.IMPEDANCE_ALIAS_NORMALIZED",:transformer,id,
-                    "total primary-referred leakage normalized to side-specific terminal-equivalent ohms";
-                    evidence=Dict("original"=>original,"convention"=>String(options.transformer_impedance),"factor"=>factor))
+                    "declared leakage normalized to side-specific terminal-equivalent ohms";
+                    evidence=Dict("original"=>original,"convention"=>String(options.transformer_impedance),"factor"=>factor,"side"=>side))
             end
         end
         known=Set(("r_series","x_series","r_series_from","x_series_from","r_series_to","x_series_to",
@@ -127,4 +142,25 @@ function _l3f_mesh_angles!(model,variables,constraints,net,topology,reference,p,
         end
     end
     variables[:angle_deviation]=theta
+end
+
+# Parallel ideal contacts at the same terminal pair have one aggregate flow.
+# Their independent current/apparent-power disks add by summing their radii.
+function _l3f_merge_duplicate_switch_contacts!(findings,net)
+    for (id,d) in get(net,"switch",Dict())
+        a=get(d,"terminal_map_from",[]);b=get(d,"terminal_map_to",[])
+        length(a)==length(b) || continue
+        pairs=collect(zip(a,b));unique_pairs=unique(pairs)
+        length(pairs)==length(unique_pairs) && continue
+        allunique(first.(unique_pairs)) && allunique(last.(unique_pairs)) || continue
+        all(k->!haskey(d,k) || (d[k] isa AbstractVector && length(d[k])==length(pairs) &&
+            all(v->v isa Real && isfinite(v) && v>=0,d[k])),("i_max","s_max")) || continue
+        for k in ("i_max","s_max")
+            haskey(d,k) || continue
+            d[k]=[sum(d[k][i] for i in eachindex(pairs) if pairs[i]==pair) for pair in unique_pairs]
+        end
+        d["terminal_map_from"]=first.(unique_pairs);d["terminal_map_to"]=last.(unique_pairs)
+        _l3f_info!(findings,"L.L3F.PARALLEL_SWITCH_CONTACTS_MERGED",:switch,id,
+            "repeated ideal contacts at identical terminal pairs merged; parallel contact ratings summed")
+    end
 end

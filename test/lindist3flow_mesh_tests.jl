@@ -112,3 +112,31 @@ end
     r=check_l3f_applicability(n;reference=ref,options=L3FOptions(topology=:meshed_linear))
     @test any(f->f.code=="E.L3F.MESH_REFERENCE_INVALID",r.findings)
 end
+
+@testset "PowerIO wye-referred aliases" begin
+    for kind in ("delta_wye","wye_delta")
+        x=_l3f_dy_case(kind;line=true)
+        tx=x["transformer"][kind]["t"]
+        for key in ("r_series_from","x_series_from","r_series_to","x_series_to")
+            delete!(tx,key)
+        end
+        tx["r_series"]=.2;tx["x_series"]=.4
+        f=FormulationLab.L3FFinding[]
+        FormulationLab._l3f_normalize_inputs!(f,x,L3FOptions(transformer_impedance=:wye_terminal))
+        side=kind=="delta_wye" ? "to" : "from"
+        @test tx["r_series_"*side]==.2
+        @test tx["x_series_"*side]==.4
+        @test !haskey(tx,"r_series")
+        @test all(z->z.severity!=:error,f)
+    end
+end
+
+@testset "Repeated ideal switch contacts" begin
+    n=Dict("switch"=>Dict("s"=>Dict{String,Any}("terminal_map_from"=>["b","b","c"],
+        "terminal_map_to"=>["b","b","c"],"i_max"=>[3.,4.,5.])))
+    f=FormulationLab.L3FFinding[]
+    FormulationLab._l3f_merge_duplicate_switch_contacts!(f,n)
+    @test n["switch"]["s"]["terminal_map_from"]==["b","c"]
+    @test n["switch"]["s"]["i_max"]==[7.,5.]
+    @test length(f)==1
+end

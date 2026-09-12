@@ -14,7 +14,7 @@ working coordinates, with system power base `s_base`.
 |:------|:-------|:--------|
 | `topology` | `:radial` (default), `:meshed_linear` | The meshed approximation retains line cycles and adds fixed-reference angle drops; transformers must be bus-graph bridges. |
 | `infer_terminal_maps` | `Bool` (`true`) | Infer missing Yd/Dy maps only from unambiguous terminal conventions. |
-| `transformer_impedance` | `:unspecified` (default), `:from_terminal`, `:from_coil` | Explicit primary-referred interpretation of r_series/x_series aliases. |
+| `transformer_impedance` | `:unspecified` (default), `:from_terminal`, `:from_coil`, `:wye_terminal` | Explicit reference-side interpretation of r_series/x_series aliases. |
 | `current_limit_policy` | `:voltage_product` | Ampacity is the native rotated-SOC bound `p²+q² ≤ w Iᵐᵃˣ²`, using the live squared terminal or winding voltage. |
 | `validate_nonlinear` | `Bool` (`false`) | Opt in to replaying the optimized dispatch through a supplied `powerflow` callback. Replay is diagnostic and is not required by the one-shot formulation. |
 | `reference_policy` | `:auto`, `:explicit`, `:source_propagated` | Which linearization point to use. `:auto` prefers a supplied `reference` and otherwise propagates the source phasors; `:explicit` requires a supplied `reference`; `:source_propagated` always uses the propagated flat profile and ignores a supplied `reference`. |
@@ -54,7 +54,7 @@ function L3FOptions(;
         per_unit::Bool=true,
         s_base::Real=1e6)
     topology in (:radial, :meshed_linear) || throw(ArgumentError("unknown topology mode"))
-    transformer_impedance in (:unspecified, :from_terminal, :from_coil) ||
+    transformer_impedance in (:unspecified, :from_terminal, :from_coil, :wye_terminal) ||
         throw(ArgumentError("unknown transformer impedance convention"))
     current_limit_policy == :voltage_product ||
         throw(ArgumentError("only current_limit_policy=:voltage_product is defined"))

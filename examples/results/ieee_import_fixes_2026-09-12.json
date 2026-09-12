@@ -1,0 +1,210 @@
+{
+  "date": "2026-09-12",
+  "powerio_revision": "f6fb8081",
+  "powerio_julia": "0.11.0 with explicit CAPI override",
+  "formulationlab_parent": "efbd9f4",
+  "julia": "1.12.6",
+  "threads": 1,
+  "power_base_VA": 1000000,
+  "scenarios": {
+    "8500_bal_radial": {
+      "errors": [
+        {
+          "message": "conductor component containing 190-7361.3 has 3750 terminals and 3751 conductors, so it is not radial",
+          "id": null,
+          "code": "E.L3F.TOPOLOGY_NOT_RADIAL"
+        }
+      ],
+      "status": "inapplicable",
+      "counts": {
+        "L.L3F.IMPEDANCE_ALIAS_NORMALIZED": 1,
+        "L.L3F.LINE_SHUNT_LOWERED": 7300,
+        "L.L3F.PARALLEL_SWITCH_CONTACTS_MERGED": 5,
+        "L.L3F.NO_LOAD_SHUNT_NORMALIZED": 1177,
+        "L.L3F.TRANSFORMER_LEAKAGE_LOWERED": 2367,
+        "L.L3F.TRANSFORMER_NO_LOAD_LOWERED": 1177,
+        "W.L3F.COST_MISSING": 1,
+        "E.L3F.TOPOLOGY_NOT_RADIAL": 1,
+        "L.L3F.SWITCH_LOWERED": 43
+      }
+    },
+    "8500_unbal_radial": {
+      "errors": [
+        {
+          "message": "conductor component containing 190-7361.3 has 3750 terminals and 3751 conductors, so it is not radial",
+          "id": null,
+          "code": "E.L3F.TOPOLOGY_NOT_RADIAL"
+        }
+      ],
+      "status": "inapplicable",
+      "counts": {
+        "L.L3F.IMPEDANCE_ALIAS_NORMALIZED": 1,
+        "L.L3F.LINE_SHUNT_LOWERED": 7300,
+        "L.L3F.PARALLEL_SWITCH_CONTACTS_MERGED": 5,
+        "L.L3F.NO_LOAD_SHUNT_NORMALIZED": 1177,
+        "L.L3F.TRANSFORMER_LEAKAGE_LOWERED": 2367,
+        "L.L3F.TRANSFORMER_NO_LOAD_LOWERED": 1177,
+        "W.L3F.COST_MISSING": 1,
+        "E.L3F.TOPOLOGY_NOT_RADIAL": 1,
+        "L.L3F.SWITCH_LOWERED": 43
+      }
+    },
+    "8500_bal_meshed": {
+      "errors": [
+        {
+          "message": "retained bus terminal(s) are not connected to voltage source 'source'; explicit reference values do not establish electrical connectivity",
+          "id": null,
+          "code": "E.L3F.CONDUCTOR_UNREACHABLE"
+        },
+        {
+          "message": "branch is not uniquely reached outward from a terminal of voltage source 'source'; an explicit reference cannot establish an electrical orientation",
+          "id": "_l3f_switch_A333_48332_sw",
+          "code": "E.L3F.CONDUCTOR_UNREACHABLE"
+        },
+        {
+          "message": "branch is not uniquely reached outward from a terminal of voltage source 'source'; an explicit reference cannot establish an electrical orientation",
+          "id": "_l3f_switch_LN0247162_sw",
+          "code": "E.L3F.CONDUCTOR_UNREACHABLE"
+        },
+        {
+          "message": "branch is not uniquely reached outward from a terminal of voltage source 'source'; an explicit reference cannot establish an electrical orientation",
+          "id": "_l3f_switch_LN247160_sw",
+          "code": "E.L3F.CONDUCTOR_UNREACHABLE"
+        },
+        {
+          "message": "branch is not uniquely reached outward from a terminal of voltage source 'source'; an explicit reference cannot establish an electrical orientation",
+          "id": "_l3f_switch_LN247171_sw",
+          "code": "E.L3F.CONDUCTOR_UNREACHABLE"
+        },
+        {
+          "message": "branch is not uniquely reached outward from a terminal of voltage source 'source'; an explicit reference cannot establish an electrical orientation",
+          "id": "_l3f_switch_X8225_48332_sw",
+          "code": "E.L3F.CONDUCTOR_UNREACHABLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "FEEDER_REGA",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "FEEDER_REGB",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "FEEDER_REGC",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "VREG2_A",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "VREG2_B",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "VREG2_C",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "VREG3_A",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "VREG3_B",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "VREG3_C",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "VREG4_A",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "VREG4_B",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear currently requires transformers to be bus-graph bridges",
+          "id": "VREG4_C",
+          "code": "E.L3F.MESH_TRANSFORMER_CYCLE"
+        },
+        {
+          "message": "meshed_linear requires a consistent source-propagated or explicit reference",
+          "id": null,
+          "code": "E.L3F.MESH_REFERENCE_INVALID"
+        }
+      ],
+      "status": "inapplicable",
+      "counts": {
+        "L.L3F.LINE_SHUNT_LOWERED": 7300,
+        "L.L3F.NO_LOAD_SHUNT_NORMALIZED": 1177,
+        "E.L3F.MESH_REFERENCE_INVALID": 1,
+        "A.L3F.MESH_LINEARIZED": 1,
+        "L.L3F.PARALLEL_SWITCH_CONTACTS_MERGED": 5,
+        "L.L3F.SWITCH_LOWERED": 43,
+        "L.L3F.TRANSFORMER_NO_LOAD_LOWERED": 1177,
+        "W.L3F.COST_MISSING": 1,
+        "L.L3F.IMPEDANCE_ALIAS_NORMALIZED": 1,
+        "E.L3F.CONDUCTOR_UNREACHABLE": 6,
+        "L.L3F.TRANSFORMER_LEAKAGE_LOWERED": 2367,
+        "E.L3F.MESH_TRANSFORMER_CYCLE": 12
+      }
+    },
+    "9500_static_radial": {
+      "wall_solve_seconds": 3.7838775,
+      "errors": [],
+      "solve_seconds": 1.1183390830000002,
+      "variables": 41169,
+      "build_seconds": 10.642774,
+      "status": "applicable",
+      "termination_status": "INFEASIBLE",
+      "counts": {
+        "L.L3F.IMPEDANCE_ALIAS_NORMALIZED": 1,
+        "L.L3F.SWITCH_OPEN_REMOVED": 9,
+        "L.L3F.LINE_SHUNT_LOWERED": 7802,
+        "L.L3F.NO_LOAD_SHUNT_NORMALIZED": 1275,
+        "L.L3F.TRANSFORMER_LEAKAGE_LOWERED": 2635,
+        "L.L3F.TRANSFORMER_NO_LOAD_LOWERED": 1275,
+        "L.L3F.IBR_TO_GENERATOR": 178,
+        "W.L3F.COST_MISSING": 1,
+        "L.L3F.SWITCH_LOWERED": 101
+      }
+    },
+    "9500_without_branch_ratings": {
+      "wall_solve_seconds": 2.63355675,
+      "errors": [],
+      "solve_seconds": 0.556196957,
+      "variables": 41169,
+      "build_seconds": 9.975315584,
+      "status": "applicable",
+      "termination_status": "OPTIMAL",
+      "objective": 0.0,
+      "counts": {
+        "L.L3F.IMPEDANCE_ALIAS_NORMALIZED": 1,
+        "L.L3F.SWITCH_OPEN_REMOVED": 9,
+        "L.L3F.LINE_SHUNT_LOWERED": 7802,
+        "L.L3F.NO_LOAD_SHUNT_NORMALIZED": 1275,
+        "L.L3F.TRANSFORMER_LEAKAGE_LOWERED": 2635,
+        "L.L3F.TRANSFORMER_NO_LOAD_LOWERED": 1275,
+        "L.L3F.IBR_TO_GENERATOR": 178,
+        "W.L3F.COST_MISSING": 1,
+        "L.L3F.SWITCH_LOWERED": 101
+      },
+      "diagnostic_only": "4080 branch/source/transformer rating fields removed; IBR capability retained. Not the rated problem."
+    }
+  },
+  "warning": "These are import/build checks. No AC validation or gap comparison; no feasible solution for the rated 9500 case."
+}

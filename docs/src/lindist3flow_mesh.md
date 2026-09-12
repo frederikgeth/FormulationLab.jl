@@ -43,6 +43,7 @@ transformers only. Their interpretation must be supplied through
 |:--|:--|
 | `:unspecified` (default) | Refuse aliases with `E.L3F.IMPEDANCE_CONVENTION_REQUIRED`. Canonical side-specific fields still work. |
 | `:from_terminal` | Total leakage referred to the primary side, in terminal-equivalent ohms. Move to `r_series_from` / `x_series_from`. |
+| `:wye_terminal` | Yd/Dy only: total terminal-equivalent leakage on the wye side (`to` for Dy, `from` for Yd). Use for the verified PowerIO DSS export convention. |
 | `:from_coil` | Total leakage referred to a primary coil. Divide by three for a delta primary; otherwise move unchanged. |
 
 The division by three converts a delta coil impedance to the terminal-equivalent
@@ -162,3 +163,35 @@ Reproduce with:
 ```sh
 JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --project=test examples/check_springfield_l3f.jl INPUT.json OUTPUT.json
 ```
+
+## IEEE import adaptations
+
+A nested `no_load_shunt` on winding 2 of a `single_phase` or `center_tap`
+transformer maps to `g_no_load` / `b_no_load`. For a center tap this is one
+exciting branch on the first physical LV coil, without duplicating it on the
+other leg. Conflicting scalar and nested fields are not normalized. Other
+winding locations retain their existing applicability checks.
+
+In lowering modes, identical parallel ideal-switch terminal pairs are collapsed.
+Their current and apparent-power limit radii are summed: independent parallel
+contact flow disks have exactly that aggregate disk. This does not infer the
+intended phase count of an OpenDSS switch or remove isolated conductors.
+
+The IEEE 8500/9500 import work requires the local PowerIO branch
+`codex/ieee-service-imports`; the installed PowerIO.jl 0.11.0 artifact does not
+contain those fixes. Select the built library explicitly with `POWERIO_CAPI`.
+The branch resolves initial `XfmrCode` templates, scalar series reactors,
+case-insensitive DSS references and default whole-terminal ideal-switch
+Open/Close commands. Late/repeated templates and unsupported reactor profiles
+remain diagnosed instead of being guessed.
+
+See `examples/results/ieee_import_fixes_2026-09-12.md` in the repository for the
+loading results and remaining topology limitations. Import success alone does
+not establish a successful optimization or AC feasibility.
+
+`examples/prepare_ieee9500_static.py` stages a separate IEEE 9500 scenario using
+the upstream linecode alternative. It replaces the two batteries with named
+2.5 kW idle loads, matching their initially full, idle snapshot rather than
+assuming the written 60% charge instruction can charge a full battery. This is
+an explicit constant-power scenario with no energy state or storage controls;
+it is not general storage support. The original source directory is untouched.
