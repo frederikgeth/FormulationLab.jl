@@ -1,0 +1,464 @@
+{
+  "sources": [
+    {
+      "repository": "https://github.com/tshort/OpenDSS",
+      "revision": "5005c668a72d20775f4c2d060feebb2866ba1d38",
+      "directory": "ieee8500"
+    },
+    {
+      "repository": "https://github.com/GRIDAPPSD/CIMHub",
+      "revision": "5ba4c63fa525108928942d564fddc022c3fb031f",
+      "directory": "ieee9500"
+    }
+  ],
+  "files": [
+    {
+      "path": "ieee8500/Buscoords.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Buscoords.dss",
+      "bytes": 118440,
+      "git_blob_sha1": "b8b56facd00247c14b299ec25d7a6e219f70b492",
+      "sha256": "0d498228515ac92e410653b127bd554b909746bd5f48352fa58976cc104a405e"
+    },
+    {
+      "path": "ieee8500/CapControls.DSS",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/CapControls.DSS",
+      "bytes": 2084,
+      "git_blob_sha1": "5651e6213ebb085d4045a26f9d5ee723b238169d",
+      "sha256": "562818b4d905f391e88ed58efcd54150d4296d6cfb355f8abac32c969a290348"
+    },
+    {
+      "path": "ieee8500/Capacitors.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Capacitors.dss",
+      "bytes": 927,
+      "git_blob_sha1": "465ae7e5442afc9e6a70cd579e69e7ea98ba9157",
+      "sha256": "cc05836176a6715b121619079eb6cef96e77468a3368c8ed44815f2e9d684dcf"
+    },
+    {
+      "path": "ieee8500/CloudTransient.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/CloudTransient.dss",
+      "bytes": 358,
+      "git_blob_sha1": "35dbb095da58e50bb1a983c41648309b94b6ae46",
+      "sha256": "212c40f5e2ea80ebd9d1ac9dcbef002a1533ce1d9a58bc184f52601e8015e05e"
+    },
+    {
+      "path": "ieee8500/Feeder_Loads.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Feeder_Loads.dss",
+      "bytes": 188,
+      "git_blob_sha1": "0ffcc589e1cd83854fb17d509c8e19c622f5e556",
+      "sha256": "a1b80b5b8c1bf1921bc335a7c922f448d1ef90e9d0a0912a5cd4407ba456484a"
+    },
+    {
+      "path": "ieee8500/Fuses.DSS",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Fuses.DSS",
+      "bytes": 2423,
+      "git_blob_sha1": "31c270eb814090fefd9d73520b289d68976e47ac",
+      "sha256": "2e98f772e912acb989cbc941ea973492afa9c531d6f2d4bdd19f77e815af1dc3"
+    },
+    {
+      "path": "ieee8500/Generators.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Generators.dss",
+      "bytes": 794,
+      "git_blob_sha1": "5ceae62407cf74435dce046bfe2773a6bfa03e6f",
+      "sha256": "5fa99bdec0aea52c0f518438eba1be9f693c408047afa794f746b3f717115936"
+    },
+    {
+      "path": "ieee8500/LineCodes.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/LineCodes.dss",
+      "bytes": 358423,
+      "git_blob_sha1": "26d73b6f48a1f4bb73a8fd4e899255f33407cb81",
+      "sha256": "af6bfaaf3eeafdd6788532672d66be990721c59e50dd125ffaa2739c979d42f9"
+    },
+    {
+      "path": "ieee8500/LineCodes2.DSS",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/LineCodes2.DSS",
+      "bytes": 12249,
+      "git_blob_sha1": "64d6130e821fadf8aaff04a413fef23540b728c4",
+      "sha256": "3fec9199a41696a758eaff7065f86a89477f70898b1bee3295de9c74f154121a"
+    },
+    {
+      "path": "ieee8500/LineGeometry.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/LineGeometry.dss",
+      "bytes": 13891,
+      "git_blob_sha1": "71ec92b37394ead4ae1a79fb639c1b94c69905dd",
+      "sha256": "85a356720d142bc16a052291d4192e86b4733a8d5c33c5be397f8a4501111c78"
+    },
+    {
+      "path": "ieee8500/Lines-Geometry.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Lines-Geometry.dss",
+      "bytes": 390575,
+      "git_blob_sha1": "4d9d46dbd1689f5176fb15d9aedcc013c7dd1389",
+      "sha256": "0dded47d4b81d8772ac092e87d64756cedddffc4e32f20bdb95bdedae3c5e0ac"
+    },
+    {
+      "path": "ieee8500/Lines.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Lines.dss",
+      "bytes": 388971,
+      "git_blob_sha1": "3a191d71e64567194ed592036e8ab134881f75c6",
+      "sha256": "1e7cbf7934db304eaae2f60403bb456431d2c846951ca0b50e57a6a3a1d6851b"
+    },
+    {
+      "path": "ieee8500/LoadXfmrCodes.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/LoadXfmrCodes.dss",
+      "bytes": 117097,
+      "git_blob_sha1": "2f6dd842b8aa28a146b6649ab2de51c182eea72e",
+      "sha256": "213a3c0478b33a4cb95d82d40e076d1c1ec19b22033e4aa03e6dcdd8b92fa8f9"
+    },
+    {
+      "path": "ieee8500/LoadXfmrs.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/LoadXfmrs.dss",
+      "bytes": 292247,
+      "git_blob_sha1": "e163c9419908d69784a63a45e923720dfe6b52d1",
+      "sha256": "bcb0d10caab6e53d5b5b18b669ebd83f67f79135a478c3079f78a2fdd943122a"
+    },
+    {
+      "path": "ieee8500/Loads.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Loads.dss",
+      "bytes": 149061,
+      "git_blob_sha1": "168baf1e1a2f26052e58da1a63fec6178dbc8ab7",
+      "sha256": "4d5b68a8095bbee59a95ba08255f34b74fcf3d89c0e413df2fc669648fb2d18f"
+    },
+    {
+      "path": "ieee8500/Master-unbal.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Master-unbal.dss",
+      "bytes": 794,
+      "git_blob_sha1": "a0fd7e07f728a59aab10c7cbab545c3bf301d892",
+      "sha256": "c344d734db14ad5b186fcbfbc21ece09411d2b5332d7b7d42f5e0a11c9df52e5"
+    },
+    {
+      "path": "ieee8500/Master.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Master.dss",
+      "bytes": 800,
+      "git_blob_sha1": "8429bb7c2574d9422b7d55f5d3af32e3055c6ebe",
+      "sha256": "025c722add02b24b3f2e80188d63e1b2261a62874530ae3f9116f91f0541d5e4"
+    },
+    {
+      "path": "ieee8500/Normalized-1s-2900-pts.CSV",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Normalized-1s-2900-pts.CSV",
+      "bytes": 36988,
+      "git_blob_sha1": "b00459583774da91dfcb1f446fe0d466bb07d7c7",
+      "sha256": "84cad00879be6d8de2ace6b623eabfdb4b8b61342c1455ee7dfcc2dc158633d0"
+    },
+    {
+      "path": "ieee8500/P174_Run_360kW_PV.DSS",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/P174_Run_360kW_PV.DSS",
+      "bytes": 1483,
+      "git_blob_sha1": "f14f1e4608a48fe1199510342795662183e6bd63",
+      "sha256": "d9ad5d8e4c4cce8ba81a32154cdc8d6fd1f9f9fb2d28dc19cbe6c6d8f84cded2"
+    },
+    {
+      "path": "ieee8500/P174_Run_Voltage_Profile.DSS",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/P174_Run_Voltage_Profile.DSS",
+      "bytes": 415,
+      "git_blob_sha1": "93a8fde5f1c9723d1ef688776c6e1ec77a7f8286",
+      "sha256": "0ef327ced60602a46cb8570df68bb30d0859d3c5a70c08f0e43b1c28e530cb70"
+    },
+    {
+      "path": "ieee8500/Regulators.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Regulators.dss",
+      "bytes": 3033,
+      "git_blob_sha1": "fc99f78522f8d307a055f87c4231a7402c1c5965",
+      "sha256": "041f353f55076feaaf751bbb20551226f8727ddfbdfc5101cf1b1f222da38617"
+    },
+    {
+      "path": "ieee8500/Run_8500Node.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Run_8500Node.dss",
+      "bytes": 1531,
+      "git_blob_sha1": "7341fabe8778376a23631062377ace550f330f8c",
+      "sha256": "6f7049134ab22835173d0b1a5be6f0f8d270be55643c594afcf9e458d6fe1b52"
+    },
+    {
+      "path": "ieee8500/Run_8500Node_Unbal.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Run_8500Node_Unbal.dss",
+      "bytes": 1652,
+      "git_blob_sha1": "b2b26a486d1a50796224e062e67dc8332bed0a78",
+      "sha256": "f42a3733e585782d425f2a64f4eb4efd666f35128416cb228671105f8667b5ad"
+    },
+    {
+      "path": "ieee8500/Run_RecloserSiting.DSS",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Run_RecloserSiting.DSS",
+      "bytes": 612,
+      "git_blob_sha1": "12bedd306ab3c51b7455a4783b27da879f48c025",
+      "sha256": "1bf21c4598fb8d5f15fb9e65c490001c30d948562b54128b4a4d7aebf84ab2c3"
+    },
+    {
+      "path": "ieee8500/TplxFaultrate.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/TplxFaultrate.dss",
+      "bytes": 36332,
+      "git_blob_sha1": "4df602e2b7b40698e3cecfab3b58569cebc80994",
+      "sha256": "db474c123aef3358098c9beec4c020593c0f0094c36a7de54d4bd611c73f8d4d"
+    },
+    {
+      "path": "ieee8500/Transformers.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Transformers.dss",
+      "bytes": 1607,
+      "git_blob_sha1": "800b47278f005b5596488371569ce9aaaf35018a",
+      "sha256": "cab397f65f5de08c4d82cf794c03c432b404cd5db7db37ff827869db8344b708"
+    },
+    {
+      "path": "ieee8500/Triplex_Linecodes.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Triplex_Linecodes.dss",
+      "bytes": 786,
+      "git_blob_sha1": "e2c72223e5243220a3bf778f53ed142bf0463163",
+      "sha256": "7dfbfc23e19d8930c9e5ac3302bd9e8e9d52aee9c333e3fc80422f15752a886d"
+    },
+    {
+      "path": "ieee8500/Triplex_Lines.DSS",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/Triplex_Lines.DSS",
+      "bytes": 128587,
+      "git_blob_sha1": "78ac3463a8f212e6e2f82138edf58f5e5e7120c2",
+      "sha256": "abf45521bc05a7f9d5c3fa4c94c4f24f7ea9bc984e7086b303ae4a143d77971d"
+    },
+    {
+      "path": "ieee8500/UPSTREAM_LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/License.txt",
+      "bytes": 1675,
+      "git_blob_sha1": "8c5a969ec0f78902c1817923aee93704b03d25d1",
+      "sha256": "72e6cb08d3397a969f7763d87ae46bea03f2246a4a996524d0df19285a422560"
+    },
+    {
+      "path": "ieee8500/UnbalancedLoads.DSS",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/UnbalancedLoads.DSS",
+      "bytes": 334482,
+      "git_blob_sha1": "63eed942694dad3e87915a64b9dd1492080fd456",
+      "sha256": "72705438556764981d430a9148c84b783f76b977911a2284ffe9295740bddaba"
+    },
+    {
+      "path": "ieee8500/WireData.dss",
+      "url": "https://raw.githubusercontent.com/tshort/OpenDSS/5005c668a72d20775f4c2d060feebb2866ba1d38/Distrib/IEEETestCases/8500-Node/WireData.dss",
+      "bytes": 15848,
+      "git_blob_sha1": "cfc8d15c8e88744edcdb1bb5cecfb9ee8fcd9198",
+      "sha256": "70e2bfd3d7a297ef2bf1d208df4a13fe2b8e581af065b310018d2e38cd0bfbd1"
+    },
+    {
+      "path": "ieee9500/README.rst",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/README.rst",
+      "bytes": 4889,
+      "git_blob_sha1": "e6fe11331099edf9b9adf1845b3921b514a297cf",
+      "sha256": "a7d925a464cd829bafdc7a423420abb879851086a69b06036d11fa55310f0aa9"
+    },
+    {
+      "path": "ieee9500/UPSTREAM_LICENSE.md",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/license.md",
+      "bytes": 3190,
+      "git_blob_sha1": "c0878a600904885958845e0e0def808c88bf3b74",
+      "sha256": "a7eacbf54ec5e69ed2dc74fc7fbc36ecb76de075552bde9dc9d39ce30e258451"
+    },
+    {
+      "path": "ieee9500/base/BalancedLoads.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/BalancedLoads.dss",
+      "bytes": 156349,
+      "git_blob_sha1": "b57e6db7a260254166f701e051ca46f67b9c866e",
+      "sha256": "dccd95324139faa10942043d177f1fbdbf63efcd76ba4b8f3430d8f3237d1e86"
+    },
+    {
+      "path": "ieee9500/base/BusCoords.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/BusCoords.dss",
+      "bytes": 96658,
+      "git_blob_sha1": "ea95f98191d9e8336fc0c98102504df56d9b62af",
+      "sha256": "87b97d24f97af128a35181fea92eef29c44232ab7adf21a08c4b2075d15bad1f"
+    },
+    {
+      "path": "ieee9500/base/CableData.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/CableData.dss",
+      "bytes": 262,
+      "git_blob_sha1": "edaf5d4b9b5f6e54229854514f4945a941255d9b",
+      "sha256": "db120e963805dec2c7df6b13f53dcae941dc6462086c4be71ccad29104cc81ae"
+    },
+    {
+      "path": "ieee9500/base/CapControls.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/CapControls.dss",
+      "bytes": 2141,
+      "git_blob_sha1": "355dcd5136ff455ebe40299d3710e20c3d6fc312",
+      "sha256": "7d94f931476f86725041279315f9c97a8e9e6a53cce281990b63353d90efdeac"
+    },
+    {
+      "path": "ieee9500/base/Capacitors.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/Capacitors.dss",
+      "bytes": 934,
+      "git_blob_sha1": "f159e25d5b7f7e487d2624baa2e37c6e6b058a52",
+      "sha256": "db0ecd0e62e2d6b2ebd83da16193f05b77bad68a6cb0bb36f3708665203d8453"
+    },
+    {
+      "path": "ieee9500/base/EnergyStorage.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/EnergyStorage.dss",
+      "bytes": 489,
+      "git_blob_sha1": "a90c19b3571a6a7041496ee5d22d4891a124bcb4",
+      "sha256": "19495236859acd46e2ffdf518a71ed14f61f3845457c0e7ce7b1b62e098ce8ae"
+    },
+    {
+      "path": "ieee9500/base/Generators.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/Generators.dss",
+      "bytes": 3601,
+      "git_blob_sha1": "8c0798afdcbacb0f70769a3e3eb4954c3d048441",
+      "sha256": "c9b84e0a161cf79256ef3428f5598161b430b34a56110fa55b28616669cdd13e"
+    },
+    {
+      "path": "ieee9500/base/LatLongCoords.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/LatLongCoords.dss",
+      "bytes": 171399,
+      "git_blob_sha1": "a76657b62131c0282eb200790d528ce0b01dc50b",
+      "sha256": "85267b158b9611db7f817660ba8d8070c512498298d23c0a11580c9dd762ddb3"
+    },
+    {
+      "path": "ieee9500/base/LineCodes.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/LineCodes.dss",
+      "bytes": 12436,
+      "git_blob_sha1": "5ea498a31656959f32e128ae71c93bba9a16d32a",
+      "sha256": "f67cefdd193e054b042264d80a51b8404539bd6a25375c92ad1f7127450e87af"
+    },
+    {
+      "path": "ieee9500/base/LineGeometry.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/LineGeometry.dss",
+      "bytes": 14548,
+      "git_blob_sha1": "939793639cd49f993aeb4799626f160ad592786e",
+      "sha256": "08e3cae68ebce47d6af9cfdde30789ce93e23207b8058028bc1035aaf1b3f7d7"
+    },
+    {
+      "path": "ieee9500/base/LinesSwitchesGeometry.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/LinesSwitchesGeometry.dss",
+      "bytes": 508854,
+      "git_blob_sha1": "b5f93631f9687b4b1120c3f6f3f1d8ee9970ca35",
+      "sha256": "ba90bd43c8e24b18e112d33a1620de944a25e41022faec5bee3ac512515281a7"
+    },
+    {
+      "path": "ieee9500/base/LinesSwitchesLineCodes.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/LinesSwitchesLineCodes.dss",
+      "bytes": 508854,
+      "git_blob_sha1": "7807b880bc30ba2a96865a93849b5476ab4b06b1",
+      "sha256": "0eee67c503941cbe3623e0b774ecf011e1ea0984a2c9ce83fa0be1213e63fed3"
+    },
+    {
+      "path": "ieee9500/base/LoadXfmrCodes.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/LoadXfmrCodes.dss",
+      "bytes": 128092,
+      "git_blob_sha1": "31939003678f9939dfa31a361f751ce72e6886a3",
+      "sha256": "b9fc15d8876d362449b9f2420eb37659499225d417faf8308f1df253a077e903"
+    },
+    {
+      "path": "ieee9500/base/Master-bal-initial-config.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/Master-bal-initial-config.dss",
+      "bytes": 3103,
+      "git_blob_sha1": "7c28bc0e5743fabd59a134fb065afba58c69d78d",
+      "sha256": "25c5987fcdc2d2da4dfdb62b048c3a36e64f10031f9cd40c9c2debd07ff2f1f0"
+    },
+    {
+      "path": "ieee9500/base/Master-unbal-initial-config.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/Master-unbal-initial-config.dss",
+      "bytes": 3105,
+      "git_blob_sha1": "be0af79deecdce1dc3885626cabbeda7b5d9301c",
+      "sha256": "2ff80b1c9706726cc1572b3975eaf44f8500b272e3ee51786dcdb39e3f640d5e"
+    },
+    {
+      "path": "ieee9500/base/PV_10pen_DSSPV.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/PV_10pen_DSSPV.dss",
+      "bytes": 7444,
+      "git_blob_sha1": "ae404183dd42f5411afed2999d26fd2cf007e646",
+      "sha256": "d90bd09862cd8dd94dacf1ff13b57ae30c72bf9a2e2202568ae30af74cdcd7eb"
+    },
+    {
+      "path": "ieee9500/base/PV_NN_100_DSSPV.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/PV_NN_100_DSSPV.dss",
+      "bytes": 6724,
+      "git_blob_sha1": "d0b95cdcf05c734a613fb2ead4ab6e9ae7b295ce",
+      "sha256": "a97695cfd52d60e28c455ee9fbf1d38cf0d65464c4c7da85da9da0a4ca245577"
+    },
+    {
+      "path": "ieee9500/base/README.md",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/README.md",
+      "bytes": 2178,
+      "git_blob_sha1": "5fc6aaf0daa1b8eb66742f7e845528eb0cf635c1",
+      "sha256": "e02077b4216a135c2df96815124d839aa0fa8a838a4119865d7f08c6182533ff"
+    },
+    {
+      "path": "ieee9500/base/Regulators.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/Regulators.dss",
+      "bytes": 3735,
+      "git_blob_sha1": "c1926c931cb97b6efcb6797cb6dda5d0989707ec",
+      "sha256": "977c0c5a4916265d5b57a43c74ac019648e1ce75123b311d68c67eb26a8e08ec"
+    },
+    {
+      "path": "ieee9500/base/Transformers.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/Transformers.dss",
+      "bytes": 4728,
+      "git_blob_sha1": "e5ffc4d25e2fdd7102c9de21b10f2a1fc6ce57dc",
+      "sha256": "d44cbf0c74357f25d45750d9bc96af3c19ae12ea62d9d0f911a02066140109a0"
+    },
+    {
+      "path": "ieee9500/base/TriplexLineCodes.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/TriplexLineCodes.dss",
+      "bytes": 786,
+      "git_blob_sha1": "e2c72223e5243220a3bf778f53ed142bf0463163",
+      "sha256": "7dfbfc23e19d8930c9e5ac3302bd9e8e9d52aee9c333e3fc80422f15752a886d"
+    },
+    {
+      "path": "ieee9500/base/TriplexLines.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/TriplexLines.dss",
+      "bytes": 139322,
+      "git_blob_sha1": "d89a699e515be17b256bd3a13943eafd26badec1",
+      "sha256": "7d9a156791267cbbc60f30fce9e0ac83fd278334e8bd36dfcdb52c5cb674d4f0"
+    },
+    {
+      "path": "ieee9500/base/UnbalancedLoads.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/UnbalancedLoads.dss",
+      "bytes": 361982,
+      "git_blob_sha1": "026d19300393e954faea808346ee9b341a470401",
+      "sha256": "9b0a9948090e2b8dd4d82ca94edc033e0bcacbb25e676e9c94f93b63f817fdbb"
+    },
+    {
+      "path": "ieee9500/base/WireData.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/WireData.dss",
+      "bytes": 15618,
+      "git_blob_sha1": "9efdcf7c5265f38a66bb1e3c5be0ca5273a7b90b",
+      "sha256": "26a414feea78dc19d1195cdd17aae1e76269f38c6d49bed5f94148562d033073"
+    },
+    {
+      "path": "ieee9500/base/clean.bat",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/clean.bat",
+      "bytes": 44,
+      "git_blob_sha1": "1e6cf50015bc405e9bd0e492614016f735e7ed7c",
+      "sha256": "2befb2fc1ceb67069c9afb4629a46ecd42be5982cafd4b1c3a6c861068516f96"
+    },
+    {
+      "path": "ieee9500/base/ieee9500bal.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/ieee9500bal.dss",
+      "bytes": 39,
+      "git_blob_sha1": "ced05a8deb2f3ac2a671e4b280f6a936cf89b00d",
+      "sha256": "3046da3b4bf56f98332c7cf20094b3e5ca010fa30b45bcc25df578f642885732"
+    },
+    {
+      "path": "ieee9500/base/ieee9500unbal.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/ieee9500unbal.dss",
+      "bytes": 41,
+      "git_blob_sha1": "feab6610a77d289c54d31857220ac9df374e23c1",
+      "sha256": "0306a816ff0cc6364505fa27eb0d9e24066be70e2e7ccb0d081973977a6494ef"
+    },
+    {
+      "path": "ieee9500/base/protection.dss",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/base/protection.dss",
+      "bytes": 3756,
+      "git_blob_sha1": "f1319b0bbad3a6f4287f2b7ce13e62edb0f54158",
+      "sha256": "e664cb6c4a2bed783ae1822dbed8b9178a9c21e20bd4c1a086bf741a854cc1b5"
+    },
+    {
+      "path": "ieee9500/cases.json",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/cases.json",
+      "bytes": 2720,
+      "git_blob_sha1": "edff40cb91f34473757e466e7a4b56d8b245f889",
+      "sha256": "44cb1e95bd411a5b042f3a349221181f22c814fa6eb63acc18f36f6e9b3c0d3e"
+    },
+    {
+      "path": "ieee9500/ieee9500bal_dss.zip",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/ieee9500bal_dss.zip",
+      "bytes": 325095,
+      "git_blob_sha1": "d9819852ace7417d89f9b2864dd0f10fd412cb66",
+      "sha256": "ad2ccbbd60c9ac065bda067922ce77472498050d3c1707ffe44f0becd820078f"
+    },
+    {
+      "path": "ieee9500/ieee9500unbal_dss.zip",
+      "url": "https://raw.githubusercontent.com/GRIDAPPSD/CIMHub/5ba4c63fa525108928942d564fddc022c3fb031f/ieee9500/ieee9500unbal_dss.zip",
+      "bytes": 385460,
+      "git_blob_sha1": "4f1080fe30a79653cdc8376c32320c8c4dd7c724",
+      "sha256": "1d49e5cef348fcc255015c33dde0881492e65d218119ea242a1c4917211d459d"
+    }
+  ]
+}

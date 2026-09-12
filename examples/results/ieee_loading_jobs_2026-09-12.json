@@ -1,0 +1,57 @@
+[
+  {
+    "case": "8500_bal",
+    "path": "/Users/uqfgeth/Downloads/ieee-test-feeders-2026-09-12/ieee8500/Master.dss",
+    "budget_seconds": 240,
+    "exit_code": 0,
+    "wall_seconds": 35.173828416038305,
+    "stage": "complete"
+  },
+  {
+    "case": "8500_unbal",
+    "path": "/Users/uqfgeth/Downloads/ieee-test-feeders-2026-09-12/ieee8500/Master-unbal.dss",
+    "budget_seconds": 240,
+    "exit_code": 0,
+    "wall_seconds": 39.75310933298897,
+    "stage": "complete"
+  },
+  {
+    "case": "9500_bal",
+    "path": "/Users/uqfgeth/Downloads/ieee-test-feeders-2026-09-12/ieee9500/base/Master-bal-initial-config.dss",
+    "budget_seconds": 240,
+    "exit_code": 0,
+    "wall_seconds": 8.130223291984294,
+    "stage": "error"
+  },
+  {
+    "case": "9500_unbal",
+    "path": "/Users/uqfgeth/Downloads/ieee-test-feeders-2026-09-12/ieee9500/base/Master-unbal-initial-config.dss",
+    "budget_seconds": 240,
+    "exit_code": 0,
+    "wall_seconds": 7.908394500031136,
+    "stage": "error"
+  },
+  {
+    "case": "9500_bal_converted",
+    "path": "/tmp/ieee9500-audit/bal/dss/ieee9500bal_base.dss",
+    "budget_seconds": 240,
+    "exit_code": 0,
+    "wall_seconds": 8.009369333973154,
+    "stage": "error"
+  },
+  {
+    "case": "9500_unbal_converted",
+    "path": "/tmp/ieee9500-audit/unbal/dss/ieee9500unbal_base.dss",
+    "budget_seconds": 240,
+    "exit_code": 0,
+    "wall_seconds": 7.990666542027611,
+    "stage": "error"
+  },
+  {
+    "case": "9500_unbal_linecodes",
+    "path": "/tmp/ieee9500-linecodes-audit/Master-unbal-initial-config.dss",
+    "exit_code": 0,
+    "stage": "complete",
+    "note": "Separate diagnostic run using the supplied linecode alternative; no external timeout applied."
+  }
+]
