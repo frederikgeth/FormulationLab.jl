@@ -139,4 +139,37 @@ end
     @test n["switch"]["s"]["terminal_map_from"]==["b","c"]
     @test n["switch"]["s"]["i_max"]==[7.,5.]
     @test length(f)==1
+
+    identical=Dict("switch"=>Dict("s"=>Dict{String,Any}(
+        "terminal_map_from"=>["b","b","c"],"terminal_map_to"=>["b","b","c"],
+        "i_max"=>[3.,3.,5.],"s_max"=>[600.,600.,1000.])))
+    f=FormulationLab.L3FFinding[]
+    FormulationLab._l3f_merge_duplicate_switch_contacts!(f,identical)
+    @test identical["switch"]["s"]["terminal_map_from"]==["b","c"]
+    @test identical["switch"]["s"]["i_max"]==[6.,5.]
+    @test identical["switch"]["s"]["s_max"]==[1200.,1000.]
+    @test only(f).code=="L.L3F.PARALLEL_SWITCH_CONTACTS_MERGED"
+
+    crossed=Dict("switch"=>Dict("contacts"=>Dict{String,Any}(
+        "bus_from"=>"source","bus_to"=>"load",
+        "terminal_map_from"=>["a","a"],"terminal_map_to"=>["a","a"],
+        "i_max"=>[1.,10.],"s_max"=>[2300.,230.])))
+    original=deepcopy(crossed)
+    f=FormulationLab.L3FFinding[]
+    FormulationLab._l3f_merge_duplicate_switch_contacts!(f,crossed)
+    @test crossed==original
+    @test only(f).code=="E.L3F.PARALLEL_SWITCH_LIMITS_UNSUPPORTED"
+    @test only(f).severity==:error
+
+    net=_l3f_case()
+    empty!(net["line"])
+    net["load"]["load"]["p_nom"]=[1000.]
+    net["load"]["load"]["q_nom"]=[0.]
+    net["switch"]=deepcopy(original["switch"])
+    options=L3FOptions(unsupported=:lower)
+    report=check_l3f_applicability(net;options=options)
+    @test !is_l3f_applicable(report)
+    @test any(x->x.code=="E.L3F.PARALLEL_SWITCH_LIMITS_UNSUPPORTED",report.findings)
+    @test_throws FormulationLab.L3FInapplicableError solve_l3f_opf(net,Clarabel.Optimizer;
+        options=options,solver_options=(verbose=false,))
 end

@@ -173,9 +173,14 @@ other leg. Conflicting scalar and nested fields are not normalized. Other
 winding locations retain their existing applicability checks.
 
 In lowering modes, identical parallel ideal-switch terminal pairs are collapsed.
-Their current and apparent-power limit radii are summed: independent parallel
-contact flow disks have exactly that aggregate disk. This does not infer the
-intended phase count of an OpenDSS switch or remove isolated conductors.
+One limit family can be summed exactly because the independent parallel contact
+flow disks add their radii. If both `i_max` and `s_max` are present, collapsing
+is restricted to contacts with identical rating pairs: in general,
+`sum(min(V*i_max[k], s_max[k]))` is smaller than
+`min(V*sum(i_max), sum(s_max))`. Non-identical dual-rated contacts produce
+`E.L3F.PARALLEL_SWITCH_LIMITS_UNSUPPORTED` instead of a relaxed model. This
+does not infer the intended phase count of an OpenDSS switch or remove isolated
+conductors.
 
 The IEEE 8500/9500 import work requires the local PowerIO branch
 `codex/ieee-service-imports`; the installed PowerIO.jl 0.11.0 artifact does not

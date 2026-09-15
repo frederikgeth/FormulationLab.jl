@@ -145,7 +145,9 @@ function _l3f_mesh_angles!(model,variables,constraints,net,topology,reference,p,
 end
 
 # Parallel ideal contacts at the same terminal pair have one aggregate flow.
-# Their independent current/apparent-power disks add by summing their radii.
+# Summing one limit family is exact.  When both families are present, summing
+# them separately is exact for identical contacts, but can relax crossed limits:
+# sum(min(V*I_k,S_k)) <= min(V*sum(I_k),sum(S_k)).
 function _l3f_merge_duplicate_switch_contacts!(findings,net)
     for (id,d) in get(net,"switch",Dict())
         a=get(d,"terminal_map_from",[]);b=get(d,"terminal_map_to",[])
@@ -155,6 +157,22 @@ function _l3f_merge_duplicate_switch_contacts!(findings,net)
         allunique(first.(unique_pairs)) && allunique(last.(unique_pairs)) || continue
         all(k->!haskey(d,k) || (d[k] isa AbstractVector && length(d[k])==length(pairs) &&
             all(v->v isa Real && isfinite(v) && v>=0,d[k])),("i_max","s_max")) || continue
+        if haskey(d,"i_max") && haskey(d,"s_max")
+            conflicting=filter(unique_pairs) do pair
+                indices=findall(==(pair),pairs)
+                length(indices)>1 || return false
+                first_index=first(indices)
+                any(i->d["i_max"][i]!=d["i_max"][first_index] ||
+                    d["s_max"][i]!=d["s_max"][first_index],indices[2:end])
+            end
+            if !isempty(conflicting)
+                _l3f_error!(findings,"E.L3F.PARALLEL_SWITCH_LIMITS_UNSUPPORTED",:switch,id,
+                    "dual-rated parallel contacts can be merged only when each repeated terminal pair has identical i_max and s_max ratings";
+                    evidence=Dict("terminal_pairs"=>[[string(pair[1]),string(pair[2])] for pair in conflicting],
+                        "i_max"=>copy(d["i_max"]),"s_max"=>copy(d["s_max"])))
+                continue
+            end
+        end
         for k in ("i_max","s_max")
             haskey(d,k) || continue
             d[k]=[sum(d[k][i] for i in eachindex(pairs) if pairs[i]==pair) for pair in unique_pairs]
