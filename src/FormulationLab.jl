@@ -30,8 +30,10 @@ include("formulations/lindist3flow/types.jl")
 include("formulations/lindist3flow/coefficients.jl")
 include("formulations/lindist3flow/lowering.jl")
 include("formulations/lindist3flow/controls.jl")
+include("formulations/lindist3flow/input_mesh.jl")
 include("formulations/lindist3flow/applicability.jl")
 include("formulations/lindist3flow/model.jl")
+include("formulations/lindist3flow/operating_modes.jl")
 
 export L3FOptions, L3FFinding, L3FApplicabilityReport, L3FInapplicableError,
        L3FReferenceState, CrossVoltageCoefficients, AffineScalarCoefficients,
@@ -42,7 +44,7 @@ export L3FOptions, L3FFinding, L3FApplicabilityReport, L3FInapplicableError,
        line_drop_coefficients, regulator_gain_matrix,
        check_l3f_applicability, build_l3f_opf, solve_l3f_opf,
        l3f_reference_from_powerflow,
-       validate_l3f_solution, l3f_model_class
+       validate_l3f_solution, l3f_model_class, l3f_limit_report
 
 include("cuts/lnc.jl")
 include("formulations/sdp.jl")

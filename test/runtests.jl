@@ -9,6 +9,8 @@ using OpenDSSDirect
     include("sdp_transformer_opendss_tests.jl")
     include("sdp_nwinding_opendss_tests.jl")
     include("lindist3flow_tests.jl")
+    include("lindist3flow_mesh_tests.jl")
+    include("lindist3flow_operating_modes_tests.jl")
     include("lindist3flow_contract_tests.jl")
     include("lindist3flow_lowering_tests.jl")
     include("lindist3flow_delta_transformer_tests.jl")
