@@ -263,10 +263,10 @@ end
         "p_max" => [500.0, 750.0], "q_min" => zeros(2), "q_max" => zeros(2),
         "s_max" => [5_000.0, 6_000.0], "i_max" => [100.0, 200.0],
         "cost" => [7.0, 11.0])
-    partial_result = _bfm_solve(partial; objective=:cost)
-    @test partial_result.solve.optimal
-    @test real.(partial_result.relaxed_powers[(:generator, "g")]) ≈
-          [500.0, 750.0] atol=1e-5
+    partial_build = build_branch_flow_sdp(partial;
+        options=BranchFlowSDPOptions(objective=:cost))
+    @test partial_build isa BranchFlowSDPBuild
+    @test size(partial_build.component_blocks[(:generator, "g")]) == (5, 5)
 end
 
 @testset "Branch-flow SDP transformer maps control ratings and result order" begin

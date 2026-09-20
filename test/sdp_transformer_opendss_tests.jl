@@ -61,7 +61,8 @@ using OpenDSSDirect
             (bfm_net["bus"]["t"]["perfectly_grounded_terminals"]=["c"])
         bfm=solve_branch_flow_sdp(bfm_net;
             options=BranchFlowSDPOptions(objective=:source_import),
-            solver_options=(verbose=false,))
+            solver_options=(verbose=false,tol_feas=1e-6,
+                tol_gap_abs=1e-6,tol_gap_rel=1e-6))
         @test r.solve.optimal
         @test bfm.solve.optimal
         terminalmap=kind=="center_tap" ? Dict("x1"=>1,"x2"=>2,"n"=>0) :
