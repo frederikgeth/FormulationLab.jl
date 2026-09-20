@@ -1,0 +1,261 @@
+using Test, FormulationLab, Clarabel, LinearAlgebra
+isdefined(@__MODULE__, :_L3F_FIXTURES_LOADED) || include("lindist3flow_fixtures.jl")
+
+function _bfm_mesh_case(; second_source=false)
+    buses = Dict(id => Dict{String,Any}(
+        "terminal_names" => ["a"], "v_min" => [180.0], "v_max" => [250.0])
+        for id in ("source", "middle", "load"))
+    lines = Dict{String,Any}()
+    for (id, from, to) in (("sm", "source", "middle"),
+                           ("ml", "middle", "load"),
+                           ("sl", "source", "load"))
+        lines[id] = Dict{String,Any}(
+            "bus_from" => from, "bus_to" => to,
+            "terminal_map_from" => ["a"], "terminal_map_to" => ["a"],
+            "linecode" => "lc")
+    end
+    sources = Dict("s1" => Dict{String,Any}(
+        "bus" => "source", "terminal_map" => ["a"],
+        "configuration" => "WYE", "v_magnitude" => [230.0],
+        "v_angle" => [0.0], "cost" => [1.0]))
+    second_source && (sources["s2"] = Dict{String,Any}(
+        "bus" => "middle", "terminal_map" => ["a"],
+        "configuration" => "WYE", "v_magnitude" => [229.0],
+        "v_angle" => [0.002], "cost" => [1.0]))
+    Dict{String,Any}(
+        "bus" => buses,
+        "linecode" => Dict("lc" => Dict{String,Any}(
+            "R_series_1_1" => 0.1, "X_series_1_1" => 0.05,
+            "G_from_1_1" => 1e-4, "B_from_1_1" => -2e-4,
+            "G_to_1_1" => 2e-4, "B_to_1_1" => 1e-4)),
+        "line" => lines, "voltage_source" => sources,
+        "load" => Dict("load" => Dict{String,Any}(
+            "bus" => "load", "terminal_map" => ["a"],
+            "configuration" => "WYE", "model" => "constant_impedance",
+            "v_nom" => [230.0], "p_nom" => [10_000.0], "q_nom" => [2_000.0])))
+end
+
+function _bfm_nwinding_case()
+    net = Dict{String,Any}(
+        "bus" => Dict("b" => Dict{String,Any}(
+            "terminal_names" => ["p", "n"],
+            "perfectly_grounded_terminals" => ["n"])),
+        "voltage_source" => Dict("s" => Dict{String,Any}(
+            "bus" => "b", "terminal_map" => ["p", "n"],
+            "configuration" => "WYE", "v_magnitude" => [230.0, 0.0],
+            "v_angle" => [0.0, 0.0], "cost" => [1.0])))
+    windings = Dict{String,Any}[]
+    for (k, voltage) in enumerate((230.0, 115.0, 57.5))
+        bus = k == 1 ? "b" : "b$k"
+        net["bus"][bus] = Dict{String,Any}(
+            "terminal_names" => ["p", "n"],
+            "perfectly_grounded_terminals" => ["n"])
+        push!(windings, Dict{String,Any}(
+            "bus" => bus, "terminal_map" => ["p", "n"],
+            "configuration" => "WYE", "v_nom" => voltage,
+            "r_winding" => 0.01 * (voltage / 230)^2, "tap_ratio" => 1.0,
+            "i_max" => [100.0], "s_max" => [20_000.0]))
+    end
+    net["transformer"] = Dict("n_winding" => Dict("t" => Dict{String,Any}(
+        "windings" => windings,
+        "x_sc" => Dict("1_2" => 0.04, "1_3" => 0.04, "2_3" => 0.04),
+        "s_rating" => 10_000.0)))
+    net["load"] = Dict(
+        "l2" => Dict{String,Any}(
+            "bus" => "b2", "terminal_map" => ["p", "n"],
+            "configuration" => "WYE", "model" => "constant_impedance",
+            "v_nom" => [115.0], "p_nom" => [1_000.0], "q_nom" => [200.0]),
+        "l3" => Dict{String,Any}(
+            "bus" => "b3", "terminal_map" => ["p", "n"],
+            "configuration" => "WYE", "model" => "constant_impedance",
+            "v_nom" => [57.5], "p_nom" => [300.0], "q_nom" => [50.0]))
+    net
+end
+
+@testset "Branch-flow SDP meshes, sources and line endpoint shunts" begin
+    for second_source in (false, true)
+        net = _bfm_mesh_case(; second_source)
+        report = check_branch_flow_sdp_applicability(net)
+        @test is_branch_flow_sdp_applicable(report)
+        build = build_branch_flow_sdp(net;
+            options=BranchFlowSDPOptions(objective=:source_import))
+        @test build.numerical_diagnostics[:cycle_count] == 1
+        @test build.numerical_diagnostics[:source_count] == (second_source ? 2 : 1)
+        @test build.numerical_diagnostics[:global_voltage_closure]
+        result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
+        reference = solve_sdp_opf(net;
+            options=SDPOptions(objective=:source_import), solver_options=(verbose=false,))
+        @test result.solve.optimal
+        @test reference.solve.optimal
+        @test result.objective ≈ reference.objective rtol=2e-5
+        second_source && @test result.voltage_candidate[("middle", "a")] ≈
+            229cis(0.002) atol=2e-6
+        @test physical_residuals(net, ACPoint(
+            voltage=result.voltage_candidate, currents=result.current_candidate);
+            atol=(voltage=2e-3, current=2e-3, power=0.2)).passed
+    end
+end
+
+@testset "Branch-flow SDP switches, capacitors and delta generators" begin
+    net = _l3f_case()
+    line = pop!(net["line"], "line")
+    net["switch"] = Dict("sw" => Dict{String,Any}(
+        key => line[key] for key in ("bus_from", "bus_to",
+            "terminal_map_from", "terminal_map_to")))
+    net["switch"]["sw"]["open_switch"] = false
+    net["capacitor"] = Dict("c" => Dict{String,Any}(
+        "bus" => "load", "terminal_map" => ["a"],
+        "configuration" => "SINGLE_PHASE", "q_rated" => [2_000.0],
+        "v_nom" => 230.0))
+    result = solve_branch_flow_sdp(net;
+        options=BranchFlowSDPOptions(objective=:source_import),
+        solver_options=(verbose=false,))
+    @test result.solve.optimal
+    @test only(result.relaxed_powers[(:capacitor, "c")]) ≈ -2_000im atol=0.02
+    @test physical_residuals(net, ACPoint(
+        voltage=result.voltage_candidate, currents=result.current_candidate);
+        atol=(voltage=1e-3, current=1e-3, power=0.1)).passed
+    net["switch"]["sw"]["open_switch"] = true
+    open_build = build_branch_flow_sdp(net;
+        options=BranchFlowSDPOptions(objective=:source_import))
+    @test open_build.numerical_diagnostics[:source_free_components] == 1
+    @test !solve_branch_flow_sdp(open_build;
+        solver_options=(verbose=false,)).solve.optimal
+
+    phases = ["a", "b", "c"]
+    delta = Dict{String,Any}(
+        "bus" => Dict("b" => Dict{String,Any}("terminal_names" => phases)),
+        "terminal_conventions" => Dict("phase" => phases, "neutral" => String[]),
+        "voltage_source" => Dict("s" => Dict{String,Any}(
+            "bus" => "b", "terminal_map" => phases, "configuration" => "WYE",
+            "v_magnitude" => fill(230.0, 3),
+            "v_angle" => [0.0, -2pi / 3, 2pi / 3], "cost" => ones(3))),
+        "generator" => Dict("g" => Dict{String,Any}(
+            "bus" => "b", "terminal_map" => phases, "configuration" => "DELTA",
+            "p_min" => fill(100.0, 3), "p_max" => fill(100.0, 3),
+            "q_min" => zeros(3), "q_max" => zeros(3),
+            "s_max" => fill(200.0, 3), "i_max" => fill(2.0, 3))))
+    result = solve_branch_flow_sdp(delta;
+        options=BranchFlowSDPOptions(objective=:source_import),
+        solver_options=(verbose=false, tol_feas=1e-7, tol_gap_abs=1e-7))
+    @test result.solve.optimal
+    @test result.relaxed_powers[(:generator, "g")] ≈ fill(100.0 + 0im, 3) atol=2e-4
+    @test abs(sum(result.current_candidate[(:generator, "g")])) < 1e-8
+    @test physical_residuals(delta, ACPoint(
+        voltage=result.voltage_candidate, currents=result.current_candidate);
+        atol=(voltage=1e-3, current=1e-3, power=0.1)).passed
+end
+
+@testset "Branch-flow SDP nonlinear loads, voltage maps and LNCs" begin
+    for (law, gp, gq) in (("constant_current", 1.0, 1.0),
+                          ("zip", 0.0, 0.0),
+                          ("exponential", 3.0, -1.0))
+        net = Dict{String,Any}(
+            "bus" => Dict("b" => Dict{String,Any}(
+                "terminal_names" => ["p", "n"],
+                "perfectly_grounded_terminals" => ["n"],
+                "vpn_min" => [220.0], "vpn_max" => [220.0], "vn_max" => 0.0)),
+            "voltage_source" => Dict("s" => Dict{String,Any}(
+                "bus" => "b", "terminal_map" => ["p", "n"],
+                "configuration" => "WYE", "v_magnitude" => [220.0, 0.0],
+                "v_angle" => [0.0, 0.0], "cost" => [1.0])),
+            "load" => Dict{String,Any}())
+        load = Dict{String,Any}(
+            "bus" => "b", "terminal_map" => ["p", "n"],
+            "configuration" => "WYE", "model" => law, "v_nom" => [230.0],
+            "p_nom" => [1_000.0], "q_nom" => [200.0])
+        if law == "zip"
+            for prefix in ("alpha", "beta"), suffix in ("z", "i", "p")
+                load[prefix * "_" * suffix] = 1 / 3
+            end
+        elseif law == "exponential"
+            load["gamma_p"], load["gamma_q"] = gp, gq
+        end
+        net["load"]["l"] = load
+        result = solve_branch_flow_sdp(net;
+            options=BranchFlowSDPOptions(objective=:source_import),
+            solver_options=(verbose=false,))
+        ratio = 220 / 230
+        expected = law == "zip" ? (1_000 + 200im) * (ratio^2 + ratio + 1) / 3 :
+                   1_000ratio^gp + 200im * ratio^gq
+        @test result.solve.optimal
+        @test only(result.relaxed_powers[(:load, "l")]) ≈ expected rtol=3e-5
+        @test result.load_envelopes == ["l"]
+    end
+
+    phases = ["a", "b", "c"]
+    bus = Dict{String,Any}(
+        "terminal_names" => phases,
+        "v_min" => fill(229.0, 3), "v_max" => fill(231.0, 3),
+        "vpn_min" => fill(229.0, 3), "vpn_max" => fill(231.0, 3),
+        "vpp_min" => fill(390.0, 3), "vpp_max" => fill(410.0, 3),
+        "vpos_min" => 229.0, "vpos_max" => 231.0,
+        "vneg_max" => 0.1, "vzero_max" => 0.1)
+    mapped = Dict{String,Any}(
+        "bus" => Dict("b" => bus),
+        "terminal_conventions" => Dict("phase" => phases, "neutral" => String[]),
+        "voltage_source" => Dict("s" => Dict{String,Any}(
+            "bus" => "b", "terminal_map" => phases, "configuration" => "WYE",
+            "v_magnitude" => fill(230.0, 3),
+            "v_angle" => [0.0, -2pi / 3, 2pi / 3], "cost" => ones(3))),
+        "load" => Dict("l" => Dict{String,Any}(
+            "bus" => "b", "terminal_map" => phases, "configuration" => "WYE",
+            "model" => "constant_impedance", "v_nom" => fill(230.0, 3),
+            "p_nom" => fill(100.0, 3), "q_nom" => fill(20.0, 3))))
+    mapped_result = solve_branch_flow_sdp(mapped;
+        options=BranchFlowSDPOptions(objective=:source_import),
+        solver_options=(verbose=false,))
+    @test mapped_result.solve.optimal
+    malformed = deepcopy(mapped)
+    malformed["bus"]["b"]["v_min"] = 230.0
+    @test !is_branch_flow_sdp_applicable(
+        check_branch_flow_sdp_applicability(malformed))
+    mapped["bus"]["b"]["vpos_max"] = 200.0
+    @test !solve_branch_flow_sdp(mapped;
+        options=BranchFlowSDPOptions(objective=:source_import),
+        solver_options=(verbose=false,)).solve.optimal
+
+    net = _l3f_case()
+    net["line"]["line"]["i_max"] = [100.0]
+    explicit = VoltageLNC("edge", VoltagePhasor("source", "a"),
+        VoltagePhasor("load", "a"),
+        LNCBounds((229.0, 231.0), (180.0, 250.0), (-0.3, 0.3));
+        provenance="declared feeder operating sector")
+    build = build_branch_flow_sdp(net; options=BranchFlowSDPOptions(
+        objective=:source_import, lnc=:lines, voltage_lncs=[explicit]))
+    @test any(d -> d.id == "edge" && d.status == :applied, build.lnc_diagnostics)
+    @test any(d -> startswith(d.id, "line/line/") && d.status == :applied,
+              build.lnc_diagnostics)
+    result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
+    @test result.solve.optimal
+    @test length(solve_diagnostics(result).lnc_diagnostics) >= 2
+end
+
+@testset "Branch-flow SDP general multiwinding transformer" begin
+    net = _bfm_nwinding_case()
+    @test is_branch_flow_sdp_applicable(check_branch_flow_sdp_applicability(net))
+    build = build_branch_flow_sdp(net;
+        options=BranchFlowSDPOptions(objective=:source_import))
+    @test haskey(build.transformer_blocks, "n_winding/t")
+    result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
+    reference = solve_sdp_opf(net;
+        options=SDPOptions(objective=:source_import), solver_options=(verbose=false,))
+    @test result.solve.optimal
+    @test reference.solve.optimal
+    @test result.objective ≈ reference.objective rtol=2e-5
+    for bus in ("b2", "b3")
+        @test result.voltage_candidate[(bus, "p")] ≈
+              reference.voltage_candidate[(bus, "p")] rtol=2e-4
+    end
+    @test all(haskey(result.current_candidate,
+        (:transformer_winding, "n_winding/t/$k")) for k in 1:3)
+    @test all(haskey(result.current_candidate,
+        (:transformer_coil, "n_winding/t/$k")) for k in 1:3)
+
+    unsupported = _l3f_case()
+    unsupported["ibr"] = Dict("pv" => Dict{String,Any}(
+        "bus" => "load", "terminal_map" => ["a"],
+        "topology" => "SINGLE_PHASE", "s_max" => [1_000.0]))
+    @test !is_branch_flow_sdp_applicable(
+        check_branch_flow_sdp_applicability(unsupported))
+end

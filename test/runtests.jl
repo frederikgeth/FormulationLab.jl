@@ -5,6 +5,7 @@ using OpenDSSDirect
     include("sdp_tests.jl")
     include("branch_flow_sdp_tests.jl")
     include("branch_flow_sdp_extended_tests.jl")
+    include("branch_flow_sdp_v3_tests.jl")
     include("soc_tests.jl")
     include("network_reduction_tests.jl")
     include("ac_validation_tests.jl")

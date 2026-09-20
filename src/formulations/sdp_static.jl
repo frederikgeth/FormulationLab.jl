@@ -1,19 +1,26 @@
+_sdp_entries(x) = x isa Real ? (x,) : x
+
 function _sdp_is_impedance_load(d)
-    law=lowercase(get(d,"model","constant_power"))
+    law=lowercase(String(get(d,"model","constant_power")))
     law=="constant_impedance" && return true
     if law=="exponential"
-        return all(k->haskey(d,k) && all(==(2),d[k]),("gamma_p","gamma_q"))
+        return all(k->haskey(d,k) && all(==(2),_sdp_entries(d[k])),
+                   ("gamma_p","gamma_q"))
     elseif law=="zip"
-        return all(k->haskey(d,k)&&all(==(1),d[k]),("alpha_z","beta_z")) &&
-            all(k->haskey(d,k)&&all(iszero,d[k]),("alpha_i","alpha_p","beta_i","beta_p"))
+        return all(k->haskey(d,k)&&all(==(1),_sdp_entries(d[k])),
+                   ("alpha_z","beta_z")) &&
+            all(k->haskey(d,k)&&all(iszero,_sdp_entries(d[k])),
+                ("alpha_i","alpha_p","beta_i","beta_p"))
     end
     false
 end
 function _sdp_has_load_envelope(d)
-    law=lowercase(get(d,"model","constant_power"))
+    law=lowercase(String(get(d,"model","constant_power")))
     law=="constant_current" && return true
-    law=="zip" && return any(k->any(!iszero,get(d,k,[])),("alpha_i","beta_i"))
-    law=="exponential" && return any(k->any(x->x ∉ (0,2),get(d,k,[])),("gamma_p","gamma_q"))
+    law=="zip" && return any(k->any(!iszero,_sdp_entries(get(d,k,()))),
+                             ("alpha_i","beta_i"))
+    law=="exponential" && return any(k->any(x->x ∉ (0,2),
+        _sdp_entries(get(d,k,()))),("gamma_p","gamma_q"))
     false
 end
 

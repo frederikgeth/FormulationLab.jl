@@ -1,10 +1,12 @@
-"""Options for the radial multiphase branch-flow SDP prototype."""
+"""Options for the multiphase branch-flow SDP relaxation."""
 Base.@kwdef struct BranchFlowSDPOptions
     s_base::Float64 = 1e4
     objective::Symbol = :cost
     cone::Symbol = :real
     recovery::Symbol = :tree
     scale_objective::Bool = true
+    lnc::Symbol = :off
+    voltage_lncs::Vector{VoltageLNC} = VoltageLNC[]
 end
 
 struct BranchFlowSDPInapplicableError <: Exception
@@ -31,7 +33,7 @@ function _bfm_fields(data, allowed, label; matrix=())
         if any(prefix -> occursin(Regex("^" * prefix * raw"\d+_\d+$"), key), matrix)
             continue
         end
-        _bfm_refuse("$label field '$key' is outside the branch-flow SDP prototype")
+        _bfm_refuse("$label field '$key' is outside the BranchFlowSDP contract")
     end
 end
 
@@ -94,8 +96,7 @@ function _bfm_transformer_edges(net)
     edges = NamedTuple[]
     for (subtype_raw, table) in get(net, "transformer", Dict())
         subtype = String(subtype_raw)
-        subtype == "n_winding" && _bfm_refuse(
-            "transformer/n_winding is a hyperedge and is not implemented by BranchFlowSDP")
+        subtype == "n_winding" && continue
         subtype in _SDP_TRANSFORMERS || _bfm_refuse(
             "transformer/$subtype is not implemented by BranchFlowSDP")
         for (id_raw, data) in table
@@ -112,13 +113,20 @@ function _bfm_topology(net)
     buses = get(net, "bus", Dict())
     isempty(buses) && _bfm_refuse("the network has no buses")
     sources = get(net, "voltage_source", Dict())
-    length(sources) == 1 || _bfm_refuse(
-        "the first branch-flow SDP slice requires exactly one voltage source")
-    source_id, source = only(collect(sources))
-    root = String(get(source, "bus", ""))
-    haskey(buses, root) || _bfm_refuse("voltage source references unknown bus '$root'")
+    isempty(sources) && _bfm_refuse("at least one voltage source is required")
+    for (id, source) in sources
+        bus = String(get(source, "bus", ""))
+        haskey(buses, bus) || _bfm_refuse(
+            "voltage_source/$id references unknown bus '$bus'")
+    end
 
     adjacency = Dict(String(b) => NamedTuple[] for b in keys(buses))
+    binary_edges = NamedTuple[]
+    function add_edge!(edge)
+        push!(binary_edges, edge)
+        push!(adjacency[edge.from], merge(edge, (; other=edge.to)))
+        push!(adjacency[edge.to], merge(edge, (; other=edge.from)))
+    end
     for (id_raw, line) in get(net, "line", Dict())
         id = String(id_raw)
         from = String(get(line, "bus_from", ""))
@@ -126,9 +134,8 @@ function _bfm_topology(net)
         from != to || _bfm_refuse("line/$id is a self loop")
         haskey(adjacency, from) && haskey(adjacency, to) ||
             _bfm_refuse("line/$id references an unknown bus")
-        edge = (; kind=:line, id, subtype="", from, to, data=line)
-        push!(adjacency[from], merge(edge, (; other=to)))
-        push!(adjacency[to], merge(edge, (; other=from)))
+        add_edge!((; uid="line/$id", kind=:line, id, subtype="", from, to,
+            data=line))
     end
     transformer_edges = _bfm_transformer_edges(net)
     for edge in transformer_edges
@@ -136,32 +143,103 @@ function _bfm_topology(net)
             "transformer/$(edge.subtype)/$(edge.id) is a self loop")
         haskey(adjacency, edge.from) && haskey(adjacency, edge.to) ||
             _bfm_refuse("transformer/$(edge.subtype)/$(edge.id) references an unknown bus")
-        push!(adjacency[edge.from], merge(edge, (; other=edge.to)))
-        push!(adjacency[edge.to], merge(edge, (; other=edge.from)))
+        add_edge!(merge(edge, (; uid="transformer/$(edge.subtype)/$(edge.id)")))
     end
-    edge_count = length(get(net, "line", Dict())) + length(transformer_edges)
-    edge_count == length(buses) - 1 ||
-        _bfm_refuse("the branch-flow SDP prototype requires a radial tree")
-
-    parent = Dict(root => "")
-    queue = [root]
-    oriented = NamedTuple[]
-    while !isempty(queue)
-        bus = popfirst!(queue)
-        for edge in adjacency[bus]
-            other = edge.other
-            other == get(parent, bus, "") && continue
-            haskey(parent, other) && _bfm_refuse("the network contains a cycle")
-            parent[other] = bus
-            reversed = edge.from != bus
-            push!(oriented, (; kind=edge.kind, id=edge.id, subtype=edge.subtype,
-                parent=bus, child=other, reversed))
-            push!(queue, other)
+    for (id_raw, switch) in get(net, "switch", Dict())
+        get(switch, "open_switch", nothing) === false || continue
+        id = String(id_raw)
+        from, to = String(get(switch, "bus_from", "")),
+                   String(get(switch, "bus_to", ""))
+        from != to || _bfm_refuse("switch/$id is a self loop")
+        haskey(adjacency, from) && haskey(adjacency, to) ||
+            _bfm_refuse("switch/$id references an unknown bus")
+        add_edge!((; uid="switch/$id", kind=:switch, id, subtype="", from, to,
+            data=switch))
+    end
+    hyperedges = NamedTuple[]
+    for (id_raw, data) in get(get(net, "transformer", Dict()), "n_winding", Dict())
+        id = String(id_raw)
+        windings = get(data, "windings", Any[])
+        isempty(windings) && continue
+        anchor = String(get(first(windings), "bus", ""))
+        haskey(adjacency, anchor) || _bfm_refuse(
+            "transformer/n_winding/$id references an unknown bus")
+        for leg in 2:length(windings)
+            winding = windings[leg]
+            other = String(get(winding, "bus", ""))
+            haskey(adjacency, other) || _bfm_refuse(
+                "transformer/n_winding/$id references an unknown bus")
+            other == anchor && continue
+            edge = (; uid="transformer/n_winding/$id/$leg", kind=:n_winding,
+                id, subtype="n_winding", from=anchor, to=other, data)
+            add_edge!(edge)
+            push!(hyperedges, edge)
         end
     end
-    length(parent) == length(buses) || _bfm_refuse(
-        "every bus must be connected to the voltage-source root")
-    (; root, source_id=String(source_id), source, oriented, edge_count)
+
+    source_buses = Dict(String(id) => String(data["bus"]) for (id, data) in sources)
+    roots = String[]
+    parent = Dict{String,String}()
+    parent_edge = Dict{String,String}()
+    depth = Dict{String,Int}()
+    component = Dict{String,Int}()
+    source_free_components = 0
+    for seed in sort!(String.(collect(keys(buses))))
+        haskey(component, seed) && continue
+        members = String[]
+        queue = [seed]
+        seen = Set([seed])
+        while !isempty(queue)
+            bus = popfirst!(queue)
+            push!(members, bus)
+            for edge in adjacency[bus]
+                edge.other in seen && continue
+                push!(seen, edge.other)
+                push!(queue, edge.other)
+            end
+        end
+        candidates = sort!([bus for bus in members if bus in values(source_buses)])
+        isempty(candidates) && (source_free_components += 1)
+        root = isempty(candidates) ? first(sort!(members)) : first(candidates)
+        push!(roots, root)
+        cid = length(roots)
+        parent[root] = ""
+        depth[root] = 0
+        queue = [root]
+        while !isempty(queue)
+            bus = popfirst!(queue)
+            component[bus] = cid
+            for edge in adjacency[bus]
+                other = edge.other
+                haskey(depth, other) && continue
+                parent[other] = bus
+                parent_edge[other] = edge.uid
+                depth[other] = depth[bus] + 1
+                push!(queue, other)
+            end
+        end
+    end
+    oriented = NamedTuple[]
+    for edge in binary_edges
+        if depth[edge.from] <= depth[edge.to]
+            p, c, reversed = edge.from, edge.to, false
+        else
+            p, c, reversed = edge.to, edge.from, true
+        end
+        tree_edge = get(parent_edge, c, "") == edge.uid && get(parent, c, "") == p
+        push!(oriented, (; kind=edge.kind, id=edge.id, subtype=edge.subtype,
+            parent=p, child=c, reversed, tree_edge, uid=edge.uid,
+            depth=depth[c]))
+    end
+    source_id, source = first(sort!(collect(sources); by=first))
+    root = String(source["bus"])
+    cycle_count = length(binary_edges) - (length(buses) - length(roots))
+    (; root, source_id=String(source_id), source, sources, source_buses, roots,
+       parent, component, oriented, edge_count=length(binary_edges),
+       cycle_count=max(cycle_count, 0),
+       requires_global_voltage=length(sources) > 1 || cycle_count > 0 ||
+           !isempty(hyperedges) || source_free_components > 0,
+       source_free_components)
 end
 
 function _bfm_device_positions(net, data, label; allow_delta=false)
@@ -200,14 +278,24 @@ function _bfm_channel_count(device, label)
     length(device.channels)
 end
 
+function _bfm_dispatch_layout(device, label)
+    if device.configuration == "DELTA"
+        n = _bfm_channel_count(device, label)
+        return (; count=n, positions=collect(1:n), terminal_count=n)
+    end
+    (; count=length(device.channel_positions), positions=device.channel_positions,
+       terminal_count=device.terminal_count)
+end
+
 function _bfm_validate_dispatch(data, device, label)
+    layout = _bfm_dispatch_layout(device, label)
     for key in ("p_min", "p_max", "q_min", "q_max", "cost", "energy_cost_rate")
-        _bfm_phase_vector(data, key, device.channel_positions,
-            device.terminal_count, label)
+        _bfm_phase_vector(data, key, layout.positions,
+            layout.terminal_count, label)
     end
     for key in ("s_max", "i_max")
-        values = _bfm_phase_vector(data, key, device.channel_positions,
-            device.terminal_count, label)
+        values = _bfm_phase_vector(data, key, layout.positions,
+            layout.terminal_count, label)
         _bfm_nonnegative(values, "$label $key")
     end
     haskey(data, "cost") && haskey(data, "energy_cost_rate") &&
@@ -218,31 +306,46 @@ end
 
 function _bfm_validate(net)
     tables = Set(("bus", "line", "linecode", "load", "generator",
-                  "voltage_source", "shunt", "transformer"))
+                  "voltage_source", "shunt", "transformer", "switch",
+                  "capacitor"))
     metadata = Set(("name", "meta", "_meta", "extras", "terminal_conventions",
                     "wire_data", "line_geometry"))
     for (key_raw, value) in net
         key = String(key_raw)
         empty_value = (value isa AbstractDict || value isa AbstractVector) && isempty(value)
         key in tables || key in metadata || empty_value ||
-            _bfm_refuse("nonempty table '$key' is outside the branch-flow SDP prototype")
+            _bfm_refuse("nonempty table '$key' is outside the BranchFlowSDP contract")
     end
     plan = _bfm_topology(net)
     buses = net["bus"]
     for (id, bus) in buses
         _bfm_fields(bus, ("terminal_names", "perfectly_grounded_terminals",
-            "neutral_terminal", "v_min", "v_max"), "bus/$id")
+            "neutral_terminal", "v_min", "v_max", "vn_max", "vpn_min",
+            "vpn_max", "vpp_min", "vpp_max", "vpos_min", "vpos_max",
+            "vneg_max", "vzero_max"), "bus/$id")
         terms = string.(get(bus, "terminal_names", String[]))
         !isempty(terms) && allunique(terms) ||
             _bfm_refuse("bus/$id requires distinct terminal_names")
         all(in(terms), string.(get(bus, "perfectly_grounded_terminals", String[]))) ||
             _bfm_refuse("bus/$id grounds an undeclared terminal")
+        maps = _bfm_voltage_maps(net, String(id))
+        for key in ("v_min", "v_max", "vpn_min", "vpn_max", "vpp_min",
+                    "vpp_max", "vn_max", "vpos_min", "vpos_max", "vneg_max",
+                    "vzero_max")
+            haskey(bus, key) || continue
+            prefix = startswith(key, "v_") ? key : first(split(key, "_"))
+            haskey(maps, prefix) || _bfm_refuse(
+                "bus/$id $key requires the corresponding terminals")
+            _bfm_nonnegative(_bfm_vector(bus, key, length(maps[prefix]),
+                "bus/$id"), "bus/$id $key")
+        end
     end
     for (id, line) in get(net, "line", Dict())
         label = "line/$id"
         _bfm_fields(line, ("bus_from", "bus_to", "terminal_map_from",
             "terminal_map_to", "linecode", "length", "i_max", "s_max"),
-            label; matrix=("R_series_", "X_series_"))
+            label; matrix=("R_series_", "X_series_", "G_from_", "B_from_",
+                           "G_to_", "B_to_"))
         _bfm_required(line,
             ("bus_from", "bus_to", "terminal_map_from", "terminal_map_to"), label)
         from, to = String(line["bus_from"]), String(line["bus_to"])
@@ -259,13 +362,13 @@ function _bfm_validate(net)
         coded && !haskey(get(net, "linecode", Dict()), line["linecode"]) &&
             _bfm_refuse("line/$id references an unknown linecode")
         coefficient_data = coded ? net["linecode"][line["linecode"]] : line
-        any(startswith(String(k), p) for k in keys(coefficient_data),
-            p in ("G_from_", "B_from_", "G_to_", "B_to_")) &&
-            _bfm_refuse("line/$id endpoint shunts are not in the first branch-flow SDP slice")
         n = length(from_terms)
         _, has_r = _bfm_line_matrix(coefficient_data, "R_series_", n, label)
         _, has_x = _bfm_line_matrix(coefficient_data, "X_series_", n, label)
         has_r || has_x || _bfm_refuse("$label has no series impedance")
+        for prefix in ("G_from_", "B_from_", "G_to_", "B_to_")
+            _bfm_line_matrix(coefficient_data, prefix, n, label)
+        end
         if haskey(line, "length")
             length_scale = line["length"]
             length_scale isa Real && isfinite(length_scale) && length_scale > 0 ||
@@ -287,30 +390,50 @@ function _bfm_validate(net)
     end
     for (id, code) in get(net, "linecode", Dict())
         _bfm_fields(code, ("i_max", "s_max", "source", "line_geometry", "derivation"), "linecode/$id";
-            matrix=("R_series_", "X_series_"))
+            matrix=("R_series_", "X_series_", "G_from_", "B_from_",
+                    "G_to_", "B_to_"))
     end
     for (id, load) in get(net, "load", Dict())
         _bfm_fields(load, ("bus", "terminal_map", "configuration", "model",
-            "p_nom", "q_nom", "v_nom"), "load/$id")
+            "p_nom", "q_nom", "v_nom", "alpha_z", "alpha_i", "alpha_p",
+            "beta_z", "beta_i", "beta_p", "gamma_p", "gamma_q"), "load/$id")
         law = lowercase(String(get(load, "model", "constant_power")))
-        law in ("constant_power", "constant_impedance") ||
-            _bfm_refuse("load/$id model '$law' is not in the first branch-flow SDP slice")
+        law in ("constant_power", "constant_impedance", "constant_current",
+                "zip", "exponential") ||
+            _bfm_refuse("load/$id model '$law' is not implemented")
         device = _bfm_device_positions(net, load, "load/$id"; allow_delta=true)
         _bfm_required(load, ("p_nom", "q_nom"), "load/$id")
         n = _bfm_channel_count(device, "load/$id")
         _bfm_vector(load, "p_nom", n, "load/$id")
         _bfm_vector(load, "q_nom", n, "load/$id")
-        if law == "constant_impedance"
+        if law != "constant_power"
             vnom = _bfm_vector(load, "v_nom", n, "load/$id")
-            vnom === nothing && _bfm_refuse("load/$id constant impedance requires v_nom")
+            vnom === nothing && _bfm_refuse("load/$id $law requires v_nom")
             all(>(0), vnom) || _bfm_refuse("load/$id v_nom must be positive")
+        end
+        if law == "zip"
+            for keys in (("alpha_z", "alpha_i", "alpha_p"),
+                         ("beta_z", "beta_i", "beta_p"))
+                values = [_bfm_vector(load, key, n, "load/$id") for key in keys]
+                all(x -> x !== nothing, values) || _bfm_refuse(
+                    "load/$id requires all ZIP fractions")
+                all(v -> all(>=(0), v), values) &&
+                    all(isapprox.(sum(values), 1; atol=1e-10)) ||
+                    _bfm_refuse("load/$id has invalid ZIP fractions")
+            end
+        elseif law == "exponential"
+            _bfm_vector(load, "gamma_p", n, "load/$id") === nothing &&
+                _bfm_refuse("load/$id requires gamma_p")
+            _bfm_vector(load, "gamma_q", n, "load/$id") === nothing &&
+                _bfm_refuse("load/$id requires gamma_q")
         end
     end
     for (id, generator) in get(net, "generator", Dict())
         _bfm_fields(generator, ("bus", "terminal_map", "configuration", "p_min",
             "p_max", "q_min", "q_max", "s_max", "i_max", "cost",
             "energy_cost_rate"), "generator/$id")
-        device = _bfm_device_positions(net, generator, "generator/$id")
+        device = _bfm_device_positions(net, generator, "generator/$id";
+            allow_delta=true)
         _bfm_validate_dispatch(generator, device, "generator/$id")
     end
     for (id, source) in get(net, "voltage_source", Dict())
@@ -345,9 +468,67 @@ function _bfm_validate(net)
         all(isfinite, real.(Y)) && all(isfinite, imag.(Y)) ||
             _bfm_refuse("$label admittance must be finite")
     end
+    for (id, switch) in get(net, "switch", Dict())
+        label = "switch/$id"
+        _bfm_fields(switch, ("bus_from", "bus_to", "terminal_map_from",
+            "terminal_map_to", "open_switch", "i_max", "s_max"), label)
+        _bfm_required(switch, ("bus_from", "bus_to", "terminal_map_from",
+            "terminal_map_to", "open_switch"), label)
+        get(switch, "open_switch", nothing) isa Bool ||
+            _bfm_refuse("$label open_switch must be a fixed Boolean")
+        from, to = String(switch["bus_from"]), String(switch["bus_to"])
+        haskey(buses, from) && haskey(buses, to) ||
+            _bfm_refuse("$label references an unknown bus")
+        mf, mt = string.(switch["terminal_map_from"]),
+                 string.(switch["terminal_map_to"])
+        length(mf) == length(mt) && !isempty(mf) && allunique(mf) && allunique(mt) ||
+            _bfm_refuse("$label requires aligned nonempty endpoint maps")
+        all(in(string.(buses[from]["terminal_names"])), mf) &&
+            all(in(string.(buses[to]["terminal_names"])), mt) ||
+            _bfm_refuse("$label maps an undeclared terminal")
+        _bfm_nonnegative(_bfm_vector(switch, "i_max", length(mf), label),
+            "$label i_max")
+        _bfm_nonnegative(_bfm_vector(switch, "s_max", length(mf), label),
+            "$label s_max")
+    end
+    for (id, capacitor) in get(net, "capacitor", Dict())
+        label = "capacitor/$id"
+        _bfm_fields(capacitor, ("bus", "terminal_map", "configuration",
+            "q_rated", "v_nom"), label)
+        device = _bfm_device_positions(net, capacitor, label; allow_delta=true)
+        n = _bfm_channel_count(device, label)
+        q = _bfm_vector(capacitor, "q_rated", n, label)
+        q === nothing && _bfm_refuse("$label requires q_rated")
+        all(>=(0), q) || _bfm_refuse("$label q_rated must be nonnegative")
+        vn = _bfm_vector(capacitor, "v_nom", n, label)
+        vn !== nothing && all(>(0), vn) || _bfm_refuse("$label requires positive v_nom")
+    end
     for (subtype, table) in get(net, "transformer", Dict()), (id, data) in table
         kind = String(subtype)
         label = "transformer/$kind/$id"
+        if kind == "n_winding"
+            nwplan = try
+                _sdp_nwinding_plan(net, String(id), data)
+            catch err
+                err isa SDPInapplicableError || rethrow()
+                _bfm_refuse(err.message)
+            end
+            for (k, winding) in enumerate(nwplan.ws)
+                bus = String(winding["bus"])
+                haskey(buses, bus) || _bfm_refuse(
+                    "$label winding $k references unknown bus '$bus'")
+                tm = string.(winding["terminal_map"])
+                !isempty(tm) && allunique(tm) &&
+                    all(in(string.(buses[bus]["terminal_names"])), tm) ||
+                    _bfm_refuse("$label winding $k has an invalid terminal_map")
+                nc = size(nwplan.Ds[k], 1)
+                for field in ("i_max", "s_max")
+                    values = _bfm_vector(winding, field, nc, "$label winding $k")
+                    _bfm_nonnegative(values, "$label winding $k $field")
+                end
+            end
+            continue
+        end
         transformer_plan = try
             _sdp_transformer_plan(kind, data, label)
         catch err
@@ -454,6 +635,161 @@ function _bfm_live_positions(net, bus)
     findall(t -> !(t in grounded), terms)
 end
 
+function _bfm_voltage_rows(net, bus, terminals)
+    declared = string.(net["bus"][bus]["terminal_names"])
+    rows = _SDPRow[]
+    for terminal in string.(terminals)
+        position = findfirst(==(terminal), declared)
+        position === nothing && _bfm_refuse(
+            "bus/$bus voltage map references undeclared terminal '$terminal'")
+        push!(rows, _sdp_e(position))
+    end
+    rows
+end
+
+function _bfm_voltage_maps(net, bus)
+    terminal_rows = (b, terminals) -> _bfm_voltage_rows(net, String(b), terminals)
+    try
+        _sdp_voltage_maps(net, bus, terminal_rows)
+    catch err
+        err isa SDPInapplicableError || rethrow()
+        _bfm_refuse(err.message)
+    end
+end
+
+function _bfm_voltage_product(W, a::_SDPRow, b::_SDPRow)
+    out = JuMP.GenericAffExpr{ComplexF64,JuMP.VariableRef}(0im)
+    for (i, ci) in a, (j, cj) in b
+        JuMP.add_to_expression!(out, ci * conj(cj), W[i, j])
+    end
+    out
+end
+
+function _bfm_bus_limits!(model, net, voltage_moments, vb)
+    fields = ("v_min", "v_max", "vpn_min", "vpn_max", "vpp_min", "vpp_max",
+              "vn_max", "vpos_min", "vpos_max", "vneg_max", "vzero_max")
+    for (bus, data) in net["bus"]
+        maps = _bfm_voltage_maps(net, bus)
+        for key in fields
+            haskey(data, key) || continue
+            prefix = startswith(key, "v_") ? key : first(split(key, "_"))
+            haskey(maps, prefix) || _bfm_refuse(
+                "bus/$bus $key requires the corresponding terminals")
+            rows = maps[prefix]
+            bounds = _bfm_vector(data, key, length(rows), "bus/$bus")
+            for (row, value) in zip(rows, bounds)
+                value >= 0 || _bfm_refuse("bus/$bus $key must be nonnegative")
+                w = real(_bfm_voltage_product(voltage_moments[bus], row, row))
+                limit = (value / vb)^2
+                if endswith(key, "min")
+                    iszero(value) || @constraint(model, w >= limit)
+                else
+                    @constraint(model, w <= limit)
+                end
+            end
+        end
+    end
+end
+
+function _bfm_load_range(net, bus, row::_SDPRow, vb)
+    lo, hi = 0.0, Inf
+    data = net["bus"][bus]
+    for (prefix, rows) in _bfm_voltage_maps(net, bus)
+        keys = startswith(prefix, "v_") ? (prefix,) :
+               (prefix * "_min", prefix * "_max")
+        for key in keys
+            haskey(data, key) || continue
+            bounds = _bfm_vector(data, key, length(rows), "bus/$bus")
+            for (candidate, value) in zip(rows, bounds)
+                if candidate == row || candidate == _sdp_add!(_SDPRow(), row, -1)
+                    endswith(key, "min") ? (lo = max(lo, (value / vb)^2)) :
+                                           (hi = min(hi, (value / vb)^2))
+                end
+            end
+        end
+    end
+    lo <= hi || _bfm_refuse("load voltage bounds are inconsistent at bus/$bus")
+    lo, hi
+end
+
+function _bfm_load_law!(model, net, id, data, device, D, W, powers, vb, sb)
+    n = length(powers)
+    p = _bfm_vector(data, "p_nom", n, "load/$id")
+    q = _bfm_vector(data, "q_nom", n, "load/$id")
+    law = lowercase(String(get(data, "model", "constant_power")))
+    _sdp_is_impedance_load(data) && return
+    vn = law == "constant_power" ? ones(n) :
+         _bfm_vector(data, "v_nom", n, "load/$id")
+    vn !== nothing && all(>(0), vn) || _bfm_refuse(
+        "load/$id requires positive v_nom")
+    for k in 1:n
+        row = _SDPRow(j => ComplexF64(D[k, j]) for j in axes(D, 2)
+                      if !iszero(D[k, j]))
+        x = real(_bfm_voltage_product(W, row, row)) * (vb / vn[k])^2
+        low, high = _bfm_load_range(net, device.bus, row, vb)
+        low *= (vb / vn[k])^2
+        high *= (vb / vn[k])^2
+        cache = Dict{Float64,Any}()
+        power(a) = get!(cache, Float64(a)) do
+            _sdp_power_envelope!(model, x, Float64(a), low, high)
+        end
+        rhs = if law == "constant_power"
+            (1.0, 1.0)
+        elseif law == "constant_current"
+            (power(0.5), power(0.5))
+        elseif law == "zip"
+            tuple((sum(_bfm_vector(data, prefix * suffix, n, "load/$id")[k] *
+                       power(a) for (suffix, a) in
+                       (("_z", 1), ("_i", 0.5), ("_p", 0)))
+                   for prefix in ("alpha", "beta"))...)
+        elseif law == "exponential"
+            gp = _bfm_vector(data, "gamma_p", n, "load/$id")
+            gq = _bfm_vector(data, "gamma_q", n, "load/$id")
+            (power(gp[k] / 2), power(gq[k] / 2))
+        else
+            _bfm_refuse("load/$id model '$law' is not implemented")
+        end
+        @constraint(model, real(powers[k]) == p[k] / sb * rhs[1])
+        @constraint(model, imag(powers[k]) == q[k] / sb * rhs[2])
+    end
+end
+
+function _bfm_voltage_closure!(model, net, voltage_moments, cone)
+    indices = Dict{Tuple{String,String},Int}()
+    cursor = 0
+    for (bus, data) in sort!(collect(net["bus"]); by=first)
+        grounded = Set(string.(get(data, "perfectly_grounded_terminals", String[])))
+        for terminal in string.(data["terminal_names"])
+            if terminal in grounded
+                indices[(String(bus), terminal)] = 0
+            else
+                cursor += 1
+                indices[(String(bus), terminal)] = cursor
+            end
+        end
+    end
+    block = _sdp_psd(model, cursor, cone)
+    for (bus, data) in net["bus"]
+        terms = string.(data["terminal_names"])
+        for a in eachindex(terms), b in a:length(terms)
+            ia, ib = indices[(String(bus), terms[a])], indices[(String(bus), terms[b])]
+            (ia == 0 || ib == 0) && continue
+            @constraint(model, block[ia, ib] == voltage_moments[String(bus)][a, b])
+        end
+    end
+    block, indices
+end
+
+function _bfm_overlap_global!(model, block, indices, bus_from, terms_from,
+                              bus_to, terms_to, cross)
+    for a in eachindex(terms_from), b in eachindex(terms_to)
+        ia = indices[(String(bus_from), String(terms_from[a]))]
+        ib = indices[(String(bus_to), String(terms_to[b]))]
+        (ia == 0 || ib == 0) && continue
+        @constraint(model, block[ia, ib] == cross[a, b])
+    end
+end
+
 function _bfm_transformer_plan(subtype, data, label)
     try
         _sdp_transformer_plan(subtype, data, label)
@@ -474,7 +810,8 @@ function _bfm_selection(bus_terms, terminal_map, label)
 end
 
 function _bfm_transformer_block!(model, net, subtype, id, data, voltage_moments,
-                                 balance, powers, cone, ib, zb, root, root_pu)
+                                 balance, powers, cone, ib, zb, source_pu,
+                                 voltage_global, voltage_indices)
     label = "transformer/$subtype/$id"
     plan = _bfm_transformer_plan(subtype, data, label)
     from, to = String(data["bus_from"]), String(data["bus_to"])
@@ -542,19 +879,20 @@ function _bfm_transformer_block!(model, net, subtype, id, data, voltage_moments,
         push!(equations, row)
     end
     for (bus, indices) in ((from, vf), (to, vt))
-        bus == root || continue
-        anchor = something(findfirst(!iszero, root_pu), 0)
+        haskey(source_pu, bus) || continue
+        prescribed = source_pu[bus]
+        anchor = something(findfirst(!iszero, prescribed), 0)
         anchor > 0 || _bfm_refuse("$label root side has no nonzero reference voltage")
-        for k in eachindex(root_pu)
+        for k in eachindex(prescribed)
             k == anchor && continue
             row = zeros(ComplexF64, dimension)
             row[indices[k]] = 1
-            row[indices[anchor]] = -root_pu[k] / root_pu[anchor]
+            row[indices[anchor]] = -prescribed[k] / prescribed[anchor]
             push!(equations, row)
         end
     end
     for (bus, terms, indices) in ((from, from_terms, vf), (to, to_terms, vt))
-        bus == root && continue
+        haskey(source_pu, bus) && continue
         grounded = Set(string.(get(net["bus"][bus],
             "perfectly_grounded_terminals", String[])))
         for k in eachindex(terms)
@@ -574,8 +912,8 @@ function _bfm_transformer_block!(model, net, subtype, id, data, voltage_moments,
                     for k in axes(N, 2), h in axes(N, 2))
                 for a in 1:dimension, b in 1:dimension]
     for (bus, indices, count) in ((from, vf, nf), (to, vt, nt))
-        if bus == root
-            anchor = something(findfirst(!iszero, root_pu), 1)
+        if haskey(source_pu, bus)
+            anchor = something(findfirst(!iszero, source_pu[bus]), 1)
             @constraint(model, block[indices[anchor], indices[anchor]] ==
                                voltage_moments[bus][anchor, anchor])
         else
@@ -589,6 +927,11 @@ function _bfm_transformer_block!(model, net, subtype, id, data, voltage_moments,
                                    voltage_moments[bus][a, b])
             end
         end
+    end
+    if voltage_global !== nothing
+        cross = Any[block[vf[a], vt[b]] for a in 1:nf, b in 1:nt]
+        _bfm_overlap_global!(model, voltage_global, voltage_indices,
+            from, from_terms, to, to_terms, cross)
     end
 
     Tf = zeros(ComplexF64, nf, dimension)
@@ -665,7 +1008,313 @@ function _bfm_transformer_block!(model, net, subtype, id, data, voltage_moments,
     end
     (; key, subtype, id=String(id), from, to, block, reduced, nullspace=N,
        vf, vt, jf, jt, Tf, Tt, terminal_from, terminal_to,
-       Uf, Ut, Ajf, Ajt, dimension)
+       Uf, Ut, Ajf, Ajt, dimension,
+       voltage_state_indices=vcat(collect(vf), collect(vt)),
+       voltage_state_buses=vcat(fill(from, nf), fill(to, nt)),
+       voltage_state_terminals=vcat(from_terms, to_terms))
+end
+
+function _bfm_nwinding_block!(model, net, id, data, voltage_moments, balance,
+                              powers, cone, sb, ib, zb, source_pu, voltage_global,
+                              voltage_indices)
+    label = "transformer/n_winding/$id"
+    plan = try
+        _sdp_nwinding_plan(net, id, data)
+    catch err
+        err isa SDPInapplicableError || rethrow()
+        _bfm_refuse(err.message)
+    end
+    nw = length(plan.ws)
+    buses = String[String(w["bus"]) for w in plan.ws]
+    bus_terms = [string.(net["bus"][bus]["terminal_names"]) for bus in buses]
+    maps = [string.(w["terminal_map"]) for w in plan.ws]
+    selections = [_bfm_selection(bus_terms[k], maps[k], label) for k in 1:nw]
+    U = [plan.Ds[k] * selections[k] for k in 1:nw]
+    nc = size(first(U), 1)
+    nv = sum(length, bus_terms)
+    voltage_ranges = UnitRange{Int}[]
+    cursor = 0
+    for terms in bus_terms
+        push!(voltage_ranges, cursor + 1:cursor + length(terms))
+        cursor += length(terms)
+    end
+    current_ranges = UnitRange{Int}[]
+    for _ in 1:nw
+        push!(current_ranges, cursor + 1:cursor + nc)
+        cursor += nc
+    end
+    ideal_ground = Tuple{Int,Int}[]
+    finite_ground = Tuple{Int,Int,ComplexF64}[]
+    for k in 1:nw
+        w = plan.ws[k]
+        haskey(w, "r_neutral") || haskey(w, "x_neutral") || continue
+        neutral = get(_kr_neutral_map(net), buses[k], nothing)
+        position = findfirst(==(neutral), maps[k])
+        position === nothing && _bfm_refuse(
+            "$label winding $k grounding requires an explicit neutral")
+        z = complex(Float64(get(w, "r_neutral", 0.0)),
+                    Float64(get(w, "x_neutral", 0.0)))
+        isfinite(z) && real(z) >= 0 && imag(z) >= 0 ||
+            _bfm_refuse("$label winding $k has invalid grounding impedance")
+        iszero(z) ? push!(ideal_ground, (k, position)) :
+                    push!(finite_ground, (k, position, z / zb))
+    end
+    ground_range = cursor + 1:cursor + length(ideal_ground)
+    dimension = cursor + length(ideal_ground)
+    equations = Vector{Vector{ComplexF64}}()
+    for c in 1:nc
+        amp = zeros(ComplexF64, dimension)
+        for k in 1:nw
+            amp[current_ranges[k][c]] += plan.turns[k]
+        end
+        push!(equations, amp)
+        for i in 2:nw
+            row = zeros(ComplexF64, dimension)
+            row[voltage_ranges[1]] .+= U[1][c, :] ./ plan.turns[1]
+            row[voltage_ranges[i]] .-= U[i][c, :] ./ plan.turns[i]
+            for k in 2:nw
+                row[current_ranges[k][c]] +=
+                    plan.Z[i - 1, k - 1] * plan.turns[k] / zb
+            end
+            push!(equations, row)
+        end
+    end
+    for (g, (k, position)) in enumerate(ideal_ground)
+        row = zeros(ComplexF64, dimension)
+        bus_position = findfirst(==(maps[k][position]), bus_terms[k])
+        row[voltage_ranges[k][bus_position]] = 1
+        push!(equations, row)
+    end
+    for k in 1:nw
+        bus, indices = buses[k], voltage_ranges[k]
+        if haskey(source_pu, bus)
+            prescribed = source_pu[bus]
+            anchor = something(findfirst(!iszero, prescribed), 0)
+            anchor > 0 || _bfm_refuse("$label source winding has no nonzero voltage")
+            for h in eachindex(prescribed)
+                h == anchor && continue
+                row = zeros(ComplexF64, dimension)
+                row[indices[h]] = 1
+                row[indices[anchor]] = -prescribed[h] / prescribed[anchor]
+                push!(equations, row)
+            end
+        else
+            grounded = Set(string.(get(net["bus"][bus],
+                "perfectly_grounded_terminals", String[])))
+            for h in eachindex(bus_terms[k])
+                bus_terms[k][h] in grounded || continue
+                row = zeros(ComplexF64, dimension)
+                row[indices[h]] = 1
+                push!(equations, row)
+            end
+        end
+    end
+    A = isempty(equations) ? zeros(ComplexF64, 0, dimension) :
+        reduce(vcat, (reshape(row, 1, :) for row in equations))
+    N = nullspace(A)
+    size(N, 2) > 0 || _bfm_refuse("$label equations leave no electrical state")
+    reduced = _sdp_psd(model, size(N, 2), cone)
+    block = Any[sum(N[a, k] * reduced[k, h] * conj(N[b, h])
+                    for k in axes(N, 2), h in axes(N, 2))
+                for a in 1:dimension, b in 1:dimension]
+    for k in 1:nw
+        bus, indices, terms = buses[k], voltage_ranges[k], bus_terms[k]
+        if haskey(source_pu, bus)
+            anchor = something(findfirst(!iszero, source_pu[bus]), 1)
+            @constraint(model, block[indices[anchor], indices[anchor]] ==
+                               voltage_moments[bus][anchor, anchor])
+        else
+            live = _bfm_live_positions(net, bus)
+            for a in live, b in live
+                a <= b || continue
+                @constraint(model, block[indices[a], indices[b]] ==
+                                   voltage_moments[bus][a, b])
+            end
+        end
+        if voltage_global !== nothing
+            for h in k+1:nw
+                cross = Any[block[indices[a], voltage_ranges[h][b]]
+                            for a in eachindex(terms), b in eachindex(bus_terms[h])]
+                _bfm_overlap_global!(model, voltage_global, voltage_indices,
+                    bus, terms, buses[h], bus_terms[h], cross)
+            end
+        end
+    end
+
+    terminal_maps = Matrix{ComplexF64}[]
+    coil_maps = Matrix{ComplexF64}[]
+    for k in 1:nw
+        nt = length(bus_terms[k])
+        T = zeros(ComplexF64, nt, dimension)
+        coil = zeros(ComplexF64, nc, dimension)
+        for c in 1:nc
+            coil[c, current_ranges[k][c]] = 1
+        end
+        C = transpose(selections[k]) * transpose(plan.Ds[k])
+        T[:, current_ranges[k]] .+= C
+        if k == plan.shunt
+            T[:, voltage_ranges[k]] .+= C * (plan.y * zb .* U[k])
+        end
+        for (kg, position, zpu) in finite_ground
+            kg == k || continue
+            p = findfirst(==(maps[k][position]), bus_terms[k])
+            T[p, voltage_ranges[k][p]] += inv(zpu)
+        end
+        for (g, (kg, position)) in enumerate(ideal_ground)
+            kg == k || continue
+            p = findfirst(==(maps[k][position]), bus_terms[k])
+            T[p, ground_range[g]] += 1
+        end
+        push!(terminal_maps, T)
+        push!(coil_maps, coil)
+        E = zeros(ComplexF64, nt, dimension)
+        for h in 1:nt
+            E[h, voltage_ranges[k][h]] = 1
+        end
+        terminal_moment = _bfm_cross(block, E, T)
+        _bfm_add_matrix!(balance[buses[k]], terminal_moment)
+        terminal_power = Any[terminal_moment[h, h] for h in 1:nt]
+        key = "n_winding/$id/$k"
+        powers[(:transformer_winding, key)] = terminal_power
+        coil_voltage = zeros(ComplexF64, nc, dimension)
+        coil_voltage[:, voltage_ranges[k]] .= U[k]
+        coil_moment = _bfm_cross(block, coil_voltage, coil)
+        coil_power = Any[coil_moment[c, c] for c in 1:nc]
+        powers[(:transformer_coil, key)] = coil_power
+        w = plan.ws[k]
+        imax = _bfm_vector(w, "i_max", nc, "$label winding $k")
+        smax = _bfm_vector(w, "s_max", nc, "$label winding $k")
+        current_gram = _bfm_cross(block, coil, coil)
+        for c in 1:nc
+            imax === nothing || @constraint(model,
+                real(current_gram[c, c]) <= (imax[c] / ib)^2)
+            smax === nothing || @constraint(model,
+                [smax[c] / sb,
+                 real(coil_power[c]), imag(coil_power[c])] in SecondOrderCone())
+        end
+    end
+    key = "n_winding/$id"
+    (; key, subtype="n_winding", id=String(id), buses, bus_terms, block, reduced,
+       nullspace=N, dimension, voltage_ranges, current_ranges, terminal_maps,
+       coil_maps, voltage_state_indices=reduce(vcat, collect.(voltage_ranges)),
+       voltage_state_buses=reduce(vcat, [fill(buses[k], length(bus_terms[k]))
+                                        for k in 1:nw]),
+       voltage_state_terminals=reduce(vcat, bus_terms))
+end
+
+function _bfm_switch_block!(model, net, id, data, voltage_moments, balance,
+                            powers, cone, sb, ib, source_pu, voltage_global,
+                            voltage_indices)
+    label = "switch/$id"
+    from, to = String(data["bus_from"]), String(data["bus_to"])
+    from_terms = string.(net["bus"][from]["terminal_names"])
+    to_terms = string.(net["bus"][to]["terminal_names"])
+    map_from, map_to = string.(data["terminal_map_from"]),
+                       string.(data["terminal_map_to"])
+    m = length(map_from)
+    if data["open_switch"]
+        zero_power = Any[JuMP.AffExpr(0.0) + 0im for _ in 1:m]
+        powers[(:switch_from, String(id))] = copy(zero_power)
+        powers[(:switch_to, String(id))] = copy(zero_power)
+        return (; key=String(id), id=String(id), from, to, block=nothing,
+            open=true, map_from, map_to)
+    end
+    Pf = _bfm_selection(from_terms, map_from, label)
+    Pt = _bfm_selection(to_terms, map_to, label)
+    nf, nt = length(from_terms), length(to_terms)
+    vf, vt, current = 1:nf, nf+1:nf+nt, nf+nt+1:nf+nt+m
+    dimension = nf + nt + m
+    equations = Vector{Vector{ComplexF64}}()
+    for k in 1:m
+        row = zeros(ComplexF64, dimension)
+        row[vf] .+= Pf[k, :]
+        row[vt] .-= Pt[k, :]
+        push!(equations, row)
+    end
+    for (bus, indices, terms) in ((from, vf, from_terms), (to, vt, to_terms))
+        if haskey(source_pu, bus)
+            prescribed = source_pu[bus]
+            anchor = something(findfirst(!iszero, prescribed), 0)
+            anchor > 0 || _bfm_refuse("$label source side has no nonzero voltage")
+            for k in eachindex(prescribed)
+                k == anchor && continue
+                row = zeros(ComplexF64, dimension)
+                row[indices[k]] = 1
+                row[indices[anchor]] = -prescribed[k] / prescribed[anchor]
+                push!(equations, row)
+            end
+        else
+            grounded = Set(string.(get(net["bus"][bus],
+                "perfectly_grounded_terminals", String[])))
+            for k in eachindex(terms)
+                terms[k] in grounded || continue
+                row = zeros(ComplexF64, dimension)
+                row[indices[k]] = 1
+                push!(equations, row)
+            end
+        end
+    end
+    A = reduce(vcat, (reshape(row, 1, :) for row in equations))
+    N = nullspace(A)
+    size(N, 2) > 0 || _bfm_refuse("$label equations leave no electrical state")
+    reduced = _sdp_psd(model, size(N, 2), cone)
+    block = Any[sum(N[a, k] * reduced[k, h] * conj(N[b, h])
+                    for k in axes(N, 2), h in axes(N, 2))
+                for a in 1:dimension, b in 1:dimension]
+    for (bus, indices, terms) in ((from, vf, from_terms), (to, vt, to_terms))
+        if haskey(source_pu, bus)
+            anchor = something(findfirst(!iszero, source_pu[bus]), 1)
+            @constraint(model, block[indices[anchor], indices[anchor]] ==
+                               voltage_moments[bus][anchor, anchor])
+        else
+            live = _bfm_live_positions(net, bus)
+            for a in live, b in live
+                a <= b || continue
+                @constraint(model, block[indices[a], indices[b]] ==
+                                   voltage_moments[bus][a, b])
+            end
+        end
+    end
+    if voltage_global !== nothing
+        cross = Any[block[vf[a], vt[b]] for a in 1:nf, b in 1:nt]
+        _bfm_overlap_global!(model, voltage_global, voltage_indices,
+            from, from_terms, to, to_terms, cross)
+    end
+    Ef = zeros(ComplexF64, nf, dimension)
+    Et = zeros(ComplexF64, nt, dimension)
+    J = zeros(ComplexF64, m, dimension)
+    for k in 1:nf; Ef[k, vf[k]] = 1; end
+    for k in 1:nt; Et[k, vt[k]] = 1; end
+    for k in 1:m; J[k, current[k]] = 1; end
+    Tf = transpose(Pf) * J
+    Tt = -transpose(Pt) * J
+    Mf, Mt = _bfm_cross(block, Ef, Tf), _bfm_cross(block, Et, Tt)
+    _bfm_add_matrix!(balance[from], Mf)
+    _bfm_add_matrix!(balance[to], Mt)
+    mapped_from = _bfm_cross(block, Pf * Ef, J)
+    mapped_to = _bfm_cross(block, Pt * Et, -J)
+    sf = Any[mapped_from[k, k] for k in 1:m]
+    st = Any[mapped_to[k, k] for k in 1:m]
+    powers[(:switch_from, String(id))] = sf
+    powers[(:switch_to, String(id))] = st
+    gram = _bfm_cross(block, J, J)
+    imax = _bfm_vector(data, "i_max", m, label)
+    smax = _bfm_vector(data, "s_max", m, label)
+    for k in 1:m
+        imax === nothing || @constraint(model,
+            real(gram[k, k]) <= (imax[k] / ib)^2)
+        if smax !== nothing
+            @constraint(model, [smax[k] / sb, real(sf[k]), imag(sf[k])]
+                in SecondOrderCone())
+            @constraint(model, [smax[k] / sb, real(st[k]), imag(st[k])]
+                in SecondOrderCone())
+        end
+    end
+    (; key=String(id), id=String(id), from, to, block, reduced, open=false,
+       map_from, map_to, Pf, Pt, vf, vt, current, J, Tf, Tt, dimension,
+       voltage_state_indices=vcat(collect(vf), collect(vt)),
+       voltage_state_buses=vcat(fill(from, nf), fill(to, nt)),
+       voltage_state_terminals=vcat(from_terms, to_terms))
 end
 
 struct BranchFlowSDPBuild
@@ -677,6 +1326,7 @@ struct BranchFlowSDPBuild
     edge_records::Vector{NamedTuple}
     component_records::Vector{NamedTuple}
     transformer_records::Vector{NamedTuple}
+    switch_records::Vector{NamedTuple}
     topology::Vector{NamedTuple}
     powers::Dict{Tuple{Symbol,String},Vector{Any}}
     network::Dict{String,Any}
@@ -685,8 +1335,46 @@ struct BranchFlowSDPBuild
     current_base::Float64
     root::String
     root_voltage::Vector{ComplexF64}
+    source_voltages::Dict{String,Vector{ComplexF64}}
+    voltage_global::Any
+    voltage_indices::Dict{Tuple{String,String},Int}
+    load_envelopes::Vector{String}
+    lnc_diagnostics::Vector{LNCDiagnostic}
     objective_scale::Float64
     numerical_diagnostics::Dict{Symbol,Any}
+end
+
+function phasor_products(build::BranchFlowSDPBuild, u::VoltagePhasor,
+                         v::VoltagePhasor)
+    build.voltage_global === nothing && throw(ArgumentError(
+        "this BranchFlowSDP build has no global voltage closure"))
+    function coefficients(phasor)
+        out = Dict{Int,ComplexF64}()
+        for (key, value) in phasor.terms
+            haskey(build.voltage_indices, key) ||
+                throw(ArgumentError("unknown voltage terminal $key"))
+            index = build.voltage_indices[key]
+            index == 0 || (out[index] = get(out, index, 0im) + value)
+        end
+        out
+    end
+    a, b = coefficients(u), coefficients(v)
+    product(x, y) = build.voltage_base^2 *
+        sum((cx * conj(cy) * build.voltage_global[ix, iy]
+             for (ix, cx) in x, (iy, cy) in y); init=0im)
+    cross = product(a, b)
+    (; wu=real(product(a, a)), wv=real(product(b, b)), cross)
+end
+
+function add_voltage_lnc!(build::BranchFlowSDPBuild, spec::VoltageLNC)
+    any(d -> d.id == spec.id, build.lnc_diagnostics) &&
+        throw(ArgumentError("duplicate LNC id $(spec.id)"))
+    p = phasor_products(build, spec.u, spec.v)
+    refs = add_lnc!(build.model, p.wu, p.wv, real(p.cross), imag(p.cross),
+        spec.bounds)
+    push!(build.lnc_diagnostics, LNCDiagnostic(spec.id, :applied, spec.origin,
+        spec.provenance, "", spec.bounds))
+    refs
 end
 
 function _bfm_box!(model, p, q, data, positions, terminal_count, label, sb)
@@ -705,7 +1393,7 @@ function _bfm_box!(model, p, q, data, positions, terminal_count, label, sb)
     end
 end
 
-"""Build the radial matrix-KCL branch-flow SDP on its declared component slice."""
+"""Build the matrix-KCL branch-flow SDP on its declared component slice."""
 function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
                                options::BranchFlowSDPOptions=BranchFlowSDPOptions())
     isfinite(options.s_base) && options.s_base > 0 ||
@@ -714,18 +1402,34 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         throw(ArgumentError("unknown branch-flow SDP objective"))
     options.cone in (:real, :hermitian) || throw(ArgumentError("unknown SDP cone"))
     options.recovery == :tree || throw(ArgumentError("only recovery=:tree is implemented"))
+    options.lnc in (:off, :lines) || throw(ArgumentError("lnc must be :off or :lines"))
     net = _l3f_input(input)
     plan = _bfm_validate(net)
-    source = plan.source
-    root_terms = string.(net["bus"][plan.root]["terminal_names"])
-    root_voltage = _bfm_vector(source, "v_magnitude", length(root_terms),
-                               "voltage_source/$(plan.source_id)") .*
-                   cis.(_bfm_vector(source, "v_angle", length(root_terms),
-                                    "voltage_source/$(plan.source_id)"))
-    length(root_voltage) == length(root_terms) && all(isfinite, root_voltage) ||
-        _bfm_refuse("the root source has invalid phasors")
-    vb = maximum(abs, root_voltage)
+    source_voltages = Dict{String,Vector{ComplexF64}}()
+    for (id_raw, source) in sort!(collect(plan.sources); by=first)
+        id = String(id_raw)
+        bus = String(source["bus"])
+        terms = string.(net["bus"][bus]["terminal_names"])
+        values = _bfm_vector(source, "v_magnitude", length(terms),
+                             "voltage_source/$id") .*
+                 cis.(_bfm_vector(source, "v_angle", length(terms),
+                                  "voltage_source/$id"))
+        all(isfinite, values) || _bfm_refuse("voltage_source/$id has invalid phasors")
+        source_voltages[id] = ComplexF64.(values)
+    end
+    vb = maximum((maximum(abs, values) for values in values(source_voltages)); init=0.0)
     vb > 0 || _bfm_refuse("the root source needs a nonzero phasor")
+    source_pu = Dict{String,Vector{ComplexF64}}()
+    for (id, values) in source_voltages
+        bus = String(plan.sources[id]["bus"])
+        if haskey(source_pu, bus)
+            source_pu[bus] ≈ values ./ vb || _bfm_refuse(
+                "voltage sources at bus '$bus' prescribe conflicting phasors")
+        else
+            source_pu[bus] = values ./ vb
+        end
+    end
+    root_voltage = source_voltages[plan.source_id]
     sb = options.s_base
     ib = sb / vb
     zb = vb / ib
@@ -739,6 +1443,13 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         voltage_moments[bus] = _bfm_hermitian(model, n)
         balance[bus] = Any[JuMP.AffExpr(0.0) + 0im for _ in 1:n, _ in 1:n]
     end
+    use_global_voltage = plan.requires_global_voltage ||
+        !isempty(options.voltage_lncs) || options.lnc == :lines ||
+        !isempty(get(net, "switch", Dict())) ||
+        !isempty(get(get(net, "transformer", Dict()), "n_winding", Dict()))
+    voltage_global, voltage_indices = use_global_voltage ?
+        _bfm_voltage_closure!(model, net, voltage_moments, options.cone) :
+        (nothing, Dict{Tuple{String,String},Int}())
 
     edge_blocks = Dict{String,Any}()
     component_blocks = Dict{Tuple{Symbol,String},Any}()
@@ -746,7 +1457,9 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     edge_records = NamedTuple[]
     component_records = NamedTuple[]
     transformer_records = NamedTuple[]
+    switch_records = NamedTuple[]
     powers = Dict{Tuple{Symbol,String},Vector{Any}}()
+    lnc_lines = NamedTuple[]
     for oriented in filter(edge -> edge.kind == :line, plan.oriented)
         id, parent, child = oriented.id, oriented.parent, oriented.child
         line = net["line"][id]
@@ -759,6 +1472,13 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         reactance, has_x = _bfm_line_matrix(code, "X_series_", n, "line/$id")
         has_r || has_x || _bfm_refuse("line/$id has no series impedance")
         Z = complex.(resistance, reactance) .* length_scale ./ zb
+        gf, _ = _bfm_line_matrix(code, "G_from_", n, "line/$id")
+        bf, _ = _bfm_line_matrix(code, "B_from_", n, "line/$id")
+        gt, _ = _bfm_line_matrix(code, "G_to_", n, "line/$id")
+        bt, _ = _bfm_line_matrix(code, "B_to_", n, "line/$id")
+        Yfrom = complex.(gf, bf) .* length_scale .* zb
+        Yto = complex.(gt, bt) .* length_scale .* zb
+        Yp, Yc = oriented.reversed ? (Yto, Yfrom) : (Yfrom, Yto)
         block = _sdp_psd(model, 2n, options.cone)
         edge_blocks[id] = block
         Wp, Wc = voltage_moments[parent], voltage_moments[child]
@@ -776,10 +1496,17 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             end
             @constraint(model, Wc[a, b] == drop)
         end
-        sending = Any[S[k, k] for k in 1:n]
-        receiving_matrix = Any[S[a, b] - sum(Z[a, h] * L[h, b] for h in 1:n)
-                               for a in 1:n, b in 1:n]
-        receiving = Any[receiving_matrix[k, k] for k in 1:n]
+        series_receiving_matrix = Any[
+            S[a, b] - sum(Z[a, h] * L[h, b] for h in 1:n)
+            for a in 1:n, b in 1:n]
+        parent_matrix = Any[S[a, b] +
+            sum(Wp[a, h] * conj(Yp[b, h]) for h in 1:n)
+            for a in 1:n, b in 1:n]
+        child_matrix = Any[-series_receiving_matrix[a, b] +
+            sum(Wc[a, h] * conj(Yc[b, h]) for h in 1:n)
+            for a in 1:n, b in 1:n]
+        sending = Any[parent_matrix[k, k] for k in 1:n]
+        receiving = Any[-child_matrix[k, k] for k in 1:n]
         if oriented.reversed
             powers[(:line_from, id)] = Any[-s for s in receiving]
             powers[(:line_to, id)] = sending
@@ -787,8 +1514,15 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             powers[(:line_from, id)] = sending
             powers[(:line_to, id)] = Any[-s for s in receiving]
         end
-        _bfm_add_matrix!(balance[parent], S)
-        _bfm_add_matrix!(balance[child], receiving_matrix, -1)
+        _bfm_add_matrix!(balance[parent], parent_matrix)
+        _bfm_add_matrix!(balance[child], child_matrix)
+        if voltage_global !== nothing
+            cross = Any[Wp[a, b] - sum(S[a, k] * conj(Z[b, k]) for k in 1:n)
+                        for a in 1:n, b in 1:n]
+            _bfm_overlap_global!(model, voltage_global, voltage_indices,
+                parent, net["bus"][parent]["terminal_names"], child,
+                net["bus"][child]["terminal_names"], cross)
+        end
         ratings = Dict{String,Any}()
         for key in ("i_max", "s_max")
             if haskey(line, key)
@@ -803,9 +1537,21 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         smax = _bfm_phase_vector(ratings, "s_max", phase_positions, n, "line/$id")
         _bfm_nonnegative(imax, "line/$id i_max")
         _bfm_nonnegative(smax, "line/$id s_max")
+        Jp = Any[L[a, b] +
+            sum(conj(S[h, a]) * conj(Yp[b, h]) for h in 1:n) +
+            sum(Yp[a, h] * S[h, b] for h in 1:n) +
+            sum(Yp[a, h] * Wp[h, g] * conj(Yp[b, g]) for h in 1:n, g in 1:n)
+            for a in 1:n, b in 1:n]
+        Jc = Any[L[a, b] -
+            sum(conj(series_receiving_matrix[h, a]) * conj(Yc[b, h]) for h in 1:n) -
+            sum(Yc[a, h] * series_receiving_matrix[h, b] for h in 1:n) +
+            sum(Yc[a, h] * Wc[h, g] * conj(Yc[b, g]) for h in 1:n, g in 1:n)
+            for a in 1:n, b in 1:n]
         for k in 1:n
-            imax === nothing || @constraint(model,
-                real(L[k, k]) <= (imax[k] / ib)^2)
+            if imax !== nothing
+                @constraint(model, real(Jp[k, k]) <= (imax[k] / ib)^2)
+                @constraint(model, real(Jc[k, k]) <= (imax[k] / ib)^2)
+            end
         end
         if smax !== nothing
             for (k, position) in enumerate(phase_positions)
@@ -816,14 +1562,52 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             end
         end
         push!(edge_records, (; id, parent, child, reversed=oriented.reversed,
-            Z, sending, receiving, receiving_matrix, S, L))
+            tree_edge=oriented.tree_edge, Z, Yp, Yc, sending, receiving,
+            receiving_matrix=series_receiving_matrix, parent_matrix,
+            child_matrix, endpoint_current_parent=Jp, endpoint_current_child=Jc,
+            S, L))
+        if options.lnc == :lines
+            rows(bus, terminals) = [_sdp_e(voltage_indices[(String(bus), String(t))])
+                                    for t in terminals]
+            ratings_lnc = Dict{String,Any}()
+            for key in ("i_max", "s_max")
+                if haskey(line, key)
+                    ratings_lnc[key] = line[key]
+                elseif haskey(code, key)
+                    ratings_lnc[key] = code[key]
+                end
+            end
+            parent_terms = string.(net["bus"][parent]["terminal_names"])
+            child_terms = string.(net["bus"][child]["terminal_names"])
+            push!(lnc_lines, (; id, from=parent, to=child,
+                tmf=parent_terms, tmt=child_terms,
+                vf=rows(parent, parent_terms), vt=rows(child, child_terms),
+                Z=Z * zb, Yf=Yp / zb, Yt=Yc / zb, ratings=ratings_lnc))
+        end
     end
 
-    # Fixed source voltage Gram, grounding, and phase-to-ground voltage bounds.
-    Wroot = voltage_moments[plan.root]
-    root_pu = root_voltage ./ vb
-    for a in eachindex(root_pu), b in a:length(root_pu)
-        @constraint(model, Wroot[a, b] == root_pu[a] * conj(root_pu[b]))
+    # Fixed source voltage Grams and their common cross-source angle reference.
+    fixed_source_coordinates = Dict{Tuple{String,String},ComplexF64}()
+    for (id, values) in source_voltages
+        source = plan.sources[id]
+        bus = String(source["bus"])
+        terms = string.(net["bus"][bus]["terminal_names"])
+        pu = values ./ vb
+        W = voltage_moments[bus]
+        for a in eachindex(pu), b in a:length(pu)
+            @constraint(model, W[a, b] == pu[a] * conj(pu[b]))
+        end
+        for (terminal, value) in zip(terms, pu)
+            fixed_source_coordinates[(bus, terminal)] = value
+        end
+    end
+    if voltage_global !== nothing
+        fixed = [(voltage_indices[key], value) for (key, value) in fixed_source_coordinates
+                 if voltage_indices[key] != 0]
+        for (ia, va) in fixed, (ibx, vbv) in fixed
+            ia <= ibx || continue
+            @constraint(model, voltage_global[ia, ibx] == va * conj(vbv))
+        end
     end
     neutrals = _kr_neutral_map(net)
     for (bus, data) in net["bus"]
@@ -838,63 +1622,55 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
                 end
             end
         end
-        phase_positions = findall(!=(get(neutrals, bus, nothing)), terms)
-        for (key, lower) in (("v_min", true), ("v_max", false))
-            haskey(data, key) || continue
-            values = data[key] isa Real ? fill(Float64(data[key]), length(phase_positions)) :
-                     Float64.(data[key])
-            positions = if length(values) == length(terms)
-                collect(eachindex(terms))
-            elseif length(values) == length(phase_positions)
-                phase_positions
-            else
-                _bfm_refuse("bus/$bus $key must match phases or all terminals")
-            end
-            all(x -> isfinite(x) && x >= 0, values) ||
-                _bfm_refuse("bus/$bus $key must be finite and nonnegative")
-            for (position, value) in zip(positions, values)
-                lower ? @constraint(model, real(W[position, position]) >= (value / vb)^2) :
-                        @constraint(model, real(W[position, position]) <= (value / vb)^2)
-            end
-        end
     end
+    _bfm_bus_limits!(model, net, voltage_moments, vb)
 
     objective = JuMP.AffExpr(0.0)
     function add_dispatch!(family, id, data, device)
-        bus, channel_positions = device.bus, device.channel_positions
-        n = length(channel_positions)
-        D = _bfm_connection(net, device, n, "$family/$id")
+        bus = device.bus
+        layout = _bfm_dispatch_layout(device, "$family/$id")
+        n = layout.count
+        coils = _bfm_channel_count(device, "$family/$id")
+        D = _bfm_connection(net, device, coils, "$family/$id")
         fixed_voltage = family == "voltage_source"
         if fixed_voltage
-            jr = Any[@variable(model) for _ in 1:n]
-            ji = Any[@variable(model) for _ in 1:n]
-            current = Any[jr[k] + im * ji[k] for k in 1:n]
-            coil_voltage = D * root_pu
-            s = Any[coil_voltage[k] * conj(current[k]) for k in 1:n]
-            terminal = Any[root_pu[a] *
-                sum(D[k, b] * conj(current[k]) for k in 1:n)
-                for a in eachindex(root_pu), b in eachindex(root_pu)]
+            jr = Any[@variable(model) for _ in 1:coils]
+            ji = Any[@variable(model) for _ in 1:coils]
+            current = Any[jr[k] + im * ji[k] for k in 1:coils]
+            bus_pu = source_voltages[String(id)] ./ vb
+            coil_voltage = D * bus_pu
+            terminal_current = transpose(D) * current
+            terminal = Any[bus_pu[a] * conj(terminal_current[b])
+                           for a in eachindex(bus_pu), b in eachindex(bus_pu)]
+            s = device.configuration == "DELTA" && length(device.terminals) == 3 ?
+                Any[terminal[k, k] for k in 1:3] :
+                Any[coil_voltage[k] * conj(current[k]) for k in 1:coils]
             push!(component_records, (; family=Symbol(family), id=String(id), bus,
                 D, block=nothing, C=nothing, J=nothing, law=:fixed_voltage,
-                current))
+                current, current_kind=:terminal))
         else
             local_moment = _bfm_component_block!(model, voltage_moments[bus], D,
                 options.cone, _bfm_live_positions(net, bus))
             component_blocks[(Symbol(family), String(id))] = local_moment.block
-            s = local_moment.power
+            delta_terminal = device.configuration == "DELTA" &&
+                             length(device.terminals) == 3
+            s = delta_terminal ?
+                Any[local_moment.terminal[k, k] for k in 1:3] :
+                local_moment.power
             terminal = local_moment.terminal
             push!(component_records, (; family=Symbol(family), id=String(id), bus,
                 D, block=local_moment.block, C=local_moment.C, J=local_moment.J,
-                live=local_moment.live, law=:dispatch))
+                live=local_moment.live, law=:dispatch,
+                current_kind=delta_terminal ? :terminal : :coil))
         end
         p = Any[real(value) for value in s]
         q = Any[imag(value) for value in s]
-        _bfm_box!(model, p, q, data, channel_positions, device.terminal_count,
+        _bfm_box!(model, p, q, data, layout.positions, layout.terminal_count,
                   "$family/$id", sb)
-        smax = _bfm_phase_vector(data, "s_max", channel_positions,
-            device.terminal_count, "$family/$id")
-        imax = _bfm_phase_vector(data, "i_max", channel_positions,
-            device.terminal_count, "$family/$id")
+        smax = _bfm_phase_vector(data, "s_max", layout.positions,
+            layout.terminal_count, "$family/$id")
+        imax = _bfm_phase_vector(data, "i_max", layout.positions,
+            layout.terminal_count, "$family/$id")
         for k in 1:n
             if smax !== nothing
                 smax[k] >= 0 || _bfm_refuse("$family/$id has a negative apparent-power limit")
@@ -903,10 +1679,15 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             if imax !== nothing
                 imax[k] >= 0 || _bfm_refuse("$family/$id has a negative current limit")
                 if fixed_voltage
+                    rated_current = device.configuration == "DELTA" &&
+                        length(device.terminals) == 3 ? terminal_current[k] : current[k]
                     @constraint(model, [imax[k] / ib,
-                        real(current[k]), imag(current[k])] in SecondOrderCone())
+                        real(rated_current), imag(rated_current)] in SecondOrderCone())
                 else
-                    @constraint(model, real(local_moment.J[k, k]) <= (imax[k] / ib)^2)
+                    gram = device.configuration == "DELTA" &&
+                        length(device.terminals) == 3 ?
+                        transpose(D) * local_moment.J * D : local_moment.J
+                    @constraint(model, real(gram[k, k]) <= (imax[k] / ib)^2)
                 end
             end
         end
@@ -918,8 +1699,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
                 _bfm_refuse("$family/$id has conflicting cost aliases")
             priced = copy(data); priced["cost"] = data["energy_cost_rate"]
         end
-        costs = _bfm_phase_vector(priced, "cost", channel_positions,
-            device.terminal_count, "$family/$id"; default=zeros(n))
+        costs = _bfm_phase_vector(priced, "cost", layout.positions,
+            layout.terminal_count, "$family/$id"; default=zeros(n))
         for k in 1:n
             coefficient = options.objective == :cost ? costs[k] * sb / 1000 :
                 options.objective == :source_import && family == "voltage_source" ? sb : 0.0
@@ -928,11 +1709,14 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         s
     end
 
-    source_device = _bfm_device_positions(net, source, "voltage_source/$(plan.source_id)")
-    add_dispatch!("voltage_source", plan.source_id, source, source_device)
+    for (id, source) in sort!(collect(plan.sources); by=first)
+        source_device = _bfm_device_positions(net, source, "voltage_source/$id")
+        add_dispatch!("voltage_source", String(id), source, source_device)
+    end
 
     for (id, generator) in sort!(collect(get(net, "generator", Dict())); by=first)
-        device = _bfm_device_positions(net, generator, "generator/$id")
+        device = _bfm_device_positions(net, generator, "generator/$id";
+            allow_delta=true)
         add_dispatch!("generator", id, generator, device)
     end
     for (id, load) in sort!(collect(get(net, "load", Dict())); by=first)
@@ -946,19 +1730,17 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         D = _bfm_connection(net, device, n, "load/$id")
         W = voltage_moments[device.bus]
         s = Any[]; terminal = nothing
-        if law == "constant_power"
+        if !_sdp_is_impedance_load(load)
             local_moment = _bfm_component_block!(model, W, D, options.cone,
                 _bfm_live_positions(net, device.bus))
             component_blocks[(:load, String(id))] = local_moment.block
-            for k in 1:n
-                @constraint(model, real(local_moment.power[k]) == p[k] / sb)
-                @constraint(model, imag(local_moment.power[k]) == q[k] / sb)
-            end
+            _bfm_load_law!(model, net, String(id), load, device, D, W,
+                local_moment.power, vb, sb)
             append!(s, local_moment.power)
             terminal = local_moment.terminal
             push!(component_records, (; family=:load, id=String(id), bus=device.bus,
                 D, block=local_moment.block, C=local_moment.C, J=local_moment.J,
-                live=local_moment.live, law=:constant_power))
+                live=local_moment.live, law=Symbol(law), current_kind=:coil))
         else
             vnom = _bfm_vector(load, "v_nom", n, "load/$id")
             vnom === nothing && _bfm_refuse("load/$id constant impedance requires v_nom")
@@ -973,7 +1755,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
                            for a in axes(W, 1), b in axes(W, 2)]
             push!(component_records, (; family=:load, id=String(id), bus=device.bus,
                 D, block=nothing, C, J=nothing, law=:constant_impedance,
-                admittance=conj.(complex.(p, q)) ./ vnom.^2))
+                admittance=conj.(complex.(p, q)) ./ vnom.^2,
+                current_kind=:coil))
         end
         powers[(:load, String(id))] = s
         _bfm_add_matrix!(balance[device.bus], terminal)
@@ -990,11 +1773,51 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         _bfm_add_matrix!(balance[bus], terminal)
     end
 
+    for (id, capacitor) in sort!(collect(get(net, "capacitor", Dict())); by=first)
+        device = _bfm_device_positions(net, capacitor, "capacitor/$id";
+            allow_delta=true)
+        n = _bfm_channel_count(device, "capacitor/$id")
+        q = _bfm_vector(capacitor, "q_rated", n, "capacitor/$id")
+        vn = _bfm_vector(capacitor, "v_nom", n, "capacitor/$id")
+        D = _bfm_connection(net, device, n, "capacitor/$id")
+        W = voltage_moments[device.bus]
+        factors = -im .* q ./ sb .* (vb ./ vn).^2
+        C = Any[sum(W[a, b] * D[k, b] for b in axes(W, 2)) * factors[k]
+                for a in axes(W, 1), k in 1:n]
+        coil = Any[sum(D[k, a] * C[a, h] for a in axes(W, 1))
+                   for k in 1:n, h in 1:n]
+        terminal = Any[sum(C[a, k] * D[k, b] for k in 1:n)
+                       for a in axes(W, 1), b in axes(W, 2)]
+        powers[(:capacitor, String(id))] = Any[coil[k, k] for k in 1:n]
+        _bfm_add_matrix!(balance[device.bus], terminal)
+        push!(component_records, (; family=:capacitor, id=String(id),
+            bus=device.bus, D, block=nothing, C, J=nothing, law=:capacitor,
+            admittance=im .* q ./ vn.^2, current_kind=:coil))
+    end
+
+    for (id, switch) in sort!(collect(get(net, "switch", Dict())); by=first)
+        record = _bfm_switch_block!(model, net, String(id), switch,
+            voltage_moments, balance, powers, options.cone, sb, ib, source_pu,
+            voltage_global, voltage_indices)
+        record.block === nothing ||
+            (component_blocks[(:switch, String(id))] = record.block)
+        push!(switch_records, record)
+    end
+
     for (subtype, table) in sort!(collect(get(net, "transformer", Dict())); by=first),
         (id, data) in sort!(collect(table); by=first)
+        String(subtype) == "n_winding" && continue
         record = _bfm_transformer_block!(model, net, String(subtype), String(id),
             data, voltage_moments, balance, powers, options.cone, ib, zb,
-            plan.root, root_pu)
+            source_pu, voltage_global, voltage_indices)
+        transformer_blocks[record.key] = record.block
+        push!(transformer_records, record)
+    end
+    for (id, data) in sort!(collect(get(get(net, "transformer", Dict()),
+                                      "n_winding", Dict())); by=first)
+        record = _bfm_nwinding_block!(model, net, String(id), data,
+            voltage_moments, balance, powers, options.cone, sb, ib, zb,
+            source_pu, voltage_global, voltage_indices)
         transformer_blocks[record.key] = record.block
         push!(transformer_records, record)
     end
@@ -1007,8 +1830,9 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         # W_root is a prescribed rank-one Gram. One nonzero voltage row is an
         # exact basis for v_root*r_root^H and avoids dependent equalities on
         # the exposed PSD faces. Other buses retain every voltage row.
-        rows = bus == plan.root ? [something(findfirst(!iszero, root_pu), 1)] :
-                                  collect(eachindex(terms))
+        rows = haskey(source_pu, bus) ?
+            [something(findfirst(!iszero, source_pu[bus]), 1)] :
+            collect(eachindex(terms))
         for a in rows, b in eachindex(terms)
             terms[b] in grounded && continue
             matrix_kcl[(bus, a, b, :real)] =
@@ -1025,13 +1849,19 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     @objective(model, Min, objective / objective_scale)
     diagnostics = Dict{Symbol,Any}(
         :formulation => :branch_flow_sdp,
-        :scope => :radial_matrix_kcl_v2,
+        :scope => :matrix_kcl_v3,
         :bus_count => length(net["bus"]),
         :edge_count => plan.edge_count,
+        :cycle_count => plan.cycle_count,
+        :source_free_components => plan.source_free_components,
+        :source_count => length(plan.sources),
         :line_count => length(edge_records),
         :transformer_count => length(transformer_records),
+        :switch_count => length(switch_records),
+        :capacitor_count => length(get(net, "capacitor", Dict())),
         :component_block_count => length(component_blocks),
         :matrix_kcl_entries => matrix_kcl_count,
+        :global_voltage_closure => voltage_global !== nothing,
         :cone => options.cone,
         :objective_scale => objective_scale,
     )
@@ -1041,10 +1871,26 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     else
         diagnostics[:optimizer_profile] = :caller_supplied
     end
-    BranchFlowSDPBuild(model, voltage_moments, edge_blocks, component_blocks,
-        transformer_blocks, edge_records, component_records, transformer_records,
-        plan.oriented, powers, net, options, vb, ib, plan.root, root_voltage,
+    envelopes = sort!([String(id) for (id, data) in get(net, "load", Dict())
+                       if _sdp_has_load_envelope(data)])
+    build = BranchFlowSDPBuild(model, voltage_moments, edge_blocks,
+        component_blocks, transformer_blocks, edge_records, component_records,
+        transformer_records, switch_records, plan.oriented, powers, net,
+        options, vb, ib, plan.root, root_voltage, source_voltages,
+        voltage_global, voltage_indices, envelopes, LNCDiagnostic[],
         objective_scale, diagnostics)
+    for spec in options.voltage_lncs
+        add_voltage_lnc!(build, spec)
+    end
+    if options.lnc == :lines
+        terminal_rows = (bus, terminals) ->
+            [_sdp_e(voltage_indices[(String(bus), String(t))]) for t in terminals]
+        fixed = Dict(index => value * vb
+            for (key, value) in fixed_source_coordinates
+            for index in (voltage_indices[key],) if index != 0)
+        _add_line_lncs!(build, lnc_lines, terminal_rows, fixed)
+    end
+    build
 end
 
 struct BranchFlowSDPResult <: AbstractSolveResult
@@ -1058,11 +1904,14 @@ struct BranchFlowSDPResult <: AbstractSolveResult
     relaxed_powers::Dict{Tuple{Symbol,String},Vector{ComplexF64}}
     rank_ratio::Float64
     solve::SolveStatus
+    load_envelopes::Vector{String}
+    lnc_diagnostics::Vector{LNCDiagnostic}
     numerical_diagnostics::Dict{Symbol,Any}
 end
 solve_status(r::BranchFlowSDPResult) = r.solve
 solve_diagnostics(r::BranchFlowSDPResult) = (
     model_kind=:relaxation, rank_ratio=r.rank_ratio,
+    load_envelopes=r.load_envelopes, lnc_diagnostics=r.lnc_diagnostics,
     numerical=r.numerical_diagnostics,
     physical_feasibility_certified=false, bound_certified=false)
 
@@ -1084,7 +1933,8 @@ function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
             Dict{String,Matrix{ComplexF64}}(), Dict{String,Matrix{ComplexF64}}(),
             Dict{Tuple{String,String},ComplexF64}(),
             Dict{Tuple{Symbol,String},Vector{ComplexF64}}(),
-            Dict{Tuple{Symbol,String},Vector{ComplexF64}}(), NaN, status, diagnostics)
+            Dict{Tuple{Symbol,String},Vector{ComplexF64}}(), NaN, status,
+            copy(build.load_envelopes), copy(build.lnc_diagnostics), diagnostics)
     end
     vb, ib, sb = build.voltage_base, build.current_base, build.options.s_base
     W = Dict(id => Matrix{ComplexF64}(JuMP.value.(moment)) * vb^2
@@ -1117,52 +1967,131 @@ function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
     for (key, block) in transformer_values
         push!(topology_ratios, record_ratio!("transformer/$key", block))
     end
-    voltage = Dict{Tuple{String,String},ComplexF64}()
-    for (terminal, value) in zip(build.network["bus"][build.root]["terminal_names"],
-                                 build.root_voltage)
-        voltage[(build.root, terminal)] = value
+    global_value = build.voltage_global === nothing ? nothing :
+        Matrix{ComplexF64}(JuMP.value.(build.voltage_global))
+    global_value === nothing ||
+        push!(topology_ratios, record_ratio!("voltage/global", global_value))
+    for record in build.switch_records
+        record.block === nothing && continue
+        push!(topology_ratios,
+            get(rank_ratios, "switch/$(record.id)", 0.0))
     end
+    voltage = Dict{Tuple{String,String},ComplexF64}()
     currents = Dict{Tuple{Symbol,String},Vector{ComplexF64}}()
     line_records = Dict(edge.id => edge for edge in build.edge_records)
     transformer_records = Dict(record.key => record for record in build.transformer_records)
-    for oriented in build.topology
-        terms_parent = build.network["bus"][oriented.parent]["terminal_names"]
-        parent_voltage = ComplexF64[voltage[(oriented.parent, t)] / vb
-                                    for t in terms_parent]
-        denominator = real(dot(parent_voltage, parent_voltage))
-        if oriented.kind == :line
-            edge = line_records[oriented.id]
-            Smat = S[edge.id] / sb
-            current_pu = denominator > eps() ? Smat' * parent_voltage / denominator :
-                         zeros(ComplexF64, length(parent_voltage))
-            child_voltage = parent_voltage - edge.Z * current_pu
-            for (terminal, value) in zip(build.network["bus"][edge.child]["terminal_names"],
-                                         child_voltage)
-                voltage[(edge.child, terminal)] = value * vb
-            end
-            physical_current = current_pu * ib
-            input_current = edge.reversed ? -physical_current : physical_current
-            currents[(:line_series, edge.id)] = input_current
-            currents[(:line_from, edge.id)] = input_current
-            currents[(:line_to, edge.id)] = -input_current
-        else
-            key = "$(oriented.subtype)/$(oriented.id)"
-            record = transformer_records[key]
-            block = transformer_values[key]
-            parent_indices = oriented.parent == record.from ? record.vf : record.vt
-            state = denominator > eps() ?
-                block[:, parent_indices] * parent_voltage / denominator :
-                zeros(ComplexF64, record.dimension)
-            child_indices = oriented.child == record.from ? record.vf : record.vt
-            for (terminal, value) in zip(
-                build.network["bus"][oriented.child]["terminal_names"], state[child_indices])
-                voltage[(oriented.child, terminal)] = value * vb
-            end
-            currents[(:transformer_from, key)] = record.terminal_from * state * ib
-            currents[(:transformer_to, key)] = record.terminal_to * state * ib
-            currents[(:transformer_coil_from, key)] = record.Ajf * state * ib
-            currents[(:transformer_coil_to, key)] = record.Ajt * state * ib
+    if global_value !== nothing
+        source_id = first(sort!(collect(keys(build.source_voltages))))
+        source = build.network["voltage_source"][source_id]
+        source_values = build.source_voltages[source_id] ./ vb
+        anchor_position = something(findfirst(!iszero, source_values), 0)
+        anchor_position > 0 || error("source recovery anchor vanished")
+        anchor_key = (String(source["bus"]), String(source["terminal_map"][anchor_position]))
+        anchor_index = build.voltage_indices[anchor_key]
+        recovered = global_value[:, anchor_index] ./ conj(source_values[anchor_position])
+        for (key, index) in build.voltage_indices
+            voltage[key] = index == 0 ? 0im : recovered[index] * vb
         end
+        for (id, values) in build.source_voltages
+            data = build.network["voltage_source"][id]
+            for (terminal, value) in zip(data["terminal_map"], values)
+                voltage[(String(data["bus"]), String(terminal))] = value
+            end
+        end
+    else
+        for (terminal, value) in zip(
+            build.network["bus"][build.root]["terminal_names"], build.root_voltage)
+            voltage[(build.root, terminal)] = value
+        end
+        for oriented in sort!(filter(edge -> edge.tree_edge, copy(build.topology));
+                              by=edge -> edge.depth)
+            terms_parent = build.network["bus"][oriented.parent]["terminal_names"]
+            parent_voltage = ComplexF64[voltage[(oriented.parent, t)] / vb
+                                        for t in terms_parent]
+            denominator = real(dot(parent_voltage, parent_voltage))
+            if oriented.kind == :line
+                edge = line_records[oriented.id]
+                current_pu = denominator > eps() ?
+                    (S[edge.id] / sb)' * parent_voltage / denominator :
+                    zeros(ComplexF64, length(parent_voltage))
+                child_voltage = parent_voltage - edge.Z * current_pu
+                for (terminal, value) in zip(
+                    build.network["bus"][edge.child]["terminal_names"], child_voltage)
+                    voltage[(edge.child, terminal)] = value * vb
+                end
+            elseif oriented.kind == :transformer
+                key = "$(oriented.subtype)/$(oriented.id)"
+                record = transformer_records[key]
+                block = transformer_values[key]
+                parent_indices = oriented.parent == record.from ? record.vf : record.vt
+                state = denominator > eps() ?
+                    block[:, parent_indices] * parent_voltage / denominator :
+                    zeros(ComplexF64, record.dimension)
+                child_indices = oriented.child == record.from ? record.vf : record.vt
+                for (terminal, value) in zip(
+                    build.network["bus"][oriented.child]["terminal_names"],
+                    state[child_indices])
+                    voltage[(oriented.child, terminal)] = value * vb
+                end
+            end
+        end
+    end
+    for edge in build.edge_records
+        parent_terms = string.(build.network["bus"][edge.parent]["terminal_names"])
+        child_terms = string.(build.network["bus"][edge.child]["terminal_names"])
+        vp = ComplexF64[voltage[(edge.parent, t)] / vb for t in parent_terms]
+        vc = ComplexF64[voltage[(edge.child, t)] / vb for t in child_terms]
+        denominator = real(dot(vp, vp))
+        series_pu = denominator > eps() ?
+            (S[edge.id] / sb)' * vp / denominator : zeros(ComplexF64, length(vp))
+        parent_current = (series_pu + edge.Yp * vp) * ib
+        child_current = (-series_pu + edge.Yc * vc) * ib
+        if edge.reversed
+            currents[(:line_series, edge.id)] = -series_pu * ib
+            currents[(:line_from, edge.id)] = child_current
+            currents[(:line_to, edge.id)] = parent_current
+        else
+            currents[(:line_series, edge.id)] = series_pu * ib
+            currents[(:line_from, edge.id)] = parent_current
+            currents[(:line_to, edge.id)] = child_current
+        end
+    end
+    function recover_local_state(record, block)
+        values = ComplexF64[voltage[(bus, terminal)] / vb
+            for (bus, terminal) in zip(record.voltage_state_buses,
+                                       record.voltage_state_terminals)]
+        denominator = real(dot(values, values))
+        denominator > eps() ? block[:, record.voltage_state_indices] * values /
+            denominator : zeros(ComplexF64, record.dimension)
+    end
+    for record in build.transformer_records
+        state = recover_local_state(record, transformer_values[record.key])
+        if record.subtype == "n_winding"
+            for k in eachindex(record.buses)
+                key = "n_winding/$(record.id)/$k"
+                currents[(:transformer_winding, key)] =
+                    record.terminal_maps[k] * state * ib
+                currents[(:transformer_coil, key)] =
+                    record.coil_maps[k] * state * ib
+            end
+        else
+            currents[(:transformer_from, record.key)] =
+                record.terminal_from * state * ib
+            currents[(:transformer_to, record.key)] =
+                record.terminal_to * state * ib
+            currents[(:transformer_coil_from, record.key)] = record.Ajf * state * ib
+            currents[(:transformer_coil_to, record.key)] = record.Ajt * state * ib
+        end
+    end
+    for record in build.switch_records
+        if record.open
+            currents[(:switch_from, record.id)] = zeros(ComplexF64, length(record.map_from))
+            currents[(:switch_to, record.id)] = zeros(ComplexF64, length(record.map_to))
+            continue
+        end
+        state = recover_local_state(record, component_values[(:switch, record.id)])
+        currents[(:switch_from, record.id)] = record.Pf * record.Tf * state * ib
+        currents[(:switch_to, record.id)] = record.Pt * record.Tt * state * ib
     end
     powers = Dict(key => ComplexF64.(JuMP.value.(values)) .* sb
                   for (key, values) in build.powers)
@@ -1171,7 +2100,7 @@ function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
         bus_voltage = ComplexF64[voltage[(record.bus, terminal)] for terminal in terms]
         if record.law == :fixed_voltage
             coil_current = ComplexF64.(JuMP.value.(record.current)) .* ib
-        elseif record.law == :constant_impedance
+        elseif record.law in (:constant_impedance, :capacitor)
             coil_current = record.admittance .* (record.D * bus_voltage)
         else
             block = component_values[(record.family, record.id)]
@@ -1182,10 +2111,11 @@ function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
                 block[nl+1:end, 1:nl] * live_voltage / denominator * ib :
                 zeros(ComplexF64, size(record.D, 1))
         end
-        if record.family == :voltage_source
+        if record.current_kind == :terminal
             terminal_current = transpose(record.D) * coil_current
-            data = build.network["voltage_source"][record.id]
-            positions = [findfirst(==(terminal), terms) for terminal in data["terminal_map"]]
+            data = build.network[String(record.family)][record.id]
+            positions = [findfirst(==(terminal), terms)
+                         for terminal in data["terminal_map"]]
             currents[(record.family, record.id)] = terminal_current[positions]
         else
             currents[(record.family, record.id)] = coil_current
@@ -1196,7 +2126,8 @@ function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
     bound *= build.objective_scale
     ratio = isempty(topology_ratios) ? NaN : maximum(topology_ratios)
     diagnostics[:local_rank_ratios] = rank_ratios
-    diagnostics[:recovery] = :tree
+    diagnostics[:recovery] = global_value === nothing ? :tree : :global_anchor
     BranchFlowSDPResult(JuMP.objective_value(build.model) * build.objective_scale,
-        bound, W, S, L, voltage, currents, powers, ratio, status, diagnostics)
+        bound, W, S, L, voltage, currents, powers, ratio, status,
+        copy(build.load_envelopes), copy(build.lnc_diagnostics), diagnostics)
 end

@@ -221,7 +221,9 @@ end
 
     shunted = _l3f_case()
     shunted["linecode"]["lc"]["B_from_1_1"] = 1e-5
-    @test_throws BranchFlowSDPInapplicableError build_branch_flow_sdp(shunted)
+    @test is_branch_flow_sdp_applicable(
+        check_branch_flow_sdp_applicability(shunted))
+    @test build_branch_flow_sdp(shunted) isa BranchFlowSDPBuild
 
     meshed = _l3f_case()
     meshed["bus"]["third"] = Dict("terminal_names" => ["a"])
@@ -229,5 +231,7 @@ end
         "terminal_map_from" => ["a"], "terminal_map_to" => ["a"], "linecode" => "lc")
     meshed["line"]["third"] = Dict("bus_from" => "third", "bus_to" => "source",
         "terminal_map_from" => ["a"], "terminal_map_to" => ["a"], "linecode" => "lc")
-    @test_throws BranchFlowSDPInapplicableError build_branch_flow_sdp(meshed)
+    @test is_branch_flow_sdp_applicable(
+        check_branch_flow_sdp_applicability(meshed))
+    @test build_branch_flow_sdp(meshed).numerical_diagnostics[:cycle_count] == 1
 end
