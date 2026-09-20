@@ -10,10 +10,11 @@ Implemented:
 - **IVRSOC**: shares the SDP electrical model, replacing PSD cones with complex pairwise SOC minors, physical voltage–current projections, constant-power secants, and optional fixed complex three-map projections. Load power cones are retained. See [the formulation and benchmarks](docs/src/soc.md).
 
 - **BranchFlowSDP**: an experimental radial multiphase branch-flow SDP with
-  bus voltage moments, edge power/current moments, tree recovery, and explicit
-  applicability rejection. Its first component slice covers coupled series
-  lines and ground-referenced static devices; it does not yet have IVRSDP's
-  transformer, delta-device, switch, capacitor, IBR, or line-shunt coverage.
+  bus voltage moments, edge power/current moments, full matrix KCL, local
+  wye/delta load moments, fixed transformer/regulator winding blocks, tree
+  recovery, and explicit applicability rejection. It remains narrower than
+  IVRSDP: switches, capacitors, IBRs, general multiwinding units and line
+  endpoint shunts are not yet supported.
 
 ```julia
 using FormulationLab, Clarabel

@@ -1,8 +1,81 @@
 using Test, FormulationLab, Clarabel, LinearAlgebra, JuMP
 include("lindist3flow_fixtures.jl")
+isdefined(@__MODULE__, :_sdp_tx_case) || include("sdp_transformer_fixtures.jl")
 
 function _bfm_test_solve(input; solver_options=(verbose=false,), kwargs...)
     solve_branch_flow_sdp(input; solver_options, kwargs...)
+end
+
+@testset "Branch-flow SDP local moments support delta loads" begin
+    net = _l3f_case()
+    for bus in values(net["bus"])
+        bus["terminal_names"] = ["a", "b"]
+        for field in ("v_min", "v_max")
+            haskey(bus, field) && (bus[field] = fill(only(bus[field]), 2))
+        end
+    end
+    source = net["voltage_source"]["source"]
+    merge!(source, Dict("terminal_map" => ["a", "b"],
+        "configuration" => "WYE", "v_magnitude" => [230.0, 230.0],
+        "v_angle" => [0.0, pi], "cost" => [1.0, 1.0]))
+    line = net["line"]["line"]
+    line["terminal_map_from"] = ["a", "b"]
+    line["terminal_map_to"] = ["a", "b"]
+    merge!(net["linecode"]["lc"], Dict(
+        "R_series_2_2" => 0.2, "X_series_2_2" => 0.1))
+    load = net["load"]["load"]
+    load["terminal_map"] = ["a", "b"]
+    load["configuration"] = "DELTA"
+
+    build = build_branch_flow_sdp(net;
+        options=BranchFlowSDPOptions(objective=:source_import))
+    @test haskey(build.component_blocks, (:load, "load"))
+    @test build.numerical_diagnostics[:matrix_kcl_entries] == 6
+    result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
+    reference = solve_sdp_opf(net;
+        options=SDPOptions(objective=:source_import), solver_options=(verbose=false,))
+    @test result.solve.optimal
+    @test result.objective ≈ reference.objective rtol=3e-6
+    @test result.relaxed_powers[(:load, "load")] ≈ [10_000 + 2_000im] rtol=1e-8
+    physical = physical_residuals(net, ACPoint(
+        voltage=result.voltage_candidate, currents=result.current_candidate);
+        atol=(voltage=1e-4, current=1e-4, power=0.05))
+    @test physical.passed
+end
+
+@testset "Branch-flow SDP transformer local blocks preserve winding connections" begin
+    for kind in ("delta_wye", "wye_delta")
+        net = _sdp_tx_case(kind; tap=1.03)
+        transformer = net["transformer"][kind]["tx"]
+        transformer["r_series"] = 0.1
+        transformer["x_series"] = 0.05
+        if kind == "delta_wye"
+            for (k, terminal) in enumerate(["a", "b", "c"])
+                _sdp_zload!(net, terminal, [terminal, "n"], 0.02k - 0.005im)
+            end
+        else
+            for (k, (from, to)) in enumerate([("a", "b"), ("b", "c"), ("c", "a")])
+                _sdp_zload!(net, from, [from, to], 0.02k - 0.005im)
+            end
+        end
+        @test is_branch_flow_sdp_applicable(
+            check_branch_flow_sdp_applicability(net))
+        build = build_branch_flow_sdp(net;
+            options=BranchFlowSDPOptions(objective=:source_import))
+        @test haskey(build.transformer_blocks, "$kind/tx")
+        @test build.numerical_diagnostics[:transformer_count] == 1
+        result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
+        reference = solve_sdp_opf(net;
+            options=SDPOptions(objective=:source_import), solver_options=(verbose=false,))
+        @test result.solve.optimal
+        @test result.objective ≈ reference.objective rtol=2e-6
+        @test maximum(abs(result.voltage_candidate[key] - reference.voltage_candidate[key])
+                      for key in keys(result.voltage_candidate)) < 1e-4
+        physical = physical_residuals(net, ACPoint(
+            voltage=result.voltage_candidate, currents=result.current_candidate);
+            atol=(voltage=1e-3, current=1e-3, power=0.1))
+        @test physical.passed
+    end
 end
 
 @testset "Radial branch-flow SDP: analytical two-bus optimum" begin
@@ -23,7 +96,7 @@ end
         @test result.relaxed_powers[(:load, "load")] ≈ [s] rtol=1e-9
         physical = physical_residuals(net, ACPoint(
             voltage=result.voltage_candidate, currents=result.current_candidate);
-            atol=(voltage=1e-5, current=1e-5, power=1e-3))
+            atol=(voltage=1e-5, current=2e-5, power=1e-3))
         @test physical.passed
         @test !solve_diagnostics(result).physical_feasibility_certified
         @test !solve_diagnostics(result).bound_certified

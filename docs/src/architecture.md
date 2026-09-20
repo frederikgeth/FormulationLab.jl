@@ -39,11 +39,12 @@ The static AC extension now covers general multiwinding transformers, voltage
 sequence limits, static IBRs, and explicit load envelopes. The pinned field
 inventory records scope exceptions; control laws and adjustable taps remain out.
 
-The branch-flow prototype uses bus voltage moments and one local current/power
-moment block per radial series line. Its intentionally smaller component contract
-is independent of IVRSDP's broad static-AC compiler. Component-local overlap
-blocks are the planned route to delta devices and transformers; general
-multiwinding devices must be treated as hyperedges rather than ordinary lines.
+The branch-flow prototype uses bus voltage moments, classic current/power blocks
+for radial series lines, and component-local overlap blocks for connection
+currents and fixed transformers. Complete lifted ``v i^H`` matrices meet at
+matrix KCL. Its component contract remains independent of IVRSDP's broader
+static-AC compiler. General multiwinding devices must be treated as hyperedges
+rather than ordinary lines.
 
 Cuts must record validity assumptions and safe bounds. Equivalent solver encodings
 must be distinguished from changes in relaxation strength. Benchmark reports must

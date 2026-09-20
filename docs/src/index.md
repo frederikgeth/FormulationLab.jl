@@ -16,8 +16,9 @@ result = solve_opf(input, IVRSDP(objective=:source_import);
 winding connections, fixed-tap transformers, and regulators. [IVRSOC](soc.md) replaces its moment cones with SOC outer
 relaxations with constant-power secants and optional fixed complex projections.
 [BranchFlowSDP](branch_flow_sdp.md) is an experimental radial branch-flow
-semidefinite relaxation with bus and edge moments and a deliberately narrower
-series-line component contract. These results are not
+semidefinite relaxation with bus/edge moments, matrix current balance, delta
+load moments and fixed transformer connection blocks. Its remaining component
+contract is deliberately narrower than IVRSDP. These results are not
 AC feasibility certificates. Read the [coverage contract](coverage.md) before
 selecting a formulation.
 
