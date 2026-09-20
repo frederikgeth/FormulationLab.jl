@@ -2,16 +2,25 @@
 
 ## Branch-flow milestone — 20 September 2026
 
-The experimental radial `BranchFlowSDP` slice adds 64 default checks. They cover
-an analytical two-bus optimum at two power bases, rank and physical residuals,
-input branch orientation, a coupled unbalanced three-phase comparison with
-`IVRSDP`, constant-impedance loads, two-wire delta local moments, Dy/Yd
-transformer blocks with nonzero leakage, fixed shunts, generator dispatch, a
-binding line-current limit, applicability refusals, the generic formulation
-API, and prepared-network reconstruction. The Julia 1.12.6 default suite passes
-**5,868/5,868** checks. The Documenter build, cross-references and doctests also
-pass. OpenDSSDirect still emits the precompilation warnings recorded below and
-then runs its oracle tests without the cache.
+The experimental radial `BranchFlowSDP` slice now has 180 default checks. They
+cover an analytical two-bus optimum at two power bases, rank and physical
+residuals, input branch orientation, a coupled unbalanced three-phase comparison
+with `IVRSDP`, three-phase delta constant-power and constant-impedance loads,
+explicit-neutral matrix KCL, fixed shunts, generator dispatch, a binding
+line-current limit, applicability refusals, the generic formulation API, and
+prepared-network reconstruction. Every supported fixed transformer connection
+is exercised, including leakage, excitation, neutral grounding, galvanic bonds,
+declared current limits, mixed line/transformer topology and reversed component
+declaration. A diagonal-only counterexample verifies that off-diagonal matrix
+KCL materially strengthens the relaxation. Real and Hermitian cone builds,
+multiple power bases and the feasibility objective are also covered. The
+independent OpenDSS transformer oracle now checks both `IVRSDP` and
+`BranchFlowSDP` at unity and non-unity taps (76 assertions in that test set).
+
+The Julia 1.12.6 default suite passes **5,984/5,984** checks. The Documenter
+build, cross-references and doctests also pass. OpenDSSDirect still emits the
+precompilation warnings recorded below and then runs its oracle tests without
+the cache.
 
 These comparisons establish the implemented radial line, delta-load and fixed
 two-side transformer subset; they do not establish equivalence to IVRSDP outside
