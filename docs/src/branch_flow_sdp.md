@@ -273,9 +273,10 @@ delta device and does not invert the rank-deficient incidence matrix.
 
 Delta generators use the same coil-current block, but three-wire dispatch
 quantities are terminal powers ``\operatorname{diag}(CD)`` and terminal
-currents ``D^Tj``. Consequently P/Q boxes, costs and ratings retain conductor
-order and the recovered terminal currents sum to zero. A two-terminal delta
-remains a single coil channel.
+currents ``D^Tj``. Consequently P/Q boxes, costs, ratings, relaxed powers and
+recovered currents all retain `terminal_map` order, even when that order differs
+from the bus terminal list. The recovered terminal currents sum to zero. A
+two-terminal delta remains a single coil channel.
 
 Fixed capacitors are exact connection-aware admittances. With rated reactive
 power ``q`` and nominal coil voltage ``v_{nom}``, their current is
@@ -325,14 +326,18 @@ balance from the full pairwise short-circuit matrix; excitation, finite/ideal
 neutral grounding, fixed taps and winding `i_max`/`s_max` are retained. Every
 winding voltage block overlaps its bus ``W`` and the voltage closure when it is
 active. Results use `:transformer_winding` and `:transformer_coil` keys matching
-`IVRSDP`.
+`IVRSDP`. Each winding's terminal current and power vectors have exactly its
+`terminal_map` arity and order, including partial or permuted maps on a bus with
+additional terminals; the full-bus terminal moment remains internal to KCL.
 
 ## Physical voltage maps and LNCs
 
 All bus voltage bounds are affine in ``W_i``. Besides phase/all-terminal
 `v_min`/`v_max`, the formulation supports phase-neutral `vpn_*`, phase-pair
 `vpp_*`, neutral `vn_max`, and positive-, negative- and zero-sequence bounds.
-Terminal and sequence ordering rules are shared with `IVRSDP`.
+Scalar `v_min` or `v_max` values broadcast across phase terminals; vectors may
+instead describe the phases or every bus terminal. Terminal and sequence
+ordering rules are shared with `IVRSDP`.
 
 An explicit `VoltageLNC` evaluates its phasor maps in the voltage-closure Gram,
 adds the declared magnitude/angle domain, and records its provenance. With
