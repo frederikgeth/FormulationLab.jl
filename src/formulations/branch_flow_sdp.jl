@@ -7,6 +7,7 @@ Base.@kwdef struct BranchFlowSDPOptions
     scale_objective::Bool = true
     lnc::Symbol = :off
     voltage_lncs::Vector{VoltageLNC} = VoltageLNC[]
+    implied_current_limits::Bool = true
 end
 
 struct BranchFlowSDPInapplicableError <: Exception
@@ -694,6 +695,11 @@ end
 function _bfm_load_range(net, bus, row::_SDPRow, vb)
     lo, hi = 0.0, Inf
     data = net["bus"][bus]
+    terms = string.(data["terminal_names"])
+    grounded = Set(string.(get(data, "perfectly_grounded_terminals", String[])))
+    canonical(candidate) = _SDPRow(i => c for (i, c) in candidate
+        if !(terms[i] in grounded))
+    target = canonical(row)
     for (prefix, rows) in _bfm_voltage_maps(net, bus)
         keys = startswith(prefix, "v_") ? (prefix,) :
                (prefix * "_min", prefix * "_max")
@@ -701,7 +707,9 @@ function _bfm_load_range(net, bus, row::_SDPRow, vb)
             haskey(data, key) || continue
             bounds = _bfm_vector(data, key, length(rows), "bus/$bus")
             for (candidate, value) in zip(rows, bounds)
-                if candidate == row || candidate == _sdp_add!(_SDPRow(), row, -1)
+                candidate = canonical(candidate)
+                if candidate == target ||
+                   candidate == _sdp_add!(_SDPRow(), target, -1)
                     endswith(key, "min") ? (lo = max(lo, (value / vb)^2)) :
                                            (hi = min(hi, (value / vb)^2))
                 end
@@ -710,6 +718,34 @@ function _bfm_load_range(net, bus, row::_SDPRow, vb)
     end
     lo <= hi || _bfm_refuse("load voltage bounds are inconsistent at bus/$bus")
     lo, hi
+end
+
+function _bfm_terminal_voltage_ranges(net, bus, source_pu, vb)
+    terms = string.(net["bus"][bus]["terminal_names"])
+    grounded = Set(string.(get(net["bus"][bus],
+        "perfectly_grounded_terminals", String[])))
+    if haskey(source_pu, bus)
+        values = abs.(source_pu[bus]) .* vb
+        return collect(zip(values, values))
+    end
+    [if terminal in grounded
+         (0.0, 0.0)
+     else
+         lo, hi = _bfm_load_range(net, bus, _sdp_e(k), 1.0)
+         (sqrt(max(0.0, lo)), sqrt(hi))
+     end for (k, terminal) in enumerate(terms)]
+end
+
+function _bfm_shunt_current_bound(Y, row, voltage_ranges, zb)
+    total = 0.0
+    for column in axes(Y, 2)
+        coefficient = abs(Y[row, column] / zb)
+        iszero(coefficient) && continue
+        upper = voltage_ranges[column][2]
+        isfinite(upper) || return Inf
+        total += coefficient * upper
+    end
+    total
 end
 
 function _bfm_load_law!(model, net, id, data, device, D, W, powers, vb, sb)
@@ -1460,6 +1496,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     switch_records = NamedTuple[]
     powers = Dict{Tuple{Symbol,String},Vector{Any}}()
     lnc_lines = NamedTuple[]
+    line_bound_diagnostics = NamedTuple[]
     for oriented in filter(edge -> edge.kind == :line, plan.oriented)
         id, parent, child = oriented.id, oriented.parent, oriented.child
         line = net["line"][id]
@@ -1537,6 +1574,30 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         smax = _bfm_phase_vector(ratings, "s_max", phase_positions, n, "line/$id")
         _bfm_nonnegative(imax, "line/$id i_max")
         _bfm_nonnegative(smax, "line/$id s_max")
+        parent_voltage_ranges = _bfm_terminal_voltage_ranges(
+            net, parent, source_pu, vb)
+        child_voltage_ranges = _bfm_terminal_voltage_ranges(
+            net, child, source_pu, vb)
+        endpoint_parent = imax === nothing ? fill(Inf, n) : copy(imax)
+        endpoint_child = copy(endpoint_parent)
+        derived_parent = fill(Inf, n)
+        derived_child = fill(Inf, n)
+        if options.implied_current_limits && smax !== nothing
+            for (channel, position) in enumerate(phase_positions)
+                lower_parent = parent_voltage_ranges[position][1]
+                lower_child = child_voltage_ranges[position][1]
+                if isfinite(lower_parent) && lower_parent > 0
+                    derived_parent[position] = smax[channel] / lower_parent
+                    endpoint_parent[position] = min(
+                        endpoint_parent[position], derived_parent[position])
+                end
+                if isfinite(lower_child) && lower_child > 0
+                    derived_child[position] = smax[channel] / lower_child
+                    endpoint_child[position] = min(
+                        endpoint_child[position], derived_child[position])
+                end
+            end
+        end
         Jp = Any[L[a, b] +
             sum(conj(S[h, a]) * conj(Yp[b, h]) for h in 1:n) +
             sum(Yp[a, h] * S[h, b] for h in 1:n) +
@@ -1548,10 +1609,10 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             sum(Yc[a, h] * Wc[h, g] * conj(Yc[b, g]) for h in 1:n, g in 1:n)
             for a in 1:n, b in 1:n]
         for k in 1:n
-            if imax !== nothing
-                @constraint(model, real(Jp[k, k]) <= (imax[k] / ib)^2)
-                @constraint(model, real(Jc[k, k]) <= (imax[k] / ib)^2)
-            end
+            isfinite(endpoint_parent[k]) && @constraint(model,
+                real(Jp[k, k]) <= (endpoint_parent[k] / ib)^2)
+            isfinite(endpoint_child[k]) && @constraint(model,
+                real(Jc[k, k]) <= (endpoint_child[k] / ib)^2)
         end
         if smax !== nothing
             for (k, position) in enumerate(phase_positions)
@@ -1561,6 +1622,30 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
                     in SecondOrderCone())
             end
         end
+        series_limit = fill(Inf, n)
+        for k in 1:n
+            from_shunt = _bfm_shunt_current_bound(
+                Yp, k, parent_voltage_ranges, zb)
+            to_shunt = _bfm_shunt_current_bound(
+                Yc, k, child_voltage_ranges, zb)
+            from_bound = isfinite(endpoint_parent[k]) && isfinite(from_shunt) ?
+                endpoint_parent[k] + from_shunt : Inf
+            to_bound = isfinite(endpoint_child[k]) && isfinite(to_shunt) ?
+                endpoint_child[k] + to_shunt : Inf
+            series_limit[k] = min(from_bound, to_bound)
+            if options.implied_current_limits && isfinite(series_limit[k])
+                @constraint(model,
+                    real(L[k, k]) <= (series_limit[k] / ib)^2)
+            end
+        end
+        push!(line_bound_diagnostics, (; id, parent, child,
+            explicit_endpoint_current=imax === nothing ? nothing : copy(imax),
+            apparent_power=smax === nothing ? nothing : copy(smax),
+            derived_endpoint_current_parent=derived_parent,
+            derived_endpoint_current_child=derived_child,
+            effective_endpoint_current_parent=endpoint_parent,
+            effective_endpoint_current_child=endpoint_child,
+            implied_series_current=series_limit))
         push!(edge_records, (; id, parent, child, reversed=oriented.reversed,
             tree_edge=oriented.tree_edge, Z, Yp, Yc, sending, receiving,
             receiving_matrix=series_receiving_matrix, parent_matrix,
@@ -1582,7 +1667,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             push!(lnc_lines, (; id, from=parent, to=child,
                 tmf=parent_terms, tmt=child_terms,
                 vf=rows(parent, parent_terms), vt=rows(child, child_terms),
-                Z=Z * zb, Yf=Yp / zb, Yt=Yc / zb, ratings=ratings_lnc))
+                Z=Z * zb, Yf=Yp / zb, Yt=Yc / zb, ratings=ratings_lnc,
+                series_current=series_limit))
         end
     end
 
@@ -1859,6 +1945,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         :transformer_count => length(transformer_records),
         :switch_count => length(switch_records),
         :capacitor_count => length(get(net, "capacitor", Dict())),
+        :line_bound_diagnostics => line_bound_diagnostics,
+        :implied_current_limits => options.implied_current_limits,
         :component_block_count => length(component_blocks),
         :matrix_kcl_entries => matrix_kcl_count,
         :global_voltage_closure => voltage_global !== nothing,

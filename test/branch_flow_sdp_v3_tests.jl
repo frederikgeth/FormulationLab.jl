@@ -35,6 +35,69 @@ function _bfm_mesh_case(; second_source=false)
             "v_nom" => [230.0], "p_nom" => [10_000.0], "q_nom" => [2_000.0])))
 end
 
+function _bfm_paper_line(z, y; smax)
+    Dict{String,Any}(
+        "bus_from" => "i", "bus_to" => "j",
+        "terminal_map_from" => ["a"], "terminal_map_to" => ["a"],
+        "R_series_1_1" => real(z), "X_series_1_1" => imag(z),
+        "B_from_1_1" => imag(y), "B_to_1_1" => imag(y),
+        "s_max" => [smax])
+end
+
+function _bfm_parallel_paper_case()
+    Dict{String,Any}(
+        "bus" => Dict(
+            "i" => Dict{String,Any}("terminal_names" => ["a"],
+                "v_min" => [0.9], "v_max" => [1.1]),
+            "j" => Dict{String,Any}("terminal_names" => ["a"],
+                "v_min" => [0.9], "v_max" => [1.1])),
+        "line" => Dict(
+            "l" => _bfm_paper_line(0.065 + 0.62im, 0.225im; smax=90.0),
+            "k" => _bfm_paper_line(0.025 - 0.75im, 0.35im; smax=0.5)),
+        "voltage_source" => Dict("g1" => Dict{String,Any}(
+            "bus" => "i", "terminal_map" => ["a"], "configuration" => "WYE",
+            "v_magnitude" => [0.94], "v_angle" => [0.0],
+            "p_min" => [0.0], "p_max" => [2.0],
+            "q_min" => [-10.0], "q_max" => [10.0], "cost" => [1_000.0])),
+        "generator" => Dict("g2" => Dict{String,Any}(
+            "bus" => "j", "terminal_map" => ["a"], "configuration" => "WYE",
+            "p_min" => [0.0], "p_max" => [2.0],
+            "q_min" => [-10.0], "q_max" => [10.0], "cost" => [5_000.0])),
+        "load" => Dict("d" => Dict{String,Any}(
+            "bus" => "j", "terminal_map" => ["a"], "configuration" => "WYE",
+            "model" => "constant_power", "p_nom" => [1.1], "q_nom" => [0.4])))
+end
+
+function _bfm_total_current_paper_case()
+    net = Dict{String,Any}(
+        "bus" => Dict(
+            "i" => Dict{String,Any}("terminal_names" => ["a"],
+                "v_min" => [0.94], "v_max" => [1.1]),
+            "j" => Dict{String,Any}("terminal_names" => ["a"],
+                "v_min" => [0.94], "v_max" => [1.1])),
+        "line" => Dict("l" => _bfm_paper_line(
+            0.065 + 0.62im, 0.9im; smax=0.8)),
+        "voltage_source" => Dict("g1" => Dict{String,Any}(
+            "bus" => "i", "terminal_map" => ["a"], "configuration" => "WYE",
+            "v_magnitude" => [0.94], "v_angle" => [0.0],
+            "p_min" => [0.0], "p_max" => [2.0],
+            "q_min" => [-1.0], "q_max" => [1.0], "cost" => [20_000.0])),
+        "generator" => Dict("g2" => Dict{String,Any}(
+            "bus" => "j", "terminal_map" => ["a"], "configuration" => "WYE",
+            "p_min" => [0.0], "p_max" => [2.0],
+            "q_min" => [-1.0], "q_max" => [1.0], "cost" => [-10_000.0])),
+        "load" => Dict(
+            "di" => Dict{String,Any}(
+                "bus" => "i", "terminal_map" => ["a"],
+                "configuration" => "WYE", "model" => "constant_power",
+                "p_nom" => [0.11], "q_nom" => [0.4]),
+            "dj" => Dict{String,Any}(
+                "bus" => "j", "terminal_map" => ["a"],
+                "configuration" => "WYE", "model" => "constant_power",
+                "p_nom" => [0.9], "q_nom" => [0.5])))
+    net
+end
+
 function _bfm_nwinding_case()
     net = Dict{String,Any}(
         "bus" => Dict("b" => Dict{String,Any}(
@@ -94,6 +157,57 @@ end
             voltage=result.voltage_candidate, currents=result.current_candidate);
             atol=(voltage=2e-3, current=2e-3, power=0.2)).passed
     end
+
+    parallel = _bfm_parallel_paper_case()
+    build = build_branch_flow_sdp(parallel; options=BranchFlowSDPOptions(
+        s_base=1.0, objective=:cost))
+    @test build.numerical_diagnostics[:cycle_count] == 1
+    result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
+    reference = solve_sdp_opf(parallel;
+        options=SDPOptions(s_base=1.0, objective=:cost),
+        solver_options=(verbose=false,))
+    @test result.solve.optimal
+    @test reference.solve.optimal
+    @test result.objective ≈ reference.objective rtol=3e-5
+    cross = Dict(edge.id => JuMP.value(
+        build.voltage_moments[edge.parent][1, 1] -
+        edge.S[1, 1] * conj(edge.Z[1, 1])) for edge in build.edge_records)
+    @test cross["l"] ≈ cross["k"] atol=2e-7
+end
+
+
+@testset "Branch-flow SDP paper-derived total and series current bounds" begin
+    net = _bfm_total_current_paper_case()
+    strengthened = build_branch_flow_sdp(net; options=BranchFlowSDPOptions(
+        s_base=1.0, objective=:cost, implied_current_limits=true))
+    diagnostic = only(strengthened.numerical_diagnostics[:line_bound_diagnostics])
+    @test diagnostic.derived_endpoint_current_parent[1] ≈ 0.8 / 0.94
+    @test diagnostic.derived_endpoint_current_child[1] ≈ 0.8 / 0.94
+    @test diagnostic.effective_endpoint_current_parent[1] ≈ 0.8 / 0.94
+    @test diagnostic.implied_series_current[1] ≈ 0.8 / 0.94 + 0.9 * 0.94
+    improved = solve_branch_flow_sdp(strengthened; solver_options=(verbose=false,))
+    canonical = solve_branch_flow_sdp(net; options=BranchFlowSDPOptions(
+        s_base=1.0, objective=:cost, implied_current_limits=false),
+        solver_options=(verbose=false,))
+    @test improved.solve.optimal
+    @test canonical.solve.optimal
+    @test improved.objective > canonical.objective + 1e-3
+
+    lnc_build = build_branch_flow_sdp(net; options=BranchFlowSDPOptions(
+        s_base=1.0, objective=:cost, lnc=:lines))
+    @test any(d -> d.status == :applied, lnc_build.lnc_diagnostics)
+
+    grounded = _l3f_case(explicit_neutral=true)
+    delete!(grounded["bus"]["load"], "v_min")
+    delete!(grounded["bus"]["load"], "v_max")
+    merge!(grounded["bus"]["load"], Dict(
+        "vpn_min" => [180.0], "vpn_max" => [250.0], "vn_max" => 0.0))
+    grounded["line"]["line"]["s_max"] = [20_000.0]
+    grounded_build = build_branch_flow_sdp(grounded)
+    grounded_bounds = only(
+        grounded_build.numerical_diagnostics[:line_bound_diagnostics])
+    @test grounded_bounds.derived_endpoint_current_child[1] ≈ 20_000 / 180
+    @test isinf(grounded_bounds.derived_endpoint_current_child[2])
 end
 
 @testset "Branch-flow SDP switches, capacitors and delta generators" begin
