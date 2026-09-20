@@ -237,6 +237,13 @@ end
         solver_options=(verbose=false,)).solve.optimal
 
     phases = ["a", "b", "c"]
+    delta_voltage = 230.0 .* cis.([0.0, -2pi / 3, 2pi / 3])
+    delta_current = ComplexF64[0.7 + 0.2im, -0.3 + 0.1im, -0.4 - 0.3im]
+    @test sum(delta_current) ≈ 0.0 + 0.0im atol=1e-14
+    delta_power = delta_voltage .* conj.(delta_current)
+    delta_map = ["b", "c", "a"]
+    delta_positions = [2, 3, 1]
+    ordered_power = delta_power[delta_positions]
     delta = Dict{String,Any}(
         "bus" => Dict("b" => Dict{String,Any}("terminal_names" => phases)),
         "terminal_conventions" => Dict("phase" => phases, "neutral" => String[]),
@@ -245,15 +252,22 @@ end
             "v_magnitude" => fill(230.0, 3),
             "v_angle" => [0.0, -2pi / 3, 2pi / 3], "cost" => ones(3))),
         "generator" => Dict("g" => Dict{String,Any}(
-            "bus" => "b", "terminal_map" => phases, "configuration" => "DELTA",
-            "p_min" => fill(100.0, 3), "p_max" => fill(100.0, 3),
-            "q_min" => zeros(3), "q_max" => zeros(3),
-            "s_max" => fill(200.0, 3), "i_max" => fill(2.0, 3))))
+            "bus" => "b", "terminal_map" => delta_map, "configuration" => "DELTA",
+            "p_min" => real.(ordered_power), "p_max" => real.(ordered_power),
+            "q_min" => imag.(ordered_power), "q_max" => imag.(ordered_power),
+            "s_max" => abs.(ordered_power) .+ 1.0,
+            "i_max" => abs.(delta_current[delta_positions]) .+ 0.01,
+            "cost" => [7.0, 11.0, 13.0])))
     result = solve_branch_flow_sdp(delta;
         options=BranchFlowSDPOptions(objective=:source_import),
         solver_options=(verbose=false, tol_feas=1e-7, tol_gap_abs=1e-7))
     @test result.solve.optimal
-    @test result.relaxed_powers[(:generator, "g")] ≈ fill(100.0 + 0im, 3) atol=2e-4
+    @test result.relaxed_powers[(:generator, "g")] ≈ ordered_power atol=2e-4
+    for (k, terminal) in enumerate(delta_map)
+        @test result.relaxed_powers[(:generator, "g")][k] ≈
+              result.voltage_candidate[("b", terminal)] *
+              conj(result.current_candidate[(:generator, "g")][k]) atol=1e-2
+    end
     @test abs(sum(result.current_candidate[(:generator, "g")])) < 1e-8
     @test physical_residuals(delta, ACPoint(
         voltage=result.voltage_candidate, currents=result.current_candidate);
@@ -320,10 +334,15 @@ end
         options=BranchFlowSDPOptions(objective=:source_import),
         solver_options=(verbose=false,))
     @test mapped_result.solve.optimal
-    malformed = deepcopy(mapped)
-    malformed["bus"]["b"]["v_min"] = 230.0
-    @test !is_branch_flow_sdp_applicable(
-        check_branch_flow_sdp_applicability(malformed))
+    scalar_bounds = deepcopy(mapped)
+    scalar_bounds["bus"]["b"]["v_min"] = 229.0
+    scalar_bounds["bus"]["b"]["v_max"] = 231.0
+    @test is_branch_flow_sdp_applicable(
+        check_branch_flow_sdp_applicability(scalar_bounds))
+    scalar_result = solve_branch_flow_sdp(scalar_bounds;
+        options=BranchFlowSDPOptions(objective=:source_import),
+        solver_options=(verbose=false,))
+    @test scalar_result.solve.optimal
     mapped["bus"]["b"]["vpos_max"] = 200.0
     @test !solve_branch_flow_sdp(mapped;
         options=BranchFlowSDPOptions(objective=:source_import),
@@ -365,6 +384,23 @@ end
         (:transformer_winding, "n_winding/t/$k")) for k in 1:3)
     @test all(haskey(result.current_candidate,
         (:transformer_coil, "n_winding/t/$k")) for k in 1:3)
+
+    mapped = _bfm_nwinding_case()
+    mapped["bus"]["b2"]["terminal_names"] = ["x", "p", "n"]
+    mapped["bus"]["b2"]["perfectly_grounded_terminals"] = ["x", "n"]
+    mapped["transformer"]["n_winding"]["t"]["windings"][2]["terminal_map"] =
+        ["n", "p"]
+    mapped_result = solve_branch_flow_sdp(mapped;
+        options=BranchFlowSDPOptions(objective=:source_import),
+        solver_options=(verbose=false,))
+    @test mapped_result.solve.optimal
+    mapped_key = (:transformer_winding, "n_winding/t/2")
+    @test length(mapped_result.current_candidate[mapped_key]) == 2
+    @test length(mapped_result.relaxed_powers[mapped_key]) == 2
+    @test physical_residuals(mapped, ACPoint(
+        voltage=mapped_result.voltage_candidate,
+        currents=mapped_result.current_candidate);
+        atol=(voltage=3e-3, current=3e-3, power=0.2)).passed
 
     unsupported = _l3f_case()
     unsupported["ibr"] = Dict("pv" => Dict{String,Any}(

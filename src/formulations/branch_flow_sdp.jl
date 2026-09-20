@@ -649,9 +649,28 @@ function _bfm_voltage_rows(net, bus, terminals)
 end
 
 function _bfm_voltage_maps(net, bus)
+    # The BMOPF schema permits scalar phase-to-ground bounds. Preserve the
+    # BranchFlowSDP contract while keeping the shared SDP helper unchanged:
+    # present scalar v_min/v_max as per-phase arrays in this local view.
+    mapped_net = net
+    data = net["bus"][bus]
+    if any(key -> haskey(data, key) && data[key] isa Real, ("v_min", "v_max"))
+        terms = string.(data["terminal_names"])
+        neutral = get(_kr_neutral_map(net), bus, nothing)
+        phase_count = count(!=(neutral), terms)
+        mapped_data = copy(data)
+        for key in ("v_min", "v_max")
+            haskey(data, key) && data[key] isa Real || continue
+            mapped_data[key] = fill(Float64(data[key]), phase_count)
+        end
+        mapped_buses = copy(net["bus"])
+        mapped_buses[bus] = mapped_data
+        mapped_net = copy(net)
+        mapped_net["bus"] = mapped_buses
+    end
     terminal_rows = (b, terminals) -> _bfm_voltage_rows(net, String(b), terminals)
     try
-        _sdp_voltage_maps(net, bus, terminal_rows)
+        _sdp_voltage_maps(mapped_net, bus, terminal_rows)
     catch err
         err isa SDPInapplicableError || rethrow()
         _bfm_refuse(err.message)
@@ -1201,7 +1220,6 @@ function _bfm_nwinding_block!(model, net, id, data, voltage_moments, balance,
             p = findfirst(==(maps[k][position]), bus_terms[k])
             T[p, ground_range[g]] += 1
         end
-        push!(terminal_maps, T)
         push!(coil_maps, coil)
         E = zeros(ComplexF64, nt, dimension)
         for h in 1:nt
@@ -1209,7 +1227,14 @@ function _bfm_nwinding_block!(model, net, id, data, voltage_moments, balance,
         end
         terminal_moment = _bfm_cross(block, E, T)
         _bfm_add_matrix!(balance[buses[k]], terminal_moment)
-        terminal_power = Any[terminal_moment[h, h] for h in 1:nt]
+        # KCL uses full-bus coordinates, but public winding currents and powers
+        # follow terminal_map order and arity, just as in the two-winding path.
+        mapped_voltage = selections[k] * E
+        mapped_terminal = selections[k] * T
+        push!(terminal_maps, mapped_terminal)
+        mapped_moment = _bfm_cross(block, mapped_voltage, mapped_terminal)
+        terminal_power = Any[mapped_moment[h, h]
+                             for h in axes(mapped_moment, 1)]
         key = "n_winding/$id/$k"
         powers[(:transformer_winding, key)] = terminal_power
         coil_voltage = zeros(ComplexF64, nc, dimension)
@@ -1718,6 +1743,9 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         n = layout.count
         coils = _bfm_channel_count(device, "$family/$id")
         D = _bfm_connection(net, device, coils, "$family/$id")
+        delta_terminal = device.configuration == "DELTA" &&
+                         length(device.terminals) == 3
+        terminal_positions = device.terminal_bus_positions
         fixed_voltage = family == "voltage_source"
         if fixed_voltage
             jr = Any[@variable(model) for _ in 1:coils]
@@ -1728,8 +1756,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             terminal_current = transpose(D) * current
             terminal = Any[bus_pu[a] * conj(terminal_current[b])
                            for a in eachindex(bus_pu), b in eachindex(bus_pu)]
-            s = device.configuration == "DELTA" && length(device.terminals) == 3 ?
-                Any[terminal[k, k] for k in 1:3] :
+            s = delta_terminal ?
+                Any[terminal[k, k] for k in terminal_positions] :
                 Any[coil_voltage[k] * conj(current[k]) for k in 1:coils]
             push!(component_records, (; family=Symbol(family), id=String(id), bus,
                 D, block=nothing, C=nothing, J=nothing, law=:fixed_voltage,
@@ -1738,10 +1766,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             local_moment = _bfm_component_block!(model, voltage_moments[bus], D,
                 options.cone, _bfm_live_positions(net, bus))
             component_blocks[(Symbol(family), String(id))] = local_moment.block
-            delta_terminal = device.configuration == "DELTA" &&
-                             length(device.terminals) == 3
             s = delta_terminal ?
-                Any[local_moment.terminal[k, k] for k in 1:3] :
+                Any[local_moment.terminal[k, k] for k in terminal_positions] :
                 local_moment.power
             terminal = local_moment.terminal
             push!(component_records, (; family=Symbol(family), id=String(id), bus,
@@ -1765,15 +1791,16 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             if imax !== nothing
                 imax[k] >= 0 || _bfm_refuse("$family/$id has a negative current limit")
                 if fixed_voltage
-                    rated_current = device.configuration == "DELTA" &&
-                        length(device.terminals) == 3 ? terminal_current[k] : current[k]
+                    rated_current = delta_terminal ?
+                        terminal_current[terminal_positions[k]] : current[k]
                     @constraint(model, [imax[k] / ib,
                         real(rated_current), imag(rated_current)] in SecondOrderCone())
                 else
-                    gram = device.configuration == "DELTA" &&
-                        length(device.terminals) == 3 ?
+                    gram = delta_terminal ?
                         transpose(D) * local_moment.J * D : local_moment.J
-                    @constraint(model, real(gram[k, k]) <= (imax[k] / ib)^2)
+                    position = delta_terminal ? terminal_positions[k] : k
+                    @constraint(model,
+                        real(gram[position, position]) <= (imax[k] / ib)^2)
                 end
             end
         end
