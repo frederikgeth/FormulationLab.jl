@@ -147,7 +147,7 @@ objects as immutable and prepare again if topology or electrical parameters chan
 
 ## Verification and numerical studies
 
-Default tests cover all three formulation adapters, exact series interpolation,
+Default tests cover all four formulation adapters, exact series interpolation,
 π-chain internal balance, shunt-bearing stubs, reverse orientation, switch current
 recovery, merge blockers, and serialization. The optional integration environment
 compares reduced networks directly with BMOPFTools under matching policies:

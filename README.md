@@ -9,6 +9,12 @@ Implemented:
 
 - **IVRSOC**: shares the SDP electrical model, replacing PSD cones with complex pairwise SOC minors, physical voltage–current projections, constant-power secants, and optional fixed complex three-map projections. Load power cones are retained. See [the formulation and benchmarks](docs/src/soc.md).
 
+- **BranchFlowSDP**: an experimental radial multiphase branch-flow SDP with
+  bus voltage moments, edge power/current moments, tree recovery, and explicit
+  applicability rejection. Its first component slice covers coupled series
+  lines and ground-referenced static devices; it does not yet have IVRSDP's
+  transformer, delta-device, switch, capacitor, IBR, or line-shunt coverage.
+
 ```julia
 using FormulationLab, Clarabel
 
@@ -22,6 +28,10 @@ sdp = solve_opf(input, IVRSDP(objective=:source_import);
 
 # Fixed SOC relaxation, built once and solved once:
 soc = solve_opf(input, IVRSOC(objective=:source_import);
+                solver_options=(verbose=false,))
+
+# Experimental radial branch-flow SDP on its declared component subset:
+bfm = solve_opf(input, BranchFlowSDP(objective=:source_import);
                 solver_options=(verbose=false,))
 
 # Named fixed profiles (explicit keyword options override presets):
@@ -63,6 +73,7 @@ The default test environment includes Clarabel, Ipopt (for migrated affine-model
 - [Architecture and next steps](docs/src/architecture.md)
 - [BMOPF coverage](docs/src/coverage.md)
 - [SDP equations, scope, and numerical interpretation](docs/src/sdp.md)
+- [Radial branch-flow SDP](docs/src/branch_flow_sdp.md)
 - [LinDist3Flow usage](docs/src/lindist3flow.md) and [component equations](docs/src/lindist3flow_components.md)
 - [Migration provenance](docs/src/migration.md) and [verification results](docs/src/verification.md)
 

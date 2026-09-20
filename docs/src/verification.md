@@ -1,4 +1,22 @@
-# Verification — 2026-09-11
+# Verification
+
+## Branch-flow milestone — 20 September 2026
+
+The experimental radial `BranchFlowSDP` slice adds 44 default checks. They cover
+an analytical two-bus optimum at two power bases, rank and physical residuals,
+input branch orientation, a coupled unbalanced three-phase comparison with
+`IVRSDP`, constant-impedance loads, fixed shunts, generator dispatch, a binding
+line-current limit, applicability refusals, the generic formulation API, and
+prepared-network reconstruction. The Julia 1.12.6 default suite passes
+**5,848/5,848** checks. The Documenter build, cross-references and doctests also
+pass. OpenDSSDirect still emits the precompilation warnings recorded below and
+then runs its oracle tests without the cache.
+
+These comparisons establish the implemented radial series-line subset; they do
+not establish equivalence to IVRSDP outside the common tested contract, scalable
+performance, or AC feasibility of an arbitrary recovered moment solution.
+
+## Static AC containment milestone — 11 September 2026
 
 The new [AC containment audit](ac_validation.md) adds 1,102 passing checks to
 the default suite (4,634 total on Julia 1.12.6). The first 1,097 of these new

@@ -15,6 +15,7 @@ makedocs(;
         "Component coverage"=>"coverage.md",
         "Schema field inventory"=>"schema_fields.md",
         "SDP"=>["Current–voltage relaxation"=>"sdp.md",
+                 "Radial branch-flow relaxation"=>"branch_flow_sdp.md",
                  "Static AC components"=>"sdp_static.md",
                  "Clarabel and numerical profiles"=>"sdp_numerics.md",
                  "SDP solve-time study"=>"sdp_performance.md",
