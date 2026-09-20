@@ -6,6 +6,28 @@ numerical profile. It combines classic line ``W/S/L`` blocks with full matrix
 current balance and component-local voltage/current moments. Unsupported
 electrical fields are rejected rather than dropped.
 
+## When to use it
+
+Use this formulation when the network is a single radial island, its source
+voltage is fixed, and the component set fits the contract below. It is useful
+when line sending power, receiving power and current moments should remain
+explicit, or when comparing a branch-flow relaxation with `IVRSDP` on the same
+radial network. Use `IVRSDP` instead when the case contains a mesh, multiple
+sources, general multiwinding transformers, switches, capacitors or IBRs.
+
+The formulation returns an optimization relaxation, not an AC power-flow
+solution. For a minimization objective it supplies a lower-bound model. A low
+local rank ratio and small recovered physical residuals are useful diagnostics,
+but neither changes that mathematical distinction.
+
+At a high level, the build proceeds in four steps:
+
+1. orient the line/transformer tree away from the unique voltage source;
+2. create one voltage moment matrix per bus and one ``W/S/L`` block per line;
+3. attach load and transformer moment blocks to their bus voltage matrices;
+4. impose full lifted current balance at every bus and minimize the requested
+   objective.
+
 ```julia
 using FormulationLab, Clarabel
 
@@ -17,6 +39,12 @@ build = build_opf(input, BranchFlowSDP(objective=:source_import);
 result = solve_opf(input, BranchFlowSDP(objective=:source_import);
                    solver_options=(verbose=false,))
 ```
+
+The applicability check is intentionally separate from model construction so a
+caller can report formulation-selection decisions before invoking a solver.
+`objective` may be `:cost`, `:source_import` or `:feasibility`; `cone` may be
+`:real` or `:hermitian`. `s_base` controls per-unit power scaling and defaults
+to 10 kVA.
 
 ## Variables and relaxation
 
@@ -44,6 +72,13 @@ M^{\mathrm{receive}}_{ij}=S_{ij}-Z_{ij}L_{ij}.
 ```
 
 Their diagonals remain the public conductor-power outputs.
+
+The three matrices have a direct physical reading. ``W_i`` contains squared
+voltage magnitudes on its diagonal and cross-terminal voltage products off the
+diagonal. ``S_{ij}`` contains conductor complex powers on its diagonal and the
+cross-terminal voltage/current products needed by coupled lines off the
+diagonal. ``L_{ij}`` similarly contains squared current magnitudes and mutual
+current products.
 
 The rank-one edge identity is relaxed to
 
@@ -82,6 +117,14 @@ root voltage Gram is prescribed and rank one, so one nonzero root-voltage row
 is an exact basis for the otherwise dependent root matrix equations. All
 voltage rows are retained at other buses.
 
+Why retain the whole matrix? Diagonal balance only checks each terminal's own
+complex-power equation. For a phase-to-phase device, it does not force all
+terminal equations to describe one common current vector. The off-diagonal
+equations couple those views of the current and rule out solutions that can
+satisfy the per-terminal power equations independently. The regression suite
+includes a three-phase delta case in which the diagonal-only relaxation obtains
+a strictly smaller objective and leaves a nonzero off-diagonal residual.
+
 For a load connection matrix ``D`` and coil current ``j``, the local block is
 
 ```math
@@ -102,6 +145,23 @@ never inverts ``D`` and therefore retains delta circulating-current degrees of
 freedom. Constant-impedance loads use the exact affine specialization
 ``C=WD^T\operatorname{diag}(\overline{y})`` without an unnecessary current
 Gram.
+
+For example, a three-terminal delta ordered ``a,b,c`` uses
+
+```math
+D=\begin{bmatrix}
+1&-1&0\\
+0&1&-1\\
+-1&0&1
+\end{bmatrix},
+\qquad Dv_i=
+\begin{bmatrix}v_a-v_b\\v_b-v_c\\v_c-v_a\end{bmatrix}.
+```
+
+If ``j=(j_{ab},j_{bc},j_{ca})``, the bus current is ``D^Tj``. Consequently
+``CD=v_i(D^Tj)^H`` is exactly the delta load's contribution to lifted KCL.
+This construction also explains why the model does not invent a neutral for a
+delta device and does not invert the rank-deficient incidence matrix.
 
 ## Transformer component blocks
 
@@ -127,10 +187,36 @@ Fixed source ratios and zero-voltage ground coordinates are also eliminated
 locally to avoid exposed PSD faces. Delta winding currents stay in winding
 coordinates; terminal currents are obtained only through ``D^T``.
 
+This is the same connection principle as for a delta load, applied on both
+sides of the transformer. KCL sees only terminal-current moments at each bus;
+the component block enforces the winding voltage ratio, leakage drops,
+ampere-turn balance, excitation current, grounding and galvanic bonds. Thus a
+delta winding never needs an artificial phase-to-ground power allocation.
+
 The root voltage matrix is fixed to the supplied source phasor Gram. Tree
 recovery starts from the supplied root phasors, estimates each branch current
 from ``S_{ij}^H v_i/(v_i^H v_i)``, and propagates ``v_j=v_i-Z_{ij}i_{ij}``.
 The recovered state is diagnostic and is not certified AC feasible.
+
+## Reading a result
+
+For a successful solve, the most useful fields are:
+
+- `objective` and `solver_objective_bound`: the unscaled relaxation objective
+  and the solver's bound;
+- `voltage_moments`, `branch_power_moments` and
+  `branch_current_moments`: the physical-unit relaxed matrices;
+- `voltage_candidate` and `current_candidate`: the tree-recovered phasors used
+  for diagnostics and reconstruction;
+- `relaxed_powers`: component coil/conductor powers in physical units;
+- `rank_ratio`: the largest line-block second-to-first eigenvalue ratio; and
+- `solve` / `numerical_diagnostics`: termination status, cone/scaling metadata
+  and all local block rank ratios.
+
+Always check `result.solve.optimal` before reading numerical values. To assess
+the recovered candidate, pass its voltage and current dictionaries to
+`physical_residuals`; this tests the candidate, not the validity of the SDP
+bound itself.
 
 ## Implemented component slice
 
