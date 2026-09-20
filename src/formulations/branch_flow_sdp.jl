@@ -158,11 +158,6 @@ function _bfm_device_positions(net, data, label; allow_delta=false)
         _bfm_refuse("$label has unsupported connection '$configuration'")
     neutral = get(_kr_neutral_map(net), bus, nothing)
     neutral_position = findfirst(==(neutral), terminals)
-    if neutral_position !== nothing
-        neutral == last(terminals) || _bfm_refuse("$label requires a trailing neutral")
-        neutral in get(buses[bus], "perfectly_grounded_terminals", String[]) ||
-            _bfm_refuse("$label phase-to-neutral power requires a grounded neutral in this prototype")
-    end
     channels = configuration == "DELTA" ? copy(terminals) :
         configuration == "SINGLE_PHASE" ? [first(terminals)] :
         [t for t in terminals if t != neutral]
@@ -894,6 +889,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     end
 
     matrix_kcl_count = 0
+    matrix_kcl = Dict{Tuple{String,Int,Int,Symbol},JuMP.ConstraintRef}()
     for (bus, data) in net["bus"]
         terms = string.(data["terminal_names"])
         grounded = Set(string.(get(data, "perfectly_grounded_terminals", String[])))
@@ -904,11 +900,15 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
                                   collect(eachindex(terms))
         for a in rows, b in eachindex(terms)
             terms[b] in grounded && continue
-            @constraint(model, real(balance[bus][a, b]) == 0)
-            @constraint(model, imag(balance[bus][a, b]) == 0)
+            matrix_kcl[(bus, a, b, :real)] =
+                @constraint(model, real(balance[bus][a, b]) == 0)
+            matrix_kcl[(bus, a, b, :imag)] =
+                @constraint(model, imag(balance[bus][a, b]) == 0)
             matrix_kcl_count += 1
         end
     end
+    model.ext[:branch_flow_balance] = balance
+    model.ext[:branch_flow_matrix_kcl] = matrix_kcl
     objective_scale = options.scale_objective ?
         max(maximum(abs, values(objective.terms); init=0.0), 1e-12) : 1.0
     @objective(model, Min, objective / objective_scale)
