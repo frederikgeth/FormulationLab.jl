@@ -2,19 +2,21 @@
 
 ## Branch-flow milestone — 20 September 2026
 
-The experimental radial `BranchFlowSDP` slice adds 44 default checks. They cover
+The experimental radial `BranchFlowSDP` slice adds 64 default checks. They cover
 an analytical two-bus optimum at two power bases, rank and physical residuals,
 input branch orientation, a coupled unbalanced three-phase comparison with
-`IVRSDP`, constant-impedance loads, fixed shunts, generator dispatch, a binding
-line-current limit, applicability refusals, the generic formulation API, and
-prepared-network reconstruction. The Julia 1.12.6 default suite passes
-**5,848/5,848** checks. The Documenter build, cross-references and doctests also
+`IVRSDP`, constant-impedance loads, two-wire delta local moments, Dy/Yd
+transformer blocks with nonzero leakage, fixed shunts, generator dispatch, a
+binding line-current limit, applicability refusals, the generic formulation
+API, and prepared-network reconstruction. The Julia 1.12.6 default suite passes
+**5,868/5,868** checks. The Documenter build, cross-references and doctests also
 pass. OpenDSSDirect still emits the precompilation warnings recorded below and
 then runs its oracle tests without the cache.
 
-These comparisons establish the implemented radial series-line subset; they do
-not establish equivalence to IVRSDP outside the common tested contract, scalable
-performance, or AC feasibility of an arbitrary recovered moment solution.
+These comparisons establish the implemented radial line, delta-load and fixed
+two-side transformer subset; they do not establish equivalence to IVRSDP outside
+the common tested contract, scalable performance, or AC feasibility of an
+arbitrary recovered moment solution.
 
 ## Static AC containment milestone — 11 September 2026
 
