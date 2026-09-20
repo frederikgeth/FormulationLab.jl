@@ -237,6 +237,101 @@ end
     @test diagonal_result.objective < full_result.objective - 0.1
 end
 
+@testset "Branch-flow SDP keeps device limits and costs in terminal-map order" begin
+    net = _bfm_three_phase_delta_case(; model="constant_impedance")
+    target = [1_000.0, 2_000.0, 3_000.0]
+    costs = [2.0, 3.0, 5.0]
+    net["generator"] = Dict("g" => Dict{String,Any}(
+        "bus" => "load", "terminal_map" => ["b", "c", "a"],
+        "configuration" => "WYE", "p_min" => copy(target),
+        "p_max" => copy(target), "q_min" => zeros(3), "q_max" => zeros(3),
+        "s_max" => [1_100.0, 2_100.0, 3_100.0],
+        "i_max" => [10.0, 15.0, 20.0], "cost" => copy(costs)))
+    result = _bfm_solve(net; objective=:cost)
+    @test result.solve.optimal
+    @test real.(result.relaxed_powers[(:generator, "g")]) ≈ target atol=1e-5
+    expected = sum(real, result.relaxed_powers[(:voltage_source, "source")]) / 1_000 +
+               dot(costs, target) / 1_000
+    @test result.objective ≈ expected atol=1e-5
+    @test _bfm_physical(net, result;
+        atol=(voltage=2e-3, current=2e-3, power=0.2)).passed
+
+    partial = deepcopy(net)
+    partial["generator"]["g"] = Dict{String,Any}(
+        "bus" => "load", "terminal_map" => ["b", "c"],
+        "configuration" => "WYE", "p_min" => [500.0, 750.0],
+        "p_max" => [500.0, 750.0], "q_min" => zeros(2), "q_max" => zeros(2),
+        "s_max" => [5_000.0, 6_000.0], "i_max" => [100.0, 200.0],
+        "cost" => [7.0, 11.0])
+    partial_result = _bfm_solve(partial; objective=:cost)
+    @test partial_result.solve.optimal
+    @test real.(partial_result.relaxed_powers[(:generator, "g")]) ≈
+          [500.0, 750.0] atol=1e-5
+end
+
+@testset "Branch-flow SDP transformer maps control ratings and result order" begin
+    net = _sdp_tx_case("single_phase"; tap=1.01)
+    net["bus"]["f"]["terminal_names"] = ["x", "p", "n"]
+    source = net["voltage_source"]["s"]
+    source["terminal_map"] = ["x", "p", "n"]
+    source["v_magnitude"] = [120.0, 230.0, 0.0]
+    source["v_angle"] = [pi / 2, 0.0, 0.0]
+    tx = net["transformer"]["single_phase"]["tx"]
+    tx["terminal_map_from"] = ["n", "p"]
+    tx["i_max_from"] = [100.0, 100.0]
+    tx["i_max_to"] = [100.0, 100.0]
+    _sdp_zload!(net, "l", ["p", "n"], 0.08 - 0.02im)
+
+    result = _bfm_solve(net)
+    reference = solve_sdp_opf(net;
+        options=SDPOptions(objective=:source_import), solver_options=(verbose=false,))
+    @test result.solve.optimal
+    @test reference.solve.optimal
+    @test result.objective ≈ reference.objective rtol=5e-6 atol=2e-4
+    @test length(result.current_candidate[(:transformer_from, "single_phase/tx")]) == 2
+    @test result.current_candidate[(:transformer_from, "single_phase/tx")] ≈
+          reference.current_candidate[(:transformer_from, "single_phase/tx")] rtol=5e-5 atol=2e-4
+    @test length(result.relaxed_powers[(:transformer_from, "single_phase/tx")]) == 2
+    @test _bfm_physical(net, result;
+        atol=(voltage=3e-3, current=3e-3, power=0.2)).passed
+    @test result.rank_ratio ≈
+          result.numerical_diagnostics[:local_rank_ratios]["transformer/single_phase/tx"]
+end
+
+@testset "Branch-flow SDP applicability covers builder assumptions" begin
+    missing_map = _l3f_case()
+    delete!(missing_map["line"]["line"], "terminal_map_from")
+    @test !is_branch_flow_sdp_applicable(
+        check_branch_flow_sdp_applicability(missing_map))
+
+    malformed_shunt = _l3f_case()
+    malformed_shunt["shunt"] = Dict("bad" => Dict{String,Any}(
+        "bus" => "load", "terminal_map" => ["a"], "G_2_2" => 0.1))
+    @test !is_branch_flow_sdp_applicable(
+        check_branch_flow_sdp_applicability(malformed_shunt))
+
+    scalar_wye = _bfm_three_phase_delta_case()
+    load = scalar_wye["load"]["load"]
+    load["configuration"] = "WYE"
+    load["p_nom"] = 1_000.0
+    load["q_nom"] = 100.0
+    @test is_branch_flow_sdp_applicable(
+        check_branch_flow_sdp_applicability(scalar_wye))
+    @test build_branch_flow_sdp(scalar_wye; options=BranchFlowSDPOptions(
+        objective=:source_import)) isa BranchFlowSDPBuild
+
+    bad_wye = deepcopy(scalar_wye)
+    bad_wye["load"]["load"]["p_nom"] = [1_000.0, 2_000.0]
+    @test !is_branch_flow_sdp_applicable(
+        check_branch_flow_sdp_applicability(bad_wye))
+
+    negative_rating = _l3f_case()
+    negative_rating["linecode"]["lc"]["i_max"] = [-400.0]
+    @test !is_branch_flow_sdp_applicable(
+        check_branch_flow_sdp_applicability(negative_rating))
+    @test_throws BranchFlowSDPInapplicableError build_branch_flow_sdp(negative_rating)
+end
+
 @testset "Branch-flow SDP cone, scaling and feasibility variants" begin
     delta = _bfm_three_phase_delta_case(; model="constant_impedance")
     transformer = _sdp_tx_case("single_phase"; tap=1.02)

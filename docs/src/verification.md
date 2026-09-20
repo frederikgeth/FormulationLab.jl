@@ -1,8 +1,8 @@
 # Verification
 
-## Branch-flow milestone — 20 September 2026
+## Branch-flow milestone — 21 September 2026
 
-The experimental radial `BranchFlowSDP` slice now has 180 default checks. They
+The experimental radial `BranchFlowSDP` slice now has 201 default checks. They
 cover an analytical two-bus optimum at two power bases, rank and physical
 residuals, input branch orientation, a coupled unbalanced three-phase comparison
 with `IVRSDP`, three-phase delta constant-power and constant-impedance loads,
@@ -16,8 +16,12 @@ KCL materially strengthens the relaxation. Real and Hermitian cone builds,
 multiple power bases and the feasibility objective are also covered. The
 independent OpenDSS transformer oracle now checks both `IVRSDP` and
 `BranchFlowSDP` at unity and non-unity taps (76 assertions in that test set).
+Permuted and partial component maps additionally verify that limits, costs,
+terminal currents and powers remain in declared map order. Malformed required
+fields, shunt indices, load arities and negative line ratings are applicability
+regressions, and transformer-only feeders exercise the topology-rank diagnostic.
 
-The Julia 1.12.6 default suite passes **5,984/5,984** checks. The Documenter
+The Julia 1.12.6 default suite passes **6,005/6,005** checks. The Documenter
 build, cross-references and doctests also pass. OpenDSSDirect still emits the
 precompilation warnings recorded below and then runs its oracle tests without
 the cache.

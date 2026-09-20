@@ -125,6 +125,23 @@ satisfy the per-terminal power equations independently. The regression suite
 includes a three-phase delta case in which the diagonal-only relaxation obtains
 a strictly smaller objective and leaves a nonzero off-diagonal residual.
 
+### Ordering conventions
+
+Three orderings meet in these equations and must not be conflated:
+
+- bus moment matrices use `bus.terminal_names` order;
+- a component's declared limits, costs, terminal currents and terminal powers
+  use its own `terminal_map` order; and
+- coil quantities use the connection rows induced by that `terminal_map`.
+
+The connection matrix ``D`` is the explicit bridge: its columns are embedded in
+bus-terminal order, while its rows remain in component coil order. For a WYE
+device with a neutral, a phase-only limit vector follows the non-neutral entries
+of `terminal_map`; a complete-map vector is accepted and its neutral entry is
+omitted locally. Scalar declarations broadcast over the resulting channels.
+Permuting or selecting terminals therefore changes only the embedding in bus
+KCL—it never reorders the component's own arrays.
+
 For a load connection matrix ``D`` and coil current ``j``, the local block is
 
 ```math
@@ -192,6 +209,10 @@ sides of the transformer. KCL sees only terminal-current moments at each bus;
 the component block enforces the winding voltage ratio, leakage drops,
 ampere-turn balance, excitation current, grounding and galvanic bonds. Thus a
 delta winding never needs an artificial phase-to-ground power allocation.
+Transformer terminal currents and powers returned in a result follow
+`terminal_map_from` and `terminal_map_to`, even when a map is partial or
+permuted relative to its bus. On a delta side, `i_max_from` or `i_max_to`
+instead rates the winding-coil currents, in winding incidence-row order.
 
 The root voltage matrix is fixed to the supplied source phasor Gram. Tree
 recovery starts from the supplied root phasors, estimates each branch current
@@ -209,9 +230,17 @@ For a successful solve, the most useful fields are:
 - `voltage_candidate` and `current_candidate`: the tree-recovered phasors used
   for diagnostics and reconstruction;
 - `relaxed_powers`: component coil/conductor powers in physical units;
-- `rank_ratio`: the largest line-block second-to-first eigenvalue ratio; and
+- `rank_ratio`: the largest topology-block (line or transformer)
+  second-to-first eigenvalue ratio; and
 - `solve` / `numerical_diagnostics`: termination status, cone/scaling metadata
   and all local block rank ratios.
+
+Load and dispatch component blocks are included in
+`numerical_diagnostics[:local_rank_ratios]` but not in the headline
+`rank_ratio`: their auxiliary current completions can have free higher-rank
+modes even when the voltage/branch topology relaxation is exact. If a model has
+no line or transformer topology block, the headline ratio is `NaN` rather than
+an apparent exact zero.
 
 Always check `result.solve.optimal` before reading numerical values. To assess
 the recovered candidate, pass its voltage and current dictionaries to

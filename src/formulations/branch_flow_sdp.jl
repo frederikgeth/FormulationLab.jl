@@ -38,9 +38,25 @@ end
 function _bfm_vector(data, key, n, label; default=nothing)
     haskey(data, key) || return default
     raw = data[key]
-    values = raw isa Real ? fill(Float64(raw), n) : Float64.(raw)
+    values = try
+        raw isa Real ? fill(Float64(raw), n) : Float64.(raw)
+    catch
+        _bfm_refuse("$label $key must contain $n finite numeric values")
+    end
     length(values) == n && all(isfinite, values) ||
         _bfm_refuse("$label $key must contain $n finite values")
+    values
+end
+
+function _bfm_required(data, keys, label)
+    missing = [key for key in keys if !haskey(data, key)]
+    isempty(missing) || _bfm_refuse(
+        "$label is missing required field$(length(missing) == 1 ? "" : "s") " *
+        join("'" .* missing .* "'", ", "))
+end
+
+function _bfm_nonnegative(values, label)
+    values === nothing || all(>=(0), values) || _bfm_refuse("$label must be nonnegative")
     values
 end
 
@@ -48,7 +64,11 @@ function _bfm_phase_vector(data, key, phase_positions, terminal_count, label;
                            default=nothing)
     haskey(data, key) || return default
     raw = data[key]
-    values = raw isa Real ? fill(Float64(raw), length(phase_positions)) : Float64.(raw)
+    values = try
+        raw isa Real ? fill(Float64(raw), length(phase_positions)) : Float64.(raw)
+    catch
+        _bfm_refuse("$label $key must contain finite numeric values")
+    end
     if length(values) == terminal_count
         values = values[phase_positions]
     end
@@ -157,15 +177,43 @@ function _bfm_device_positions(net, data, label; allow_delta=false)
         allow_delta && configuration == "DELTA" ||
         _bfm_refuse("$label has unsupported connection '$configuration'")
     neutral = get(_kr_neutral_map(net), bus, nothing)
-    neutral_position = findfirst(==(neutral), terminals)
     channels = configuration == "DELTA" ? copy(terminals) :
         configuration == "SINGLE_PHASE" ? [first(terminals)] :
         [t for t in terminals if t != neutral]
     configuration == "SINGLE_PHASE" && !(length(terminals) in (1, 2)) &&
         _bfm_refuse("$label SINGLE_PHASE requires one terminal or one terminal pair")
-    positions = [something(findfirst(==(t), bus_terms), 0) for t in channels]
-    (; bus, terminals, channels, positions, terminal_count=length(terminals),
-       configuration)
+    # Component arrays are in terminal_map order, while D embeds those channels
+    # in bus-terminal order. Keep the two index spaces explicit.
+    channel_positions = [something(findfirst(==(t), terminals), 0) for t in channels]
+    terminal_bus_positions =
+        [something(findfirst(==(t), bus_terms), 0) for t in terminals]
+    (; bus, terminals, channels, channel_positions, terminal_bus_positions,
+       terminal_count=length(terminals), configuration)
+end
+
+function _bfm_channel_count(device, label)
+    if device.configuration == "DELTA"
+        length(device.terminals) == 2 && return 1
+        length(device.terminals) == 3 && return 3
+        _bfm_refuse("$label DELTA requires two or three terminals")
+    end
+    length(device.channels)
+end
+
+function _bfm_validate_dispatch(data, device, label)
+    for key in ("p_min", "p_max", "q_min", "q_max", "cost", "energy_cost_rate")
+        _bfm_phase_vector(data, key, device.channel_positions,
+            device.terminal_count, label)
+    end
+    for key in ("s_max", "i_max")
+        values = _bfm_phase_vector(data, key, device.channel_positions,
+            device.terminal_count, label)
+        _bfm_nonnegative(values, "$label $key")
+    end
+    haskey(data, "cost") && haskey(data, "energy_cost_rate") &&
+        data["cost"] != data["energy_cost_rate"] &&
+        _bfm_refuse("$label has conflicting cost aliases")
+    nothing
 end
 
 function _bfm_validate(net)
@@ -191,9 +239,12 @@ function _bfm_validate(net)
             _bfm_refuse("bus/$id grounds an undeclared terminal")
     end
     for (id, line) in get(net, "line", Dict())
+        label = "line/$id"
         _bfm_fields(line, ("bus_from", "bus_to", "terminal_map_from",
             "terminal_map_to", "linecode", "length", "i_max", "s_max"),
-            "line/$id"; matrix=("R_series_", "X_series_"))
+            label; matrix=("R_series_", "X_series_"))
+        _bfm_required(line,
+            ("bus_from", "bus_to", "terminal_map_from", "terminal_map_to"), label)
         from, to = String(line["bus_from"]), String(line["bus_to"])
         from_terms, to_terms = string.(buses[from]["terminal_names"]),
                                    string.(buses[to]["terminal_names"])
@@ -211,6 +262,28 @@ function _bfm_validate(net)
         any(startswith(String(k), p) for k in keys(coefficient_data),
             p in ("G_from_", "B_from_", "G_to_", "B_to_")) &&
             _bfm_refuse("line/$id endpoint shunts are not in the first branch-flow SDP slice")
+        n = length(from_terms)
+        _, has_r = _bfm_line_matrix(coefficient_data, "R_series_", n, label)
+        _, has_x = _bfm_line_matrix(coefficient_data, "X_series_", n, label)
+        has_r || has_x || _bfm_refuse("$label has no series impedance")
+        if haskey(line, "length")
+            length_scale = line["length"]
+            length_scale isa Real && isfinite(length_scale) && length_scale > 0 ||
+                _bfm_refuse("$label length must be positive and finite")
+        end
+        ratings = Dict{String,Any}()
+        for key in ("i_max", "s_max")
+            if haskey(line, key)
+                ratings[key] = line[key]
+            elseif haskey(coefficient_data, key)
+                ratings[key] = coefficient_data[key]
+            end
+        end
+        _bfm_nonnegative(_bfm_vector(ratings, "i_max", n, label), "$label i_max")
+        phase_positions = findall(!=(get(_kr_neutral_map(net), from, nothing)), from_terms)
+        _bfm_nonnegative(
+            _bfm_phase_vector(ratings, "s_max", phase_positions, n, label),
+            "$label s_max")
     end
     for (id, code) in get(net, "linecode", Dict())
         _bfm_fields(code, ("i_max", "s_max", "source", "line_geometry", "derivation"), "linecode/$id";
@@ -223,40 +296,60 @@ function _bfm_validate(net)
         law in ("constant_power", "constant_impedance") ||
             _bfm_refuse("load/$id model '$law' is not in the first branch-flow SDP slice")
         device = _bfm_device_positions(net, load, "load/$id"; allow_delta=true)
-        haskey(load, "p_nom") && haskey(load, "q_nom") ||
-            _bfm_refuse("load/$id requires p_nom and q_nom")
-        n = load["p_nom"] isa Real ? 1 : length(load["p_nom"])
-        if device.configuration == "DELTA"
-            n == (length(device.terminals) == 2 ? 1 : 3) ||
-                _bfm_refuse("load/$id DELTA power arity must be one for two terminals or three for three terminals")
+        _bfm_required(load, ("p_nom", "q_nom"), "load/$id")
+        n = _bfm_channel_count(device, "load/$id")
+        _bfm_vector(load, "p_nom", n, "load/$id")
+        _bfm_vector(load, "q_nom", n, "load/$id")
+        if law == "constant_impedance"
+            vnom = _bfm_vector(load, "v_nom", n, "load/$id")
+            vnom === nothing && _bfm_refuse("load/$id constant impedance requires v_nom")
+            all(>(0), vnom) || _bfm_refuse("load/$id v_nom must be positive")
         end
     end
     for (id, generator) in get(net, "generator", Dict())
         _bfm_fields(generator, ("bus", "terminal_map", "configuration", "p_min",
             "p_max", "q_min", "q_max", "s_max", "i_max", "cost",
             "energy_cost_rate"), "generator/$id")
-        _bfm_device_positions(net, generator, "generator/$id")
+        device = _bfm_device_positions(net, generator, "generator/$id")
+        _bfm_validate_dispatch(generator, device, "generator/$id")
     end
     for (id, source) in get(net, "voltage_source", Dict())
         _bfm_fields(source, ("bus", "terminal_map", "configuration", "v_magnitude",
             "v_angle", "p_min", "p_max", "q_min", "q_max", "s_max", "i_max",
             "cost", "energy_cost_rate"), "voltage_source/$id")
+        label = "voltage_source/$id"
+        _bfm_required(source,
+            ("bus", "terminal_map", "v_magnitude", "v_angle"), label)
         string.(source["terminal_map"]) ==
             string.(buses[String(source["bus"])]["terminal_names"]) ||
             _bfm_refuse("voltage_source/$id must cover its complete root-bus terminal map")
-        _bfm_device_positions(net, source, "voltage_source/$id")
+        device = _bfm_device_positions(net, source, label)
+        _bfm_vector(source, "v_magnitude", device.terminal_count, label)
+        _bfm_vector(source, "v_angle", device.terminal_count, label)
+        _bfm_validate_dispatch(source, device, label)
     end
     for (id, shunt) in get(net, "shunt", Dict())
-        _bfm_fields(shunt, ("bus", "terminal_map"), "shunt/$id";
+        label = "shunt/$id"
+        _bfm_fields(shunt, ("bus", "terminal_map"), label;
             matrix=("G_", "B_"))
+        _bfm_required(shunt, ("bus", "terminal_map"), label)
         bus = String(shunt["bus"])
+        haskey(buses, bus) || _bfm_refuse("$label references unknown bus '$bus'")
         string.(shunt["terminal_map"]) == string.(buses[bus]["terminal_names"]) ||
-            _bfm_refuse("shunt/$id must cover its complete bus terminal map")
+            _bfm_refuse("$label must cover its complete bus terminal map")
+        Y = try
+            _l3f_shunt_matrix(shunt, length(shunt["terminal_map"]))
+        catch err
+            _bfm_refuse("$label: $(sprint(showerror, err))")
+        end
+        all(isfinite, real.(Y)) && all(isfinite, imag.(Y)) ||
+            _bfm_refuse("$label admittance must be finite")
     end
     for (subtype, table) in get(net, "transformer", Dict()), (id, data) in table
-        label = "transformer/$subtype/$id"
-        try
-            _sdp_transformer_plan(String(subtype), data, label)
+        kind = String(subtype)
+        label = "transformer/$kind/$id"
+        transformer_plan = try
+            _sdp_transformer_plan(kind, data, label)
         catch err
             err isa SDPInapplicableError || rethrow()
             _bfm_refuse(err.message)
@@ -267,6 +360,13 @@ function _bfm_validate(net)
             tm = string.(data["terminal_map_$side"])
             !isempty(tm) && allunique(tm) && all(in(string.(buses[bus]["terminal_names"])), tm) ||
                 _bfm_refuse("$label has an invalid terminal_map_$side")
+            delta = kind == "delta_wye" && side == "from" ||
+                    kind == "wye_delta" && side == "to"
+            count = delta ? size(side == "from" ? transformer_plan.Df : transformer_plan.Dt, 1) :
+                            length(tm)
+            _bfm_nonnegative(
+                _bfm_vector(data, "i_max_$side", count, label),
+                "$label i_max_$side")
         end
     end
     plan
@@ -301,8 +401,7 @@ function _bfm_connection(net, device, coils, label)
         _bfm_refuse("$label: $(err.message)")
     end
     D = zeros(Float64, coils, length(bus_terms))
-    for (local_position, terminal) in enumerate(device.terminals)
-        bus_position = something(findfirst(==(terminal), bus_terms), 0)
+    for (local_position, bus_position) in enumerate(device.terminal_bus_positions)
         D[:, bus_position] .= local_incidence[:, local_position]
     end
     D
@@ -531,8 +630,14 @@ function _bfm_transformer_block!(model, net, subtype, id, data, voltage_moments,
     _bfm_add_matrix!(balance[from], Mf)
     _bfm_add_matrix!(balance[to], Mt)
     key = "$subtype/$id"
-    powers[(:transformer_from, key)] = Any[Mf[k, k] for k in 1:nf]
-    powers[(:transformer_to, key)] = Any[Mt[k, k] for k in 1:nt]
+    terminal_from = Pf * Tf
+    terminal_to = Pt * Tt
+    mapped_from = _bfm_cross(block, Pf * Ef, terminal_from)
+    mapped_to = _bfm_cross(block, Pt * Et, terminal_to)
+    powers[(:transformer_from, key)] =
+        Any[mapped_from[k, k] for k in axes(mapped_from, 1)]
+    powers[(:transformer_to, key)] =
+        Any[mapped_to[k, k] for k in axes(mapped_to, 1)]
     Ajf = zeros(ComplexF64, mf, dimension)
     Ajt = zeros(ComplexF64, mt, dimension)
     for k in 1:mf; Ajf[k, jf[k]] = 1; end
@@ -548,7 +653,8 @@ function _bfm_transformer_block!(model, net, subtype, id, data, voltage_moments,
         haskey(data, rating_key) || continue
         delta = subtype == "delta_wye" && side == :from ||
                 subtype == "wye_delta" && side == :to
-        map = side == :from ? (delta ? Ajf : Tf) : (delta ? Ajt : Tt)
+        map = side == :from ? (delta ? Ajf : terminal_from) :
+                              (delta ? Ajt : terminal_to)
         count = size(map, 1)
         limits = _bfm_vector(data, rating_key, count, label)
         gram = _bfm_cross(block, map, map)
@@ -558,7 +664,8 @@ function _bfm_transformer_block!(model, net, subtype, id, data, voltage_moments,
         end
     end
     (; key, subtype, id=String(id), from, to, block, reduced, nullspace=N,
-       vf, vt, jf, jt, Tf, Tt, Uf, Ut, Ajf, Ajt, dimension)
+       vf, vt, jf, jt, Tf, Tt, terminal_from, terminal_to,
+       Uf, Ut, Ajf, Ajt, dimension)
 end
 
 struct BranchFlowSDPBuild
@@ -611,8 +718,10 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     plan = _bfm_validate(net)
     source = plan.source
     root_terms = string.(net["bus"][plan.root]["terminal_names"])
-    root_voltage = Float64.(source["v_magnitude"]) .*
-                   cis.(Float64.(source["v_angle"]))
+    root_voltage = _bfm_vector(source, "v_magnitude", length(root_terms),
+                               "voltage_source/$(plan.source_id)") .*
+                   cis.(_bfm_vector(source, "v_angle", length(root_terms),
+                                    "voltage_source/$(plan.source_id)"))
     length(root_voltage) == length(root_terms) && all(isfinite, root_voltage) ||
         _bfm_refuse("the root source has invalid phasors")
     vb = maximum(abs, root_voltage)
@@ -692,6 +801,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         terms = string.(net["bus"][parent]["terminal_names"])
         phase_positions = findall(!=(get(_kr_neutral_map(net), parent, nothing)), terms)
         smax = _bfm_phase_vector(ratings, "s_max", phase_positions, n, "line/$id")
+        _bfm_nonnegative(imax, "line/$id i_max")
+        _bfm_nonnegative(smax, "line/$id s_max")
         for k in 1:n
             imax === nothing || @constraint(model,
                 real(L[k, k]) <= (imax[k] / ib)^2)
@@ -750,8 +861,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
 
     objective = JuMP.AffExpr(0.0)
     function add_dispatch!(family, id, data, device)
-        bus, positions = device.bus, device.positions
-        n = length(positions)
+        bus, channel_positions = device.bus, device.channel_positions
+        n = length(channel_positions)
         D = _bfm_connection(net, device, n, "$family/$id")
         fixed_voltage = family == "voltage_source"
         if fixed_voltage
@@ -778,11 +889,11 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         end
         p = Any[real(value) for value in s]
         q = Any[imag(value) for value in s]
-        _bfm_box!(model, p, q, data, positions, device.terminal_count,
+        _bfm_box!(model, p, q, data, channel_positions, device.terminal_count,
                   "$family/$id", sb)
-        smax = _bfm_phase_vector(data, "s_max", positions,
+        smax = _bfm_phase_vector(data, "s_max", channel_positions,
             device.terminal_count, "$family/$id")
-        imax = _bfm_phase_vector(data, "i_max", positions,
+        imax = _bfm_phase_vector(data, "i_max", channel_positions,
             device.terminal_count, "$family/$id")
         for k in 1:n
             if smax !== nothing
@@ -807,7 +918,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
                 _bfm_refuse("$family/$id has conflicting cost aliases")
             priced = copy(data); priced["cost"] = data["energy_cost_rate"]
         end
-        costs = _bfm_phase_vector(priced, "cost", positions,
+        costs = _bfm_phase_vector(priced, "cost", channel_positions,
             device.terminal_count, "$family/$id"; default=zeros(n))
         for k in 1:n
             coefficient = options.objective == :cost ? costs[k] * sb / 1000 :
@@ -826,7 +937,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     end
     for (id, load) in sort!(collect(get(net, "load", Dict())); by=first)
         device = _bfm_device_positions(net, load, "load/$id"; allow_delta=true)
-        n = load["p_nom"] isa Real ? 1 : length(load["p_nom"])
+        n = _bfm_channel_count(device, "load/$id")
         p = _bfm_vector(load, "p_nom", n, "load/$id")
         q = _bfm_vector(load, "q_nom", n, "load/$id")
         (p === nothing || q === nothing) &&
@@ -980,21 +1091,21 @@ function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
              for (id, moment) in build.voltage_moments)
     S = Dict{String,Matrix{ComplexF64}}()
     L = Dict{String,Matrix{ComplexF64}}()
-    ratios = Float64[]; edge_ratios = Float64[]
+    topology_ratios = Float64[]
     rank_ratios = Dict{String,Float64}()
     function record_ratio!(label, block)
         eigenvalues = eigvals(Hermitian(block))
         value = length(eigenvalues) > 1 ?
             max(0.0, eigenvalues[end-1]) / max(eps(), eigenvalues[end]) : 0.0
-        push!(ratios, value); rank_ratios[label] = value
+        rank_ratios[label] = value
+        value
     end
     for edge in build.edge_records
         block = Matrix{ComplexF64}(JuMP.value.(build.edge_blocks[edge.id]))
         n = size(edge.S, 1)
         S[edge.id] = block[1:n, n+1:2n] * sb
         L[edge.id] = block[n+1:2n, n+1:2n] * ib^2
-        record_ratio!("line/$(edge.id)", block)
-        push!(edge_ratios, rank_ratios["line/$(edge.id)"])
+        push!(topology_ratios, record_ratio!("line/$(edge.id)", block))
     end
     component_values = Dict(key => Matrix{ComplexF64}(JuMP.value.(block))
         for (key, block) in build.component_blocks)
@@ -1004,7 +1115,7 @@ function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
         record_ratio!("$(key[1])/$(key[2])", block)
     end
     for (key, block) in transformer_values
-        record_ratio!("transformer/$key", block)
+        push!(topology_ratios, record_ratio!("transformer/$key", block))
     end
     voltage = Dict{Tuple{String,String},ComplexF64}()
     for (terminal, value) in zip(build.network["bus"][build.root]["terminal_names"],
@@ -1047,8 +1158,8 @@ function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
                 build.network["bus"][oriented.child]["terminal_names"], state[child_indices])
                 voltage[(oriented.child, terminal)] = value * vb
             end
-            currents[(:transformer_from, key)] = record.Tf * state * ib
-            currents[(:transformer_to, key)] = record.Tt * state * ib
+            currents[(:transformer_from, key)] = record.terminal_from * state * ib
+            currents[(:transformer_to, key)] = record.terminal_to * state * ib
             currents[(:transformer_coil_from, key)] = record.Ajf * state * ib
             currents[(:transformer_coil_to, key)] = record.Ajt * state * ib
         end
@@ -1083,7 +1194,7 @@ function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
     bound = try JuMP.objective_bound(build.model) catch; NaN end
     isfinite(bound) || (bound = try JuMP.dual_objective_value(build.model) catch; NaN end)
     bound *= build.objective_scale
-    ratio = maximum(edge_ratios; init=0.0)
+    ratio = isempty(topology_ratios) ? NaN : maximum(topology_ratios)
     diagnostics[:local_rank_ratios] = rank_ratios
     diagnostics[:recovery] = :tree
     BranchFlowSDPResult(JuMP.objective_value(build.model) * build.objective_scale,
