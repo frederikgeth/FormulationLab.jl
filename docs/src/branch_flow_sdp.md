@@ -1,31 +1,34 @@
-# Radial branch-flow SDP
+# Branch-flow SDP
 
 `BranchFlowSDP` is an experimental multiphase branch-flow semidefinite
 relaxation. It is a separate mathematical formulation, not an `IVRSDP`
 numerical profile. It combines classic line ``W/S/L`` blocks with full matrix
-current balance and component-local voltage/current moments. Unsupported
-electrical fields are rejected rather than dropped.
+current balance, component-local voltage/current moments, and—when the network
+requires it—a voltage-closure Gram for cycles and cross-bus products.
+Unsupported electrical fields are rejected rather than dropped.
 
 ## When to use it
 
-Use this formulation when the network is a single radial island, its source
-voltage is fixed, and the component set fits the contract below. It is useful
-when line sending power, receiving power and current moments should remain
-explicit, or when comparing a branch-flow relaxation with `IVRSDP` on the same
-radial network. Use `IVRSDP` instead when the case contains a mesh, multiple
-sources, general multiwinding transformers, switches, capacitors or IBRs.
+Use this formulation when line sending power, receiving power, endpoint shunt
+power and current moments should remain explicit, or when comparing a
+branch-flow relaxation with `IVRSDP`. Radial and meshed networks, multiple fixed
+sources, fixed switches, capacitors and general multiwinding transformers are
+accepted. Use `IVRSDP` instead when static IBR filters/capabilities or its
+chordal/numerical profiles are required.
 
 The formulation returns an optimization relaxation, not an AC power-flow
 solution. For a minimization objective it supplies a lower-bound model. A low
 local rank ratio and small recovered physical residuals are useful diagnostics,
 but neither changes that mathematical distinction.
 
-At a high level, the build proceeds in four steps:
+At a high level, the build proceeds in five steps:
 
-1. orient the line/transformer tree away from the unique voltage source;
+1. identify connected components and a recovery spanning forest;
 2. create one voltage moment matrix per bus and one ``W/S/L`` block per line;
 3. attach load and transformer moment blocks to their bus voltage matrices;
-4. impose full lifted current balance at every bus and minimize the requested
+4. add a voltage-closure Gram when cycles, multiple sources, multiwinding
+   hyperedges, switches or cross-bus LNCs require shared voltage products;
+5. impose full lifted current balance at every bus and minimize the requested
    objective.
 
 ```julia
@@ -44,19 +47,20 @@ The applicability check is intentionally separate from model construction so a
 caller can report formulation-selection decisions before invoking a solver.
 `objective` may be `:cost`, `:source_import` or `:feasibility`; `cone` may be
 `:real` or `:hermitian`. `s_base` controls per-unit power scaling and defaults
-to 10 kVA.
+to 10 kVA. `lnc=:lines` derives conservative line cuts from declared voltage
+and current bounds. Explicit `VoltageLNC` objects may be passed through
+`voltage_lncs`.
 
 ## Variables and relaxation
 
-For every bus ``i`` and line ``i\to j``, oriented away from the unique source,
-the model introduces
+For every bus ``i`` and oriented line ``i\to j``, the model introduces
 
 ```math
 W_i=v_i v_i^H,\qquad S_{ij}=v_i i_{ij}^H,\qquad
 L_{ij}=i_{ij}i_{ij}^H.
 ```
 
-With the complete coupled series impedance ``Z_{ij}``, the voltage equation
+With the complete coupled series impedance ``Z_{ij}``, the series voltage equation
 ``v_j=v_i-Z_{ij}i_{ij}`` becomes
 
 ```math
@@ -64,14 +68,24 @@ W_j=W_i-S_{ij}Z_{ij}^H-Z_{ij}S_{ij}^H
        +Z_{ij}L_{ij}Z_{ij}^H.
 ```
 
-Sending and receiving power matrices are
+For a pi model with endpoint admittances ``Y^f,Y^t``, endpoint currents are
 
 ```math
-M^{\mathrm{send}}_{ij}=S_{ij},\qquad
-M^{\mathrm{receive}}_{ij}=S_{ij}-Z_{ij}L_{ij}.
+i^f=i_{ij}+Y^fv_i,\qquad i^t=-i_{ij}+Y^tv_j.
 ```
 
-Their diagonals remain the public conductor-power outputs.
+The series receiving product is ``R_{ij}=S_{ij}-Z_{ij}L_{ij}``, while the
+endpoint power matrices used by KCL, limits and public results are
+
+```math
+M^f_{ij}=S_{ij}+W_i(Y^f)^H,\qquad
+M^t_{ij}=-R_{ij}+W_j(Y^t)^H.
+```
+
+Their diagonals are the public endpoint conductor-power outputs. Endpoint
+current limits use the corresponding affine current Grams, so a declared
+`i_max` rates total endpoint current rather than silently rating only the series
+current.
 
 The three matrices have a direct physical reading. ``W_i`` contains squared
 voltage magnitudes on its diagonal and cross-terminal voltage products off the
@@ -90,6 +104,29 @@ Every child voltage matrix is the Gram image of that edge block. A parent
 shared by several children uses the same ``W_i`` in every edge block. Voltage,
 series-current and endpoint apparent-power limits are affine or
 second-order-cone consequences of these moments.
+
+## Mesh and source voltage closure
+
+On a single-source tree, local edge overlaps have the running-intersection
+structure needed to propagate a voltage candidate from the root. A cycle does
+not: independently completed edge blocks can otherwise choose incompatible
+angle rotations around the loop. Multiple fixed sources similarly need their
+declared relative phasors to share one lifted voltage state.
+
+For those cases the model creates a global voltage-only Gram ``G=vv^H`` and
+drops its rank-one requirement. Every bus ``W_i`` is a principal submatrix of
+``G``. For a line, the adjacent cross-voltage block is constrained by
+
+```math
+G_{ij}=W_i-S_{ij}Z_{ij}^H.
+```
+
+Transformer and closed-switch cross-voltage blocks overlap ``G`` in the same
+way. Products between fixed source coordinates are prescribed from their input
+phasors. Thus cycles and relative source angles use one PSD-completable voltage
+state while current and power remain in local branch-flow blocks. The same Gram
+is enabled for explicit cross-bus LNCs. This is a relaxation—rank-one voltage
+recovery and AC residual checks remain necessary.
 
 ## Matrix current balance and connection moments
 
@@ -163,6 +200,16 @@ freedom. Constant-impedance loads use the exact affine specialization
 ``C=WD^T\operatorname{diag}(\overline{y})`` without an unnecessary current
 Gram.
 
+Constant-current, mixed ZIP and exponential loads use the same local
+voltage/current block as constant-power loads. If
+``x=|u|^2/v_{nom}^2``, auxiliary factors approximate ``x^a`` with power-cone
+hypographs or epigraphs and, when finite engineering voltage bounds exist, the
+opposite secant inequality. Active and reactive lifted powers are then fixed to
+their respective voltage-law factors. This is an additional convex envelope
+beyond dropping moment rank; affected load IDs are returned in
+`load_envelopes`. An all-impedance ZIP law or exponent-two law is recognized
+and stamped with the exact affine admittance instead.
+
 For example, a three-terminal delta ordered ``a,b,c`` uses
 
 ```math
@@ -179,6 +226,19 @@ If ``j=(j_{ab},j_{bc},j_{ca})``, the bus current is ``D^Tj``. Consequently
 ``CD=v_i(D^Tj)^H`` is exactly the delta load's contribution to lifted KCL.
 This construction also explains why the model does not invent a neutral for a
 delta device and does not invert the rank-deficient incidence matrix.
+
+Delta generators use the same coil-current block, but three-wire dispatch
+quantities are terminal powers ``\operatorname{diag}(CD)`` and terminal
+currents ``D^Tj``. Consequently P/Q boxes, costs and ratings retain conductor
+order and the recovered terminal currents sum to zero. A two-terminal delta
+remains a single coil channel.
+
+Fixed capacitors are exact connection-aware admittances. With rated reactive
+power ``q`` and nominal coil voltage ``v_{nom}``, their current is
+``j(q/v_{nom}^2)Dv``; consumed coil power is therefore negative reactive power.
+A closed switch has a local block enforcing equal mapped endpoint voltages and
+opposite through currents, including endpoint current/apparent-power ratings.
+An open switch has zero endpoint current and no voltage equality.
 
 ## Transformer component blocks
 
@@ -214,10 +274,38 @@ Transformer terminal currents and powers returned in a result follow
 permuted relative to its bus. On a delta side, `i_max_from` or `i_max_to`
 instead rates the winding-coil currents, in winding incidence-row order.
 
-The root voltage matrix is fixed to the supplied source phasor Gram. Tree
-recovery starts from the supplied root phasors, estimates each branch current
-from ``S_{ij}^H v_i/(v_i^H v_i)``, and propagates ``v_j=v_i-Z_{ij}i_{ij}``.
-The recovered state is diagnostic and is not certified AC feasible.
+General `n_winding` transformers are genuine hyperedges. One local state
+contains every complete bus-voltage vector and every winding coil current. For
+each coil position it enforces the coupled leakage equations and ampere-turn
+balance from the full pairwise short-circuit matrix; excitation, finite/ideal
+neutral grounding, fixed taps and winding `i_max`/`s_max` are retained. Every
+winding voltage block overlaps its bus ``W`` and the voltage closure when it is
+active. Results use `:transformer_winding` and `:transformer_coil` keys matching
+`IVRSDP`.
+
+## Physical voltage maps and LNCs
+
+All bus voltage bounds are affine in ``W_i``. Besides phase/all-terminal
+`v_min`/`v_max`, the formulation supports phase-neutral `vpn_*`, phase-pair
+`vpp_*`, neutral `vn_max`, and positive-, negative- and zero-sequence bounds.
+Terminal and sequence ordering rules are shared with `IVRSDP`.
+
+An explicit `VoltageLNC` evaluates its phasor maps in the voltage-closure Gram,
+adds the declared magnitude/angle domain, and records its provenance. With
+`lnc=:lines`, each line uses physical voltage bounds, endpoint current ratings,
+the complete coupled series impedance and endpoint shunts to derive a safe
+voltage-drop sector. A cut lacking the required finite bounds is recorded as
+`:skipped` with a reason; it is never guessed from nominal angles or a solved
+power-flow sample.
+
+Every source voltage matrix is fixed to its supplied phasor Gram. Without a
+global voltage closure, tree recovery starts from the source phasors, estimates
+each branch current from ``S_{ij}^H v_i/(v_i^H v_i)``, and propagates
+``v_j=v_i-Z_{ij}i_{ij}``. With a global closure, recovery instead uses a fixed
+source coordinate as an anchor column of ``G``; a source-free disconnected
+component uses an arbitrary leading-eigenvector anchor. Component currents are
+then recovered conditionally from their local moment blocks. These candidates
+are diagnostics and are not certified AC feasible.
 
 ## Reading a result
 
@@ -227,11 +315,13 @@ For a successful solve, the most useful fields are:
   and the solver's bound;
 - `voltage_moments`, `branch_power_moments` and
   `branch_current_moments`: the physical-unit relaxed matrices;
-- `voltage_candidate` and `current_candidate`: the tree-recovered phasors used
-  for diagnostics and reconstruction;
+- `voltage_candidate` and `current_candidate`: tree- or global-anchor-recovered
+  phasors used for diagnostics and reconstruction;
 - `relaxed_powers`: component coil/conductor powers in physical units;
-- `rank_ratio`: the largest topology-block (line or transformer)
-  second-to-first eigenvalue ratio; and
+- `load_envelopes` and `lnc_diagnostics`: the nonlinear load envelopes and
+  applied/skipped lifted nonlinear cuts;
+- `rank_ratio`: the largest topology-block (line, transformer, closed switch or
+  global voltage closure) second-to-first eigenvalue ratio; and
 - `solve` / `numerical_diagnostics`: termination status, cone/scaling metadata
   and all local block rank ratios.
 
@@ -239,8 +329,8 @@ Load and dispatch component blocks are included in
 `numerical_diagnostics[:local_rank_ratios]` but not in the headline
 `rank_ratio`: their auxiliary current completions can have free higher-rank
 modes even when the voltage/branch topology relaxation is exact. If a model has
-no line or transformer topology block, the headline ratio is `NaN` rather than
-an apparent exact zero.
+no topology block, the headline ratio is `NaN` rather than an apparent exact
+zero.
 
 Always check `result.solve.optimal` before reading numerical values. To assess
 the recovered candidate, pass its voltage and current dictionaries to
@@ -251,30 +341,35 @@ bound itself.
 
 The current implementation accepts:
 
-- one fixed voltage source and one connected radial island;
+- radial or meshed AC components, multiple fixed voltage sources, and
+  source-free components isolated by open switches;
 - full coupled line series R/X matrices, aligned complete terminal maps and
-  optional `length`, `i_max` and `s_max`;
+  optional endpoint shunts, `length`, `i_max` and `s_max`;
 - explicit terminal and neutral conductors in the line matrices;
-- fixed phase-to-ground source phasors and bus `v_min` / `v_max` limits;
+- fixed phase-to-ground source phasors and the complete family of physical bus
+  voltage maps and sequence limits;
 - `WYE` and one- or two-terminal `SINGLE_PHASE` devices;
-- `WYE`, two-terminal delta and three-terminal delta constant-power or
-  constant-impedance loads;
-- generator and source P/Q boxes, S/I limits and linear costs;
-- fixed full-matrix bus shunts; and
+- `WYE`, two-terminal delta and three-terminal delta constant-power,
+  constant-impedance, constant-current, ZIP and exponential loads;
+- wye and delta generators, plus source P/Q boxes, S/I limits and linear costs;
+- fixed full-matrix bus shunts, connection-aware capacitors and fixed
+  open/closed switches;
 - fixed single-phase, center-tap, Yd/Dy, autotransformer and open-delta
   regulator winding networks, including fixed taps, winding leakage,
   excitation, neutral grounding, galvanic bonds and declared current limits;
+- general fixed `n_winding` transformer hyperedges with pairwise leakage,
+  excitation, neutral grounding and winding ratings;
+- explicit voltage LNCs and optional line-derived LNCs; and
 - `:cost`, `:source_import` and `:feasibility` objectives.
 
 An explicit grounded return is supported as a zero-voltage terminal. Ideal
 earth currents internal to transformer grounding stamps are reconstructed;
 external bus earth-current allocation is intentionally free.
 
-The implementation refuses line endpoint shunts, partial or permuted line maps,
-delta generators, switches, capacitors, IBRs, general `n_winding`
-transformers, multiple sources, meshed networks, voltage-dependent laws other
-than constant impedance, control profiles, DC tables and time-series
-references. This conservative boundary prevents a successful build from
+The implementation still refuses partial or permuted line endpoint maps, IBRs,
+adjustable transformer taps, active control profiles, DC tables and time-series
+references. Geometry metadata may be retained, but electrical line coefficients
+must already be compiled. This boundary prevents a successful build from
 silently discarding supplied physics.
 
 ## Relationship to IVRSDP
@@ -282,25 +377,22 @@ silently discarding supplied physics.
 `IVRSDP` builds one global homogeneous current-voltage system, eliminates its
 linear equations, and then lifts the remaining coordinates. `BranchFlowSDP`
 uses bus, line-edge and component-local moments. The branch-flow variables
-expose losses and receiving powers locally; connection and transformer blocks
-overlap only through bus voltage moments and matrix KCL.
+expose losses and receiving powers locally. A conditional voltage-only closure
+Gram coordinates cycles, sources, switches, multiwinding hyperedges and
+cross-bus LNCs, but it does not introduce the full global current-voltage Gram
+used by `IVRSDP`.
 
 The two relaxations are tested for objective and recovered-voltage agreement on
-their common radial series-line subset. This does not establish universal
-equivalence: component-local lifts, shunts, bounds and future transformer
-extensions can change relaxation strength. Performance must likewise be
-measured rather than inferred from cone counts.
+radial and meshed lines, endpoint shunts, multiple sources, connection-aware
+devices, nonlinear load envelopes and fixed transformer families. This does not
+establish universal equivalence: their different PSD completions and local
+auxiliary-current lifts can change relaxation strength. Performance must
+likewise be measured rather than inferred from cone counts.
 
 ## Planned extensions
 
-1. Endpoint line shunts with rated endpoint currents.
-2. Delta generators and capacitors using their schema-specific port-power
-   conventions.
-3. Fixed switches.
-4. General multiwinding transformer hyperedge blocks.
-5. Static IBR filters and shared-link capability constraints.
-
-Those extensions should use component-local PSD blocks whose voltage submatrices
-overlap the corresponding bus ``W_i``. General multiwinding devices are
-hyperedges rather than ordinary binary branches; treating them explicitly is
-preferable to disguising them as a series impedance.
+1. Static IBR filters and shared-link capability constraints.
+2. Partial or permuted line endpoint maps.
+3. Adjustable controls and taps with explicit convex relaxations.
+4. Sparse/chordal alternatives to the dense voltage closure on large meshes.
+5. Stronger state recovery and performance studies on larger feeders.

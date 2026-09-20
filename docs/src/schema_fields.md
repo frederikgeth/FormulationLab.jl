@@ -9,7 +9,7 @@ define arity, units, relaxation choices and fixed-setting restrictions.
 
 This inventory describes the broad IVRSDP/IVRSOC static-AC contract.
 `BranchFlowSDP` intentionally accepts only the subset listed in its
-[radial prototype contract](branch_flow_sdp.md); dictionary fields appearing
+[formulation contract](branch_flow_sdp.md); dictionary fields appearing
 below are not automatically supported by every formulation.
 
 | Record | Accepted static fields | Excluded |

@@ -15,10 +15,11 @@ result = solve_opf(input, IVRSDP(objective=:source_import);
 [IVRSDP](sdp.md) is a dense or chordal current–voltage semidefinite relaxation with explicit
 winding connections, fixed-tap transformers, and regulators. [IVRSOC](soc.md) replaces its moment cones with SOC outer
 relaxations with constant-power secants and optional fixed complex projections.
-[BranchFlowSDP](branch_flow_sdp.md) is an experimental radial branch-flow
-semidefinite relaxation with bus/edge moments, matrix current balance, delta
-load moments and fixed transformer connection blocks. Its remaining component
-contract is deliberately narrower than IVRSDP. These results are not
+[BranchFlowSDP](branch_flow_sdp.md) is an experimental multiphase branch-flow
+semidefinite relaxation with bus/edge moments, matrix current balance, local
+connection and transformer blocks, and voltage closure for meshes, multiple
+sources and voltage LNCs. Its static-AC contract now approaches IVRSDP except
+for IBRs and the numerical/decomposition profiles described in its manual. These results are not
 AC feasibility certificates. Read the [coverage contract](coverage.md) before
 selecting a formulation.
 

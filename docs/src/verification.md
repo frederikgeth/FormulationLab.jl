@@ -2,34 +2,28 @@
 
 ## Branch-flow milestone — 21 September 2026
 
-The experimental radial `BranchFlowSDP` slice now has 201 default checks. They
-cover an analytical two-bus optimum at two power bases, rank and physical
-residuals, input branch orientation, a coupled unbalanced three-phase comparison
-with `IVRSDP`, three-phase delta constant-power and constant-impedance loads,
-explicit-neutral matrix KCL, fixed shunts, generator dispatch, a binding
-line-current limit, applicability refusals, the generic formulation API, and
-prepared-network reconstruction. Every supported fixed transformer connection
-is exercised, including leakage, excitation, neutral grounding, galvanic bonds,
+The `BranchFlowSDP` checks cover analytical radial optima, coupled unbalanced
+meshes, multiple sources, endpoint line shunts, fixed open/closed switches,
+capacitors, wye and delta generators, explicit-neutral matrix KCL, all supported
+load laws and advanced voltage maps. Explicit and line-derived LNCs are
+exercised. Every fixed transformer connection is covered, including a general
+three-winding hyperedge, leakage, excitation, neutral grounding, galvanic bonds,
 declared current limits, mixed line/transformer topology and reversed component
-declaration. A diagonal-only counterexample verifies that off-diagonal matrix
-KCL materially strengthens the relaxation. Real and Hermitian cone builds,
-multiple power bases and the feasibility objective are also covered. The
-independent OpenDSS transformer oracle now checks both `IVRSDP` and
-`BranchFlowSDP` at unity and non-unity taps (76 assertions in that test set).
-Permuted and partial component maps additionally verify that limits, costs,
-terminal currents and powers remain in declared map order. Malformed required
-fields, shunt indices, load arities and negative line ratings are applicability
-regressions, and transformer-only feeders exercise the topology-rank diagnostic.
+declaration. Common cases compare objectives and voltages against `IVRSDP`, and
+the independent AC validator checks recovered states where rank permits. The
+suite also retains permuted/partial device-map regressions and malformed-input
+applicability checks; static IBRs remain an intentional refusal.
 
-The Julia 1.12.6 default suite passes **6,005/6,005** checks. The Documenter
-build, cross-references and doctests also pass. OpenDSSDirect still emits the
-precompilation warnings recorded below and then runs its oracle tests without
-the cache.
+The Julia 1.12.6 default suite passes **6,059/6,059** checks. OpenDSSDirect still
+emits the precompilation warnings recorded below and then runs its oracle tests
+without the cache.
 
-These comparisons establish the implemented radial line, delta-load and fixed
-two-side transformer subset; they do not establish equivalence to IVRSDP outside
-the common tested contract, scalable performance, or AC feasibility of an
-arbitrary recovered moment solution.
+These comparisons establish the implemented static component contracts and
+several radial/meshed agreement cases; they do not establish universal
+equivalence to `IVRSDP`, scalable performance, or AC feasibility of an arbitrary
+recovered moment solution. The branch-flow formulation uses local
+current-voltage blocks plus a conditional global voltage Gram, whereas `IVRSDP`
+lifts a global eliminated current-voltage system.
 
 ## Static AC containment milestone — 11 September 2026
 

@@ -12,7 +12,7 @@ with explicit approximation diagnostics. There is no iterative outer approximati
 |:--|:--|:--|
 | `LinDist3Flow` | Retain the fixed-reference approximation baseline. | Useful when its lossless, radial assumptions are acceptable. It is not an AC lower bound; the latest studies do not establish its speed or accuracy on the entire panel. |
 | `IVRSDP` | Retain dense reference and chordal representations. | Provides a stronger moment relaxation and a correctness comparator, with optional Mosek testing. It is outside the SOC-only deployment target. |
-| `BranchFlowSDP` | Experimental radial formulation added after this decision baseline. | Exposes classic line moments plus matrix KCL and connection-local load/transformer moments; its component subset remains narrower than IVRSDP. |
+| `BranchFlowSDP` | Experimental branch-flow formulation added after this decision baseline. | Exposes classic line moments plus matrix KCL and connection-local device moments; a conditional voltage Gram supports meshes and multiple sources. Static IBRs remain outside its scope. |
 | `IVRSOC`, physical projections plus `strengthening=:linear`, `clique_size=32` | Retain as the general Clarabel starting point. | Best-supported balance of objective agreement and accepted solver outcomes so far; still has substantial failures and slow cases. |
 | `IVRSOC`, `strengthening=:kim`, eight triplets | Retain as an opt-in strengthening of the same family. | Twelve-coordinate setting is useful on ENWL 96; 32 is a useful LV comparator. Neither warrants replacing the general default. |
 | Automatic voltage LNCs | Keep opt-in, default `lnc=:off`. | Valid with suitable domains, but negligible benefit or worse numerical behavior in the small historical panel. |
