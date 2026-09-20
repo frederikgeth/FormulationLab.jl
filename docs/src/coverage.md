@@ -14,7 +14,7 @@ as a proposal. The proposal revision inspected during migration is
 | `vpos_*`, `vneg_max`, `vzero_max`, `vn_max` | Restricted/refused or explicitly waived by permissive policy | Lifted physical voltage maps | Lifted physical voltage maps |
 | Line series R/X matrices and terminal maps | Fixed-reference lossless drop | Full coupled series law; complete aligned maps on radial or meshed networks | Full coupled linear current/voltage law |
 | Line `G/B_from/to` | Endpoint-shunt lowering | Explicit endpoint currents and powers | Explicit endpoint currents |
-| Line/linecode `i_max`, `s_max` | Live-voltage SOC surrogate, both endpoints | Series-current and sending/receiving power limits | Lifted current and apparent power, both endpoints |
+| Line/linecode `i_max`, `s_max` | Live-voltage SOC surrogate, both endpoints | Total endpoint current/power limits; implied endpoint and shunt-corrected series-current bounds | Lifted current and apparent power, both endpoints |
 | Load `p_nom`, `q_nom`, connections | Fixed-reference channel allocation | Wye/single-phase and two-/three-terminal delta incidence with local moments | Physical incidence and channel currents |
 | Load `model`, `v_nom`, ZIP/exponents | P/Z/ZP; documented projections for I/exponential | P/Z exact laws; I/ZIP/exponential power-cone envelopes | P/Z current/power laws; I/ZIP/exponential power-cone envelopes |
 | Generator P/Q bounds, `s_max`, `i_max`, `cost` | Affine/SOC with restricted controls | Wye/delta conductor P/Q/S/I capability and linear cost | Coil powers and coil/terminal currents, including neutral |

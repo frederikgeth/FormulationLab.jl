@@ -109,6 +109,10 @@ With conductor endpoint ratings `Imax`, derive
  I_{max,k}+\sum_j |Y_{t,kj}|\bar V_{t,j}\right).
 ```
 
+For `BranchFlowSDP`, `Imax` may be either declared or inferred from the valid
+``I_{max}=S_{max}/\underline V`` bound. `IVRSDP` currently uses declared
+endpoint current ratings for automatic line LNCs.
+
 Zero admittance coefficients require no voltage bound. For voltage selection row
 `d` (including the negative neutral coefficient),
 

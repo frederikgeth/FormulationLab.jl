@@ -49,7 +49,9 @@ caller can report formulation-selection decisions before invoking a solver.
 `:real` or `:hermitian`. `s_base` controls per-unit power scaling and defaults
 to 10 kVA. `lnc=:lines` derives conservative line cuts from declared voltage
 and current bounds. Explicit `VoltageLNC` objects may be passed through
-`voltage_lncs`.
+`voltage_lncs`. `implied_current_limits=true` adds valid endpoint- and
+series-current bounds inferred from apparent-power and voltage bounds; set it
+to `false` only for formulation ablations.
 
 ## Variables and relaxation
 
@@ -86,6 +88,48 @@ Their diagonals are the public endpoint conductor-power outputs. Endpoint
 current limits use the corresponding affine current Grams, so a declared
 `i_max` rates total endpoint current rather than silently rating only the series
 current.
+
+### Declared and implied line-current limits
+
+Let ``J^f`` and ``J^t`` denote the affine total endpoint-current Grams. For
+each rated phase conductor, a positive lower voltage bound and endpoint
+apparent-power rating imply
+
+```math
+\bar I^f=\frac{S_{max}}{\underline V_f},\qquad
+\bar I^t=\frac{S_{max}}{\underline V_t}.
+```
+
+A fixed source phasor supplies an exact voltage magnitude. If an explicit
+`i_max` also exists, the tighter declared or derived endpoint limit is used:
+
+```math
+J^f_{kk}\le\min(I_{max,k},\bar I^f_k)^2,\qquad
+J^t_{kk}\le\min(I_{max,k},\bar I^t_k)^2.
+```
+
+For coupled endpoint shunts, finite terminal-voltage upper bounds give the safe
+row-wise bounds
+
+```math
+\bar I^{sh,f}_k=\sum_h |Y^f_{kh}|\bar V^f_h,\qquad
+\bar I^{sh,t}_k=\sum_h |Y^t_{kh}|\bar V^t_h.
+```
+
+The series-current moment is then strengthened by
+
+```math
+L_{kk}\le\left[\min\left(\bar I^f_k+\bar I^{sh,f}_k,
+                                  \bar I^t_k+\bar I^{sh,t}_k\right)\right]^2.
+```
+
+Missing lower bounds prevent only the corresponding `s_max`-derived endpoint
+bound; missing upper bounds prevent only a shunt-corrected series bound. The
+model never substitutes a phase-ground bound for an ungrounded phase-neutral
+quantity. These constraints are valid for the original AC equations but can
+tighten the lifted relaxation, following Geth and Liu's
+[*Notes on BIM and BFM Optimal Power Flow With Parallel Lines and Total Current
+Limits* (2022)](https://doi.org/10.1109/PESGM48719.2022.9917005).
 
 The three matrices have a direct physical reading. ``W_i`` contains squared
 voltage magnitudes on its diagonal and cross-terminal voltage products off the
@@ -320,6 +364,8 @@ For a successful solve, the most useful fields are:
 - `relaxed_powers`: component coil/conductor powers in physical units;
 - `load_envelopes` and `lnc_diagnostics`: the nonlinear load envelopes and
   applied/skipped lifted nonlinear cuts;
+- `numerical_diagnostics[:line_bound_diagnostics]`: declared, derived and
+  effective endpoint-current bounds plus the implied series-current bounds;
 - `rank_ratio`: the largest topology-block (line, transformer, closed switch or
   global voltage closure) second-to-first eigenvalue ratio; and
 - `solve` / `numerical_diagnostics`: termination status, cone/scaling metadata
@@ -344,7 +390,8 @@ The current implementation accepts:
 - radial or meshed AC components, multiple fixed voltage sources, and
   source-free components isolated by open switches;
 - full coupled line series R/X matrices, aligned complete terminal maps and
-  optional endpoint shunts, `length`, `i_max` and `s_max`;
+  optional endpoint shunts, `length`, `i_max` and `s_max`, including implied
+  total/series-current strengthening from `s_max` and voltage bounds;
 - explicit terminal and neutral conductors in the line matrices;
 - fixed phase-to-ground source phasors and the complete family of physical bus
   voltage maps and sequence limits;
