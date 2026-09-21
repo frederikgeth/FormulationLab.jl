@@ -316,6 +316,38 @@ objective units, and accepts an optional Mosek optimizer without adding a runtim
 dependency. Solver time limits may not bound model construction or factorization
 setup; use external process limits for unattended large-case sweeps.
 
+## Scalable ENWL ladder, 21 September 2026
+
+`examples/benchmark_enwl_scalable_sdp.jl` compares BMOPFTools/Ipopt with Mosek
+solutions of chordal IVRSDP and local BranchFlowSDP at 3, 10, and 30 kVA power
+bases. Inputs, NLP validation, and reported objectives remain in SI; only the two
+SDP models use per-unit coordinates internally. A row is accepted only when the
+solver returns `OPTIMAL` and the largest JuMP model residual is at most `1e-7`.
+This is a numerical publication gate, not a proof that the reported objective is
+a certified relaxation bound.
+
+At the 10 kVA primary base, both formulations passed on the 96- and 134-bus
+cases. On those cases BranchFlowSDP built roughly two to five times faster, while
+solve times were similar. Power-base choice remained material: 3 kVA gave the
+IVR candidates closest to the feasible NLP objectives, but the 134-bus
+BranchFlowSDP 3 kVA run failed the residual gate. Even accepted candidates were
+between `4e-6` and `2.8e-2` W above the feasible NLP objective. Those tiny reversed
+gaps are retained in the table rather than described as lower bounds.
+
+The 178-bus case contains a 144-branch star at one bus. Before exact KCL
+aggregation, the IVR clique cover produced 1,763,405 variables and a maximum cone
+order of 147. The sparse extended KCL representation reduces this to 46,599
+variables and maximum order 16 (six split rows and 55 auxiliary current sums).
+The model is now practical to build and solve, but no tested base passed the
+publication gate. The best residuals occurred at 30 kVA: `4.69e-7` for IVR with
+`SLOW_PROGRESS`, and `4.54e-7` for solver-optimal BranchFlowSDP. The 244-bus case
+was therefore skipped by the staged gate; this is not an applicability result.
+
+Exact inputs, revisions, timings, statuses, candidate objectives, residuals,
+rank diagnostics, and topology counts are recorded in
+`examples/results/enwl_scalable_sdp_2026-09-21.json`; the adjacent Markdown file
+is the human-readable table. The artifact revision is `8e12e9f`.
+
 ## ENWL validation, 11 September 2026
 
 The default profile was checked on four selected files from
