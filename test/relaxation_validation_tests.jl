@@ -22,6 +22,10 @@ isdefined(@__MODULE__, :_l3f_case) || include("lindist3flow_fixtures.jl")
         @test report.bound_ordering_passed
         @test report.bound_margin > 0
         @test report.primal_dual_gap >= -1e-3
+        @test isfinite(report.dual_objective)
+        @test report.bound_source in ("objective_bound", "dual_objective")
+        @test report.relative_gap isa Float64
+        @test report.solver_metrics isa Dict{String,Float64}
         @test !isempty(report.constraint_maxima)
         @test report.physical !== nothing
         @test report.recovery_feasible

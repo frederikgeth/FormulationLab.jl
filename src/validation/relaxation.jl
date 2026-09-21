@@ -14,7 +14,12 @@ struct RelaxationValidationReport
     solve::SolveStatus
     dual_status::String
     primal_objective::Float64
+    objective_bound::Float64
+    dual_objective::Float64
     solver_bound::Float64
+    bound_source::String
+    bound_disagreement::Float64
+    relative_gap::Float64
     primal_dual_gap::Float64
     model_violation::Float64
     model_feasible::Bool
@@ -26,9 +31,12 @@ struct RelaxationValidationReport
     feasible_objective::Union{Nothing,Float64}
     bound_margin::Union{Nothing,Float64}
     bound_ordering_passed::Union{Nothing,Bool}
+    solver_metrics::Dict{String,Float64}
     bound_usable::Bool
     reasons::Vector{String}
 end
+
+_solver_numerical_diagnostics(::Any) = Dict{String,Float64}()
 
 function _relaxation_constraint_summary(model, raw, tolerance)
     maxima = Dict{String,Float64}()
@@ -111,9 +119,22 @@ function validate_relaxation_solution(
     maxima, violations = _relaxation_constraint_summary(model, raw, model_atol)
 
     primal = has_primal ? _relaxation_objective(model, scale, JuMP.objective_value) : NaN
-    bound = _relaxation_objective(model, scale, JuMP.objective_bound)
-    isfinite(bound) ||
-        (bound = _relaxation_objective(model, scale, JuMP.dual_objective_value))
+    objective_bound = _relaxation_objective(model, scale, JuMP.objective_bound)
+    dual_objective = _relaxation_objective(model, scale, JuMP.dual_objective_value)
+    bound, bound_source = if isfinite(objective_bound)
+        objective_bound, "objective_bound"
+    elseif isfinite(dual_objective)
+        dual_objective, "dual_objective"
+    else
+        NaN, "unavailable"
+    end
+    bound_disagreement = isfinite(objective_bound) && isfinite(dual_objective) ?
+        objective_bound - dual_objective : NaN
+    relative_gap = try
+        Float64(JuMP.relative_gap(model))
+    catch
+        NaN
+    end
     gap = isfinite(primal) && isfinite(bound) ? primal - bound : NaN
     dual = string(JuMP.dual_status(model))
     dual_feasible = JuMP.dual_status(model) == JuMP.MOI.FEASIBLE_POINT
@@ -126,6 +147,11 @@ function validate_relaxation_solution(
     ordering_tolerance = feasible === nothing ? nothing :
         max(Float64(bound_atol), Float64(bound_rtol) * max(abs(feasible), abs(bound), 1.0))
     ordering = margin === nothing ? nothing : margin >= -ordering_tolerance
+    solver_metrics = try
+        _solver_numerical_diagnostics(JuMP.unsafe_backend(model))
+    catch
+        Dict{String,Float64}()
+    end
 
     physical = nothing
     physical_error = nothing
@@ -153,8 +179,9 @@ function validate_relaxation_solution(
         "solver lower bound exceeds the supplied feasible AC objective")
     usable = isempty(reasons)
 
-    RelaxationValidationReport(status, dual, primal, bound, gap,
+    RelaxationValidationReport(status, dual, primal, objective_bound,
+        dual_objective, bound, bound_source, bound_disagreement, relative_gap, gap,
         model_violation, model_feasible, maxima, violations, physical,
-        physical_error, recovery_feasible, feasible, margin, ordering, usable,
-        reasons)
+        physical_error, recovery_feasible, feasible, margin, ordering,
+        solver_metrics, usable, reasons)
 end

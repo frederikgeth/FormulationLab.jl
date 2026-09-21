@@ -66,6 +66,17 @@ end
     @test only(r.lnc_diagnostics).status==:applied
     build=build_sdp_opf(net,nothing;options)
     @test_throws ArgumentError add_voltage_lnc!(build,spec)
+    voltage=Dict(("t","a")=>115cis(0.0),("t","b")=>115cis(-2pi/3),
+        ("t","n")=>0im)
+    audit=audit_voltage_lncs(build,voltage)
+    @test audit.passed
+    @test length(audit.records)==1
+    @test only(audit.records).minimum_cut_slack >= -1e-12
+    outside=copy(voltage);outside[("t","b")]=115cis(-pi/3)
+    @test !audit_voltage_lncs(build,outside).passed
+    @test voltage_lnc_residual(spec,outside).domain.sector < 0
+    @test_throws ArgumentError audit_voltage_lncs(build,
+        Dict(("t","a")=>115+0im))
     @test_throws ArgumentError phasor_products(build,VoltagePhasor("missing","a"),v)
     coil=VoltagePhasor(Dict(("f","a")=>1,("f","c")=>-1))
     winding=VoltageLNC("delta-wye",coil,u,LNCBounds((390,410),(110,120),(-.1,.1));provenance="referred winding operating domain")

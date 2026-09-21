@@ -13,12 +13,15 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [weakdeps]
 Clarabel = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
+MosekTools = "1ec41992-ff65-5c91-ac43-2df89e9693a4"
 
 [extensions]
 FormulationLabClarabelExt = "Clarabel"
+FormulationLabMosekToolsExt = "MosekTools"
 
 [compat]
 Clarabel = "0.11"
+MosekTools = "0.15"
 JSON3 = "1"
 JuMP = "1.23"
 LinearAlgebra = "1"

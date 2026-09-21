@@ -74,6 +74,14 @@ ordering against that feasible AC objective. The feasible objective is only an
 upper bound for the minimization problem; the audit does not assume it is a
 global optimum.
 
+The report retains `objective_bound` and `dual_objective` separately, records
+which one supplied `solver_bound`, and exposes the solver's reported relative
+gap. When MosekTools is loaded, an optional package extension also records
+Mosek's interior-point primal-feasibility, dual-feasibility and optimality
+measures plus its final primal/dual constraint, cone and variable violations.
+The Mosek metrics are in the internally scaled solver model; objective fields in
+the validation report are converted back to the public objective units.
+
 The audit independently evaluates the recovered voltage/current candidate in
 SI units through `physical_residuals`. Its result is exposed as
 `recovery_feasible` and `physical`. Recovery is deliberately separate from
@@ -82,6 +90,55 @@ bound even though a rank-one extraction is not AC feasible. Conversely, a
 plausible recovered point cannot repair an infeasible conic iterate or invalid
 dual bound. Per-constraint-type maxima and violation counts are retained to make
 scaling failures diagnosable.
+
+### Auditing voltage LNCs at an external AC point
+
+Automatic line LNCs are valid only if their derived magnitude and angle domain
+contains every feasible AC point. A full lifted-state containment test is
+unnecessarily expensive when this domain is the only question. Every applied
+voltage LNC therefore retains its original phasor maps, and can be checked
+directly against bus voltages in SI units:
+
+```julia
+voltage = Dict(
+    ("source", "a") => 230cis(0.0),
+    ("load", "a") => 226cis(-0.01),
+    # ...all referenced bus terminals...
+)
+
+build = build_opf(input, IVRSDP(lnc=:lines))
+audit = audit_voltage_lncs(build, voltage; atol=1e-9)
+
+audit.passed
+audit.max_violation
+audit.records[1].minimum_cut_slack
+audit.records[1].minimum_domain_slack
+```
+
+The same API applies to `BranchFlowSDPBuild`, including its edge-local line
+moments. Slacks are dimensionless because they use the normalized coordinates
+of [`add_lnc!`](@ref); a negative slack is a violation. This audit establishes
+only that the supplied rank-one voltages obey the LNCs. It does not establish
+KCL, device feasibility, global optimality, or the validity of a solver's dual
+certificate.
+
+The September 2026 ENWL diagnostic panel checked 5,739 distinct line-LNC
+instances across 178-, 244-, and 538-bus cases and both SDP formulations against
+fresh Ipopt solutions. None was violated. Nevertheless, several Mosek dual
+objectives lay slightly above the feasible AC objective. JuMP's objective bound
+and Mosek's dual objective agreed exactly in all 30 strengthening runs, so this
+was neither an invalid-cut observation nor a wrapper-bound mismatch. The
+[strengthening panel](https://github.com/frederikgeth/FormulationLab.jl/blob/main/examples/results/enwl_sdp_bound_diagnostics_2026-09-22.md)
+and [538-bus tolerance sweep](https://github.com/frederikgeth/FormulationLab.jl/blob/main/examples/results/enwl_sdp_tolerance_sweep_2026-09-22.md)
+retain the raw evidence.
+
+The tolerance sweep also shows why a requested optimizer tolerance is not a
+certificate: achieved primal and dual feasibility were not monotone in the
+requested tolerance, and some tighter requests ended with `SLOW_PROGRESS`.
+Keep the strengthening options opt-in, inspect the achieved solver metrics, and
+accept a lower bound only through `validate_relaxation_solution`. In particular,
+do not promote `OPTIMAL` alone, a small primal residual alone, or a plausible
+rank-one recovery into a certified bound.
 
 ## Electrical coordinates and preprocessing
 
