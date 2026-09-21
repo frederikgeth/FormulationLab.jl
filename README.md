@@ -9,6 +9,14 @@ Implemented:
 
 - **IVRSOC**: shares the SDP electrical model, replacing PSD cones with complex pairwise SOC minors, physical voltage–current projections, constant-power secants, and optional fixed complex three-map projections. Load power cones are retained. See [the formulation and benchmarks](docs/src/soc.md).
 
+- **BranchFlowSDP**: an experimental multiphase branch-flow SDP with bus voltage
+  moments, line ``W/S/L`` blocks including endpoint shunts, full matrix KCL,
+  local connection and transformer moments, and a voltage-closure Gram for
+  meshes, multiple sources and cross-bus cuts. It supports fixed switches,
+  capacitors, delta generators, general multiwinding transformers, power-cone
+  load envelopes, physical voltage maps and optional LNCs. Static IBRs remain
+  outside this formulation.
+
 ```julia
 using FormulationLab, Clarabel
 
@@ -22,6 +30,10 @@ sdp = solve_opf(input, IVRSDP(objective=:source_import);
 
 # Fixed SOC relaxation, built once and solved once:
 soc = solve_opf(input, IVRSOC(objective=:source_import);
+                solver_options=(verbose=false,))
+
+# Branch-flow SDP; optional line LNCs use conservative declared bounds:
+bfm = solve_opf(input, BranchFlowSDP(objective=:source_import, lnc=:lines);
                 solver_options=(verbose=false,))
 
 # Named fixed profiles (explicit keyword options override presets):
@@ -63,6 +75,7 @@ The default test environment includes Clarabel, Ipopt (for migrated affine-model
 - [Architecture and next steps](docs/src/architecture.md)
 - [BMOPF coverage](docs/src/coverage.md)
 - [SDP equations, scope, and numerical interpretation](docs/src/sdp.md)
+- [Branch-flow SDP](docs/src/branch_flow_sdp.md)
 - [LinDist3Flow usage](docs/src/lindist3flow.md) and [component equations](docs/src/lindist3flow_components.md)
 - [Migration provenance](docs/src/migration.md) and [verification results](docs/src/verification.md)
 
@@ -81,8 +94,9 @@ Open `docs/build/index.html`. Documentation CI builds the site on every pull
 request and publishes a downloadable HTML artifact. Publication to GitHub Pages
 can be enabled separately; no deployment credentials are needed for the build.
 
-Optional lifted nonlinear cuts can strengthen the SDP on physical voltage maps:
-use `IVRSDP(lnc=:lines)` for conservatively derived line bounds, or supply
+Optional lifted nonlinear cuts can strengthen either SDP on physical voltage maps:
+use `IVRSDP(lnc=:lines)` or `BranchFlowSDP(lnc=:lines)` for conservatively
+derived line bounds, or supply
 `voltage_lncs` with explicit domain provenance. See the
 [LNC formulation and usage](docs/src/lnc.md).
 

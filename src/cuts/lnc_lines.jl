@@ -29,22 +29,27 @@ function _add_line_lncs!(build,lines,terminal_rows,fixed;voltage_range=nothing)
             d=zeros(n);d[phases[k]]=1;d[phases[h]]=-1
             push!(pairs,("pair-$(tmf[phases[k]])-$(tmf[phases[h]])",d))
         end
-        highf=[last(physical_bounds(from,r)) for r in vf]
-        hight=[last(physical_bounds(to,r)) for r in vt]
-        imax=get(ratings,"i_max",nothing)
-        current=imax===nothing ? fill(Inf,n) : [min(imax[k]+_lnc_abs_sum(Yf[k,:],highf),
-            imax[k]+_lnc_abs_sum(Yt[k,:],hight)) for k in 1:n]
+        current = if hasproperty(line, :series_current)
+            line.series_current
+        else
+            highf=[last(physical_bounds(from,r)) for r in vf]
+            hight=[last(physical_bounds(to,r)) for r in vt]
+            imax=get(ratings,"i_max",nothing)
+            imax===nothing ? fill(Inf,n) : [min(
+                imax[k]+_lnc_abs_sum(Yf[k,:],highf),
+                imax[k]+_lnc_abs_sum(Yt[k,:],hight)) for k in 1:n]
+        end
         for (name,d) in pairs
             key="line/$id/$name"
-            provenance="Coupled line voltage drop; endpoint i_max plus bounded pi-shunt currents; physical voltage bounds"
+            provenance="Coupled line voltage drop; declared or apparent-power-derived endpoint current bounds; bounded pi-shunt currents; physical voltage bounds"
             a=_SDPRow();b=_SDPRow()
             for k in 1:n;_sdp_add!(a,vf[k],d[k]);_sdp_add!(b,vt[k],d[k]);end
             lu,hu=physical_bounds(from,a)
             lv,hv=physical_bounds(to,b)
             reason = if !(0<lu<=hu<Inf && 0<lv<=hv<Inf)
                 "missing positive lower or finite upper magnitude bound"
-            elseif imax===nothing
-                "missing endpoint current ratings"
+            elseif !any(isfinite,current)
+                "missing endpoint current ratings or apparent-power-derived current bounds"
             else
                 ""
             end

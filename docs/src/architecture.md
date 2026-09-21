@@ -3,7 +3,7 @@
 The dependency direction is BMOPF JSON → PowerIO → FormulationLab → optimizer.
 FormulationLab never imports PowerOptLab or BMOPFTools. JuMP is infrastructure, not the electrical data model.
 
-`LinDist3Flow`, `IVRSDP` and `IVRSOC` select mathematical formulations. `build_opf` and
+`LinDist3Flow`, `IVRSDP`, `IVRSOC` and experimental `BranchFlowSDP` select mathematical formulations. `build_opf` and
 `solve_opf` separately accept optimizer factories. `formulation_kind` distinguishes
 an approximation from a relaxation; LP/SOCP/SDP cone types alone do not do so.
 
@@ -38,6 +38,15 @@ upstream of the electrical coefficient boundary.
 The static AC extension now covers general multiwinding transformers, voltage
 sequence limits, static IBRs, and explicit load envelopes. The pinned field
 inventory records scope exceptions; control laws and adjustable taps remain out.
+
+The branch-flow formulation uses bus voltage moments, classic current/power
+blocks for pi-model lines, and component-local overlap blocks for connection
+currents, switches and transformers. Complete lifted ``v i^H`` matrices meet at
+matrix KCL. Radial single-source cases retain the light local structure. Meshes,
+multiple sources, general multiwinding hyperedges and cross-bus LNCs additionally
+use a voltage-closure Gram whose bus and adjacent-edge submatrices overlap the
+local blocks. This supplies cycle and source-angle consistency without replacing
+the branch-flow current and power variables by the IVRSDP compiler.
 
 Cuts must record validity assumptions and safe bounds. Equivalent solver encodings
 must be distinguished from changes in relaxation strength. Benchmark reports must

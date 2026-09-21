@@ -1,4 +1,36 @@
-# Verification — 2026-09-11
+# Verification
+
+## Branch-flow milestone — 21 September 2026
+
+The `BranchFlowSDP` checks cover analytical radial optima, coupled unbalanced
+meshes, multiple sources, endpoint line shunts, fixed open/closed switches,
+capacitors, wye and delta generators, explicit-neutral matrix KCL, all supported
+load laws and advanced voltage maps. Explicit and line-derived LNCs are
+exercised. Every fixed transformer connection is covered, including a general
+three-winding hyperedge, leakage, excitation, neutral grounding, galvanic bonds,
+declared current limits, mixed line/transformer topology and reversed component
+declaration. Common cases compare objectives and voltages against `IVRSDP`, and
+the independent AC validator checks recovered states where rank permits. The
+suite also retains permuted/partial device-map regressions and malformed-input
+applicability checks, including permuted delta dispatch, partial/permuted
+multiwinding maps, scalar phase-voltage bounds, inert open-switch model size and
+declaration-independent line orientation. Paper-derived regressions exercise
+parallel-line cross-voltage consistency and the strengthening from
+apparent-power/voltage bounds to total endpoint and shunt-corrected
+series-current limits. Static IBRs remain an intentional refusal.
+
+The Julia 1.12.6 default suite passes **6,091/6,091** checks. OpenDSSDirect still
+emits the precompilation warnings recorded below and then runs its oracle tests
+without the cache.
+
+These comparisons establish the implemented static component contracts and
+several radial/meshed agreement cases; they do not establish universal
+equivalence to `IVRSDP`, scalable performance, or AC feasibility of an arbitrary
+recovered moment solution. The branch-flow formulation uses local
+current-voltage blocks plus a conditional global voltage Gram, whereas `IVRSDP`
+lifts a global eliminated current-voltage system.
+
+## Static AC containment milestone — 11 September 2026
 
 The new [AC containment audit](ac_validation.md) adds 1,102 passing checks to
 the default suite (4,634 total on Julia 1.12.6). The first 1,097 of these new

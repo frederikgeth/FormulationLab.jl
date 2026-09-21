@@ -7,6 +7,11 @@ This records the static AC boundary, not parser/schema conformance. The
 [static equations](sdp_static.md) and [transformer contracts](sdp_transformers.md)
 define arity, units, relaxation choices and fixed-setting restrictions.
 
+This inventory describes the broad IVRSDP/IVRSOC static-AC contract.
+`BranchFlowSDP` intentionally accepts only the subset listed in its
+[formulation contract](branch_flow_sdp.md); dictionary fields appearing
+below are not automatically supported by every formulation.
+
 | Record | Accepted static fields | Excluded |
 |---|---|---|
 | `bus` | `terminal_names`, `perfectly_grounded_terminals`, `v_min`, `v_max`, `vn_max`, `vpn_min`, `vpn_max`, `vpp_min`, `vpp_max`, `vpos_min`, `vpos_max`, `vneg_max`, `vzero_max` | `time_series` |

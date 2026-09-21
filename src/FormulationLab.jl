@@ -54,6 +54,7 @@ include("formulations/sdp_numerics.jl")
 include("formulations/physical_bounds.jl")
 include("formulations/sdp_sparse.jl")
 include("formulations/sdp_nwinding.jl")
+include("formulations/branch_flow_sdp.jl")
 include("cuts/lnc_lines.jl")
 include("formulations/soc.jl")
 include("cuts/soc_fixed.jl")
@@ -68,8 +69,13 @@ export ReconstructedSolution, reconstruct_solution, reconstruction_plan, restore
 export ACPoint, containment_report, physical_residuals, complete_ac_point
 export PhysicalBoundReport, bound_report
 export IVRSOC, SOCOptions, SOCBuild, SOCResult, build_soc_opf, solve_soc_opf
+export BranchFlowSDPOptions, BranchFlowSDPBuild, BranchFlowSDPResult,
+       BranchFlowSDPInapplicableError, BranchFlowSDPApplicabilityReport,
+       check_branch_flow_sdp_applicability, is_branch_flow_sdp_applicable,
+       build_branch_flow_sdp, solve_branch_flow_sdp
 export LNCBounds, VoltagePhasor, VoltageLNC, LNCDiagnostic, add_lnc!, add_voltage_lnc!, phasor_products
-export AbstractFormulation, LinDist3Flow, IVRSDP, formulation_kind, build_opf, solve_opf
+export AbstractFormulation, LinDist3Flow, IVRSDP, BranchFlowSDP,
+       formulation_kind, build_opf, solve_opf
 export SDPOptions, SDPBuild, SDPResult, SDPInapplicableError, build_sdp_opf, solve_sdp_opf
 export BMOPFInput, read_bmopf, SolveStatus, solve_status, solve_diagnostics
 export kron_reduce_bmopf, reduce_bmopf_neutrals, kron_reduce_neutrals

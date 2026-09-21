@@ -48,6 +48,8 @@ function _reconstruction_seed(r;build=nothing)
     elseif r isa SDPResult
         currents=r.current_candidate
         return ACPoint(voltage=r.voltage_candidate,currents=currents)
+    elseif r isa BranchFlowSDPResult
+        return ACPoint(voltage=r.voltage_candidate,currents=r.current_candidate)
     elseif r isa L3FResult
         v=Dict((b,t)=>ComplexF64(d["vm"]*cis(d["reference_angle"])) for (b,ts) in r.buses for (t,d) in ts)
         currents=Dict{Tuple{Symbol,String},Vector{ComplexF64}}()

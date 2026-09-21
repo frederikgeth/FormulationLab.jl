@@ -13,20 +13,31 @@ struct IVRSDP <: AbstractFormulation
 end
 IVRSDP(;kwargs...) = IVRSDP(SDPOptions(;kwargs...))
 
+"""Radial multiphase branch-flow semidefinite relaxation."""
+struct BranchFlowSDP <: AbstractFormulation
+    options::BranchFlowSDPOptions
+end
+BranchFlowSDP(;kwargs...) = BranchFlowSDP(BranchFlowSDPOptions(;kwargs...))
+
 formulation_kind(::LinDist3Flow) = :approximation
 formulation_kind(::IVRSDP) = :relaxation
+formulation_kind(::BranchFlowSDP) = :relaxation
 
 """Build an inspectable formulation with a separately supplied optimizer factory."""
 build_opf(input, f::LinDist3Flow; optimizer=default_optimizer(), kwargs...) =
     build_l3f_opf(input, optimizer; options=f.options, kwargs...)
 build_opf(input, f::IVRSDP; optimizer=default_sdp_optimizer(), kwargs...) =
     build_sdp_opf(input, optimizer; options=f.options, kwargs...)
+build_opf(input, f::BranchFlowSDP; optimizer=default_sdp_optimizer(), kwargs...) =
+    build_branch_flow_sdp(input, optimizer; options=f.options, kwargs...)
 
 """Solve a formulation. A relaxation result is not an AC-feasibility certificate."""
 solve_opf(input, f::LinDist3Flow; optimizer=default_optimizer(), kwargs...) =
     solve_l3f_opf(input, optimizer; options=f.options, kwargs...)
 solve_opf(input, f::IVRSDP; optimizer=default_sdp_optimizer(), kwargs...) =
     solve_sdp_opf(input, optimizer; options=f.options, kwargs...)
+solve_opf(input, f::BranchFlowSDP; optimizer=default_sdp_optimizer(), kwargs...) =
+    solve_branch_flow_sdp(input, optimizer; options=f.options, kwargs...)
 
 """
     IVRSOC(; profile=:clarabel, kwargs...)

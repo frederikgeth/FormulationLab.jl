@@ -1,7 +1,7 @@
 # Independent OpenDSS circuits, fixed taps and controls disabled. Source phasors
 # are read after solving to account for OpenDSS's finite source impedance.
 using OpenDSSDirect
-@testset "SDP winding leakage matches OpenDSS fixed-tap circuits" begin
+@testset "SDP formulations match OpenDSS fixed-tap transformer circuits" begin
     for kind in ("single_phase","center_tap","delta_wye","wye_delta"),tap in (1.0,1.04)
         net=_sdp_tx_case(kind;tap)
         tx=net["transformer"][kind]["tx"]
@@ -52,18 +52,33 @@ using OpenDSSDirect
             src["v_magnitude"][k]=abs(dv["f.$k"]);src["v_angle"][k]=angle(dv["f.$k"])
         end
         r=_tx_solve(net)
+        # The wye-delta secondary has a free common-mode voltage. BranchFlowSDP
+        # uses the fixture's original c=0 voltage gauge; delta terminal KCL
+        # makes this gauge electrically neutral, and comparisons remain
+        # exclusively line-to-line.
+        bfm_net=deepcopy(net)
+        kind=="wye_delta" &&
+            (bfm_net["bus"]["t"]["perfectly_grounded_terminals"]=["c"])
+        bfm=solve_branch_flow_sdp(bfm_net;
+            options=BranchFlowSDPOptions(objective=:source_import),
+            solver_options=(verbose=false,tol_feas=1e-6,
+                tol_gap_abs=1e-6,tol_gap_rel=1e-6))
         @test r.solve.optimal
+        @test bfm.solve.optimal
         terminalmap=kind=="center_tap" ? Dict("x1"=>1,"x2"=>2,"n"=>0) :
             nphase==1 ? Dict("p"=>1,"n"=>0) : Dict("a"=>1,"b"=>2,"c"=>3,"n"=>0)
         for (_,tm,_,_,_) in specs
             actual=r.voltage_candidate[("t",tm[1])]-r.voltage_candidate[("t",tm[2])]
+            actual_bfm=bfm.voltage_candidate[("t",tm[1])]-bfm.voltage_candidate[("t",tm[2])]
             expected=get(dv,"t.$(terminalmap[tm[1]])",0im)-get(dv,"t.$(terminalmap[tm[2]])",0im)
             @test actual ≈ expected rtol=2e-4 atol=0.005
+            @test actual_bfm ≈ expected rtol=2e-4 atol=0.005
         end
         # Compare source complex power, including winding losses.
         OpenDSSDirect.Circuit.SetActiveElement("transformer.tx")
         powers=OpenDSSDirect.CktElement.Powers()
         expected=sum(powers[1:OpenDSSDirect.CktElement.NumConductors()])*1000
         @test sum(r.relaxed_powers[(:transformer_from,"$kind/tx")]) ≈ expected rtol=2e-4 atol=0.02
+        @test sum(bfm.relaxed_powers[(:transformer_from,"$kind/tx")]) ≈ expected rtol=2e-4 atol=0.02
     end
 end
