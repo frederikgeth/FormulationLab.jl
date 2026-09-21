@@ -14,20 +14,21 @@ const SMALL_ENWL_CASES = [
     "network_10_Feeder_2.json", # 10 buses
     "network_5_Feeder_1.json",  # 11 buses
 ]
+const ENWL_S_BASE = 1e4
 
 function _git_revision(path)
     readchomp(`git -C $path rev-parse HEAD`)
 end
 
 function _prepare_enwl_case(path)
-    net, s_base, changes, parser_provenance = prepare_case(path)
+    net, _, changes, parser_provenance = prepare_case(path)
     reduced = kron_reduce_bmopf(net)
     reduction = deepcopy(reduced["_meta"]["kron_reduction"])
     # The audit records above remain in the result file. Neither solver should
     # receive implementation metadata as an electrical component table.
     clean = panel_clean(reduced)
     pop!(clean, "extras", nothing)
-    clean, s_base, changes, parser_provenance, reduction
+    clean, ENWL_S_BASE, changes, parser_provenance, reduction
 end
 
 function _sdp_run(net, s_base, formulation; time_limit=90.0)
@@ -162,12 +163,14 @@ function run_enwl_panel(data_dir, output; time_limit=90.0)
         "formulationlab_revision" => _git_revision(pwd()),
         "bmopf_draft_data_revision" => _git_revision(abspath(joinpath(data_dir, "..", "..", ".."))),
         "objective" => "source active-power import (W)",
+        "s_base_VA" => ENWL_S_BASE,
         "time_limit_seconds" => time_limit,
         "threads" => 1,
         "input_policy" => [
             "remove generators colocated with a voltage source",
             "fix transformer taps and omit control profiles",
             "apply FormulationLab explicit-neutral Kron reduction",
+            "use the same fixed 10 kVA power base for all three models",
             "give the identical derived dictionary and per-unit base to all models",
         ],
         "interpretation" => [

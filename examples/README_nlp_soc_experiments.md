@@ -56,8 +56,11 @@ caveat, not silently corrected in the baseline.
 
 `benchmark_nlp_sdp_enwl.jl` compares a BMOPFTools/Ipopt AC solution with the
 dense reference `IVRSDP` and `BranchFlowSDP`, using Mosek for both relaxations.
-It selects the five smallest reduced ENWL feeders (5–11 buses), uses one thread,
-warms every execution path before timing, and checkpoints JSON after each stage.
+It selects the five smallest reduced ENWL feeders (5–11 buses), uses a common
+10 kVA power base and one solver thread, warms every execution path before
+timing, and checkpoints JSON after each stage. The fixed 10 kVA base is also the
+formulations' normal default; substantially smaller bases caused avoidable
+BranchFlowSDP conditioning failures in Mosek during experiment development.
 
 ```sh
 julia --project=test/integration examples/benchmark_nlp_sdp_enwl.jl \
