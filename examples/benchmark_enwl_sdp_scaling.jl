@@ -88,6 +88,43 @@ function _scaling_summary(rows)
     )
 end
 
+function _finalize_scaling_summary!(data)
+    base_rows = [row for case in data["cases"] for row in case["base_sweep"]]
+    ivr_base = [row for row in base_rows if row["formulation"] == "ivr"]
+    bfm_base = [row for row in base_rows if row["formulation"] == "branch_flow"]
+    witness_ivr = [row for row in data["witness"] if row["formulation"] == "ivr"]
+    witness_bfm = [row for row in data["witness"] if row["formulation"] == "branch_flow"]
+    bfm_3k_scaled = [row for row in witness_bfm if row["s_base_VA"] == 3e3 &&
+        row["scale_objective"] && row["accepted"]]
+    solver_scaling_delta = length(bfm_3k_scaled) == 2 ?
+        abs(bfm_3k_scaled[1]["objective_W"] - bfm_3k_scaled[2]["objective_W"]) : nothing
+    ivr_region_pairs = Float64[]
+    for row in witness_ivr
+        row["state_scaling"] == "global" && row["accepted"] || continue
+        match = findfirst(other -> other["state_scaling"] == "voltage_region" &&
+            other["s_base_VA"] == row["s_base_VA"] &&
+            other["scale_objective"] == row["scale_objective"] &&
+            other["mosek_scaling"] == row["mosek_scaling"] && other["accepted"],
+            witness_ivr)
+        match === nothing || push!(ivr_region_pairs,
+            abs(row["objective_W"] - witness_ivr[match]["objective_W"]))
+    end
+    data["summary"] = Dict(
+        "ivr_base_optimal_runs" => count(row -> row["accepted"], ivr_base),
+        "ivr_base_total_runs" => length(ivr_base),
+        "branch_flow_base_optimal_runs" => count(row -> row["accepted"], bfm_base),
+        "branch_flow_base_total_runs" => length(bfm_base),
+        "branch_flow_witness_without_objective_scaling_optimal_runs" =>
+            count(row -> !row["scale_objective"] && row["accepted"], witness_bfm),
+        "branch_flow_witness_without_objective_scaling_total_runs" =>
+            count(row -> !row["scale_objective"], witness_bfm),
+        "branch_flow_3k_mosek_scaling_objective_difference_W" => solver_scaling_delta,
+        "ivr_global_vs_voltage_region_maximum_difference_W" =>
+            isempty(ivr_region_pairs) ? nothing : maximum(ivr_region_pairs),
+    )
+    data
+end
+
 function _scaling_markdown(data, output)
     markdown = splitext(output)[1] * ".md"
     open(markdown, "w") do io
@@ -142,6 +179,30 @@ function _scaling_markdown(data, output)
         println(io)
         println(io, "Failed iterates and their raw objectives remain in the JSON only as diagnostics; ",
             "they are not bounds and are excluded from every interval above.")
+        println(io)
+        println(io, "## Findings")
+        println(io)
+        summary = data["summary"]
+        println(io, "- IVR is optimal in ", summary["ivr_base_optimal_runs"], "/",
+            summary["ivr_base_total_runs"], " power-base runs; BranchFlow is optimal in ",
+            summary["branch_flow_base_optimal_runs"], "/",
+            summary["branch_flow_base_total_runs"], ".")
+        println(io, "- Without objective normalization, BranchFlow is optimal in ",
+            summary["branch_flow_witness_without_objective_scaling_optimal_runs"], "/",
+            summary["branch_flow_witness_without_objective_scaling_total_runs"],
+            " ten-bus witness runs.")
+        println(io, "- At 3 kVA with objective normalization enabled, toggling only Mosek's ",
+            "interior-point scaling changes two solver-accepted BranchFlow objectives by ",
+            _fmt(summary["branch_flow_3k_mosek_scaling_objective_difference_W"]),
+            " W. Those runs have scaled residuals near `1e-5`; their `OPTIMAL` labels are ",
+            "not sufficient evidence of a stable bound.")
+        println(io, "- IVR `global` and `voltage_region` scaling differ by at most ",
+            _fmt(summary["ivr_global_vs_voltage_region_maximum_difference_W"]),
+            " W here. Each feeder is a single voltage region, so both modes select unit state scales.")
+        println(io)
+        println(io, "The practical conclusion is that the current IVR formulation is stable across ",
+            "the tested per-unit coordinates, while BranchFlow needs additional row/state scaling ",
+            "before its Mosek objective should be used quantitatively on the ten-bus witness.")
     end
     markdown
 end
@@ -204,6 +265,8 @@ function run_enwl_scaling_study(data_dir, output; time_limit=90.0)
             flush(stdout)
         end
     end
+    _finalize_scaling_summary!(data)
+    save()
     markdown = _scaling_markdown(finite(data), output)
     println("WROTE ", output, " and ", markdown)
     data
