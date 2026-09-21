@@ -5,6 +5,7 @@ include("benchmark_nlp_sdp_enwl.jl")
 
 const ENWL_SCALING_BASES = [1e3, 3e3, 1e4, 3e4, 1e5]
 const ENWL_SCALING_WITNESS = "network_10_Feeder_2.json"
+const ENWL_SCALING_RESIDUAL_LIMIT = 1e-7
 
 function _scaling_sdp_run(net, formulation; s_base, scale_objective=true,
                           state_scaling=:global, mosek_scaling=:free,
@@ -31,7 +32,7 @@ function _scaling_sdp_run(net, formulation; s_base, scale_objective=true,
     solve_seconds = @elapsed result = formulation == :ivr ?
         solve_sdp_opf(build) : solve_branch_flow_sdp(build)
     status = solve_status(result)
-    accepted = status.optimal && isfinite(result.objective)
+    solver_optimal = status.optimal && isfinite(result.objective)
     has_primal = has_values(build.model)
     raw_objective = has_primal ?
         try objective_value(build.model) * build.objective_scale catch; nothing end : nothing
@@ -40,6 +41,8 @@ function _scaling_sdp_run(net, formulation; s_base, scale_objective=true,
     catch
         nothing
     end : nothing
+    accepted = solver_optimal && violation isa Real &&
+        violation <= ENWL_SCALING_RESIDUAL_LIMIT
     vb = build.voltage_base
     diagnostics = result.numerical_diagnostics
     Dict(
@@ -57,11 +60,12 @@ function _scaling_sdp_run(net, formulation; s_base, scale_objective=true,
         "termination_status" => status.termination_status,
         "raw_status" => raw_status(build.model),
         "primal_status" => status.primal_status,
+        "solver_optimal" => solver_optimal,
         "accepted" => accepted,
         "objective_W" => accepted ? result.objective : nothing,
         "solver_bound_W" => accepted && isfinite(result.solver_objective_bound) ?
             result.solver_objective_bound : nothing,
-        "unaccepted_raw_objective_W" => accepted ? nothing : raw_objective,
+        "raw_primal_objective_W" => raw_objective,
         "rank_ratio" => accepted && isfinite(result.rank_ratio) ? result.rank_ratio : nothing,
         "max_scaled_violation" => violation,
         "variables" => num_variables(build.model),
@@ -77,7 +81,8 @@ function _scaling_summary(rows)
                          if get(row, "max_scaled_violation", nothing) isa Real]
     Dict(
         "runs" => length(rows),
-        "optimal_runs" => length(accepted),
+        "solver_optimal_runs" => count(row -> get(row, "solver_optimal", false), rows),
+        "accepted_runs" => length(accepted),
         "statuses" => Dict(status => count(row ->
             get(row, "termination_status", "error") == status, rows)
             for status in unique(get(row, "termination_status", "error") for row in rows)),
@@ -95,9 +100,10 @@ function _finalize_scaling_summary!(data)
     witness_ivr = [row for row in data["witness"] if row["formulation"] == "ivr"]
     witness_bfm = [row for row in data["witness"] if row["formulation"] == "branch_flow"]
     bfm_3k_scaled = [row for row in witness_bfm if row["s_base_VA"] == 3e3 &&
-        row["scale_objective"] && row["accepted"]]
+        row["scale_objective"] && row["solver_optimal"]]
     solver_scaling_delta = length(bfm_3k_scaled) == 2 ?
-        abs(bfm_3k_scaled[1]["objective_W"] - bfm_3k_scaled[2]["objective_W"]) : nothing
+        abs(bfm_3k_scaled[1]["raw_primal_objective_W"] -
+            bfm_3k_scaled[2]["raw_primal_objective_W"]) : nothing
     ivr_region_pairs = Float64[]
     for row in witness_ivr
         row["state_scaling"] == "global" && row["accepted"] || continue
@@ -110,12 +116,14 @@ function _finalize_scaling_summary!(data)
             abs(row["objective_W"] - witness_ivr[match]["objective_W"]))
     end
     data["summary"] = Dict(
-        "ivr_base_optimal_runs" => count(row -> row["accepted"], ivr_base),
+        "ivr_base_accepted_runs" => count(row -> row["accepted"], ivr_base),
         "ivr_base_total_runs" => length(ivr_base),
-        "branch_flow_base_optimal_runs" => count(row -> row["accepted"], bfm_base),
+        "branch_flow_base_solver_optimal_runs" =>
+            count(row -> row["solver_optimal"], bfm_base),
+        "branch_flow_base_accepted_runs" => count(row -> row["accepted"], bfm_base),
         "branch_flow_base_total_runs" => length(bfm_base),
-        "branch_flow_witness_without_objective_scaling_optimal_runs" =>
-            count(row -> !row["scale_objective"] && row["accepted"], witness_bfm),
+        "branch_flow_witness_without_objective_scaling_solver_optimal_runs" =>
+            count(row -> !row["scale_objective"] && row["solver_optimal"], witness_bfm),
         "branch_flow_witness_without_objective_scaling_total_runs" =>
             count(row -> !row["scale_objective"], witness_bfm),
         "branch_flow_3k_mosek_scaling_objective_difference_W" => solver_scaling_delta,
@@ -136,19 +144,21 @@ function _scaling_markdown(data, output)
             "algebraically equivalent coordinate change; a stable solve should preserve the SI objective.")
         println(io)
         println(io, "All runs use Mosek, one thread, real PSD embeddings, and the same normalized ",
-            "Kron-reduced ENWL dictionaries. Only runs terminating `OPTIMAL` contribute to objective spans.")
+            "Kron-reduced ENWL dictionaries. A run contributes to an objective span only when it ",
+            "terminates `OPTIMAL` and its maximum scaled JuMP residual is at most `1e-7`.")
         println(io)
         println(io, "## Power-base sweep")
         println(io)
-        println(io, "| Case | Formulation | Optimal | Objective interval (W) | Span (W) | Worst accepted residual |")
-        println(io, "|---|---|---:|---:|---:|---:|")
+        println(io, "| Case | Formulation | Solver optimal | Accepted | Objective interval (W) | Span (W) | Worst accepted residual |")
+        println(io, "|---|---|---:|---:|---:|---:|---:|")
         for case in data["cases"], formulation in ("ivr", "branch_flow")
             rows = [row for row in case["base_sweep"] if row["formulation"] == formulation]
             summary = _scaling_summary(rows)
             lo, hi = summary["minimum_objective_W"], summary["maximum_objective_W"]
             interval = lo isa Real ? string(_fmt(lo), " to ", _fmt(hi)) : "—"
             println(io, "| ", case["name"], " | ", formulation, " | ",
-                summary["optimal_runs"], "/", summary["runs"], " | ", interval, " | ",
+                summary["solver_optimal_runs"], "/", summary["runs"], " | ",
+                summary["accepted_runs"], "/", summary["runs"], " | ", interval, " | ",
                 _fmt(summary["objective_span_W"]), " | ",
                 _fmt(summary["maximum_scaled_violation"]), " |")
         end
@@ -161,8 +171,8 @@ function _scaling_markdown(data, output)
         println(io, "The witness grid separately varies objective normalization, IVR state scaling, ",
             "and Mosek's internal interior-point scaling over 3, 10, and 30 kVA bases.")
         println(io)
-        println(io, "| Formulation | Objective scaling | State scaling | Mosek scaling | Optimal | Objective span (W) | Worst accepted residual |")
-        println(io, "|---|---|---|---|---:|---:|---:|")
+        println(io, "| Formulation | Objective scaling | State scaling | Mosek scaling | Solver optimal | Accepted | Objective span (W) | Worst accepted residual |")
+        println(io, "|---|---|---|---|---:|---:|---:|---:|")
         witness = data["witness"]
         keys = unique((row["formulation"], row["scale_objective"],
                        row["state_scaling"], row["mosek_scaling"]) for row in witness)
@@ -172,7 +182,8 @@ function _scaling_markdown(data, output)
                  row["state_scaling"], row["mosek_scaling"]) == key]
             summary = _scaling_summary(rows)
             println(io, "| ", key[1], " | ", key[2], " | ", key[3], " | ", key[4], " | ",
-                summary["optimal_runs"], "/", summary["runs"], " | ",
+                summary["solver_optimal_runs"], "/", summary["runs"], " | ",
+                summary["accepted_runs"], "/", summary["runs"], " | ",
                 _fmt(summary["objective_span_W"]), " | ",
                 _fmt(summary["maximum_scaled_violation"]), " |")
         end
@@ -183,18 +194,20 @@ function _scaling_markdown(data, output)
         println(io, "## Findings")
         println(io)
         summary = data["summary"]
-        println(io, "- IVR is optimal in ", summary["ivr_base_optimal_runs"], "/",
-            summary["ivr_base_total_runs"], " power-base runs; BranchFlow is optimal in ",
-            summary["branch_flow_base_optimal_runs"], "/",
+        println(io, "- IVR is numerically accepted in ", summary["ivr_base_accepted_runs"], "/",
+            summary["ivr_base_total_runs"], " power-base runs. BranchFlow is solver-optimal in ",
+            summary["branch_flow_base_solver_optimal_runs"], "/",
+            summary["branch_flow_base_total_runs"], " but passes the residual gate in only ",
+            summary["branch_flow_base_accepted_runs"], "/",
             summary["branch_flow_base_total_runs"], ".")
-        println(io, "- Without objective normalization, BranchFlow is optimal in ",
-            summary["branch_flow_witness_without_objective_scaling_optimal_runs"], "/",
+        println(io, "- Without objective normalization, BranchFlow is solver-optimal in ",
+            summary["branch_flow_witness_without_objective_scaling_solver_optimal_runs"], "/",
             summary["branch_flow_witness_without_objective_scaling_total_runs"],
             " ten-bus witness runs.")
         println(io, "- At 3 kVA with objective normalization enabled, toggling only Mosek's ",
-            "interior-point scaling changes two solver-accepted BranchFlow objectives by ",
+            "interior-point scaling changes two solver-optimal BranchFlow raw objectives by ",
             _fmt(summary["branch_flow_3k_mosek_scaling_objective_difference_W"]),
-            " W. Those runs have scaled residuals near `1e-5`; their `OPTIMAL` labels are ",
+            " W. Both fail the residual gate, demonstrating why an `OPTIMAL` label alone is ",
             "not sufficient evidence of a stable bound.")
         println(io, "- IVR `global` and `voltage_region` scaling differ by at most ",
             _fmt(summary["ivr_global_vs_voltage_region_maximum_difference_W"]),
@@ -219,6 +232,7 @@ function run_enwl_scaling_study(data_dir, output; time_limit=90.0)
         "voltage_base_policy" => "largest source-voltage magnitude",
         "s_base_values_VA" => ENWL_SCALING_BASES,
         "time_limit_seconds" => time_limit,
+        "acceptance_residual_limit" => ENWL_SCALING_RESIDUAL_LIMIT,
         "cases" => Any[],
         "witness_case" => ENWL_SCALING_WITNESS,
         "witness" => Any[],
