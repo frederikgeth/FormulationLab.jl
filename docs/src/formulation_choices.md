@@ -33,7 +33,7 @@ only power-system runtime dependency. BMOPFTools/Ipopt and Mosek are optional
 reference/testing tools. An ExaModels backend remains deferred until an exact
 nonconvex formulation is implemented here.
 
-## Mathematical identity and scientific lineage
+## Mathematical identity
 
 The electrical core uses a homogeneous complex state of voltages and component
 currents, linear laws ``Az=0``, and an elimination ``z=Ny``. It replaces
@@ -50,22 +50,13 @@ A full PSD cone is invariant under nonsingular congruence; a finite collection
 of pairwise SOC constraints generally is not. Coordinate and decomposition
 choices can therefore change SOC strength, not just solver performance.
 
-The sources below identify the scientific ideas used. Software adaptation and
-empirical profile selection are our engineering work, not claims of invention
-or of inheriting a paper's exactness theorem.
-
-| Idea | Origin and relationship to this implementation |
-|:--|:--|
-| Fixed voltage-ratio multiphase linearization | Michael D. Sankur, Roel Dobbe, Emma Stewart, Duncan S. Callaway and Daniel B. Arnold, [*A Linearized Power Flow Model for Optimization in Unbalanced Distribution Systems* (2016)](https://arxiv.org/abs/1606.04492). This is the LinDist3Flow lineage; the code and regression fixtures were migrated from PowerOptLab. |
-| OPF semidefinite lifting | Javad Lavaei and Steven H. Low, [*Zero Duality Gap in Optimal Power Flow Problem* (2012)](https://smart.caltech.edu/papers/zeroduality.pdf), is a foundational OPF SDP reference. Lingwen Gan and Steven H. Low, [*Convex Relaxations and Linear Approximation for Optimal Power Flow in Multiphase Radial Networks* (2014)](https://arxiv.org/abs/1406.3054), develops multiphase SDP formulations. Our explicit-current construction differs; their exactness results are not a blanket guarantee here. |
-| Explicit-neutral current–voltage modeling | Sander Claeys, Frederik Geth and Geert Deconinck, [*Optimal Power Flow in Four-Wire Distribution Networks: Formulation and Benchmarking* (2022)](https://arxiv.org/abs/2204.08126). This provides the relevant four-wire IVR modeling background. |
-| Wye/delta voltage-dependent load power cones | Sander Claeys, Geert Deconinck and Frederik Geth, [*Voltage-Dependent Load Models in Unbalanced Optimal Power Flow Using Power Cones* (2021)](https://doi.org/10.1109/TSG.2021.3052576). We retain connection-specific physical voltage maps and convex envelopes, rather than silently replacing these loads by constant power. Constant-power secants also use the elementary secant upper bound of a convex function on a finite interval. |
-| Fixed regulator connection matrices | Mohammadhafez Bazrafshan, Nikolaos Gatsis and Hao Zhu, [*Optimal Power Flow with Step-Voltage Regulators in Multi-Phase Distribution Networks* (2019)](https://arxiv.org/abs/1901.04566), supplies the regulator-bank matrix lineage documented in LinDist3Flow. We fix taps and do not implement that paper's tap-selection optimization. |
-| Sparse PSD completion | Robert Grone, Charles R. Johnson, Eduardo Marques de Sá and Henry Wolkowicz, [*Positive Definite Completions of Partial Hermitian Matrices* (1984)](https://doi.org/10.1016/0024-3795(84)90207-6), supplies the chordal completion foundation. Required overlaps must be consistent; merely splitting arbitrary blocks is not an equivalence theorem. |
-| Finite SOC relaxations of PSD | Sunyoung Kim, Masakazu Kojima and Makoto Yamashita, [*Second Order Cone Programming Relaxation of a Positive Semidefinite Constraint* (2003)](https://doi.org/10.1080/1055678031000148696). Frederik Geth and James Foster, [*Improving Optimal Power Flow Relaxations Using 3-Cycle Second-Order Cone Constraints* (2021)](https://arxiv.org/abs/2104.06695), extends this strategy to complex three-map constraints. Our fixed data-selected triplets and direction budgets adapt this idea to unbalanced physical maps. |
-| Lifted nonlinear cuts | Carleton Coffrin, Hassan Hijazi and Pascal Van Hentenryck, [*Strengthening the SDP Relaxation of AC Power Flows with Convex Envelopes, Bound Tightening, and Lifted Nonlinear Cuts* (2015 preprint)](https://arxiv.org/abs/1512.04644). PowerModels supplied a software reference. Here the scalar product cuts apply to general physical voltage maps with justified magnitude and angle domains. |
-| Limits of finite SOC replacement | Hamza Fawzi, [*On Representing the Positive Semidefinite Cone Using the Second-Order Cone* (2016 preprint)](https://arxiv.org/abs/1610.04901), rules out a finite SOC lift of the general real 3×3 PSD cone. Finite directional strengthening should not be advertised as full SDP equivalence. This is not a theorem about every possible exotic-cone representation. |
-| Conic solver | Paul J. Goulart and Yuwen Chen, [*Clarabel: An Interior-Point Solver for Conic Programs with Quadratic Objectives* (2024)](https://arxiv.org/abs/2405.12762). Formulation-specific scaling, regularization and tolerances are separate empirical choices. |
+The [literature and formulation lineage](literature.md) page now collects the
+published sources in one place and states exactly how they relate to the
+implementation. Software adaptation and empirical profile selection are our
+engineering work, not claims of invention or of inheriting a paper's exactness
+theorem. The shared [notation](notation.md) and [formulation
+guide](formulations.md) separate physical equations from their SDP/SOC
+representations.
 
 Frederik Geth's local **DeltaLoadsSDP** experiments and working manuscript,
 *Matrix Current-Balance Constraints for Multiconductor Optimal Power Flow*,

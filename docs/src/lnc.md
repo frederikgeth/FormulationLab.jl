@@ -9,6 +9,9 @@ The equations follow Coffrin, Hijazi and Van Hentenryck,
 and the [PowerModels implementation](https://github.com/lanl-ansi/PowerModels.jl/blob/master/src/core/relaxation_scheme.jl).
 The generalization here applies those scalar complex-product inequalities to
 physical linear voltage maps, including unbalanced terminal differences.
+Symbols follow the shared [notation and conventions](notation.md); lower-case
+``u`` and ``v`` below denote two scalar phasor maps rather than bus-voltage
+vectors.
 
 ## Phasor maps and equations
 
@@ -95,18 +98,21 @@ bounds must match those physical voltage maps. Source phasors supply exact bound
 A phase-ground bound is never substituted for a floating phase-neutral bound.
 Missing bounds cause a recorded skip, without invented voltage/angle assumptions.
 
-For a line with `vf-vt=Z*i_series`, endpoint currents satisfy
+For a line ``\ell:i\to j`` with
+``U_j=U_i-Z_\ell^sI_{\ell ij}^s``, endpoint currents satisfy
 
 ```math
-i_f=i_{series}+Y_fv_f,\qquad i_t=-i_{series}+Y_tv_t.
+I_{\ell ij}=I_{\ell ij}^s+Y_{\ell ij}^{sh}U_i,
+\qquad
+I_{\ell ji}=-I_{\ell ij}^s+Y_{\ell ji}^{sh}U_j.
 ```
 
 With conductor endpoint ratings `Imax`, derive
 
 ```math
-\bar I_{series,k}=\min\left(
- I_{max,k}+\sum_j |Y_{f,kj}|\bar V_{f,j},
- I_{max,k}+\sum_j |Y_{t,kj}|\bar V_{t,j}\right).
+\overline I_{\ell,k}^s=\min\left(
+ \overline I_{\ell ij,k}+\sum_h |(Y_{\ell ij}^{sh})_{kh}|\overline U_{i,h},
+ \overline I_{\ell ji,k}+\sum_h |(Y_{\ell ji}^{sh})_{kh}|\overline U_{j,h}\right).
 ```
 
 For both `IVRSDP` and `BranchFlowSDP`, `Imax` may be either declared or inferred
@@ -119,7 +125,7 @@ Zero admittance coefficients require no voltage bound. For voltage selection row
 `d` (including the negative neutral coefficient),
 
 ```math
-|u-v|\le\epsilon=\sum_k |(dZ)_k|\bar I_{series,k}.
+|u-v|\le\epsilon=\sum_k |(dZ_\ell^s)_k|\overline I_{\ell,k}^s.
 ```
 
 This retains mutual coupling and neutral return. It does not treat terminal

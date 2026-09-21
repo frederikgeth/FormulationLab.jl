@@ -13,6 +13,10 @@ Blocks of order at most two are represented exactly. Larger blocks can remain
 indefinite. Power cones for voltage-dependent loads are retained. No profile
 introduces a PSD cone. The coordinates and clique cover affect strength.
 
+Physical symbols and signs follow the shared [notation and
+conventions](notation.md). The scalar symbols below are projections of the
+matrix moments, not a different electrical model.
+
 See [profiles and structural sparsity](soc_profiles.md) for named configurations,
 the updated automatic basis and its validation.
 
@@ -50,8 +54,8 @@ LNCs are independently selected with `lnc=:lines` or explicit `VoltageLNC`s.
 For physical voltage and current maps, including nullspace transformation,
 
 ```math
-w=\mathbb E[|V|^2],\quad \ell=\mathbb E[|I|^2],\quad
-s=\mathbb E[V\overline I],\qquad |s|^2\leq w\ell.
+w_U=\widehat{|U|^2},\quad l_I=\widehat{|I|^2},\quad
+s=\widehat{U\overline I},\qquad |s|^2\leq w_Ul_I.
 ```
 
 These SOCs retain consequences of PSD lost by coordinate-wise minors. They
@@ -60,16 +64,17 @@ scaled cone coordinates to Clarabel: each diagonal is scaled separately and
 the cross term uses their geometric mean. Passive lines also receive
 nonnegative total active-loss constraints.
 
-For a constant-power load, let `c=|S|²` in per unit and let valid squared-voltage
-bounds be `0<a≤w≤b<∞`. Every original AC state satisfies `ell=c/w`. Convexity of
-`c/w` gives the **upper chord**, a valid linear inequality:
+For a constant-power load, let ``c=|S|^2`` in per unit and let valid
+squared-voltage bounds be ``0<a\le w_U\le b<\infty``. Every original AC state
+satisfies ``l_I=c/w_U``. Convexity of ``c/w_U`` gives the **upper chord**, a
+valid linear inequality:
 
 ```math
-\ell + \frac{c}{ab}w \leq \frac{c}{a}+\frac{c}{b}.
+l_I + \frac{c}{ab}w_U \leq \frac{c}{a}+\frac{c}{b}.
 ```
 
 Together with the physical SOC this bounds current on both sides. It improves
-on the constant cap `ell≤c/a`. It also applies to delta load sub-elements, using
+on the constant cap ``l_I\le c/a``. It also applies to delta load sub-elements, using
 their line-to-line voltages. Missing or zero lower voltage bounds cause the
 cut to be skipped. These are valid cuts for the original nonconvex problem;
 they need not be consequences of an unstrengthened SDP relaxation.

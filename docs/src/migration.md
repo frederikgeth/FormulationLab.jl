@@ -29,5 +29,6 @@ suite callback tests use a labeled test double solely to test API plumbing.
 The SDP, SOC and generic formulation API are new code. Static AC support has
 expanded since the initial migration; it is not a simple subset of L3F support.
 See [component coverage](coverage.md) for current scope and
-[formulation decisions](formulation_choices.md) for scientific lineage.
+[literature and formulation lineage](literature.md) for scientific origins and
+[formulation decisions](formulation_choices.md) for retained experimental choices.
 None is advertised as full BMOPF support.

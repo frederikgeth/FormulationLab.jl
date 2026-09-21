@@ -7,6 +7,11 @@ current balance, component-local voltage/current moments, and—when the network
 requires it—a voltage-closure Gram for cycles and cross-bus products.
 Unsupported electrical fields are rejected rather than dropped.
 
+This page uses the package-wide [``U/I/S/W/L`` notation](notation.md). The line
+identity ``\ell`` is retained in subscripts so the equations remain meaningful
+for parallel branches. Superscript ``s`` means the series element of a pi
+section; endpoint quantities include the corresponding shunt.
+
 ## When to use it
 
 Use this formulation when line sending power, receiving power, endpoint shunt
@@ -17,7 +22,9 @@ accepted. Use `IVRSDP` instead when static IBR filters/capabilities or its
 chordal/numerical profiles are required.
 
 The formulation returns an optimization relaxation, not an AC power-flow
-solution. For a minimization objective it supplies a lower-bound model. A low
+solution. For a minimization objective it supplies a lower-bound model for the
+declared problem domain. An explicit `VoltageLNC(origin=:operating_limit)`
+restricts that domain and must be interpreted accordingly. A low
 local rank ratio and small recovered physical residuals are useful diagnostics,
 but neither changes that mathematical distinction.
 
@@ -77,35 +84,52 @@ decomposition, uses static regularization `1e-7`, and permits up to 30 iterative
 refinement steps. Explicit optimizer factories remain caller-owned, and
 `solver_options` can override these defaults.
 
-## Variables and relaxation
+## Physical line model and lifted variables
 
-For every bus ``i`` and oriented line ``i\to j``, the model introduces
+Consider a physical line ``\ell:i\to j``. Its series and total endpoint currents
+satisfy
 
 ```math
-W_i=v_i v_i^H,\qquad S_{ij}=v_i i_{ij}^H,\qquad
-L_{ij}=i_{ij}i_{ij}^H.
+U_j=U_i-Z_\ell^s I_{\ell ij}^s,
 ```
 
-With the complete coupled series impedance ``Z_{ij}``, the series voltage equation
-``v_j=v_i-Z_{ij}i_{ij}`` becomes
-
 ```math
-W_j=W_i-S_{ij}Z_{ij}^H-Z_{ij}S_{ij}^H
-       +Z_{ij}L_{ij}Z_{ij}^H.
+I_{\ell ij}=I_{\ell ij}^s+Y_{\ell ij}^{sh}U_i,
+\qquad
+I_{\ell ji}=-I_{\ell ij}^s+Y_{\ell ji}^{sh}U_j.
 ```
 
-For a pi model with endpoint admittances ``Y^f,Y^t``, endpoint currents are
+No diagonal approximation is made to ``Z_\ell^s`` or the endpoint shunts. The
+model introduces
 
 ```math
-i^f=i_{ij}+Y^fv_i,\qquad i^t=-i_{ij}+Y^tv_j.
+W_i=U_iU_i^H,\qquad
+S_{\ell ij}^s=U_i(I_{\ell ij}^s)^H,\qquad
+L_\ell^s=I_{\ell ij}^s(I_{\ell ij}^s)^H.
 ```
 
-The series receiving product is ``R_{ij}=S_{ij}-Z_{ij}L_{ij}``, while the
-endpoint power matrices used by KCL, limits and public results are
+The lifted voltage-drop equation is
 
 ```math
-M^f_{ij}=S_{ij}+W_i(Y^f)^H,\qquad
-M^t_{ij}=-R_{ij}+W_j(Y^t)^H.
+W_j=W_i-S_{\ell ij}^s(Z_\ell^s)^H
+       -Z_\ell^s(S_{\ell ij}^s)^H
+       +Z_\ell^sL_\ell^s(Z_\ell^s)^H.
+```
+
+The series receiving product, expressed in the sending-voltage coordinates, is
+
+```math
+R_{\ell ji}^s=S_{\ell ij}^s-Z_\ell^sL_\ell^s.
+```
+
+The total endpoint power matrices used by KCL, limits and public results are
+
+```math
+S_{\ell ij}=S_{\ell ij}^s+W_i(Y_{\ell ij}^{sh})^H,
+```
+
+```math
+S_{\ell ji}=-R_{\ell ji}^s+W_j(Y_{\ell ji}^{sh})^H.
 ```
 
 Their diagonals are the public endpoint conductor-power outputs. Endpoint
@@ -113,38 +137,64 @@ current limits use the corresponding affine current Grams, so a declared
 `i_max` rates total endpoint current rather than silently rating only the series
 current.
 
+The matrices have direct physical readings. ``W_i`` contains squared terminal
+voltage magnitudes on its diagonal. ``S_{\ell ij}^s`` contains series conductor
+powers on its diagonal and the cross-terminal voltage/current products needed
+by mutual coupling off the diagonal. ``L_\ell^s`` contains squared series-current
+magnitudes and mutual current products.
+
+At an exact AC point,
+
+```math
+M_{\ell ij}=
+\begin{bmatrix}
+W_i&S_{\ell ij}^s\\
+(S_{\ell ij}^s)^H&L_\ell^s
+\end{bmatrix}
+\succeq0,
+\qquad \operatorname{rank}(M_{\ell ij})=1.
+```
+
+The SDP drops the rank constraint. Every child voltage matrix is the affine
+image of its edge block, and a parent shared by several children uses the same
+``W_i`` in each block. Voltage, series-current and endpoint apparent-power
+limits are affine or second-order-cone consequences of these moments.
+
 ### Declared and implied line-current limits
 
-Let ``J^f`` and ``J^t`` denote the affine total endpoint-current Grams. For
-each rated phase conductor, a positive lower voltage bound and endpoint
+Let ``L_{\ell ij}`` and ``L_{\ell ji}`` denote the affine total endpoint-current
+Grams. For each rated phase conductor, a positive lower voltage bound and endpoint
 apparent-power rating imply
 
 ```math
-\bar I^f=\frac{S_{max}}{\underline V_f},\qquad
-\bar I^t=\frac{S_{max}}{\underline V_t}.
+\overline I_{\ell ij}=\frac{S_{\ell ij}^{max}}{\underline U_i},\qquad
+\overline I_{\ell ji}=\frac{S_{\ell ji}^{max}}{\underline U_j}.
 ```
 
 A fixed source phasor supplies an exact voltage magnitude. If an explicit
 `i_max` also exists, the tighter declared or derived endpoint limit is used:
 
 ```math
-J^f_{kk}\le\min(I_{max,k},\bar I^f_k)^2,\qquad
-J^t_{kk}\le\min(I_{max,k},\bar I^t_k)^2.
+(L_{\ell ij})_{kk}\le\min(I_{\ell ij,k}^{max},\overline I_{\ell ij,k})^2,
 ```
+
+and analogously at the ``j`` endpoint.
 
 For coupled endpoint shunts, finite terminal-voltage upper bounds give the safe
 row-wise bounds
 
 ```math
-\bar I^{sh,f}_k=\sum_h |Y^f_{kh}|\bar V^f_h,\qquad
-\bar I^{sh,t}_k=\sum_h |Y^t_{kh}|\bar V^t_h.
+\overline I_{\ell ij,k}^{sh}=\sum_h |(Y_{\ell ij}^{sh})_{kh}|\overline U_{i,h},
+\qquad
+\overline I_{\ell ji,k}^{sh}=\sum_h |(Y_{\ell ji}^{sh})_{kh}|\overline U_{j,h}.
 ```
 
 The series-current moment is then strengthened by
 
 ```math
-L_{kk}\le\left[\min\left(\bar I^f_k+\bar I^{sh,f}_k,
-                                  \bar I^t_k+\bar I^{sh,t}_k\right)\right]^2.
+(L_\ell^s)_{kk}\le
+\left[\min\left(\overline I_{\ell ij,k}+\overline I_{\ell ij,k}^{sh},
+                 \overline I_{\ell ji,k}+\overline I_{\ell ji,k}^{sh}\right)\right]^2.
 ```
 
 Missing lower bounds prevent only the corresponding `s_max`-derived endpoint
@@ -159,24 +209,6 @@ Line `s_max` arrays select phase conductors using the declared `bus_from`
 terminal roles. Tree orientation may reverse a line internally, but never
 changes the rating channels or their implied-current bounds.
 
-The three matrices have a direct physical reading. ``W_i`` contains squared
-voltage magnitudes on its diagonal and cross-terminal voltage products off the
-diagonal. ``S_{ij}`` contains conductor complex powers on its diagonal and the
-cross-terminal voltage/current products needed by coupled lines off the
-diagonal. ``L_{ij}`` similarly contains squared current magnitudes and mutual
-current products.
-
-The rank-one edge identity is relaxed to
-
-```math
-\begin{bmatrix}W_i&S_{ij}\\S_{ij}^H&L_{ij}\end{bmatrix}\succeq0.
-```
-
-Every child voltage matrix is the Gram image of that edge block. A parent
-shared by several children uses the same ``W_i`` in every edge block. Voltage,
-series-current and endpoint apparent-power limits are affine or
-second-order-cone consequences of these moments.
-
 ## Mesh and source voltage closure
 
 On a single-source tree, local edge overlaps have the running-intersection
@@ -185,12 +217,12 @@ not: independently completed edge blocks can otherwise choose incompatible
 angle rotations around the loop. Multiple fixed sources similarly need their
 declared relative phasors to share one lifted voltage state.
 
-For those cases the model creates a global voltage-only Gram ``G=vv^H`` and
+For those cases the model creates a global voltage-only Gram ``G=UU^H`` and
 drops its rank-one requirement. Every bus ``W_i`` is a principal submatrix of
 ``G``. For a line, the adjacent cross-voltage block is constrained by
 
 ```math
-G_{ij}=W_i-S_{ij}Z_{ij}^H.
+G_{ij}=W_i-S_{\ell ij}^s(Z_\ell^s)^H.
 ```
 
 Transformer and closed-switch cross-voltage blocks overlap ``G`` in the same
@@ -198,7 +230,8 @@ way. Products between fixed source coordinates are prescribed from their input
 phasors. Thus cycles and relative source angles use one PSD-completable voltage
 state while current and power remain in local branch-flow blocks. The same Gram
 is enabled for explicit cross-bus LNCs. Automatic line LNCs instead use the
-line-local product ``W_i-S_{ij}Z_{ij}^H`` and need no additional voltage Gram.
+line-local product ``W_i-S_{\ell ij}^s(Z_\ell^s)^H`` and need no additional
+voltage Gram.
 This is a relaxation—rank-one voltage recovery and AC residual checks remain
 necessary.
 
@@ -206,21 +239,28 @@ necessary.
 
 Let ``r_i`` be the vector current-balance residual at bus ``i`` with currents
 into passive devices positive. Instead of retaining only the diagonal products
-``v_{i,\phi}\overline{r_{i,\phi}}``, the model imposes
+``U_{i,t}\overline{r_{i,t}}``, the model imposes
 
 ```math
-v_i r_i^H = 0.
+U_i r_i^H = 0.
 ```
 
-In moment variables this is the affine matrix equation
+Let ``\delta(i)`` contain every branch endpoint incident on ``i`` and let
+``S_{\ell i}`` denote the corresponding **total endpoint** power matrix defined
+above. In moment variables, KCL is the affine matrix equation
 
 ```math
-\sum_{i\to j} S_{ij}
--\sum_{h\to i}(S_{hi}-Z_{hi}L_{hi})
-+M_i^{\mathrm{load}}+M_i^{\mathrm{shunt}}
--M_i^{\mathrm{generator}}-M_i^{\mathrm{source}}
-+M_i^{\mathrm{transformer}}=0.
+\sum_{(\ell,i)\in\delta(i)}S_{\ell i}
++M_i^{load}+M_i^{shunt}+M_i^{capacitor}
+-M_i^{generator}-M_i^{source}
++M_i^{transformer}+M_i^{switch}=0.
 ```
+
+For an outgoing line term, ``S_{\ell i}=S_{\ell ij}^s+
+W_i(Y_{\ell ij}^{sh})^H``. For an incoming term it is
+``S_{\ell i}=-(S_{\ell hi}^s-Z_\ell^sL_\ell^s)+
+W_i(Y_{\ell ih}^{sh})^H``. Writing KCL in endpoint form keeps the pi-section
+shunts visible and prevents accidental series/total-current substitutions.
 
 Columns belonging to perfectly grounded terminals are omitted because the
 ideal earth current is free, matching the AC validator's KCL convention. The
@@ -245,7 +285,7 @@ Three orderings meet in these equations and must not be conflated:
   use its own `terminal_map` order; and
 - coil quantities use the connection rows induced by that `terminal_map`.
 
-The connection matrix ``D`` is the explicit bridge: its columns are embedded in
+The connection matrix ``D_d`` is the explicit bridge: its columns are embedded in
 bus-terminal order, while its rows remain in component coil order. For a WYE
 device with a neutral, a phase-only limit vector follows the non-neutral entries
 of `terminal_map`; a complete-map vector is accepted and its neutral entry is
@@ -253,30 +293,31 @@ omitted locally. Scalar declarations broadcast over the resulting channels.
 Permuting or selecting terminals therefore changes only the embedding in bus
 KCL—it never reorders the component's own arrays.
 
-For a load connection matrix ``D`` and coil current ``j``, the local block is
+For device connection matrix ``D_d`` and coil current ``J_d``, the local block
+is
 
 ```math
-\begin{bmatrix}W_i&C\\C^H&J\end{bmatrix}\succeq0,
-\qquad C=v_i j^H,\quad J=jj^H.
+\begin{bmatrix}W_i&C_d\\C_d^H&K_d\end{bmatrix}\succeq0,
+\qquad C_d=U_iJ_d^H,\quad K_d=J_dJ_d^H.
 ```
 
 The coil powers and terminal injection matrix are
 
 ```math
-s^{\mathrm{coil}}=\operatorname{diag}(DC),\qquad
-M_i^{\mathrm{load}}=CD.
+s_d^{coil}=\operatorname{diag}(D_dC_d),\qquad
+M_i^d=C_dD_d.
 ```
 
-For a three-terminal delta, ``D`` is the cyclic phase-to-phase incidence
+For a three-terminal delta, ``D_d`` is the cyclic phase-to-phase incidence
 matrix. For a two-terminal delta it has one difference row. The implementation
-never inverts ``D`` and therefore retains delta circulating-current degrees of
+never inverts ``D_d`` and therefore retains delta circulating-current degrees of
 freedom. Constant-impedance loads use the exact affine specialization
-``C=WD^T\operatorname{diag}(\overline{y})`` without an unnecessary current
+``C_d=W_iD_d^T\operatorname{Diag}(\overline{y_d})`` without an unnecessary current
 Gram.
 
 Constant-current, mixed ZIP and exponential loads use the same local
 voltage/current block as constant-power loads. If
-``x=|u|^2/v_{nom}^2``, auxiliary factors approximate ``x^a`` with power-cone
+``x=|U_d|^2/(v^{nom})^2``, auxiliary factors approximate ``x^a`` with power-cone
 hypographs or epigraphs and, when finite engineering voltage bounds exist, the
 opposite secant inequality. Active and reactive lifted powers are then fixed to
 their respective voltage-law factors. This is an additional convex envelope
@@ -287,30 +328,32 @@ and stamped with the exact affine admittance instead.
 For example, a three-terminal delta ordered ``a,b,c`` uses
 
 ```math
-D=\begin{bmatrix}
+D_\Delta=\begin{bmatrix}
 1&-1&0\\
 0&1&-1\\
 -1&0&1
 \end{bmatrix},
-\qquad Dv_i=
-\begin{bmatrix}v_a-v_b\\v_b-v_c\\v_c-v_a\end{bmatrix}.
+\qquad D_\Delta U_i=
+\begin{bmatrix}U_a-U_b\\U_b-U_c\\U_c-U_a\end{bmatrix}.
 ```
 
-If ``j=(j_{ab},j_{bc},j_{ca})``, the bus current is ``D^Tj``. Consequently
-``CD=v_i(D^Tj)^H`` is exactly the delta load's contribution to lifted KCL.
+If ``J_d=(J_{ab},J_{bc},J_{ca})``, the bus current is ``D_\Delta^TJ_d``.
+Consequently ``C_dD_\Delta=U_i(D_\Delta^TJ_d)^H`` is exactly the delta load's
+contribution to lifted KCL.
 This construction also explains why the model does not invent a neutral for a
 delta device and does not invert the rank-deficient incidence matrix.
 
 Delta generators use the same coil-current block, but three-wire dispatch
-quantities are terminal powers ``\operatorname{diag}(CD)`` and terminal
-currents ``D^Tj``. Consequently P/Q boxes, costs, ratings, relaxed powers and
+quantities are terminal powers ``\operatorname{diag}(C_dD_d)`` and terminal
+currents ``D_d^TJ_d``. Consequently P/Q boxes, costs, ratings, relaxed powers and
 recovered currents all retain `terminal_map` order, even when that order differs
 from the bus terminal list. The recovered terminal currents sum to zero. A
 two-terminal delta remains a single coil channel.
 
 Fixed capacitors are exact connection-aware admittances. With rated reactive
-power ``q`` and nominal coil voltage ``v_{nom}``, their current is
-``j(q/v_{nom}^2)Dv``; consumed coil power is therefore negative reactive power.
+power ``q`` and nominal coil voltage ``v^{nom}``, their current is
+``\mathrm j(q/(v^{nom})^2)D_dU_i``; consumed coil power is therefore negative
+reactive power.
 A closed switch has a local block enforcing equal mapped endpoint voltages and
 opposite through currents, including endpoint current/apparent-power ratings.
 An open switch has zero endpoint current and no voltage equality. Merely
@@ -325,19 +368,19 @@ uses a component-local moment block rather than pretending to be a series line.
 With winding incidence matrices ``D_f,D_t``,
 
 ```math
-u_f=D_fv_f,\quad u_t=D_tv_t,
-\qquad e_f=u_f-Z_fj_f,\quad e_t=u_t-Z_tj_t,
+U_f^w=D_fU_i,\quad U_t^w=D_tU_j,
+\qquad E_f=U_f^w-Z_fJ_f,\quad E_t=U_t^w-Z_tJ_t,
 ```
 
 ```math
-e_t=Re_f,\qquad j_f+R^Hj_t=0.
+E_t=RE_f,\qquad J_f+R^HJ_t=0.
 ```
 
 The local state contains both complete bus-voltage vectors, both winding-current
 vectors, and any galvanic bond or ideal-ground currents. These homogeneous
 linear winding equations are eliminated before creating the local PSD cone.
 The surviving voltage blocks overlap the corresponding bus ``W`` matrices;
-terminal current maps then contribute complete ``v i^H`` matrices to KCL.
+terminal current maps then contribute complete ``UI^H`` matrices to KCL.
 Fixed source ratios and zero-voltage ground coordinates are also eliminated
 locally to avoid exposed PSD faces. Delta winding currents stay in winding
 coordinates; terminal currents are obtained only through ``D^T``.
@@ -384,8 +427,9 @@ sample.
 
 Every source voltage matrix is fixed to its supplied phasor Gram. Without a
 global voltage closure, tree recovery starts from the source phasors, estimates
-each branch current from ``S_{ij}^H v_i/(v_i^H v_i)``, and propagates
-``v_j=v_i-Z_{ij}i_{ij}``. With a global closure, recovery instead uses a fixed
+each branch current from ``(S_{\ell ij}^s)^H U_i/(U_i^H U_i)``, and propagates
+``U_j=U_i-Z_\ell^sI_{\ell ij}^s``. With a global closure, recovery instead uses
+a fixed
 source coordinate as an anchor column of ``G``; a source-free disconnected
 component uses an arbitrary leading-eigenvector anchor. Component currents are
 then recovered conditionally from their local moment blocks. These candidates

@@ -3,6 +3,10 @@
 The dependency direction is BMOPF JSON → PowerIO → FormulationLab → optimizer.
 FormulationLab never imports PowerOptLab or BMOPFTools. JuMP is infrastructure, not the electrical data model.
 
+The [formulation guide](formulations.md) defines the mathematical layers; the
+[notation chapter](notation.md) defines symbols, units and ordering. This page
+describes how those layers are separated in software.
+
 `LinDist3Flow`, `IVRSDP`, `IVRSOC` and experimental `BranchFlowSDP` select mathematical formulations. `build_opf` and
 `solve_opf` separately accept optimizer factories. `formulation_kind` distinguishes
 an approximation from a relaxation; LP/SOCP/SDP cone types alone do not do so.
@@ -26,8 +30,9 @@ it is not intended as the scalable production representation.
 Sparse/chordal SDP representations, fixed SOC relaxations, LNCs, shared network
 reduction, and original-network reconstruction are implemented. Formulation,
 reduction, strengthening, numerical settings and recovery remain separate layers.
-The [formulation decision record](formulation_choices.md) identifies the retained
-configurations, scientific lineage, measured limitations and next experiments.
+The [formulation decision record](formulation_choices.md) identifies retained
+configurations, measured limitations and next experiments. Published origins
+are collected separately in the [literature map](literature.md).
 
 The next performance work targets Clarabel solve time. An exact nonlinear
 formulation and optional ExaModels backend remain future work; physical residual
@@ -41,7 +46,7 @@ inventory records scope exceptions; control laws and adjustable taps remain out.
 
 The branch-flow formulation uses bus voltage moments, classic current/power
 blocks for pi-model lines, and component-local overlap blocks for connection
-currents, switches and transformers. Complete lifted ``v i^H`` matrices meet at
+currents, switches and transformers. Complete lifted ``UI^H`` matrices meet at
 matrix KCL. Radial single-source cases retain the light local structure. Meshes,
 multiple sources, general multiwinding hyperedges and cross-bus LNCs additionally
 use a voltage-closure Gram whose bus and adjacent-edge submatrices overlap the

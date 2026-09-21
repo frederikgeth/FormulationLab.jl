@@ -4,22 +4,25 @@ The dense IVRSDP represents transformer electrical equations before lifting.
 All coefficients, including taps, are fixed. It neither linearizes complex power
 nor turns delta winding power into a nominal terminal-power allocation.
 
+Symbols and signs follow the shared [notation and conventions](notation.md).
+Winding currents are directed into the transformer on every winding.
+
 ## Winding representation
 
-Let `Df` and `Dt` map terminal voltages into oriented coil voltages. Their rows
+Let ``D_f`` and ``D_t`` map terminal voltages into oriented coil voltages. Their rows
 contain +1 and −1 at the two coil terminals; a missing return is ideal ground.
 With every coil current directed into the transformer,
 
 ```math
-u_f=D_f v_f,\quad u_t=D_t v_t,\qquad
-j_f+R^Hj_t=0,\qquad
-e_t=R e_f,
+U_f^w=D_fU_i,\quad U_t^w=D_tU_j,\qquad
+J_f+R^HJ_t=0,\qquad
+E_t=RE_f,
 ```
 
 where
 
 ```math
-e_f=u_f-Z_fj_f,\qquad e_t=u_t-Z_tj_t.
+E_f=U_f^w-Z_fJ_f,\qquad E_t=U_t^w-Z_tJ_t.
 ```
 
 `R` maps from-side EMFs to to-side EMFs. The ampere-turn equation is its
@@ -30,7 +33,8 @@ zero leakage arms and ideal units use the same equations.
 External exciting admittances produce terminal currents
 
 ```math
-i_f=D_f^T(j_f+Y_fu_f),\qquad i_t=D_t^T(j_t+Y_tu_t).
+I_f^{term}=D_f^T(J_f+Y_fU_f^w),\qquad
+I_t^{term}=D_t^T(J_t+Y_tU_t^w).
 ```
 
 These currents enter full terminal KCL. For regulators, an additional galvanic
@@ -189,13 +193,13 @@ single-phase dictionary extension), and optional `r_winding`, fixed
 line-to-line voltage**, unlike the two-bus Yd/Dy bus-voltage convention;
 `delta_roll=±1` sets coil orientation. All ports must have the same coil count.
 
-Let `n_k=v_nom[k]/v_nom[1]` and `T_k=n_k*tap_ratio[k]`. Per-coil referred currents
-are `J_k=T_k*j_k`. Resistances are referred with nominal `n_k²`; pairwise `x_sc`
+Let ``n_k=v_k^{nom}/v_1^{nom}`` and ``T_k=n_k\tau_k``. Per-coil referred currents
+are ``\widetilde J_k=T_kJ_k``. Resistances are referred with nominal ``n_k^2``; pairwise `x_sc`
 already uses winding 1's nominal coil-voltage base. Every key `i_j`, `i<j`, must
 be supplied exactly once. Construct
 
 ```math
-Z_{ij}=r_i/n_i^2+r_j/n_j^2+jx_{ij},
+Z_{ij}=r_i/n_i^2+r_j/n_j^2+\mathrm jx_{ij},
 Z_B[a,a]=Z_{1,a+1},\qquad
 Z_B[a,b]=(Z_{1,a+1}+Z_{1,b+1}-Z_{a+1,b+1})/2.
 ```
@@ -203,8 +207,9 @@ Z_B[a,b]=(Z_{1,a+1}+Z_{1,b+1}-Z_{a+1,b+1})/2.
 The exact linear equations (currents into the transformer) are
 
 ```math
-\sum_k J_k=0,\qquad
-u_1/T_1-u_i/T_i+\sum_{k=2}^n Z_B[i-1,k-1]J_k=0,\quad i\ge2.
+\sum_k \widetilde J_k=0,\qquad
+U_1^w/T_1-U_i^w/T_i+
+\sum_{k=2}^n Z_B[i-1,k-1]\widetilde J_k=0,\quad i\ge2.
 ```
 
 The full matrix is retained, including non-star four-or-more-winding couplings.

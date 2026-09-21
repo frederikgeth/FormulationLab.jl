@@ -7,6 +7,10 @@ model coverage, not unrestricted schema conformance or a general AC exactness
 claim. Line geometry compilation, DC networks, time-series evaluation, and control
 laws are outside this formulation. Unknown electrical fields are rejected.
 
+Symbols and current/power signs follow the shared [notation and
+conventions](notation.md). ``D_d`` always maps bus-terminal voltages into a
+device's ordered coil voltages.
+
 ## Switches and capacitors
 
 `open_switch` is a required fixed Boolean. A closed switch imposes `vf=vt`, with
@@ -18,8 +22,8 @@ are returned under `:switch_from` and `:switch_to`.
 A capacitor is a connection-aware susceptance. With coil incidence `D`,
 
 ```math
-u=Dv,\qquad i=j\,\operatorname{diag}(q_{rated}/v_{nom}^2)u,
-\qquad i_{terminal}=D^T i.
+U_d=D_dU_i,\qquad J_d=\mathrm j\,\operatorname{Diag}(q^{rated}/(v^{nom})^2)U_d,
+\qquad I_d^{term}=D_d^T J_d.
 ```
 
 Wye, delta, and single terminal-pair connections retain their return paths.
@@ -54,7 +58,7 @@ All magnitude limits are affine functions of voltage moments. For a complex row
 `c` selecting a voltage difference or sequence,
 
 ```math
-\underline v^2\le \widehat{|cv|^2}\le\overline v^2.
+\underline U^2\le \widehat{|cU|^2}\le\overline U^2.
 ```
 
 Supported fields are `v_min/max`, `vn_max`, `vpn_min/max`, `vpp_min/max`,
@@ -100,7 +104,7 @@ With filter impedance `Z=diag(r_filter+j*x_filter)` and per-coil PCC shunt
 susceptance `b_filter_shunt`, define delivered PCC current `i` and voltage `u`:
 
 ```math
-j_f=i+jB u,\qquad e=u+Z j_f.
+J_f=I+\mathrm jB U_d,\qquad E=U_d+ZJ_f.
 ```
 
 The ordinary `:ibr` powers are `u*conj(i)` at PCC; `:ibr_internal` reports
@@ -119,11 +123,12 @@ metadata. Availability and capability limits remain active independently of it.
 ## Voltage-dependent loads: additional relaxation
 
 Constant-power loads fix their coil powers. Constant-impedance loads retain the
-linear law `i=conj(s_nom)/v_nom²*u`, including at zero voltage. Equivalent all-Z
+linear law ``J=\operatorname{Diag}(\overline{s^{nom}}/(v^{nom})^2)U_d``,
+including at zero voltage. Equivalent all-Z
 ZIP and exponent-2 declarations use that same law.
 
 For constant-current, mixed ZIP and exponential loads, use normalized squared
-coil voltage `x=|u|²/v_nom²` and auxiliary factors `t_a≈x^a`. Constant-current uses
+coil voltage ``x=|U_d|^2/(v^{nom})^2`` and auxiliary factors ``t_a\approx x^a``. Constant-current uses
 `a=1/2`; exponential P/Q use `gamma_p/2` and `gamma_q/2`. ZIP powers are affine
 combinations of `x`, `t_(1/2)`, and 1 with independent active/reactive fractions.
 Fractions must be nonnegative and sum to one.

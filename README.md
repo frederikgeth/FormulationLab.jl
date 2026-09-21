@@ -72,8 +72,11 @@ julia --project=test/optional test/optional/mosek.jl
 
 The default test environment includes Clarabel, Ipopt (for migrated affine-model comparisons), and OpenDSSDirect. It has no BMOPFTools or Mosek dependency. Nonlinear BMOPFTools replay comparisons are retained separately in [test/integration](test/integration/README.md).
 
+- [Choose a formulation](docs/src/formulations.md) and review the shared
+  [notation and conventions](docs/src/notation.md)
+- [Literature and formulation lineage](docs/src/literature.md)
 - [SOC profiles and structural sparsity](docs/src/soc_profiles.md)
-- [Formulation decisions, experimental lessons, and scientific origins](docs/src/formulation_choices.md)
+- [Formulation decisions and experimental lessons](docs/src/formulation_choices.md)
 - [Architecture and next steps](docs/src/architecture.md)
 - [BMOPF coverage](docs/src/coverage.md)
 - [SDP equations, scope, and numerical interpretation](docs/src/sdp.md)
