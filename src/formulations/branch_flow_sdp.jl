@@ -80,6 +80,13 @@ function _bfm_phase_vector(data, key, phase_positions, terminal_count, label;
     values
 end
 
+function _bfm_line_phase_positions(net, line)
+    declared_from = String(line["bus_from"])
+    terms = string.(net["bus"][declared_from]["terminal_names"])
+    neutral = get(_kr_neutral_map(net), declared_from, nothing)
+    findall(!=(neutral), terms)
+end
+
 function _bfm_line_matrix(data, prefix, n, label)
     matrix = try
         _kr_matrix(data, prefix; label)
@@ -384,7 +391,7 @@ function _bfm_validate(net)
             end
         end
         _bfm_nonnegative(_bfm_vector(ratings, "i_max", n, label), "$label i_max")
-        phase_positions = findall(!=(get(_kr_neutral_map(net), from, nothing)), from_terms)
+        phase_positions = _bfm_line_phase_positions(net, line)
         _bfm_nonnegative(
             _bfm_phase_vector(ratings, "s_max", phase_positions, n, label),
             "$label s_max")
@@ -1504,9 +1511,11 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         voltage_moments[bus] = _bfm_hermitian(model, n)
         balance[bus] = Any[JuMP.AffExpr(0.0) + 0im for _ in 1:n, _ in 1:n]
     end
+    closed_switch = any(switch -> !switch["open_switch"],
+        values(get(net, "switch", Dict())))
     use_global_voltage = plan.requires_global_voltage ||
         !isempty(options.voltage_lncs) || options.lnc == :lines ||
-        !isempty(get(net, "switch", Dict())) ||
+        closed_switch ||
         !isempty(get(get(net, "transformer", Dict()), "n_winding", Dict()))
     voltage_global, voltage_indices = use_global_voltage ?
         _bfm_voltage_closure!(model, net, voltage_moments, options.cone) :
@@ -1594,8 +1603,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             end
         end
         imax = _bfm_vector(ratings, "i_max", n, "line/$id")
-        terms = string.(net["bus"][parent]["terminal_names"])
-        phase_positions = findall(!=(get(_kr_neutral_map(net), parent, nothing)), terms)
+        phase_positions = _bfm_line_phase_positions(net, line)
         smax = _bfm_phase_vector(ratings, "s_max", phase_positions, n, "line/$id")
         _bfm_nonnegative(imax, "line/$id i_max")
         _bfm_nonnegative(smax, "line/$id s_max")

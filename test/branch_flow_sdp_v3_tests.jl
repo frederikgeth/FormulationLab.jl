@@ -208,6 +208,24 @@ end
         grounded_build.numerical_diagnostics[:line_bound_diagnostics])
     @test grounded_bounds.derived_endpoint_current_child[1] ≈ 20_000 / 180
     @test isinf(grounded_bounds.derived_endpoint_current_child[2])
+
+    reversed = _l3f_case(explicit_neutral=true)
+    delete!(reversed, "terminal_conventions")
+    reversed["bus"]["source"]["neutral_terminal"] = "a"
+    reversed["bus"]["load"]["neutral_terminal"] = "n"
+    reversed_line = reversed["line"]["line"]
+    reversed_line["bus_from"], reversed_line["bus_to"] = "load", "source"
+    reversed_line["s_max"] = [20_000.0]
+    @test is_branch_flow_sdp_applicable(
+        check_branch_flow_sdp_applicability(reversed))
+    reversed_build = build_branch_flow_sdp(reversed)
+    @test only(reversed_build.edge_records).reversed
+    reversed_bounds = only(
+        reversed_build.numerical_diagnostics[:line_bound_diagnostics])
+    @test reversed_bounds.derived_endpoint_current_parent[1] ≈ 20_000 / 230
+    @test reversed_bounds.derived_endpoint_current_child[1] ≈ 20_000 / 180
+    @test isinf(reversed_bounds.derived_endpoint_current_parent[2])
+    @test isinf(reversed_bounds.derived_endpoint_current_child[2])
 end
 
 @testset "Branch-flow SDP switches, capacitors and delta generators" begin
@@ -235,6 +253,21 @@ end
     @test open_build.numerical_diagnostics[:source_free_components] == 1
     @test !solve_branch_flow_sdp(open_build;
         solver_options=(verbose=false,)).solve.optimal
+
+    inert = _l3f_case()
+    inert_line = inert["line"]["line"]
+    inert["switch"] = Dict("open" => Dict{String,Any}(
+        key => inert_line[key] for key in ("bus_from", "bus_to",
+            "terminal_map_from", "terminal_map_to")))
+    inert["switch"]["open"]["open_switch"] = true
+    inert_build = build_branch_flow_sdp(inert;
+        options=BranchFlowSDPOptions(objective=:source_import))
+    @test !inert_build.numerical_diagnostics[:global_voltage_closure]
+    delete!(inert, "switch")
+    no_switch_build = build_branch_flow_sdp(inert;
+        options=BranchFlowSDPOptions(objective=:source_import))
+    @test JuMP.num_variables(inert_build.model) ==
+          JuMP.num_variables(no_switch_build.model)
 
     phases = ["a", "b", "c"]
     delta_voltage = 230.0 .* cis.([0.0, -2pi / 3, 2pi / 3])
