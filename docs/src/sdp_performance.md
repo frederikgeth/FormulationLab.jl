@@ -1,5 +1,44 @@
 # SDP structure and scaling study, 12 September 2026
 
+## Chordal completion follow-up, 21 September 2026
+
+A one-thread Mosek 11.2 experiment on the prepared 96-bus ENWL feeder compares
+the two chordal orderings and the new `BranchFlowSDP` voltage-closure
+decomposition. It is a single-run structural experiment, not a timing
+distribution. All rows terminated `OPTIMAL`; maximum scaled JuMP residuals were
+below ``8\times10^{-9}``.
+
+For IVR, minimum-fill reduced added chordal edges from 901 to 780, scalar
+variables from 9,530 to 9,007, and solve time from 1.90 s to 0.53 s. Its greedy
+graph search increased build time from 11.88 s to 23.51 s, however, so total
+one-shot time increased. Minimum-degree therefore remains the default; the
+minimum-fill option is useful when a model will be resolved many times or when
+its lower fill offsets the extra symbolic work on another network.
+
+The untouched ENWL feeder is radial and does not require BFM's global voltage
+closure. To exercise that code path without hiding the intervention, the
+benchmark duplicates one named line as a parallel circuit and records both IDs
+in the result artifact. The comparison is then:
+
+| BFM closure | Variables | Constraints | Build (s) | Solve (s) | Objective (W) | Residual |
+|:--|--:|--:|--:|--:|--:|--:|
+| dense, order 288 | 176,802 | 6,418 | 2.77 | 5.17 | -1371.049575 | ``2.10\times10^{-9}`` |
+| chordal/minimum-degree, 43 cliques, max order 12 | 19,608 | 6,838 | 0.53 | 0.98 | -1371.048299 | ``7.03\times10^{-9}`` |
+| chordal/minimum-fill, same cover | 19,608 | 6,838 | 1.96 | 0.94 | -1371.048299 | ``7.03\times10^{-9}`` |
+
+The chordal representation uses about one ninth as many scalar variables and
+solves about five times faster in this run. The dense/chordal objective
+difference is 0.0013 W (less than one part per million of its magnitude), which
+is consistent with floating-point solve accuracy but is not an exact arithmetic
+proof. The two BFM ordering heuristics find the same zero-fill chordal graph, so
+minimum-fill adds build cost without structural benefit here.
+
+The reproducible driver is `examples/benchmark_sdp_sparsity.jl`; the retained
+records are `examples/results/sdp_sparsity_2026-09-21.json` and
+`examples/results/sdp_sparsity_2026-09-21.md`.
+Inputs and reported results use SI units; both formulations use per-unit model
+coordinates on a 10 kVA base.
+
 The retained improvement is voltage-region preconditioning for the Clarabel SDP
 profile. It improves both solve time and numerical accuracy on the two mixed
 voltage LV snapshots. The three ENWL cases have a single voltage region; their

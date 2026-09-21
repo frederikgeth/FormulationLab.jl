@@ -3,7 +3,11 @@
 `implied_current_limits` covers lines, closed switches and rated multiwinding
 coils. `port_rlt` derives voltage-current RLT/LNC cuts only from proven physical
 voltage and P/Q-box domains. Both are enabled by default and independently
-switchable for ablations.
+switchable for ablations. When a global voltage closure is required,
+`voltage_decomposition=:auto` keeps at most 32 live voltage coordinates dense
+and otherwise uses chordal PSD completion. `:dense` and `:chordal` force either
+representation; `chordal_ordering` and `voltage_clique_size` control the sparse
+extension and adjacent-clique amalgamation.
 """
 Base.@kwdef struct BranchFlowSDPOptions
     s_base::Float64 = 1e4
@@ -15,6 +19,9 @@ Base.@kwdef struct BranchFlowSDPOptions
     voltage_lncs::Vector{VoltageLNC} = VoltageLNC[]
     implied_current_limits::Bool = true
     port_rlt::Bool = true
+    voltage_decomposition::Symbol = :auto
+    chordal_ordering::Symbol = :minimum_degree
+    voltage_clique_size::Int = 32
 end
 
 struct BranchFlowSDPInapplicableError <: Exception
@@ -833,7 +840,42 @@ function _bfm_load_law!(model, net, id, data, device, D, W, powers, vb, sb)
     end
 end
 
-function _bfm_voltage_closure!(model, net, voltage_moments, cone)
+function _bfm_voltage_closure_supports(net,indices,voltage_lncs)
+    live(bus)=sort!([indices[(String(bus),String(t))]
+        for t in net["bus"][String(bus)]["terminal_names"]
+        if indices[(String(bus),String(t))]!=0])
+    supports=Vector{Int}[]
+    for bus in sort!(collect(keys(net["bus"])))
+        push!(supports,live(bus))
+    end
+    for line in values(get(net,"line",Dict()))
+        push!(supports,union(live(line["bus_from"]),live(line["bus_to"])))
+    end
+    for switch in values(get(net,"switch",Dict()))
+        switch["open_switch"] && continue
+        push!(supports,union(live(switch["bus_from"]),live(switch["bus_to"])))
+    end
+    for (subtype,table) in get(net,"transformer",Dict()), transformer in values(table)
+        buses=subtype=="n_winding" ?
+            String[String(w["bus"]) for w in transformer["windings"]] :
+            String[String(transformer["bus_from"]),String(transformer["bus_to"])]
+        push!(supports,reduce(union,(live(bus) for bus in buses);init=Int[]))
+    end
+    source_coordinates=reduce(union,
+        (live(source["bus"]) for source in values(net["voltage_source"]));init=Int[])
+    isempty(source_coordinates) || push!(supports,source_coordinates)
+    for spec in voltage_lncs
+        coordinates=Int[]
+        for key in union(keys(spec.u.terms),keys(spec.v.terms))
+            haskey(indices,key) || _bfm_refuse("voltage LNC $(spec.id) references unknown terminal $key")
+            indices[key]==0 || push!(coordinates,indices[key])
+        end
+        isempty(coordinates) || push!(supports,unique(coordinates))
+    end
+    supports
+end
+
+function _bfm_voltage_closure!(model, net, voltage_moments, options)
     indices = Dict{Tuple{String,String},Int}()
     cursor = 0
     for (bus, data) in sort!(collect(net["bus"]); by=first)
@@ -847,7 +889,21 @@ function _bfm_voltage_closure!(model, net, voltage_moments, cone)
             end
         end
     end
-    block = _sdp_psd(model, cursor, cone)
+    diagnostics=Dict{Symbol,Any}(:voltage_state_dimension=>cursor)
+    sparse=options.voltage_decomposition==:chordal ||
+        (options.voltage_decomposition==:auto && cursor>32)
+    block = if sparse
+        supports=_bfm_voltage_closure_supports(net,indices,options.voltage_lncs)
+        diagnostics[:voltage_decomposition]=:chordal
+        _sdp_chordal_psd(model,cursor,supports,options.cone;
+            ordering=options.chordal_ordering,
+            clique_size=options.voltage_clique_size,diagnostics)
+    else
+        diagnostics[:voltage_decomposition]=:dense
+        diagnostics[:cliques]=1
+        diagnostics[:clique_orders]=[cursor]
+        _sdp_psd(model, cursor, options.cone)
+    end
     for (bus, data) in sort!(collect(net["bus"]); by=first)
         terms = string.(data["terminal_names"])
         for a in eachindex(terms), b in a:length(terms)
@@ -856,7 +912,7 @@ function _bfm_voltage_closure!(model, net, voltage_moments, cone)
             @constraint(model, block[ia, ib] == voltage_moments[String(bus)][a, b])
         end
     end
-    block, indices
+    block, indices, diagnostics
 end
 
 function _bfm_overlap_global!(model, block, indices, bus_from, terms_from,
@@ -1543,6 +1599,12 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     options.objective in (:cost, :source_import, :feasibility) ||
         throw(ArgumentError("unknown branch-flow SDP objective"))
     options.cone in (:real, :hermitian) || throw(ArgumentError("unknown SDP cone"))
+    options.voltage_decomposition in (:auto,:dense,:chordal) ||
+        throw(ArgumentError("unknown voltage decomposition"))
+    options.chordal_ordering in (:minimum_degree,:minimum_fill) ||
+        throw(ArgumentError("unknown chordal ordering"))
+    options.voltage_clique_size>=1 ||
+        throw(ArgumentError("voltage_clique_size must be positive"))
     options.recovery == :tree || throw(ArgumentError("only recovery=:tree is implemented"))
     options.lnc in (:off, :lines) || throw(ArgumentError("lnc must be :off or :lines"))
     net = _l3f_input(input)
@@ -1591,9 +1653,10 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         !isempty(options.voltage_lncs) ||
         closed_switch ||
         !isempty(get(get(net, "transformer", Dict()), "n_winding", Dict()))
-    voltage_global, voltage_indices = use_global_voltage ?
-        _bfm_voltage_closure!(model, net, voltage_moments, options.cone) :
-        (nothing, Dict{Tuple{String,String},Int}())
+    voltage_global, voltage_indices, voltage_closure_diagnostics = use_global_voltage ?
+        _bfm_voltage_closure!(model, net, voltage_moments, options) :
+        (nothing, Dict{Tuple{String,String},Int}(),
+         Dict{Symbol,Any}(:voltage_decomposition=>:not_required))
 
     edge_blocks = Dict{String,Any}()
     component_blocks = Dict{Tuple{Symbol,String},Any}()
@@ -2134,6 +2197,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         :cone => options.cone,
         :objective_scale => objective_scale,
     )
+    merge!(diagnostics,voltage_closure_diagnostics)
     if optimizer isa _SDPDefaultOptimizer
         JuMP.set_optimizer(model, default_sdp_optimizer(:branch_flow))
         diagnostics[:optimizer_profile] = :clarabel_branch_flow

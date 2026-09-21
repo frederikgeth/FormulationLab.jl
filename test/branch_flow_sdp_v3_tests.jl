@@ -35,6 +35,28 @@ function _bfm_mesh_case(; second_source=false)
             "v_nom" => [230.0], "p_nom" => [10_000.0], "q_nom" => [2_000.0])))
 end
 
+function _bfm_cycle_case(n=12)
+    buses=Dict("b$k"=>Dict{String,Any}(
+        "terminal_names"=>["a"],"v_min"=>[180.0],"v_max"=>[250.0])
+        for k in 1:n)
+    lines=Dict{String,Any}()
+    for k in 1:n
+        lines["l$k"]=Dict{String,Any}(
+            "bus_from"=>"b$k","bus_to"=>"b$(k==n ? 1 : k+1)",
+            "terminal_map_from"=>["a"],"terminal_map_to"=>["a"],
+            "R_series_1_1"=>0.01,"X_series_1_1"=>0.005)
+    end
+    loads=Dict("d$k"=>Dict{String,Any}(
+        "bus"=>"b$k","terminal_map"=>["a"],"configuration"=>"WYE",
+        "model"=>"constant_impedance","v_nom"=>[230.0],
+        "p_nom"=>[100.0],"q_nom"=>[20.0]) for k in 2:n)
+    Dict{String,Any}(
+        "bus"=>buses,"line"=>lines,"load"=>loads,
+        "voltage_source"=>Dict("s"=>Dict{String,Any}(
+            "bus"=>"b1","terminal_map"=>["a"],"configuration"=>"WYE",
+            "v_magnitude"=>[230.0],"v_angle"=>[0.0],"cost"=>[1.0])))
+end
+
 function _bfm_paper_line(z, y; smax)
     Dict{String,Any}(
         "bus_from" => "i", "bus_to" => "j",
@@ -173,6 +195,34 @@ end
         build.voltage_moments[edge.parent][1, 1] -
         edge.S[1, 1] * conj(edge.Z[1, 1])) for edge in build.edge_records)
     @test cross["l"] ≈ cross["k"] atol=2e-7
+end
+
+@testset "Branch-flow global voltage closure uses chordal completion" begin
+    net=_bfm_cycle_case()
+    dense=build_branch_flow_sdp(net;options=BranchFlowSDPOptions(
+        objective=:source_import,voltage_decomposition=:dense))
+    sparse=build_branch_flow_sdp(net;options=BranchFlowSDPOptions(
+        objective=:source_import,voltage_decomposition=:chordal,
+        chordal_ordering=:minimum_fill,voltage_clique_size=3))
+    diagnostics=sparse.numerical_diagnostics
+    @test diagnostics[:voltage_decomposition]==:chordal
+    @test diagnostics[:chordal_ordering]==:minimum_fill
+    @test diagnostics[:cliques]>1
+    @test maximum(diagnostics[:clique_orders])==3
+    @test JuMP.num_variables(sparse.model)<JuMP.num_variables(dense.model)
+    sparse_result=solve_branch_flow_sdp(sparse;solver_options=(verbose=false,))
+    @test sparse_result.solve.optimal
+    @test 1_050.0<sparse_result.objective<1_120.0
+    @test physical_residuals(net,ACPoint(
+        voltage=sparse_result.voltage_candidate,
+        currents=sparse_result.current_candidate);
+        atol=(voltage=2e-3,current=2e-3,power=0.2)).passed
+    @test_throws ArgumentError build_branch_flow_sdp(net;
+        options=BranchFlowSDPOptions(voltage_decomposition=:bad))
+    @test_throws ArgumentError build_branch_flow_sdp(net;
+        options=BranchFlowSDPOptions(chordal_ordering=:bad))
+    @test_throws ArgumentError build_branch_flow_sdp(net;
+        options=BranchFlowSDPOptions(voltage_clique_size=0))
 end
 
 

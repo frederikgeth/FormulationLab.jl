@@ -14,7 +14,7 @@
         @test improved.voltage_candidate[("load","a")] ≈ reference.voltage_candidate[("load","a")] rtol=2e-5
         @test solve_diagnostics(improved).numerical[:voltage_rank_ratio] < 1e-6
     end
-    for options in (SDPOptions(profile=:bad),SDPOptions(basis=:bad),SDPOptions(cone=:bad),SDPOptions(shunt_coordinates=:bad),SDPOptions(decomposition=:bad),SDPOptions(recovery=:bad),SDPOptions(clique_size=0),SDPOptions(clique_merge=:bad),SDPOptions(state_scaling=:bad),SDPOptions(clique_overlap_weight=-1.),SDPOptions(clique_overlap_weight=Inf),SDPOptions(kcl_split_size=2))
+    for options in (SDPOptions(profile=:bad),SDPOptions(basis=:bad),SDPOptions(cone=:bad),SDPOptions(shunt_coordinates=:bad),SDPOptions(decomposition=:bad),SDPOptions(recovery=:bad),SDPOptions(clique_size=0),SDPOptions(clique_merge=:bad),SDPOptions(chordal_ordering=:bad),SDPOptions(state_scaling=:bad),SDPOptions(clique_overlap_weight=-1.),SDPOptions(clique_overlap_weight=Inf),SDPOptions(kcl_split_size=2))
         @test_throws ArgumentError build_sdp_opf(net;options)
     end
 end
@@ -167,5 +167,19 @@ end
             @test 1<=ps[i]<i
             @test issubset(intersect(merged[i],reduce(union,merged[1:i-1])),merged[ps[i]])
         end
+    end
+end
+
+@testset "Minimum-degree and minimum-fill chordal extensions cover supports" begin
+    supports=[[1,2],[2,3],[3,4],[4,1],[2,5],[4,5]]
+    for ordering in (:minimum_degree,:minimum_fill)
+        diagnostics=Dict{Symbol,Any}()
+        cliques,parents=FormulationLab._sdp_cliques(5,supports;ordering,diagnostics)
+        @test all(any(issubset(s,c) for c in cliques) for s in supports)
+        @test parents[1]==0
+        @test all(1<=parents[k]<k for k in 2:length(parents))
+        @test diagnostics[:chordal_ordering]==ordering
+        @test diagnostics[:aggregate_sparsity_edges]==6
+        @test diagnostics[:chordal_fill_edges]>=0
     end
 end

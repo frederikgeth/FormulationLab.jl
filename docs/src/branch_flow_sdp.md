@@ -18,8 +18,7 @@ Use this formulation when line sending power, receiving power, endpoint shunt
 power and current moments should remain explicit, or when comparing a
 branch-flow relaxation with `IVRSDP`. Radial and meshed networks, multiple fixed
 sources, fixed switches, capacitors and general multiwinding transformers are
-accepted. Use `IVRSDP` instead when static IBR filters/capabilities or its
-chordal/numerical profiles are required.
+accepted. Use `IVRSDP` instead when static IBR filters/capabilities are required.
 
 The formulation returns an optimization relaxation, not an AC power-flow
 solution. For a minimization objective it supplies a lower-bound model for the
@@ -74,15 +73,31 @@ No standalone nonnegative-loss row is added: the branch-flow line and winding
 moments already retain their physical current-loss identities, so that row
 would be redundant here.
 
+The conditional global voltage closure has its own representation controls:
+
+- `voltage_decomposition=:auto` uses a dense voltage Gram through 32 live
+  voltage coordinates and chordal PSD completion above that threshold;
+- `:dense` and `:chordal` force a representation for controlled comparisons;
+- `chordal_ordering=:minimum_degree` is the deterministic default, while
+  `:minimum_fill` greedily minimizes fill edges at each elimination step; and
+- `voltage_clique_size=32` caps adjacent-clique amalgamation. It does not split
+  an indivisible maximal clique.
+
+These options affect only the voltage closure. The physical line, transformer,
+switch and device moment blocks remain local and unchanged. If no closure is
+required—normally a single-source radial feeder without a closed switch,
+multiwinding hyperedge or explicit cross-bus LNC—the options create no cone.
+
 The builder sorts bus and source records before emitting variables and
 constraints. This does not change the formulation, but keeps the solver matrix
 independent of Julia dictionary hash order, which matters for numerically
 sensitive SDP factorizations.
 
-When Clarabel is selected implicitly, the BranchFlow profile disables chordal
-decomposition, uses static regularization `1e-7`, and permits up to 30 iterative
-refinement steps. Explicit optimizer factories remain caller-owned, and
-`solver_options` can override these defaults.
+When Clarabel is selected implicitly, the BranchFlow profile uses static
+regularization `1e-7` and permits up to 30 iterative refinement steps. The
+formulation's automatic voltage-closure decision is made before solver
+selection. Explicit optimizer factories remain caller-owned, and
+`solver_options` can override the solver defaults.
 
 ## Physical line model and lifted variables
 
@@ -235,6 +250,40 @@ voltage Gram.
 This is a relaxation—rank-one voltage recovery and AC residual checks remain
 necessary.
 
+### Chordal voltage completion
+
+Writing the complete closure as one Gram ``G\succeq0`` costs quadratically many
+scalar variables and gives an interior-point solver one cone whose real
+embedding has order twice the number of live voltage coordinates. The network
+equations use only a sparse subset: within-bus blocks, cross-bus blocks for
+lines, closed switches and transformers, all-source reference products, and
+products named by explicit voltage LNCs.
+
+On the chordal path, these supports define an undirected aggregate sparsity
+graph. A minimum-degree or minimum-fill elimination heuristic adds fill until
+the graph is chordal. If ``C_1,\ldots,C_q`` are its maximal cliques, the dense
+constraint is replaced by
+
+```math
+G[C_k,C_k]\succeq0,\qquad k=1,\ldots,q,
+```
+
+plus equality of the shared entries on clique-tree separators. The tree is a
+maximum-weight spanning tree weighted by clique-intersection size, so it has the
+running-intersection property and supplies a nonredundant set of overlap
+equalities. The positive-semidefinite matrix-completion theorem then guarantees
+that these consistent clique matrices admit a global PSD completion. This is an
+equivalent representation of the voltage-closure relaxation, not an SOC
+approximation and not a topology assumption.
+
+`build.voltage_global` is therefore either a dense matrix or a partial chordal
+Gram container with the same indexing interface for declared products.
+`value.(build.voltage_global)` computes a dense numerical completion for
+recovery and rank diagnostics. A voltage LNC added *after* a sparse build can
+only use products already covered by its clique graph; declare new cross-bus
+LNCs in `BranchFlowSDPOptions(voltage_lncs=...)` before building so their support
+is included.
+
 ## Matrix current balance and connection moments
 
 Let ``r_i`` be the vector current-balance residual at bus ``i`` with currents
@@ -357,7 +406,7 @@ reactive power.
 A closed switch has a local block enforcing equal mapped endpoint voltages and
 opposite through currents, including endpoint current/apparent-power ratings.
 An open switch has zero endpoint current and no voltage equality. Merely
-declaring an open switch does not activate the dense global voltage closure;
+declaring an open switch does not activate the global voltage closure;
 another requirement such as a mesh, multiple sources, a source-free island or
 an explicit voltage LNC may still activate it independently.
 
@@ -529,5 +578,4 @@ likewise be measured rather than inferred from cone counts.
 1. Static IBR filters and shared-link capability constraints.
 2. Partial or permuted line endpoint maps.
 3. Adjustable controls and taps with explicit convex relaxations.
-4. Sparse/chordal alternatives to the dense voltage closure on large meshes.
-5. Stronger state recovery and performance studies on larger feeders.
+4. Stronger state recovery and performance studies on larger feeders.

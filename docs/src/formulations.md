@@ -40,7 +40,7 @@ contract or physical units reported to the caller.
 | [`LinDist3Flow`](lindist3flow.md) | voltage and power perturbations around a fixed reference | LP/SOCP approximation | fast fixed-reference studies on networks within its applicability contract | lossless linearization; not an AC relaxation or lower bound |
 | [`IVRSDP`](sdp.md) | one reduced Gram matrix of terminal voltages and component currents | SDP relaxation | broad static-component coverage and a strong reference relaxation | global current--voltage state can produce large PSD blocks |
 | [`IVRSOC`](soc.md) | the IVR electrical maps with pairwise and selected projected cones | SOCP outer relaxation, plus load power cones | scalable conic experiments and Clarabel-oriented profiles | weaker than the corresponding PSD constraint; strength depends on selected coordinates and cuts |
-| [`BranchFlowSDP`](branch_flow_sdp.md) | bus ``W`` matrices and line ``S/L`` moments, plus local device blocks | SDP relaxation | explicit line-flow/current studies and comparison with classic multiphase BFM relaxations | no static IBR model; dense voltage closure is still needed for some meshes and cross-bus constraints |
+| [`BranchFlowSDP`](branch_flow_sdp.md) | bus ``W`` matrices and line ``S/L`` moments, plus local device blocks | SDP relaxation | explicit line-flow/current studies and comparison with classic multiphase BFM relaxations | no static IBR model; meshes and cross-bus constraints may require a dense or chordal voltage closure |
 
 `IVRSDP` and `BranchFlowSDP` are different formulations, even when they encode
 the same rank-one AC point. `IVRSOC` is an outer relaxation of the IVR moment
