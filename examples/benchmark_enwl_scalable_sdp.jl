@@ -172,9 +172,9 @@ function _scalable_markdown(data, output)
                 get(row, "decomposition", "—"), " | ", orders, " |")
         end
         println(io)
-        println(io, "A case is attempted only when both formulations pass the primary-base ",
-            "gate on the preceding case. After a primary pass, the 3 and 30 kVA runs ",
-            "measure coordinate sensitivity. A skipped case is an experiment-budget ",
+        println(io, "Every reached case is evaluated at 3, 10, and 30 kVA. A later ",
+            "case is attempted only when both formulations pass the 10 kVA primary ",
+            "gate on the preceding case. A skipped case is an experiment-budget ",
             "decision, not an applicability finding. Models above ",
             SCALABLE_VARIABLE_LIMIT, " variables are built and diagnosed but not sent ",
             "to the solver.")
@@ -253,16 +253,13 @@ function run_enwl_scalable_sdp(data_dir, output; time_limit=180.0)
             _scalable_run!(case, save, net, kind, SCALABLE_PRIMARY_BASE, time_limit)
             GC.gc()
         end
-        if _scalable_primary_gate(case)
-            for s_base in (first(SCALABLE_ENWL_BASES), last(SCALABLE_ENWL_BASES)),
-                kind in (:ivr, :branch_flow)
-                _scalable_run!(case, save, net, kind, s_base, time_limit)
-                GC.gc()
-            end
-            case["stage_status"] = "complete"
-        else
-            case["stage_status"] = "failed_primary_gate"
+        for s_base in (first(SCALABLE_ENWL_BASES), last(SCALABLE_ENWL_BASES)),
+            kind in (:ivr, :branch_flow)
+            _scalable_run!(case, save, net, kind, s_base, time_limit)
+            GC.gc()
         end
+        case["stage_status"] = _scalable_primary_gate(case) ?
+            "complete" : "failed_primary_gate"
         save()
     end
     markdown = _scalable_markdown(finite(data), output)
