@@ -13,7 +13,7 @@ struct IVRSDP <: AbstractFormulation
 end
 IVRSDP(;kwargs...) = IVRSDP(SDPOptions(;kwargs...))
 
-"""Radial multiphase branch-flow semidefinite relaxation."""
+"""Matrix-KCL multiphase branch-flow SDP for radial or meshed networks."""
 struct BranchFlowSDP <: AbstractFormulation
     options::BranchFlowSDPOptions
 end

@@ -17,9 +17,13 @@ multiwinding maps, scalar phase-voltage bounds, inert open-switch model size and
 declaration-independent line orientation. Paper-derived regressions exercise
 parallel-line cross-voltage consistency and the strengthening from
 apparent-power/voltage bounds to total endpoint and shunt-corrected
-series-current limits. Static IBRs remain an intentional refusal.
+series-current limits. The shared LNC regressions also cover IVR derivation from
+`s_max`, while operational P/Q-box tests discriminate applied/skipped
+voltage-current RLT domains. Closed-switch and multiwinding-coil regressions
+check matching-voltage inferred current limits. Static IBRs remain an
+intentional refusal.
 
-The Julia 1.12.6 default suite passes **6,091/6,091** checks. OpenDSSDirect still
+The Julia 1.12.6 default suite passes **6,353/6,353** checks. OpenDSSDirect still
 emits the precompilation warnings recorded below and then runs its oracle tests
 without the cache.
 

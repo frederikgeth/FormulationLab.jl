@@ -13,7 +13,8 @@ result = solve_opf(input, IVRSDP(objective=:source_import, s_base=1e4);
 reference = solve_opf(input, IVRSDP(profile=:reference, objective=:source_import))
 
 # Each choice can be controlled independently for experiments:
-formulation = IVRSDP(decomposition=:chordal, current_bounds=true, lnc=:lines)
+formulation = IVRSDP(decomposition=:chordal, current_bounds=true,
+                     lnc=:lines, port_rlt=true)
 ```
 
 | Option | Clarabel profile | Reference profile |
@@ -28,6 +29,7 @@ formulation = IVRSDP(decomposition=:chordal, current_bounds=true, lnc=:lines)
 | `recovery` | `:anchor` | `:dominant` |
 | `consistency` | `:auto` | unused on dense path |
 | `lnc` | `:off` | `:off` |
+| `port_rlt` | `true` | `true` |
 | `clique_merge` | `:size` | unused on dense path |
 | `clique_size` | `32` for `:size`, `12` for `:cost` | unused on dense path |
 | `clique_overlap_weight` | `1.0` | unused on dense path |

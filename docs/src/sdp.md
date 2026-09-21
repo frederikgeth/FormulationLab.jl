@@ -74,4 +74,8 @@ relaxation; affected load IDs and excluded control profiles are exposed in
 
 Optional [lifted nonlinear cuts](lnc.md) act on physical voltage maps. Enable
 `lnc=:lines` for conservative automatic line bounds or pass explicit
-`voltage_lncs` with documented domain provenance.
+`voltage_lncs` with documented domain provenance. Independently,
+`port_rlt=true` uses finite voltage and P/Q operating boxes that exclude the
+origin to derive valid voltage-current magnitude/angle domains and their two
+RLT/LNC inequalities. Candidates without a provable domain are skipped and
+reported; no nominal power factor is assumed.
