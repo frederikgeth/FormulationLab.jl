@@ -29,15 +29,16 @@ end
         d=deepcopy(load);d["bus"]=id;d["p_nom"]=[100.];d["q_nom"]=[20.];net["load"][id]=d
         e=deepcopy(line);e["bus_from"]="source";e["bus_to"]=id;net["line"][id]=e
     end
-    unsplit=_sdp_test_solve(net;options=SDPOptions(s_base=1000.,objective=:source_import,
-        decomposition=:chordal,consistency=:local,clique_size=32,kcl_split_size=100),
-        solver_options=(verbose=false,))
     sparse=_sdp_test_solve(net;options=SDPOptions(s_base=1000.,objective=:source_import,
         decomposition=:chordal,consistency=:local,clique_size=4,kcl_split_size=4),
         solver_options=(verbose=false,))
     diagnostics=solve_diagnostics(sparse).numerical
-    @test unsplit.solve.optimal && sparse.solve.optimal
-    @test sparse.objective ≈ unsplit.objective rtol=2e-6
+    s=100+20im;z=.2+.1im;vs=230.
+    a=2real(z*conj(s))-vs^2
+    w=(-a+sqrt(a^2-4abs2(z*s)))/2
+    exact_branch_import=real(s)+real(z)*abs2(s)/w
+    @test sparse.solve.optimal
+    @test sparse.objective ≈ 10exact_branch_import rtol=2e-6
     @test diagnostics[:max_kcl_support]==11
     @test diagnostics[:split_kcl_rows]==1
     @test diagnostics[:kcl_auxiliary_coordinates]>0
