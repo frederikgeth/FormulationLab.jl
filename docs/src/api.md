@@ -2,7 +2,8 @@
 
 ```@autodocs
 Modules = [FormulationLab]
-Pages = ["api.jl", "bmopf.jl", "sdp.jl", "branch_flow_sdp.jl", "soc.jl", "contracts.jl"]
+Pages = ["api.jl", "bmopf.jl", "sdp.jl", "branch_flow_sdp.jl", "soc.jl",
+         "contracts.jl", "relaxation.jl"]
 ```
 
 ```@docs

@@ -50,6 +50,39 @@ the entire reduced state. Otherwise it uses a chordal PSD-completion formulation
 Explicit `:dense` and `:chordal` requests support comparisons; the full-span shortcut
 also applies to `:chordal` because decomposition cannot reduce the cone order there.
 
+## Validating a numerical relaxation result
+
+A solver's `OPTIMAL` label is necessary but not sufficient evidence that a
+reported lower bound is numerically usable. FormulationLab provides a common
+post-solve audit for both SDP formulations:
+
+```julia
+build = build_opf(input, BranchFlowSDP(objective=:source_import))
+result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
+
+report = validate_relaxation_solution(build, result;
+    feasible_objective=ipopt_objective,
+    model_atol=1e-7,
+    bound_atol=1e-2,
+    bound_rtol=1e-6)
+```
+
+`report.bound_usable` additionally requires a feasible dual status, a finite
+solver lower bound, small residuals in the original JuMP model, consistent
+primal/dual ordering, and—when `feasible_objective` is supplied—lower-bound
+ordering against that feasible AC objective. The feasible objective is only an
+upper bound for the minimization problem; the audit does not assume it is a
+global optimum.
+
+The audit independently evaluates the recovered voltage/current candidate in
+SI units through `physical_residuals`. Its result is exposed as
+`recovery_feasible` and `physical`. Recovery is deliberately separate from
+lower-bound usability: a high-rank relaxation can have a sound numerical lower
+bound even though a rank-one extraction is not AC feasible. Conversely, a
+plausible recovered point cannot repair an infeasible conic iterate or invalid
+dual bound. Per-constraint-type maxima and violation counts are retained to make
+scaling failures diagnosable.
+
 ## Electrical coordinates and preprocessing
 
 All physical inputs remain in SI. Internally, voltage is divided by the maximum
@@ -331,15 +364,15 @@ objective units, and accepts an optional Mosek optimizer without adding a runtim
 dependency. Solver time limits may not bound model construction or factorization
 setup; use external process limits for unattended large-case sweeps.
 
-## Scalable ENWL ladder, 21 September 2026
+## Original scalable ENWL ladder, 21 September 2026
 
-`examples/benchmark_enwl_scalable_sdp.jl` compares BMOPFTools/Ipopt with Mosek
-solutions of chordal IVRSDP and local BranchFlowSDP at 3, 10, and 30 kVA power
-bases. Inputs, NLP validation, and reported objectives remain in SI; only the two
-SDP models use per-unit coordinates internally. A row is accepted only when the
-solver returns `OPTIMAL` and the largest JuMP model residual is at most `1e-7`.
-This is a numerical publication gate, not a proof that the reported objective is
-a certified relaxation bound.
+The first `examples/benchmark_enwl_scalable_sdp.jl` artifact compared
+BMOPFTools/Ipopt with Mosek solutions of chordal IVRSDP and local BranchFlowSDP
+at 3, 10, and 30 kVA power bases. Inputs, NLP validation, and reported objectives
+remained in SI; only the two SDP models used per-unit coordinates internally. A
+row was accepted when the solver returned `OPTIMAL` and the largest JuMP model
+residual was at most `1e-7`. This historical gate did not yet audit the dual
+status or lower-bound ordering.
 
 At the 10 kVA primary base, both formulations passed on the 96- and 134-bus
 cases. On those cases BranchFlowSDP built roughly two to five times faster, while
@@ -361,7 +394,10 @@ was therefore skipped by the staged gate; this is not an applicability result.
 Exact inputs, revisions, timings, statuses, candidate objectives, residuals,
 rank diagnostics, and topology counts are recorded in
 `examples/results/enwl_scalable_sdp_2026-09-21.json`; the adjacent Markdown file
-is the human-readable table. The artifact revision is `4551982`.
+is the human-readable table. The artifact revision is `4551982`. The current
+script and the 22 September study use data-derived bases, continue beyond failed
+stages, and apply `validate_relaxation_solution`; see
+[SDP structure and scaling studies](sdp_performance.md).
 
 ## ENWL validation, 11 September 2026
 

@@ -36,6 +36,21 @@ function Base.getindex(H::SDPSparseMoment,i::Int,j::Int)
     H.entries[(i,j)]
 end
 
+function _sdp_sorted_subset(a, b)
+    ia = ib = 1
+    while ia <= length(a) && ib <= length(b)
+        if a[ia] == b[ib]
+            ia += 1
+            ib += 1
+        elseif b[ib] < a[ia]
+            ib += 1
+        else
+            return false
+        end
+    end
+    ia > length(a)
+end
+
 function _sdp_psd(model,m,cone)
     if haskey(model.ext,:soc_policy)
         H=@variable(model,[1:m,1:m] in HermitianMatrixSpace())
@@ -182,18 +197,54 @@ function _sdp_cliques(n,supports; ordering=:minimum_degree, diagnostics=nothing)
     end
     order=sortperm(eachindex(bags);lt=bag_order)
     maximal=Vector{Int}[]
+    containing=[Int[] for _ in 1:n]
     for k in order
-        any(all(in(c),bags[k]) for c in maximal) || push!(maximal,bags[k])
+        bag=bags[k]
+        pivot=argmin(i -> length(containing[i]),bag)
+        any(j -> _sdp_sorted_subset(bag,maximal[j]),containing[pivot]) && continue
+        push!(maximal,bag)
+        index=length(maximal)
+        for i in bag
+            push!(containing[i],index)
+        end
     end
     # Maximum-weight clique tree has the running-intersection property.
-    selected=[1];remaining=Set(2:length(maximal));parents=[0]
-    while !isempty(remaining)
-        best=(-1,0,0)
-        for k in sort!(collect(remaining)), (position,j) in enumerate(selected)
-            weight=length(intersect(maximal[k],maximal[j]))
-            weight>best[1] && (best=(weight,k,position))
+    # Prim's algorithm only updates cliques that share a vertex with the newly
+    # selected clique. An inverted vertex-to-clique index avoids constructing
+    # every pairwise intersection, which is prohibitive for wide feeders.
+    memberships=[Int[] for _ in 1:n]
+    for (k,clique) in enumerate(maximal), i in clique
+        push!(memberships[i],k)
+    end
+    selected=[1];parents=[0];chosen=falses(length(maximal));chosen[1]=true
+    best_weights=zeros(Int,length(maximal));best_parents=ones(Int,length(maximal))
+    counts=zeros(Int,length(maximal));touched=Int[];overlap_updates=0
+    function update_weights!(clique,position)
+        empty!(touched)
+        for i in clique, k in memberships[i]
+            chosen[k] && continue
+            iszero(counts[k]) && push!(touched,k)
+            counts[k]+=1
         end
-        push!(selected,best[2]);push!(parents,best[3]);delete!(remaining,best[2])
+        for k in touched
+            if counts[k]>best_weights[k]
+                best_weights[k]=counts[k]
+                best_parents[k]=position
+            end
+            counts[k]=0
+        end
+        overlap_updates+=length(touched)
+    end
+    update_weights!(maximal[1],1)
+    for _ in 2:length(maximal)
+        best_weight=-1;best=0
+        for k in eachindex(maximal)
+            if !chosen[k] && best_weights[k]>best_weight
+                best_weight=best_weights[k];best=k
+            end
+        end
+        push!(selected,best);push!(parents,best_parents[best]);chosen[best]=true
+        update_weights!(maximal[best],length(selected))
     end
     out=maximal[selected]
     if diagnostics!==nothing
@@ -202,6 +253,7 @@ function _sdp_cliques(n,supports; ordering=:minimum_degree, diagnostics=nothing)
         diagnostics[:chordal_fill_edges]=fill_edges
         diagnostics[:unmerged_maximal_cliques]=length(out)
         diagnostics[:unmerged_max_clique_order]=maximum(length,out;init=0)
+        diagnostics[:clique_tree_overlap_updates]=overlap_updates
     end
     out,parents
 end

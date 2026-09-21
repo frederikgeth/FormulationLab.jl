@@ -7,7 +7,10 @@ switchable for ablations. When a global voltage closure is required,
 `voltage_decomposition=:auto` keeps at most 32 live voltage coordinates dense
 and otherwise uses chordal PSD completion. `:dense` and `:chordal` force either
 representation; `chordal_ordering` and `voltage_clique_size` control the sparse
-extension and adjacent-clique amalgamation.
+extension and adjacent-clique amalgamation. `preprocess=true` splits complex
+affine equalities into real rows before applying exact power-of-two row scaling
+and duplicate-row elimination; it remains opt-in while larger-case comparisons
+are established.
 """
 Base.@kwdef struct BranchFlowSDPOptions
     s_base::Float64 = 1e4
@@ -22,6 +25,7 @@ Base.@kwdef struct BranchFlowSDPOptions
     voltage_decomposition::Symbol = :auto
     chordal_ordering::Symbol = :minimum_degree
     voltage_clique_size::Int = 32
+    preprocess::Bool = false
 end
 
 struct BranchFlowSDPInapplicableError <: Exception
@@ -2226,6 +2230,10 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         _add_line_lncs!(build, lnc_lines, terminal_rows, Dict();
             voltage_range, add_spec=_bfm_add_line_lnc!)
     end
+    diagnostics[:removed_affine_constraints] = options.preprocess ?
+        _sdp_preprocess_affine!(model; split_complex=true) : 0
+    diagnostics[:split_complex_equalities] =
+        get(model.ext, :split_complex_equalities, 0)
     build
 end
 
