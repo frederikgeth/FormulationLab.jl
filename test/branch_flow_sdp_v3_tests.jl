@@ -493,6 +493,8 @@ end
     @test any(d -> d.id == "edge" && d.status == :applied, build.lnc_diagnostics)
     @test any(d -> startswith(d.id, "line/line/") && d.status == :applied,
               build.lnc_diagnostics)
+    @test length(build.model.ext[:voltage_lnc_specs]) ==
+          count(d -> d.status == :applied, build.lnc_diagnostics)
     result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
     @test result.solve.optimal
     @test length(solve_diagnostics(result).lnc_diagnostics) >= 2

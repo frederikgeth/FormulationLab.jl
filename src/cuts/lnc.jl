@@ -180,6 +180,72 @@ struct LNCDiagnostic
     bounds::Union{Nothing,LNCBounds}
 end
 
+function _record_voltage_lnc!(build, spec::VoltageLNC)
+    specs = get!(build.model.ext, :voltage_lnc_specs, VoltageLNC[])
+    push!(specs, spec)
+    nothing
+end
+
+function _voltage_lnc_value(phasor::VoltagePhasor, voltage)
+    sum((coefficient * get(voltage, key) do
+             throw(ArgumentError("missing voltage terminal $key"))
+         end for (key, coefficient) in phasor.terms); init=0im)
+end
+
+"""Evaluate one voltage LNC at a rank-one voltage point in physical units.
+
+The returned cut and domain slacks use the normalized coordinates of `add_lnc!`;
+negative slack is a violation. This is an inexpensive validity diagnostic: it
+does not reconstruct currents or the complete lifted SDP point.
+"""
+function voltage_lnc_residual(spec::VoltageLNC, voltage)
+    u = _voltage_lnc_value(spec.u, voltage)
+    v = _voltage_lnc_value(spec.v, voltage)
+    bounds = spec.bounds
+    lu = bounds.u[1] / bounds.u[2]
+    lv = bounds.v[1] / bounds.v[2]
+    x = abs2(u) / bounds.u[2]^2
+    y = abs2(v) / bounds.v[2]^2
+    cross = u * conj(v) / (bounds.u[2] * bounds.v[2])
+    phi = (bounds.angle[1] + bounds.angle[2]) / 2
+    delta = (bounds.angle[2] - bounds.angle[1]) / 2
+    c = real(cis(-phi) * cross)
+    t = imag(cis(-phi) * cross)
+    k = cos(delta)
+    su = 1 + lu
+    sv = 1 + lv
+    cuts = (
+        upper=su * sv * c - k * sv * x - k * su * y -
+              k * (lu * lv - 1),
+        lower=su * sv * c - lv * k * sv * x - lu * k * su * y -
+              lu * lv * k * (1 - lu * lv),
+    )
+    domain = (
+        u_lower=x - lu^2,
+        u_upper=1 - x,
+        v_lower=y - lv^2,
+        v_upper=1 - y,
+        half_plane=c,
+        sector=delta == 0 ? -abs(t) : sin(delta) * c - abs(k * t),
+    )
+    minimum_cut_slack = min(cuts.upper, cuts.lower)
+    minimum_domain_slack = minimum(domain)
+    relative_angle = angle(u * conj(v))
+    centered_angle = mod(relative_angle - phi + pi, 2pi) - pi
+    (; id=spec.id, origin=spec.origin, u_magnitude=abs(u), v_magnitude=abs(v),
+       relative_angle, centered_angle, cuts, domain, minimum_cut_slack,
+       minimum_domain_slack,
+       max_violation=max(0.0, -minimum_cut_slack, -minimum_domain_slack))
+end
+
+"""Audit every applied voltage LNC against rank-one bus voltages in SI units."""
+function audit_voltage_lncs(build, voltage; atol=1e-9)
+    specs = get(build.model.ext, :voltage_lnc_specs, VoltageLNC[])
+    records = [voltage_lnc_residual(spec, voltage) for spec in specs]
+    max_violation = maximum((record.max_violation for record in records); init=0.0)
+    (; passed=max_violation <= atol, max_violation, records)
+end
+
 function _lnc_row(phasor::VoltagePhasor,indices)
     row=_SDPRow()
     for (key,c) in phasor.terms
@@ -212,6 +278,7 @@ function add_voltage_lnc!(build,spec::VoltageLNC)
     any(d->d.id==spec.id,build.lnc_diagnostics) && throw(ArgumentError("duplicate LNC id $(spec.id)"))
     p=phasor_products(build,spec.u,spec.v)
     refs=add_lnc!(build.model,p.wu,p.wv,real(p.cross),imag(p.cross),spec.bounds)
+    _record_voltage_lnc!(build,spec)
     push!(build.lnc_diagnostics,LNCDiagnostic(spec.id,:applied,spec.origin,spec.provenance,"",spec.bounds))
     refs
 end

@@ -75,7 +75,9 @@ export BranchFlowSDPOptions, BranchFlowSDPBuild, BranchFlowSDPResult,
        BranchFlowSDPInapplicableError, BranchFlowSDPApplicabilityReport,
        check_branch_flow_sdp_applicability, is_branch_flow_sdp_applicable,
        build_branch_flow_sdp, solve_branch_flow_sdp
-export LNCBounds, VoltagePhasor, VoltageLNC, LNCDiagnostic, add_lnc!, add_voltage_lnc!, phasor_products
+export LNCBounds, VoltagePhasor, VoltageLNC, LNCDiagnostic, add_lnc!,
+       add_voltage_lnc!, phasor_products, voltage_lnc_residual,
+       audit_voltage_lncs
 export AbstractFormulation, LinDist3Flow, IVRSDP, BranchFlowSDP,
        formulation_kind, build_opf, solve_opf
 export SDPOptions, SDPBuild, SDPResult, SDPInapplicableError, build_sdp_opf, solve_sdp_opf

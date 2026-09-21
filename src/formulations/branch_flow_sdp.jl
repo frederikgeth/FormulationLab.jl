@@ -1558,6 +1558,7 @@ function add_voltage_lnc!(build::BranchFlowSDPBuild, spec::VoltageLNC)
     p = phasor_products(build, spec.u, spec.v)
     refs = add_lnc!(build.model, p.wu, p.wv, real(p.cross), imag(p.cross),
         spec.bounds)
+    _record_voltage_lnc!(build, spec)
     push!(build.lnc_diagnostics, LNCDiagnostic(spec.id, :applied, spec.origin,
         spec.provenance, "", spec.bounds))
     refs
@@ -1574,6 +1575,7 @@ function _bfm_add_line_lnc!(build::BranchFlowSDPBuild, line, d,
     refs = add_lnc!(build.model,
         scale * real(product(line.Wp)), scale * real(product(line.Wc)),
         real(cross), imag(cross), spec.bounds)
+    _record_voltage_lnc!(build, spec)
     push!(build.lnc_diagnostics, LNCDiagnostic(spec.id, :applied, spec.origin,
         spec.provenance, "", spec.bounds))
     refs

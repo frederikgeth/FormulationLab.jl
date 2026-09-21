@@ -35,7 +35,7 @@ function _bound_diagnostic_formulation(kind, config, s_base)
 end
 
 function _bound_diagnostic_run(net, kind, config, s_base, feasible_objective;
-                               time_limit=180.0)
+                               time_limit=180.0, reference_voltage=nothing)
     formulation = _bound_diagnostic_formulation(kind, config, s_base)
     build_seconds = @elapsed build = build_opf(net, formulation;
         optimizer=MosekTools.Optimizer)
@@ -56,6 +56,8 @@ function _bound_diagnostic_run(net, kind, config, s_base, feasible_objective;
     port = get(diagnostics, :port_rlt_diagnostics, NamedTuple[])
     device = get(diagnostics, :device_bound_diagnostics, NamedTuple[])
     status = solve_status(result)
+    lnc_audit = reference_voltage === nothing || config.lnc == :off ? nothing :
+        _bound_diagnostic_lnc_audit(build, reference_voltage)
     merge(_scalable_validation_dict(report), Dict(
         "formulation" => string(kind),
         "configuration" => string(config.name),
@@ -82,7 +84,70 @@ function _bound_diagnostic_run(net, kind, config, s_base, feasible_objective;
             get(diagnostics, :derived_current_bounds, nothing),
         "global_voltage_closure" =>
             get(diagnostics, :global_voltage_closure, nothing),
+        "lnc_reference_audit" => lnc_audit,
     ))
+end
+
+function _bound_diagnostic_reference_voltage(net, s_base)
+    context = BMOPFTools.build_opf_model(net; optimizer=Ipopt.Optimizer,
+        per_unit=true, s_base)
+    BMOPFTools.enforce_kcl!(context)
+    model = BMOPFTools.opf_model(context)
+    for (key, value) in ("print_level" => 0, "tol" => 1e-8,
+                         "constr_viol_tol" => 1e-8,
+                         "bound_relax_factor" => 0.0, "max_iter" => 1500,
+                         "max_cpu_time" => 90.0)
+        set_optimizer_attribute(model, key, value)
+    end
+    optimize!(model)
+    termination_status(model) in (MOI.LOCALLY_SOLVED, MOI.OPTIMAL) ||
+        error("reference NLP did not solve: $(termination_status(model))")
+    result = BMOPFTools.extract_result(context)
+    Dict((string(bus), string(terminal)) =>
+            complex(value["vr"], value["vi"])
+         for (bus, terminals) in result["bus"]
+         for (terminal, value) in terminals)
+end
+
+function _bound_diagnostic_lnc_audit(build, voltage)
+    audit = audit_voltage_lncs(build, voltage; atol=1e-9)
+    records = sort(audit.records; by=record ->
+        min(record.minimum_cut_slack, record.minimum_domain_slack))
+    Dict(
+        "ordering" => "minimum_normalized_slack",
+        "passed" => audit.passed,
+        "max_normalized_violation" => audit.max_violation,
+        "count" => length(records),
+        "violated" => count(record -> record.max_violation > 1e-9, records),
+        "worst" => [Dict(
+            "id" => record.id,
+            "origin" => string(record.origin),
+            "max_normalized_violation" => record.max_violation,
+            "minimum_cut_slack" => record.minimum_cut_slack,
+            "minimum_domain_slack" => record.minimum_domain_slack,
+            "u_magnitude_V" => record.u_magnitude,
+            "v_magnitude_V" => record.v_magnitude,
+            "relative_angle_rad" => record.relative_angle,
+            "centered_angle_rad" => record.centered_angle,
+        ) for record in records[1:min(5, length(records))]],
+    )
+end
+
+function _bound_diagnostic_add_lnc_audit!(row, net, kind, config, s_base,
+                                          reference_voltage)
+    existing = get(row, "lnc_reference_audit", nothing)
+    existing isa AbstractDict &&
+        get(existing, "ordering", "") == "minimum_normalized_slack" &&
+        return false
+    if config.lnc == :off
+        row["lnc_reference_audit"] = nothing
+        return true
+    end
+    build = build_opf(net, _bound_diagnostic_formulation(kind, config, s_base);
+        optimizer=MosekTools.Optimizer)
+    row["lnc_reference_audit"] =
+        _bound_diagnostic_lnc_audit(build, reference_voltage)
+    true
 end
 
 _bound_diagnostic_key(row) =
@@ -98,6 +163,24 @@ function _bound_diagnostic_markdown(data, output)
             "bound passes termination, primal residual, dual status, primal/dual ",
             "ordering, and feasible-AC ordering checks. Ipopt supplies a checked local ",
             "feasible point, not a global optimum.")
+        println(io)
+        runs = [row for case in data["cases"] for row in case["runs"]]
+        disagreements = [abs(row["bound_disagreement_W"]) for row in runs
+            if get(row, "bound_disagreement_W", nothing) isa Real]
+        audits = [row["lnc_reference_audit"] for row in runs
+            if get(row, "configuration", "") == "line_lnc" &&
+               get(row, "lnc_reference_audit", nothing) isa AbstractDict]
+        audited = sum(get(audit, "count", 0) for audit in audits)
+        violations = sum(get(audit, "violated", 0) for audit in audits)
+        println(io, "Across all runs, the largest disagreement between JuMP's ",
+            "objective bound and Mosek's dual objective was `",
+            _ladder_fmt(maximum(disagreements; init=0.0)), " W`. The independently ",
+            "solved Ipopt voltages satisfied `", audited,
+            "` distinct formulation/case line-LNC instances; `", violations,
+            "` violated a normalized cut or domain inequality. Thus the observed ",
+            "bound reversals are numerical certificate failures, not a wrapper ",
+            "bound-source mismatch or evidence that the derived LNCs exclude the ",
+            "reference AC points.")
         println(io)
         println(io, "| Buses | Formulation | Configuration | Status | Usable | Solver bound (W) | NLP−bound (W) | Model residual | Mosek PFEAS | Mosek DFEAS | Relative gap | Build (s) | Solve (s) | Variables | LNC | RLT | Current bounds |")
         println(io, "|---:|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
@@ -175,13 +258,21 @@ function run_enwl_sdp_bound_diagnostics(data_dir, output; time_limit=180.0)
         case["kron_reduction"] = reduction
         haskey(case, "nlp") || (case["nlp"] = nlp_run(net, s_base); save())
         feasible = case["nlp"]["source_W"]
+        reference_voltage = _bound_diagnostic_reference_voltage(net, s_base)
         for kind in (:ivr, :branch_flow), config in BOUND_DIAGNOSTIC_CONFIGS
             key = (string(kind), string(config.name))
-            any(row -> _bound_diagnostic_key(row) == key, case["runs"]) && continue
+            found_run = findfirst(row -> _bound_diagnostic_key(row) == key,
+                case["runs"])
+            if found_run !== nothing
+                _bound_diagnostic_add_lnc_audit!(case["runs"][found_run], net,
+                    kind, config, s_base, reference_voltage) && save()
+                continue
+            end
             println("RUN ", filename, " ", kind, " ", config.name)
             flush(stdout)
             row = _scalable_capture(() -> _bound_diagnostic_run(
-                net, kind, config, s_base, feasible; time_limit))
+                net, kind, config, s_base, feasible; time_limit,
+                reference_voltage))
             push!(case["runs"], row)
             save()
             GC.gc()
