@@ -109,9 +109,11 @@ With conductor endpoint ratings `Imax`, derive
  I_{max,k}+\sum_j |Y_{t,kj}|\bar V_{t,j}\right).
 ```
 
-For `BranchFlowSDP`, `Imax` may be either declared or inferred from the valid
-``I_{max}=S_{max}/\underline V`` bound. `IVRSDP` currently uses declared
-endpoint current ratings for automatic line LNCs.
+For both `IVRSDP` and `BranchFlowSDP`, `Imax` may be either declared or inferred
+from the valid ``I_{max}=S_{max}/\underline V`` bound. Each endpoint uses the
+lower bound on the voltage appearing in that endpoint's power definition. The
+series-current bound then includes its own pi-shunt correction; a terminal
+rating is never silently reinterpreted as a series-current rating.
 
 Zero admittance coefficients require no voltage bound. For voltage selection row
 `d` (including the negative neutral coefficient),
@@ -139,9 +141,39 @@ implies the angle bound
 Only sectors narrower than π are used. Zero-drop pairs are skipped because the
 linear electrical equations already impose identical phasors. Missing current
 ratings, unbounded shunt corrections and overly wide sectors are reported.
-The initial generator uses `i_max`, not apparent-power ratings or optimized bound
-tightening. Small outward Float64 padding protects ordinary roundoff; this is
-not an interval-arithmetic or rigorous numerical certificate.
+Small outward Float64 padding protects ordinary roundoff; this is not an
+interval-arithmetic or rigorous numerical certificate.
+
+## Operational-box voltage-current cuts
+
+`port_rlt=true` (the default in both SDP formulations) derives an additional
+pair of RLT/LNC inequalities for a dispatch channel only when its physical
+voltage and complete P/Q box prove the necessary domain. Let
+
+```math
+S=P+jQ=V\overline I,
+```
+
+and suppose the P/Q rectangle excludes the origin. Its closest and farthest
+points from the origin give ``\underline S`` and ``\overline S``. Its four
+corners also define the smallest unwrapped power-angle sector containing the
+whole rectangle. With ``0<\underline V\le |V|\le\overline V<\infty``, validity
+then gives
+
+```math
+\frac{\underline S}{\overline V}\le |I|\le
+\min\left(\overline I,\frac{\overline S}{\underline V}\right).
+```
+
+The generic LNC primitive is applied to the voltage-current product using this
+magnitude domain and the derived angle sector. These are not nominal-power-factor
+assumptions: boxes containing the origin, missing voltage bounds, nonfinite
+boxes, or sectors not narrower than π are skipped. `IVRSDP` applies the cuts in
+its global current-voltage lift. `BranchFlowSDP` applies them to non-source
+dispatch component blocks; a fixed-voltage source already has an exact linear
+current-to-power map and needs no extra local lift. Set `port_rlt=false` for an
+ablation. Applied and skipped candidates are listed under
+`numerical_diagnostics[:port_rlt_diagnostics]`.
 
 ## Diagnostics and verification
 

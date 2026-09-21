@@ -57,6 +57,73 @@ function add_lnc!(model,wu,wv,wr,wi,bounds::LNCBounds;include_domain=true)
     (;cuts=(upper,lower),domain)
 end
 
+# The P/Q rectangle is a convex polygon in the complex-power plane.  If it
+# excludes the origin, its corner arguments define the smallest circular arc
+# containing the complete rectangle.  The complement of the largest corner
+# gap is that arc; no sampled operating point or nominal power factor is used.
+function _port_box_sector(pmin, pmax, qmin, qmax)
+    values = Float64[pmin, pmax, qmin, qmax]
+    all(isfinite, values) || return nothing, "P/Q bounds are not finite"
+    pmin <= pmax && qmin <= qmax || return nothing, "P/Q bounds are reversed"
+    pc = clamp(0.0, pmin, pmax)
+    qc = clamp(0.0, qmin, qmax)
+    smin = hypot(pc, qc)
+    smin > 0 || return nothing, "P/Q box contains the origin"
+    corners = ComplexF64[complex(p, q) for p in (pmin, pmax) for q in (qmin, qmax)]
+    smax = maximum(abs, corners)
+    angles = sort!(mod2pi.(angle.(corners)))
+    gaps = [angles[k + 1] - angles[k] for k in 1:length(angles)-1]
+    push!(gaps, first(angles) + 2pi - last(angles))
+    gap_index = argmax(gaps)
+    lower = gap_index == length(angles) ? first(angles) : angles[gap_index + 1]
+    upper = gap_index == length(angles) ? last(angles) : angles[gap_index] + 2pi
+    angle_pad = 1e-12
+    upper - lower + 2angle_pad < pi || return nothing,
+        "P/Q box does not prove a sub-pi power-angle sector"
+    lower -= angle_pad
+    upper += angle_pad
+    (; smin, smax, angle=(lower, upper)), ""
+end
+
+"""Derive a valid voltage-current LNC domain from physical operating boxes.
+
+The returned magnitudes are in physical units.  `S = V*conj(I)`, finite P/Q
+bounds excluding the origin, and positive finite voltage bounds imply
+`|S|min/Vmax <= |I| <= |S|max/Vmin`.  Declared current/apparent-power limits
+can only reduce the upper bound.  This is a bound derivation, not an assumption
+about nominal power factor.
+"""
+function _port_rlt_bounds(voltage, pmin, pmax, qmin, qmax;
+                          imax=Inf, smax=Inf)
+    vlo, vhi = Float64.(voltage)
+    0 < vlo <= vhi < Inf || return nothing,
+        "missing positive lower or finite upper voltage bound"
+    sector, reason = _port_box_sector(pmin, pmax, qmin, qmax)
+    sector === nothing && return nothing, reason
+    imax = Float64(imax); smax = Float64(smax)
+    imax >= 0 && smax >= 0 || return nothing, "negative current or apparent-power bound"
+    sup = min(sector.smax, smax)
+    sup >= sector.smin || return nothing, "operating boxes are mutually inconsistent"
+    ilo = sector.smin / vhi
+    ihi = min(sup / vlo, imax)
+    0 < ilo <= ihi < Inf || return nothing, "current-magnitude interval is empty or unbounded"
+    # Float64 bounds are conservatively padded before being used as a domain.
+    pad = 1e-12
+    bounds = LNCBounds((vlo * (1-pad), vhi * (1+pad)),
+                       (ilo * (1-pad), ihi * (1+pad)), sector.angle)
+    (; bounds, power_magnitude=(sector.smin, sup), current_magnitude=(ilo, ihi)), ""
+end
+
+function _add_port_rlt!(model, voltage_gram, current_gram, power,
+                        derived, voltage_base, current_base)
+    bounds = LNCBounds(
+        (derived.bounds.u[1] / voltage_base, derived.bounds.u[2] / voltage_base),
+        (derived.bounds.v[1] / current_base, derived.bounds.v[2] / current_base),
+        derived.bounds.angle)
+    add_lnc!(model, real(voltage_gram), real(current_gram),
+             real(power), imag(power), bounds)
+end
+
 """A complex linear map of physical terminal voltages.
 
 Use `VoltagePhasor(bus, phase; return_terminal="n")` for a phase-neutral voltage,

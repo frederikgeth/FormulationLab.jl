@@ -1,13 +1,25 @@
 # Optional BMOPFTools / Ipopt reference
 
-BMOPFTools and Ipopt are isolated here; neither is a runtime or default-test
-requirement. This environment uses the sibling BMOPFTools checkout directly,
-without depending on PowerOptLab.
+BMOPFTools, Ipopt, and MosekTools are isolated here; none is a runtime or
+default-test requirement. This environment uses the sibling BMOPFTools checkout
+directly, without depending on PowerOptLab. Mosek experiments require a local
+Mosek installation and license.
 
 ```sh
 julia --project=test/integration -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="../BMOPFTools.jl")]); Pkg.instantiate()'
 julia --project=test/integration test/integration/relaxation_reference.jl /tmp/transformer-audit.json
 ```
+
+The reproducible small-ENWL comparison uses BMOPFTools/Ipopt as a local AC
+reference and Mosek for both SDP formulations:
+
+```sh
+julia --project=test/integration examples/benchmark_nlp_sdp_enwl.jl \
+  ../BMOPFDraftData/benchmarks/ENWLbenchmark/reduced /tmp/enwl-nlp-sdp.json
+```
+
+See `examples/README_nlp_soc_experiments.md` for the input transformation and
+the limits on interpreting local NLP points and numerical SDP bounds.
 
 Add `--smoke` for one single-phase case. The full audit runs 25 NLP cases,
 independently checks their SI residuals, and checks valid states against dense

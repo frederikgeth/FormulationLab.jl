@@ -51,3 +51,85 @@ removed items, parser diagnostics, per-unit bases, statuses and checker findings
 are retained where available. The solver models nevertheless differ in their
 interpretation of transformer nameplate fields; this is explicitly a comparison
 caveat, not silently corrected in the baseline.
+
+## Small ENWL NLP/SDP comparison
+
+`benchmark_nlp_sdp_enwl.jl` compares a BMOPFTools/Ipopt AC solution with the
+dense reference `IVRSDP` and `BranchFlowSDP`, using Mosek for both relaxations.
+It selects the five smallest reduced ENWL feeders (5–11 buses), uses a common
+10 kVA power base and one solver thread, warms every execution path before
+timing, and checkpoints JSON after each stage. The fixed 10 kVA base is also the
+formulations' normal default; substantially smaller bases caused avoidable
+BranchFlowSDP conditioning failures in Mosek during experiment development.
+
+```sh
+julia --project=test/integration examples/benchmark_nlp_sdp_enwl.jl \
+  ../BMOPFDraftData/benchmarks/ENWLbenchmark/reduced \
+  examples/results/enwl_nlp_sdp_mosek.json
+```
+
+The original ENWL snapshots have four-conductor buses but prescribe only the
+three phase voltages at the source; their neutral is tied to ground through a
+finite, very large shunt. A branch-flow root block needs every root voltage.
+The experiment therefore applies `kron_reduce_bmopf` once and passes the same
+derived three-wire dictionary to Ipopt, IVRSDP, and BranchFlowSDP. For these
+snapshots the reduction is deliberately classified as
+`grounded_neutral_projection`: it replaces the finite grounding impedance by an
+ideal ground and is a documented model change, not an exact equivalence claim.
+
+Interpret the resulting quantities carefully:
+
+- Ipopt provides a locally feasible AC upper bound for this minimization
+  problem, not proof of the global optimum.
+- An SDP objective should lie below the Ipopt objective when the implemented
+  constraint sets agree. The reported solver bound is numerical evidence, not
+  a residual-corrected certificate.
+- Agreement between IVRSDP and BranchFlowSDP is especially informative because
+  the two formulations lift different variables. A disagreement can indicate
+  different relaxations, inconsistent component coverage, or numerical error.
+- Non-optimal Mosek runs remain explicit and contribute no objective or bound.
+  Do not loosen feasibility tolerances merely to turn `SLOW_PROGRESS` into an
+  accepted result; first check whether the objective is stable under scaling.
+- BMOPFTools' `solution_check` independently checks its implemented quantities
+  and explicitly records unassessed dimensions. `checks_passed` is therefore
+  useful validation evidence, but not an independent replay of every equation.
+
+### Per-unit scaling study
+
+The BMOPF files and published results use SI units, while all three optimization
+models use per-unit coordinates internally. `benchmark_enwl_sdp_scaling.jl`
+checks that this coordinate choice does not silently change the SI objective:
+
+```sh
+julia --project=test/integration examples/benchmark_enwl_sdp_scaling.jl \
+  ../BMOPFDraftData/benchmarks/ENWLbenchmark/reduced \
+  examples/results/enwl_sdp_scaling_mosek.json
+```
+
+The broad sweep varies ``S_base`` from 1 to 100 kVA for both SDP formulations.
+On the 10-bus numerical witness, a second grid varies objective normalization,
+IVR state scaling (`global` versus `voltage_region`), and Mosek interior-point
+scaling (`free` versus `none`). The voltage base remains the largest source
+voltage magnitude. Failed iterates are retained only as diagnostics and never
+included in reported objective intervals.
+
+### Medium/large SDP ladder
+
+`benchmark_enwl_sdp_ladder.jl` extends the comparison to the established 24-,
+45-, and conditionally 96-bus ENWL cases. It separates a three-point power-base
+sweep from strengthening ablations, so a change attributed to LNCs, port RLT
+cuts, or implied component-current limits is not confounded with a coordinate
+change:
+
+```sh
+julia --project=test/integration examples/benchmark_enwl_sdp_ladder.jl \
+  ../BMOPFDraftData/benchmarks/ENWLbenchmark/reduced \
+  examples/results/enwl_sdp_ladder_mosek.json
+```
+
+Every SDP objective published in the generated Markdown must terminate
+`OPTIMAL` and pass a `1e-7` maximum scaled JuMP-residual gate. The runner
+checkpoints after every solve and resumes from an existing JSON file. It runs
+the 96-bus stage only when both SDP formulations pass the 45-bus gate with all
+strengthening at the primary 10 kVA base. Skipping that stage is an experiment
+budget decision, not evidence that the formulation is inapplicable.

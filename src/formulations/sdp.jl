@@ -6,6 +6,8 @@ multiwinding units and explicit neutrals. Nonlinear load laws use additional
 power-cone envelopes. Controls are not evaluated. `s_base` is in VA.
 `lnc=:lines` enables derived line-voltage cuts; `:off` is the default.
 `voltage_lncs` adds explicit domains/cuts independently of that setting.
+`port_rlt=true` derives voltage-current RLT/LNC cuts from finite P/Q boxes that
+exclude the origin and from matching physical voltage bounds.
 `basis=:auto` uses guarded structural physical elimination up to 32 independent
 coordinates and sparse QR above that; `:physical` retains the legacy basis.
 `clique_merge=:cost` uses a reduced-rank cone/separator cost surrogate instead
@@ -37,6 +39,7 @@ Base.@kwdef struct SDPOptions
     recovery::Symbol = profile==:clarabel ? :anchor : :dominant
     lnc::Symbol = :off
     voltage_lncs::Vector{VoltageLNC} = VoltageLNC[]
+    port_rlt::Bool = true
 end
 
 struct SDPInapplicableError <: Exception
@@ -405,6 +408,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     diagnostics=Dict{Symbol,Any}(:basis=>options.basis,:cone=>options.cone,
         :decomposition=>options.decomposition,:state_dimension=>size(A,2),
         :bound_report=>bound_info,:face_equations=>face_rows,:derived_current_bounds=>length(derived))
+    diagnostics[:port_rlt_diagnostics]=NamedTuple[]
     scales,scaling_info=_sdp_state_scales(net,voltage,devices,limits,size(A,2),vb,options.state_scaling)
     diagnostics[:state_scaling]=scaling_info
     model=optimizer===nothing || optimizer isa _SDPDefaultOptimizer ? JuMP.Model() : JuMP.Model(optimizer)
@@ -483,8 +487,10 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
                     @constraint(model,sum(real,s)<=avail/sb)
                 end
             end
-            for (lowkey,highkey,active) in (("p_min","p_max",true),("q_min","q_max",false))
+            boxes=Dict{Symbol,Any}()
+            for (lowkey,highkey,active,name) in (("p_min","p_max",true,:p),("q_min","q_max",false,:q))
                 low=family==:voltage_source ? get(d,lowkey,nothing) : values_for(d,lowkey,n);high=family==:voltage_source ? get(d,highkey,nothing) : values_for(d,highkey,n)
+                boxes[name]=(low,high)
                 for k in 1:n
                     f=active ? real(s[k]) : imag(s[k])
                     if low!==nothing && high!==nothing && low[k]==high[k]
@@ -494,6 +500,37 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
                     else
                         low===nothing || !isfinite(low[k]) || @constraint(model,f>=low[k]/sb)
                         high===nothing || !isfinite(high[k]) || @constraint(model,f<=high[k]/sb)
+                    end
+                end
+            end
+            if _soc === nothing && options.port_rlt &&
+               family in (:generator,:voltage_source)
+                pl,pu=boxes[:p];ql,qu=boxes[:q]
+                if all(x->x!==nothing,(pl,pu,ql,qu))
+                    function port_limits(key)
+                        haskey(d,key) || return fill(Inf,n)
+                        raw=d[key]
+                        values=raw isa Real ? fill(Float64(raw),n) : Float64.(raw)
+                        length(values)==n && all(isfinite,values) ? values : fill(Inf,n)
+                    end
+                    imax=port_limits("i_max");smax=port_limits("s_max")
+                    for k in 1:n
+                        idk="$family/$id/$k"
+                        port_bounds,reason=_port_rlt_bounds(voltage_range(v[k]),
+                            pl[k],pu[k],ql[k],qu[k];imax=imax[k],smax=smax[k])
+                        if port_bounds===nothing
+                            push!(diagnostics[:port_rlt_diagnostics],
+                                (;id=idk,status=:skipped,reason))
+                            continue
+                        end
+                        _add_port_rlt!(model,lift(v[k],v[k]),lift(i[k],i[k]),
+                            s[k],port_bounds,vb,ib)
+                        push!(diagnostics[:port_rlt_diagnostics],
+                            (;id=idk,status=:applied,reason="",
+                             voltage_magnitude=port_bounds.bounds.u,
+                             current_magnitude=port_bounds.current_magnitude,
+                             power_magnitude=port_bounds.power_magnitude,
+                             angle=port_bounds.bounds.angle))
                     end
                 end
             end

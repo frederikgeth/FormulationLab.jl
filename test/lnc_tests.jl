@@ -23,6 +23,21 @@
     @test_throws ArgumentError VoltagePhasor("b","n";return_terminal="n")
 end
 
+@testset "Operational P/Q boxes derive valid port RLT domains" begin
+    derived,reason=FormulationLab._port_rlt_bounds(
+        (200.0,250.0),3_000.0,4_000.0,1_000.0,2_000.0;
+        imax=30.0,smax=5_000.0)
+    @test isempty(reason)
+    @test derived.current_magnitude[1] ≈ hypot(3_000.0,1_000.0)/250.0
+    @test derived.current_magnitude[2] ≈ hypot(4_000.0,2_000.0)/200.0
+    @test derived.bounds.angle[1] ≈ atan(1_000.0,4_000.0) atol=2e-12
+    @test derived.bounds.angle[2] ≈ atan(2_000.0,3_000.0) atol=2e-12
+    @test FormulationLab._port_rlt_bounds(
+        (200.0,250.0),0.0,4_000.0,-1_000.0,2_000.0)[1] === nothing
+    @test FormulationLab._port_rlt_bounds(
+        (0.0,250.0),3_000.0,4_000.0,1_000.0,2_000.0)[1] === nothing
+end
+
 @testset "LNC excludes a feasible SOC point without changing cone types" begin
     optimizer=isdefined(@__MODULE__,:SDP_TEST_OPTIMIZER) ? SDP_TEST_OPTIMIZER : Clarabel.Optimizer
     m=Model(optimizer);set_silent(m)
@@ -87,8 +102,28 @@ end
     missing=build_sdp_opf(net,nothing;options=SDPOptions(lnc=:lines))
     @test only(missing.lnc_diagnostics).status==:skipped
     @test occursin("current ratings",only(missing.lnc_diagnostics).reason)
+    net["linecode"]["lc"]["s_max"]=[20_000.0]
+    inferred=build_sdp_opf(net,nothing;options=SDPOptions(lnc=:lines))
+    @test only(inferred.lnc_diagnostics).status==:applied
+    @test only(inferred.lnc_diagnostics).bounds.angle[2] > 0
     @test isempty(build_sdp_opf(net,nothing).lnc_diagnostics)
     @test_throws ArgumentError build_sdp_opf(net,nothing;options=SDPOptions(lnc=:unknown))
+end
+
+@testset "IVR SDP operational-box RLT cuts are optional and diagnosed" begin
+    net=_l3f_case(generator=true)
+    generator=net["generator"]["pv"]
+    generator["p_min"]=[12_000.0];generator["p_max"]=[15_000.0]
+    generator["q_min"]=[1_000.0];generator["q_max"]=[2_000.0]
+    generator["i_max"]=[100.0]
+    with_cuts=build_sdp_opf(net,nothing;options=SDPOptions(port_rlt=true))
+    without_cuts=build_sdp_opf(net,nothing;options=SDPOptions(port_rlt=false))
+    applied=filter(d->d.status==:applied,
+        with_cuts.numerical_diagnostics[:port_rlt_diagnostics])
+    @test any(d->d.id=="generator/pv/1",applied)
+    @test isempty(without_cuts.numerical_diagnostics[:port_rlt_diagnostics])
+    @test num_constraints(with_cuts.model;count_variable_in_set_constraints=true) >
+          num_constraints(without_cuts.model;count_variable_in_set_constraints=true)
 end
 
 @testset "Line LNC voltage-drop bound retains neutral and mutual coupling" begin

@@ -32,12 +32,26 @@ function _add_line_lncs!(build,lines,terminal_rows,fixed;voltage_range=nothing)
         current = if hasproperty(line, :series_current)
             line.series_current
         else
+            lowf=[first(physical_bounds(from,r)) for r in vf]
+            lowt=[first(physical_bounds(to,r)) for r in vt]
             highf=[last(physical_bounds(from,r)) for r in vf]
             hight=[last(physical_bounds(to,r)) for r in vt]
             imax=get(ratings,"i_max",nothing)
-            imax===nothing ? fill(Inf,n) : [min(
-                imax[k]+_lnc_abs_sum(Yf[k,:],highf),
-                imax[k]+_lnc_abs_sum(Yt[k,:],hight)) for k in 1:n]
+            endpointf=imax===nothing ? fill(Inf,n) :
+                (imax isa Real ? fill(Float64(imax),n) : Float64.(imax))
+            endpointt=copy(endpointf)
+            if haskey(ratings,"s_max")
+                smax=ratings["s_max"] isa Real ? fill(Float64(ratings["s_max"]),length(phases)) :
+                    Float64.(ratings["s_max"])
+                length(smax)==length(phases) || throw(ArgumentError(
+                    "line/$id s_max must match its rated phase channels"))
+                for (channel,k) in enumerate(phases)
+                    lowf[k]>0 && (endpointf[k]=min(endpointf[k],smax[channel]/lowf[k]))
+                    lowt[k]>0 && (endpointt[k]=min(endpointt[k],smax[channel]/lowt[k]))
+                end
+            end
+            [min(endpointf[k]+_lnc_abs_sum(Yf[k,:],highf),
+                 endpointt[k]+_lnc_abs_sum(Yt[k,:],hight)) for k in 1:n]
         end
         for (name,d) in pairs
             key="line/$id/$name"

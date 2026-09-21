@@ -1,4 +1,10 @@
-"""Options for the multiphase branch-flow SDP relaxation."""
+"""Options for the multiphase branch-flow SDP relaxation.
+
+`implied_current_limits` covers lines, closed switches and rated multiwinding
+coils. `port_rlt` derives voltage-current RLT/LNC cuts only from proven physical
+voltage and P/Q-box domains. Both are enabled by default and independently
+switchable for ablations.
+"""
 Base.@kwdef struct BranchFlowSDPOptions
     s_base::Float64 = 1e4
     objective::Symbol = :cost
@@ -8,6 +14,7 @@ Base.@kwdef struct BranchFlowSDPOptions
     lnc::Symbol = :off
     voltage_lncs::Vector{VoltageLNC} = VoltageLNC[]
     implied_current_limits::Bool = true
+    port_rlt::Bool = true
 end
 
 struct BranchFlowSDPInapplicableError <: Exception
@@ -762,6 +769,16 @@ function _bfm_terminal_voltage_ranges(net, bus, source_pu, vb)
      end for (k, terminal) in enumerate(terms)]
 end
 
+function _bfm_voltage_range(net, bus, row::_SDPRow, source_pu, vb)
+    if haskey(source_pu, bus)
+        value = abs(sum((coefficient * source_pu[bus][position]
+                         for (position, coefficient) in row); init=0im)) * vb
+        return value, value
+    end
+    lo, hi = _bfm_load_range(net, bus, row, 1.0)
+    sqrt(max(0.0, lo)), sqrt(hi)
+end
+
 function _bfm_shunt_current_bound(Y, row, voltage_ranges, zb)
     total = 0.0
     for column in axes(Y, 2)
@@ -1078,7 +1095,7 @@ end
 
 function _bfm_nwinding_block!(model, net, id, data, voltage_moments, balance,
                               powers, cone, sb, ib, zb, source_pu, voltage_global,
-                              voltage_indices)
+                              voltage_indices, implied_current_limits)
     label = "transformer/n_winding/$id"
     plan = try
         _sdp_nwinding_plan(net, id, data)
@@ -1205,6 +1222,7 @@ function _bfm_nwinding_block!(model, net, id, data, voltage_moments, balance,
 
     terminal_maps = Matrix{ComplexF64}[]
     coil_maps = Matrix{ComplexF64}[]
+    winding_bound_diagnostics = NamedTuple[]
     for k in 1:nw
         nt = length(bus_terms[k])
         T = zeros(ComplexF64, nt, dimension)
@@ -1252,19 +1270,38 @@ function _bfm_nwinding_block!(model, net, id, data, voltage_moments, balance,
         w = plan.ws[k]
         imax = _bfm_vector(w, "i_max", nc, "$label winding $k")
         smax = _bfm_vector(w, "s_max", nc, "$label winding $k")
+        _bfm_nonnegative(imax, "$label winding $k i_max")
+        _bfm_nonnegative(smax, "$label winding $k s_max")
         current_gram = _bfm_cross(block, coil, coil)
+        effective = imax === nothing ? fill(Inf, nc) : copy(imax)
+        inferred = fill(Inf, nc)
         for c in 1:nc
-            imax === nothing || @constraint(model,
-                real(current_gram[c, c]) <= (imax[c] / ib)^2)
+            if implied_current_limits && smax !== nothing
+                row = _SDPRow(h => ComplexF64(U[k][c, h]) for h in axes(U[k], 2)
+                              if !iszero(U[k][c, h]))
+                lower, _ = _bfm_voltage_range(net, buses[k], row, source_pu,
+                                               sb / ib)
+                if lower > 0
+                    inferred[c] = smax[c] / lower
+                    effective[c] = min(effective[c], inferred[c])
+                end
+            end
+            isfinite(effective[c]) && @constraint(model,
+                real(current_gram[c, c]) <= (effective[c] / ib)^2)
             smax === nothing || @constraint(model,
                 [smax[c] / sb,
                  real(coil_power[c]), imag(coil_power[c])] in SecondOrderCone())
         end
+        push!(winding_bound_diagnostics,
+            (; winding=k, explicit_current=imax,
+             apparent_power=smax, inferred_current=inferred,
+             effective_current=effective))
     end
     key = "n_winding/$id"
     (; key, subtype="n_winding", id=String(id), buses, bus_terms, block, reduced,
        nullspace=N, dimension, voltage_ranges, current_ranges, terminal_maps,
-       coil_maps, voltage_state_indices=reduce(vcat, collect.(voltage_ranges)),
+       coil_maps, winding_bound_diagnostics,
+       voltage_state_indices=reduce(vcat, collect.(voltage_ranges)),
        voltage_state_buses=reduce(vcat, [fill(buses[k], length(bus_terms[k]))
                                         for k in 1:nw]),
        voltage_state_terminals=reduce(vcat, bus_terms))
@@ -1272,7 +1309,7 @@ end
 
 function _bfm_switch_block!(model, net, id, data, voltage_moments, balance,
                             powers, cone, sb, ib, source_pu, voltage_global,
-                            voltage_indices)
+                            voltage_indices, implied_current_limits)
     label = "switch/$id"
     from, to = String(data["bus_from"]), String(data["bus_to"])
     from_terms = string.(net["bus"][from]["terminal_names"])
@@ -1368,9 +1405,28 @@ function _bfm_switch_block!(model, net, id, data, voltage_moments, balance,
     gram = _bfm_cross(block, J, J)
     imax = _bfm_vector(data, "i_max", m, label)
     smax = _bfm_vector(data, "s_max", m, label)
+    _bfm_nonnegative(imax, "$label i_max")
+    _bfm_nonnegative(smax, "$label s_max")
+    effective = imax === nothing ? fill(Inf, m) : copy(imax)
+    inferred = fill(Inf, m)
     for k in 1:m
-        imax === nothing || @constraint(model,
-            real(gram[k, k]) <= (imax[k] / ib)^2)
+        if implied_current_limits && smax !== nothing
+            from_row = _SDPRow(h => ComplexF64(Pf[k, h]) for h in axes(Pf, 2)
+                               if !iszero(Pf[k, h]))
+            to_row = _SDPRow(h => ComplexF64(Pt[k, h]) for h in axes(Pt, 2)
+                             if !iszero(Pt[k, h]))
+            lower_from, _ = _bfm_voltage_range(net, from, from_row, source_pu,
+                                                sb / ib)
+            lower_to, _ = _bfm_voltage_range(net, to, to_row, source_pu,
+                                              sb / ib)
+            lower = max(lower_from, lower_to)
+            if lower > 0
+                inferred[k] = smax[k] / lower
+                effective[k] = min(effective[k], inferred[k])
+            end
+        end
+        isfinite(effective[k]) && @constraint(model,
+            real(gram[k, k]) <= (effective[k] / ib)^2)
         if smax !== nothing
             @constraint(model, [smax[k] / sb, real(sf[k]), imag(sf[k])]
                 in SecondOrderCone())
@@ -1380,6 +1436,8 @@ function _bfm_switch_block!(model, net, id, data, voltage_moments, balance,
     end
     (; key=String(id), id=String(id), from, to, block, reduced, open=false,
        map_from, map_to, Pf, Pt, vf, vt, current, J, Tf, Tt, dimension,
+       explicit_current=imax, apparent_power=smax,
+       inferred_current=inferred, effective_current=effective,
        voltage_state_indices=vcat(collect(vf), collect(vt)),
        voltage_state_buses=vcat(fill(from, nf), fill(to, nt)),
        voltage_state_terminals=vcat(from_terms, to_terms))
@@ -1746,6 +1804,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     _bfm_bus_limits!(model, net, voltage_moments, vb)
 
     objective = JuMP.AffExpr(0.0)
+    port_rlt_diagnostics = NamedTuple[]
     function add_dispatch!(family, id, data, device)
         bus = device.bus
         layout = _bfm_dispatch_layout(device, "$family/$id")
@@ -1792,6 +1851,48 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             layout.terminal_count, "$family/$id")
         imax = _bfm_phase_vector(data, "i_max", layout.positions,
             layout.terminal_count, "$family/$id")
+        if options.port_rlt && !fixed_voltage
+            pmin = _bfm_phase_vector(data, "p_min", layout.positions,
+                layout.terminal_count, "$family/$id")
+            pmax = _bfm_phase_vector(data, "p_max", layout.positions,
+                layout.terminal_count, "$family/$id")
+            qmin = _bfm_phase_vector(data, "q_min", layout.positions,
+                layout.terminal_count, "$family/$id")
+            qmax = _bfm_phase_vector(data, "q_max", layout.positions,
+                layout.terminal_count, "$family/$id")
+            if all(x -> x !== nothing, (pmin, pmax, qmin, qmax))
+                current_gram = delta_terminal ?
+                    transpose(D) * local_moment.J * D : local_moment.J
+                for k in 1:n
+                    position = delta_terminal ? terminal_positions[k] : k
+                    row = delta_terminal ? _sdp_e(position) :
+                        _SDPRow(h => ComplexF64(D[k, h]) for h in axes(D, 2)
+                                if !iszero(D[k, h]))
+                    voltage_gram = delta_terminal ?
+                        voltage_moments[bus][position, position] :
+                        _bfm_voltage_product(voltage_moments[bus], row, row)
+                    bounds, reason = _port_rlt_bounds(
+                        _bfm_voltage_range(net, bus, row, source_pu, vb),
+                        pmin[k], pmax[k], qmin[k], qmax[k];
+                        imax=imax === nothing ? Inf : imax[k],
+                        smax=smax === nothing ? Inf : smax[k])
+                    idk = "$family/$id/$k"
+                    if bounds === nothing
+                        push!(port_rlt_diagnostics,
+                            (; id=idk, status=:skipped, reason))
+                        continue
+                    end
+                    _add_port_rlt!(model, voltage_gram,
+                        current_gram[position, position], s[k], bounds, vb, ib)
+                    push!(port_rlt_diagnostics,
+                        (; id=idk, status=:applied, reason="",
+                         voltage_magnitude=bounds.bounds.u,
+                         current_magnitude=bounds.current_magnitude,
+                         power_magnitude=bounds.power_magnitude,
+                         angle=bounds.bounds.angle))
+                end
+            end
+        end
         for k in 1:n
             if smax !== nothing
                 smax[k] >= 0 || _bfm_refuse("$family/$id has a negative apparent-power limit")
@@ -1920,7 +2021,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     for (id, switch) in sort!(collect(get(net, "switch", Dict())); by=first)
         record = _bfm_switch_block!(model, net, String(id), switch,
             voltage_moments, balance, powers, options.cone, sb, ib, source_pu,
-            voltage_global, voltage_indices)
+            voltage_global, voltage_indices, options.implied_current_limits)
         record.block === nothing ||
             (component_blocks[(:switch, String(id))] = record.block)
         push!(switch_records, record)
@@ -1939,7 +2040,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
                                       "n_winding", Dict())); by=first)
         record = _bfm_nwinding_block!(model, net, String(id), data,
             voltage_moments, balance, powers, options.cone, sb, ib, zb,
-            source_pu, voltage_global, voltage_indices)
+            source_pu, voltage_global, voltage_indices,
+            options.implied_current_limits)
         transformer_blocks[record.key] = record.block
         push!(transformer_records, record)
     end
@@ -1969,6 +2071,28 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     objective_scale = options.scale_objective ?
         max(maximum(abs, values(objective.terms); init=0.0), 1e-12) : 1.0
     @objective(model, Min, objective / objective_scale)
+    device_bound_diagnostics = NamedTuple[]
+    for record in switch_records
+        record.open && continue
+        push!(device_bound_diagnostics,
+            (; kind=:switch, id=record.id,
+             explicit_current=record.explicit_current,
+             apparent_power=record.apparent_power,
+             inferred_current=record.inferred_current,
+             effective_current=record.effective_current))
+    end
+    for record in transformer_records
+        record.subtype == "n_winding" || continue
+        for entry in record.winding_bound_diagnostics
+            push!(device_bound_diagnostics,
+                (; kind=:transformer_winding,
+                 id="$(record.key)/$(entry.winding)",
+                 explicit_current=entry.explicit_current,
+                 apparent_power=entry.apparent_power,
+                 inferred_current=entry.inferred_current,
+                 effective_current=entry.effective_current))
+        end
+    end
     diagnostics = Dict{Symbol,Any}(
         :formulation => :branch_flow_sdp,
         :scope => :matrix_kcl_v3,
@@ -1982,7 +2106,9 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         :switch_count => length(switch_records),
         :capacitor_count => length(get(net, "capacitor", Dict())),
         :line_bound_diagnostics => line_bound_diagnostics,
+        :device_bound_diagnostics => device_bound_diagnostics,
         :implied_current_limits => options.implied_current_limits,
+        :port_rlt_diagnostics => port_rlt_diagnostics,
         :component_block_count => length(component_blocks),
         :matrix_kcl_entries => matrix_kcl_count,
         :global_voltage_closure => voltage_global !== nothing,

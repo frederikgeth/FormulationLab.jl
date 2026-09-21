@@ -228,6 +228,44 @@ end
     @test isinf(reversed_bounds.derived_endpoint_current_child[2])
 end
 
+@testset "Branch-flow SDP device bounds and operational-box RLT cuts" begin
+    dispatch = _l3f_case(generator=true)
+    generator = dispatch["generator"]["pv"]
+    generator["p_min"] = [12_000.0]; generator["p_max"] = [15_000.0]
+    generator["q_min"] = [1_000.0]; generator["q_max"] = [2_000.0]
+    generator["i_max"] = [100.0]
+    with_cuts = build_branch_flow_sdp(dispatch; options=BranchFlowSDPOptions(
+        port_rlt=true))
+    without_cuts = build_branch_flow_sdp(dispatch; options=BranchFlowSDPOptions(
+        port_rlt=false))
+    @test any(d -> d.status == :applied && d.id == "generator/pv/1",
+        with_cuts.numerical_diagnostics[:port_rlt_diagnostics])
+    @test isempty(without_cuts.numerical_diagnostics[:port_rlt_diagnostics])
+    @test num_constraints(with_cuts.model; count_variable_in_set_constraints=true) >
+          num_constraints(without_cuts.model; count_variable_in_set_constraints=true)
+
+    switched = _l3f_case()
+    line = pop!(switched["line"], "line")
+    switched["switch"] = Dict("sw" => Dict{String,Any}(
+        key => line[key] for key in
+        ("bus_from", "bus_to", "terminal_map_from", "terminal_map_to")))
+    switched["switch"]["sw"]["open_switch"] = false
+    switched["switch"]["sw"]["s_max"] = [20_000.0]
+    switch_build = build_branch_flow_sdp(switched)
+    switch_bounds = only(filter(d -> d.kind == :switch,
+        switch_build.numerical_diagnostics[:device_bound_diagnostics]))
+    @test switch_bounds.inferred_current[1] ≈ 20_000 / 230
+    @test switch_bounds.effective_current == switch_bounds.inferred_current
+
+    transformer = _bfm_nwinding_case()
+    transformer_build = build_branch_flow_sdp(transformer)
+    winding_bounds = only(filter(d -> d.kind == :transformer_winding &&
+        d.id == "n_winding/t/1",
+        transformer_build.numerical_diagnostics[:device_bound_diagnostics]))
+    @test winding_bounds.inferred_current[1] ≈ 20_000 / 230
+    @test winding_bounds.effective_current[1] ≈ 20_000 / 230
+end
+
 @testset "Branch-flow SDP switches, capacitors and delta generators" begin
     net = _l3f_case()
     line = pop!(net["line"], "line")
