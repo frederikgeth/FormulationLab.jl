@@ -89,6 +89,15 @@ BFM case; use it as a measured tuning option rather than a universal setting.
 See the [SDP structure study](sdp_performance.md) for the protocol, numerical
 agreement checks, and the remaining Clarabel validation gap.
 
+`preprocess=true` is an opt-in numerical preprocessing pass. It splits complex
+affine equalities into explicit real and imaginary rows, applies the shared
+power-of-two row downscaling, and merges only exactly identical scaled affine
+rows. The transformation is algebraically exact; it does not drop small
+coefficients or approximately parallel equations. The default remains `false`
+while the larger-feeder solver comparison is being established. Diagnostics
+report both the number of split complex equalities and the number of redundant
+affine rows removed.
+
 These options affect only the voltage closure. The physical line, transformer,
 switch and device moment blocks remain local and unchanged. If no closure is
 required—normally a single-source radial feeder without a closed switch,

@@ -6,6 +6,23 @@ function _bfm_test_solve(input; solver_options=(verbose=false,), kwargs...)
     solve_branch_flow_sdp(input; solver_options, kwargs...)
 end
 
+@testset "Branch-flow affine preprocessing is exact and optional" begin
+    net = _l3f_case()
+    raw = build_branch_flow_sdp(net;
+        options=BranchFlowSDPOptions(objective=:source_import, preprocess=false))
+    processed = build_branch_flow_sdp(net;
+        options=BranchFlowSDPOptions(objective=:source_import, preprocess=true))
+    F = GenericAffExpr{ComplexF64,VariableRef}
+    S = MOI.EqualTo{ComplexF64}
+    @test num_constraints(raw.model, F, S) > 0
+    @test num_constraints(processed.model, F, S) == 0
+    @test processed.numerical_diagnostics[:split_complex_equalities] > 0
+    raw_result = solve_branch_flow_sdp(raw; solver_options=(verbose=false,))
+    processed_result = solve_branch_flow_sdp(processed; solver_options=(verbose=false,))
+    @test raw_result.solve.optimal && processed_result.solve.optimal
+    @test processed_result.objective ≈ raw_result.objective rtol=1e-7
+end
+
 @testset "Branch-flow SDP local moments support delta loads" begin
     net = _l3f_case()
     for bus in values(net["bus"])

@@ -1,5 +1,25 @@
 # SDP structure and scaling study, 12 September 2026
 
+## Next reliability and scale ladder
+
+The next ENWL panel extends the radial ladder to 96, 134, 178, 244, 302, 376,
+and 538 buses. Unlike the earlier gated experiment, a numerical failure at one
+size does not suppress structurally different later cases. Each case selects a
+per-phase base from the larger of nominal apparent load, installed active
+generation and 3 kVA, then tests factors one third, one and three. The primary
+base is repeated three times after normal execution-path warm-up; sensitivity
+bases run once. A 250,000-variable guard and per-solve time limit bound the
+experiment.
+
+Rows now distinguish the relaxation's primal objective, the solver's numerical
+lower bound, and the feasible BMOPFTools/Ipopt objective. Publication requires
+the common `validate_relaxation_solution` audit; recovered AC feasibility is a
+separate diagnostic. The BranchFlow profile also exercises opt-in exact affine
+preprocessing, which exposes complex rows to shared row scaling and exact
+duplicate elimination. Native ENWL feeders remain radial, so a separate
+controlled-mesh panel is still required to measure sparse global voltage
+completion at these sizes.
+
 ## Initial chordal completion pilot, 21 September 2026
 
 A one-thread Mosek 11.2 experiment on the prepared 96-bus ENWL feeder compares

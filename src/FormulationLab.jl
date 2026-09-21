@@ -61,12 +61,14 @@ include("cuts/soc_fixed.jl")
 include("api.jl")
 include("validation/containment.jl")
 include("validation/physical.jl")
+include("validation/relaxation.jl")
 include("io/bmopf_simplify.jl")
 include("io/network_reduction.jl")
 include("io/reconstruction.jl")
 export ReductionOptions, ReductionPlan, PreparedNetwork, prepare_network, reduction_report
 export ReconstructedSolution, reconstruct_solution, reconstruction_plan, restore_prepared_network
 export ACPoint, containment_report, physical_residuals, complete_ac_point
+export RelaxationValidationReport, validate_relaxation_solution
 export PhysicalBoundReport, bound_report
 export IVRSOC, SOCOptions, SOCBuild, SOCResult, build_soc_opf, solve_soc_opf
 export BranchFlowSDPOptions, BranchFlowSDPBuild, BranchFlowSDPResult,

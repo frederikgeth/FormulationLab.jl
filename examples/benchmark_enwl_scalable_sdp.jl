@@ -1,4 +1,4 @@
-# Gated medium/large ENWL comparison of chordal IVRSDP and local BranchFlowSDP.
+# Bounded medium/large ENWL comparison of chordal IVRSDP and local BranchFlowSDP.
 #
 # julia --project=test/integration examples/benchmark_enwl_scalable_sdp.jl \
 #   ../BMOPFDraftData/benchmarks/ENWLbenchmark/reduced output.json
@@ -9,11 +9,22 @@ const SCALABLE_ENWL_CASES = [
     ("Network_14_Feeder_1.json", 134),
     ("network_13_Feeder_4.json", 178),
     ("network_9_Feeder_5.json", 244),
+    ("network_15_Feeder_3.json", 302),
+    ("network_17_Feeder_1.json", 376),
+    ("Network_8_Feeder_2.json", 538),
 ]
-const SCALABLE_ENWL_BASES = [3e3, 1e4, 3e4]
-const SCALABLE_PRIMARY_BASE = 1e4
+const SCALABLE_ENWL_BASE_FACTORS = [1 / 3, 1.0, 3.0]
+const SCALABLE_PRIMARY_REPETITIONS = 3
 const SCALABLE_RESIDUAL_LIMIT = 1e-7
 const SCALABLE_VARIABLE_LIMIT = 250_000
+
+function _scalable_power_base(net)
+    load = sum((sum(abs.(complex.(d["p_nom"], d["q_nom"])))
+                for d in values(get(net, "load", Dict()))); init=0.0)
+    generation = sum((sum(abs.(d["p_max"]))
+                      for d in values(get(net, "generator", Dict()))); init=0.0)
+    max(load, generation, 3_000.0) / 3
+end
 
 function _scalable_formulation(kind, s_base)
     if kind == :ivr
@@ -23,12 +34,36 @@ function _scalable_formulation(kind, s_base)
     elseif kind == :branch_flow
         return BranchFlowSDP(; cone=:real, objective=:source_import,
             scale_objective=true, s_base, lnc=:lines, port_rlt=true,
-            implied_current_limits=true)
+            implied_current_limits=true, preprocess=true)
     end
     throw(ArgumentError("unknown formulation: $kind"))
 end
 
-function _scalable_sdp_run(net, kind, s_base; time_limit=180.0)
+function _scalable_validation_dict(report)
+    physical = report.physical
+    Dict(
+        "bound_usable" => report.bound_usable,
+        "reasons" => report.reasons,
+        "dual_status" => report.dual_status,
+        "primal_objective_W" => report.primal_objective,
+        "solver_bound_W" => report.solver_bound,
+        "primal_dual_gap_W" => report.primal_dual_gap,
+        "model_violation" => report.model_violation,
+        "model_feasible" => report.model_feasible,
+        "constraint_maxima" => report.constraint_maxima,
+        "constraint_violations" => report.constraint_violations,
+        "feasible_objective_W" => report.feasible_objective,
+        "bound_margin_W" => report.bound_margin,
+        "bound_ordering_passed" => report.bound_ordering_passed,
+        "recovery_feasible" => report.recovery_feasible,
+        "recovery_maxima" => physical === nothing ? nothing : physical.maxima,
+        "recovery_unassessed" => physical === nothing ? nothing : physical.unassessed,
+        "recovery_error" => report.physical_error,
+    )
+end
+
+function _scalable_sdp_run(net, kind, s_base;
+                           feasible_objective=nothing, time_limit=180.0)
     formulation = _scalable_formulation(kind, s_base)
     println("BUILD ", kind, " base=", s_base)
     flush(stdout)
@@ -60,6 +95,10 @@ function _scalable_sdp_run(net, kind, s_base; time_limit=180.0)
         "split_kcl_rows" => get(diagnostics, :split_kcl_rows, nothing),
         "kcl_auxiliary_coordinates" =>
             get(diagnostics, :kcl_auxiliary_coordinates, nothing),
+        "removed_affine_constraints" =>
+            get(diagnostics, :removed_affine_constraints, 0),
+        "split_complex_equalities" =>
+            get(diagnostics, :split_complex_equalities, 0),
     )
     if variables > SCALABLE_VARIABLE_LIMIT
         return merge(common, Dict(
@@ -84,28 +123,78 @@ function _scalable_sdp_run(net, kind, s_base; time_limit=180.0)
     solve_seconds = @elapsed result = kind == :ivr ?
         solve_sdp_opf(build) : solve_branch_flow_sdp(build)
     status = solve_status(result)
-    has_primal = has_values(build.model)
-    violation = has_primal ? try
-        maximum(values(primal_feasibility_report(build.model; atol=0.0)); init=0.0)
-    catch
-        nothing
-    end : nothing
-    accepted = status.optimal && isfinite(result.objective) &&
-        violation isa Real && violation <= SCALABLE_RESIDUAL_LIMIT
-    merge(common, Dict(
+    validation = validate_relaxation_solution(build, result;
+        feasible_objective, model_atol=SCALABLE_RESIDUAL_LIMIT,
+        bound_atol=0.01, bound_rtol=1e-6,
+        physical_atol=(voltage=1e-3, current=1e-3, power=0.1))
+    audit = _scalable_validation_dict(validation)
+    merge(common, audit, Dict(
         "termination_status" => status.termination_status,
         "raw_status" => raw_status(build.model),
         "primal_status" => status.primal_status,
-        "accepted" => accepted,
-        "objective_W" => accepted ? result.objective : nothing,
-        "candidate_objective_W" => isfinite(result.objective) ? result.objective : nothing,
-        "solver_bound_W" => accepted && isfinite(result.solver_objective_bound) ?
-            result.solver_objective_bound : nothing,
-        "max_scaled_violation" => violation,
-        "rank_ratio" => accepted && isfinite(result.rank_ratio) ?
+        "accepted" => validation.bound_usable,
+        "objective_W" => validation.bound_usable ? validation.solver_bound : nothing,
+        "candidate_objective_W" => isfinite(validation.primal_objective) ?
+            validation.primal_objective : nothing,
+        "max_scaled_violation" => validation.model_violation,
+        "rank_ratio" => status.optimal && isfinite(result.rank_ratio) ?
             result.rank_ratio : nothing,
         "solve_seconds" => solve_seconds,
     ))
+end
+
+function _scalable_median(values)
+    ordered = sort!(Float64[values...])
+    n = length(ordered)
+    isodd(n) ? ordered[(n + 1) ÷ 2] :
+        (ordered[n ÷ 2] + ordered[n ÷ 2 + 1]) / 2
+end
+
+function _scalable_repeated(net, kind, s_base;
+                            feasible_objective=nothing, repetitions=1,
+                            time_limit=180.0)
+    repetitions >= 1 || throw(ArgumentError("repetitions must be positive"))
+    samples = Any[]
+    for repetition in 1:repetitions
+        println("  repetition ", repetition, "/", repetitions)
+        flush(stdout)
+        sample = _scalable_sdp_run(net, kind, s_base;
+            feasible_objective, time_limit)
+        push!(samples, sample)
+        GC.gc()
+        get(sample, "termination_status", "") == "SKIPPED_MODEL_SIZE" && break
+    end
+    structural = ("formulation", "variables", "constraints", "decomposition",
+        "reduced_dimension", "clique_count", "clique_order_max")
+    for key in structural
+        all(get(sample, key, nothing) == get(first(samples), key, nothing)
+            for sample in samples) || error("$kind changed $key across repetitions")
+    end
+    row = copy(first(samples))
+    row["repetitions"] = length(samples)
+    row["requested_repetitions"] = repetitions
+    row["samples"] = samples
+    row["build_seconds"] = _scalable_median(s["build_seconds"] for s in samples)
+    row["solve_seconds"] = _scalable_median(s["solve_seconds"] for s in samples)
+    residuals = Float64[s["max_scaled_violation"] for s in samples
+                        if get(s, "max_scaled_violation", nothing) isa Real]
+    row["max_scaled_violation"] = isempty(residuals) ? nothing : maximum(residuals)
+    row["model_violation"] = row["max_scaled_violation"]
+    row["accepted"] = all(get(s, "accepted", false) for s in samples)
+    row["bound_usable"] = row["accepted"]
+    row["recovery_feasible"] = all(get(s, "recovery_feasible", false)
+        for s in samples)
+    statuses = unique(String(s["termination_status"]) for s in samples)
+    row["termination_status"] = length(statuses) == 1 ? only(statuses) :
+        join(statuses, ", ")
+    for key in ("primal_objective_W", "solver_bound_W", "candidate_objective_W")
+        values = Float64[get(s, key, nothing) for s in samples
+                         if get(s, key, nothing) isa Real]
+        row[key] = isempty(values) ? nothing : _scalable_median(values)
+        row[key * "_span"] = isempty(values) ? nothing : maximum(values) - minimum(values)
+    end
+    row["objective_W"] = row["accepted"] ? row["solver_bound_W"] : nothing
+    row
 end
 
 function _scalable_capture(f)
@@ -120,10 +209,13 @@ end
 
 _scalable_key(row) = (get(row, "formulation", ""), get(row, "s_base_VA", 0.0))
 
-function _scalable_run!(case, save, net, kind, s_base, time_limit)
+function _scalable_run!(case, save, net, kind, s_base, time_limit;
+                        repetitions=1)
     key = (string(kind), s_base)
     any(row -> _scalable_key(row) == key, case["runs"]) && return
-    row = _scalable_capture(() -> _scalable_sdp_run(net, kind, s_base; time_limit))
+    feasible = get(get(case, "nlp", Dict()), "source_W", nothing)
+    row = _scalable_capture(() -> _scalable_repeated(net, kind, s_base;
+        feasible_objective=feasible, repetitions, time_limit))
     push!(case["runs"], row)
     save()
     println("SDP ", kind, " base=", s_base,
@@ -133,12 +225,6 @@ function _scalable_run!(case, save, net, kind, s_base, time_limit)
     flush(stdout)
 end
 
-function _scalable_primary_gate(case)
-    all(kind -> any(row -> get(row, "formulation", "") == string(kind) &&
-        get(row, "s_base_VA", 0.0) == SCALABLE_PRIMARY_BASE &&
-        get(row, "accepted", false), case["runs"]), (:ivr, :branch_flow))
-end
-
 function _scalable_markdown(data, output)
     markdown = splitext(output)[1] * ".md"
     open(markdown, "w") do io
@@ -146,17 +232,19 @@ function _scalable_markdown(data, output)
         println(io)
         println(io, "Inputs and reported objectives use SI units; both SDP formulations ",
             "use per-unit coordinates internally. IVRSDP uses its automatic chordal ",
-            "profile, while BranchFlowSDP uses component-local moments. Accepted rows ",
-            "must terminate `OPTIMAL` and pass a `1e-7` scaled residual gate. This is ",
-            "a numerical reporting gate, not a certified lower-bound test; a negative ",
-            "NLP−candidate entry exposes reversed numerical ordering.")
+            "profile, while BranchFlowSDP uses component-local moments. A usable bound ",
+            "requires optimal termination, a feasible dual status, a finite lower bound, ",
+            "original-model residual at most `1e-7`, consistent primal/dual ordering, ",
+            "and lower-bound ordering against the feasible Ipopt objective. Ipopt remains ",
+            "a local feasible reference, not a global certificate. AC feasibility of the ",
+            "recovered rank-one candidate is reported separately.")
         println(io)
-        println(io, "| Case | Buses | Formulation | Base (VA) | Status | Accepted | Candidate objective (W) | NLP−candidate (W) | Residual | Build (s) | Solve (s) | Variables | Decomposition | Cliques / order |")
-        println(io, "|---|---:|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---|---:|")
+        println(io, "| Case | Buses | Formulation | Base (VA) | Reps | Status | Usable bound | Lower bound (W) | NLP−bound (W) | Residual | AC recovery | Build (s) | Solve (s) | Variables | Decomposition | Cliques / order |")
+        println(io, "|---|---:|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|")
         for case in data["cases"], row in get(case, "runs", Any[])
             nlp = get(get(case, "nlp", Dict()), "source_W", nothing)
-            objective = get(row, "candidate_objective_W", nothing)
-            gap = nlp isa Real && objective isa Real ? nlp - objective : nothing
+            bound = get(row, "solver_bound_W", nothing)
+            gap = nlp isa Real && bound isa Real ? nlp - bound : nothing
             clique = get(row, "clique_count", nothing)
             orders = clique isa Real ? string(clique, " / ",
                 get(row, "clique_order_min", "—"), "–",
@@ -164,30 +252,38 @@ function _scalable_markdown(data, output)
             println(io, "| `", case["name"], "` | ", get(case, "buses", "—"),
                 " | ", get(row, "formulation", "error"), " | ",
                 get(row, "s_base_VA", "—"), " | ",
+                get(row, "repetitions", "—"), " | ",
                 get(row, "termination_status", "error"), " | ",
                 get(row, "accepted", false), " | ",
-                _ladder_fmt(objective), " | ", _ladder_fmt(gap), " | ",
+                _ladder_fmt(bound), " | ", _ladder_fmt(gap), " | ",
                 _ladder_fmt(get(row, "max_scaled_violation", nothing)), " | ",
+                get(row, "recovery_feasible", false), " | ",
                 _ladder_fmt(get(row, "build_seconds", nothing)), " | ",
                 _ladder_fmt(get(row, "solve_seconds", nothing)), " | ",
                 get(row, "variables", "—"), " | ",
                 get(row, "decomposition", "—"), " | ", orders, " |")
         end
         println(io)
-        println(io, "Every reached case is evaluated at 3, 10, and 30 kVA. A later ",
-            "case is attempted only when both formulations pass the 10 kVA primary ",
-            "gate on the preceding case. A skipped case is an experiment-budget ",
-            "decision, not an applicability finding. Models above ",
+        println(io, "Each case uses a data-derived per-phase power base and factors ",
+            join(data["base_factors"], ", "), ". The primary-base rows are medians of ",
+            data["primary_repetitions"], " fresh builds and solves; sensitivity rows ",
+            "run once. A failure does not suppress later cases. Models above ",
             SCALABLE_VARIABLE_LIMIT, " variables are built and diagnosed but not sent ",
-            "to the solver.")
+            "to the solver. This is an experiment-budget decision, not an ",
+            "applicability finding.")
     end
     markdown
 end
 
 function run_enwl_scalable_sdp(data_dir, output; time_limit=180.0)
-    data = isfile(output) ?
-        JSON3.read(read(output, String), Dict{String,Any}) :
+    data = isfile(output) ? begin
+        previous = JSON3.read(read(output, String), Dict{String,Any})
+        get(previous, "schema_version", 0) == 2 || error(
+            "refusing to resume a legacy scalable-SDP artifact; choose a new output path")
+        previous
+    end :
         Dict{String,Any}(
+            "schema_version" => 2,
             "julia" => string(VERSION),
             "ipopt" => string(pkgversion(Ipopt)),
             "mosek" => string(pkgversion(MosekTools.Mosek)),
@@ -198,8 +294,9 @@ function run_enwl_scalable_sdp(data_dir, output; time_limit=180.0)
                 _git_revision(abspath(joinpath(data_dir, "..", "..", ".."))),
             "units" => Dict("input" => "SI", "model" => "per_unit", "results" => "SI"),
             "objective" => "source active-power import (W)",
-            "bases_VA" => SCALABLE_ENWL_BASES,
-            "primary_base_VA" => SCALABLE_PRIMARY_BASE,
+            "base_policy" => "max(total nominal apparent load, installed active generation, 3000 VA) / 3",
+            "base_factors" => SCALABLE_ENWL_BASE_FACTORS,
+            "primary_repetitions" => SCALABLE_PRIMARY_REPETITIONS,
             "acceptance_residual_limit" => SCALABLE_RESIDUAL_LIMIT,
             "model_variable_limit" => SCALABLE_VARIABLE_LIMIT,
             "time_limit_seconds" => time_limit,
@@ -208,15 +305,16 @@ function run_enwl_scalable_sdp(data_dir, output; time_limit=180.0)
         )
     save() = open(io -> JSON3.write(io, finite(data)), output, "w")
 
-    for (index, (filename, expected_buses)) in enumerate(SCALABLE_ENWL_CASES)
-        if index > 1 && !_scalable_primary_gate(last(data["cases"]))
-            push!(data["cases"], Dict("name" => filename,
-                "expected_buses" => expected_buses,
-                "stage_status" => "skipped_by_previous_primary_gate",
-                "runs" => Any[]))
-            save()
-            break
-        end
+    # Warm compilation and both solver interfaces on a tiny case before any
+    # reported timing. This does not contribute a row to the experiment.
+    warm, _, _, _, _ = _prepare_enwl_case(joinpath(data_dir, first(SMALL_ENWL_CASES)))
+    warm_base = _scalable_power_base(warm)
+    nlp_run(warm, warm_base)
+    for kind in (:ivr, :branch_flow)
+        _scalable_sdp_run(warm, kind, warm_base; time_limit=min(time_limit, 30.0))
+    end
+
+    for (filename, expected_buses) in SCALABLE_ENWL_CASES
         found = findfirst(case -> get(case, "name", "") == filename, data["cases"])
         case = if found === nothing
             value = Dict{String,Any}("name" => filename,
@@ -229,10 +327,15 @@ function run_enwl_scalable_sdp(data_dir, output; time_limit=180.0)
         end
         path = joinpath(data_dir, filename)
         net, _, changes, provenance, reduction = _prepare_enwl_case(path)
+        actual_buses = length(net["bus"])
+        actual_buses == expected_buses || error(
+            "$filename has $actual_buses prepared buses; expected $expected_buses")
         case["path"] = abspath(path)
         case["sha256"] = bytes2hex(sha256(read(path)))
         case["normalized_sha256"] = bytes2hex(sha256(JSON3.write(net)))
-        case["buses"] = length(net["bus"])
+        case["buses"] = actual_buses
+        case["components"] = Dict(k => length(get(net, k, Dict())) for k in
+            ("bus", "line", "load", "generator", "transformer", "switch", "capacitor"))
         incidence = Dict(id => 0 for id in keys(net["bus"]))
         parallel = Dict{Tuple{String,String},Int}()
         for line in values(get(net, "line", Dict()))
@@ -246,22 +349,26 @@ function run_enwl_scalable_sdp(data_dir, output; time_limit=180.0)
         case["normalization_changes"] = changes
         case["parser_provenance"] = provenance
         case["kron_reduction"] = reduction
+        primary_base = _scalable_power_base(net)
+        bases = primary_base .* SCALABLE_ENWL_BASE_FACTORS
+        case["primary_base_VA"] = primary_base
+        case["bases_VA"] = bases
         save()
         haskey(case, "nlp") || begin
-            case["nlp"] = _capture(() -> nlp_run(net, SCALABLE_PRIMARY_BASE))
+            case["nlp"] = _capture(() -> nlp_run(net, primary_base))
             save()
         end
         for kind in (:ivr, :branch_flow)
-            _scalable_run!(case, save, net, kind, SCALABLE_PRIMARY_BASE, time_limit)
+            _scalable_run!(case, save, net, kind, primary_base, time_limit;
+                repetitions=SCALABLE_PRIMARY_REPETITIONS)
             GC.gc()
         end
-        for s_base in (first(SCALABLE_ENWL_BASES), last(SCALABLE_ENWL_BASES)),
+        for s_base in (first(bases), last(bases)),
             kind in (:ivr, :branch_flow)
             _scalable_run!(case, save, net, kind, s_base, time_limit)
             GC.gc()
         end
-        case["stage_status"] = _scalable_primary_gate(case) ?
-            "complete" : "failed_primary_gate"
+        case["stage_status"] = "complete"
         save()
     end
     markdown = _scalable_markdown(finite(data), output)

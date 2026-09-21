@@ -77,6 +77,14 @@ end
     removed=FormulationLab._sdp_preprocess_affine!(m)
     @test removed==2
     @test num_constraints(m,AffExpr,MOI.EqualTo{Float64})==1
+    m=Model();@variable(m,x);@variable(m,y)
+    @constraint(m,(2+4im)*x+(-4+2im)*y==6+8im)
+    removed=FormulationLab._sdp_preprocess_affine!(m;split_complex=true)
+    @test removed==0
+    @test m.ext[:split_complex_equalities]==1
+    @test num_constraints(m,GenericAffExpr{ComplexF64,VariableRef},
+        MOI.EqualTo{ComplexF64})==0
+    @test num_constraints(m,AffExpr,MOI.EqualTo{Float64})==2
     m=Model(FormulationLab.default_optimizer());set_silent(m);@variable(m,x)
     @constraint(m,x<=1);@constraint(m,2x>=4)
     FormulationLab._sdp_preprocess_affine!(m);optimize!(m)
