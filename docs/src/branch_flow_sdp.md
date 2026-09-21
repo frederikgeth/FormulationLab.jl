@@ -131,6 +131,10 @@ tighten the lifted relaxation, following Geth and Liu's
 [*Notes on BIM and BFM Optimal Power Flow With Parallel Lines and Total Current
 Limits* (2022)](https://doi.org/10.1109/PESGM48719.2022.9917005).
 
+Line `s_max` arrays select phase conductors using the declared `bus_from`
+terminal roles. Tree orientation may reverse a line internally, but never
+changes the rating channels or their implied-current bounds.
+
 The three matrices have a direct physical reading. ``W_i`` contains squared
 voltage magnitudes on its diagonal and cross-terminal voltage products off the
 diagonal. ``S_{ij}`` contains conductor complex powers on its diagonal and the
@@ -283,7 +287,10 @@ power ``q`` and nominal coil voltage ``v_{nom}``, their current is
 ``j(q/v_{nom}^2)Dv``; consumed coil power is therefore negative reactive power.
 A closed switch has a local block enforcing equal mapped endpoint voltages and
 opposite through currents, including endpoint current/apparent-power ratings.
-An open switch has zero endpoint current and no voltage equality.
+An open switch has zero endpoint current and no voltage equality. Merely
+declaring an open switch does not activate the dense global voltage closure;
+another requirement such as a mesh, multiple sources, a source-free island or
+an explicit voltage LNC may still activate it independently.
 
 ## Transformer component blocks
 

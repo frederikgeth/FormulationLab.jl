@@ -13,12 +13,13 @@ declaration. Common cases compare objectives and voltages against `IVRSDP`, and
 the independent AC validator checks recovered states where rank permits. The
 suite also retains permuted/partial device-map regressions and malformed-input
 applicability checks, including permuted delta dispatch, partial/permuted
-multiwinding maps and scalar phase-voltage bounds. Paper-derived regressions
-exercise parallel-line cross-voltage consistency and the strengthening from
+multiwinding maps, scalar phase-voltage bounds, inert open-switch model size and
+declaration-independent line orientation. Paper-derived regressions exercise
+parallel-line cross-voltage consistency and the strengthening from
 apparent-power/voltage bounds to total endpoint and shunt-corrected
 series-current limits. Static IBRs remain an intentional refusal.
 
-The Julia 1.12.6 default suite passes **6,083/6,083** checks. OpenDSSDirect still
+The Julia 1.12.6 default suite passes **6,091/6,091** checks. OpenDSSDirect still
 emits the precompilation warnings recorded below and then runs its oracle tests
 without the cache.
 
