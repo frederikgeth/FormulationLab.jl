@@ -191,3 +191,22 @@ end
         @test diagnostics[:chordal_fill_edges]>=0
     end
 end
+
+@testset "Wide sparse clique tree uses indexed overlaps" begin
+    n=1000
+    supports=[[1,k] for k in 2:n]
+    diagnostics=Dict{Symbol,Any}()
+    cliques,parents=FormulationLab._sdp_cliques(n,supports;diagnostics)
+    @test length(cliques)==n-1
+    @test all(length(c)==2 for c in cliques)
+    @test all(1<=parents[k]<k for k in 2:length(parents))
+    @test diagnostics[:clique_tree_overlap_updates] < n^2÷2+1
+    seen=Set(cliques[1])
+    running_intersection=true
+    for k in 2:length(cliques)
+        running_intersection &=
+            issubset(intersect(cliques[k],seen),cliques[parents[k]])
+        union!(seen,cliques[k])
+    end
+    @test running_intersection
+end
