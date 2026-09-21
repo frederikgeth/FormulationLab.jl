@@ -239,7 +239,7 @@ function _scalable_markdown(data, output)
             "a local feasible reference, not a global certificate. AC feasibility of the ",
             "recovered rank-one candidate is reported separately.")
         println(io)
-        println(io, "| Case | Buses | Formulation | Base (VA) | Reps | Status | Usable bound | Lower bound (W) | NLP−bound (W) | Residual | AC recovery | Build (s) | Solve (s) | Variables | Decomposition | Cliques / order |")
+        println(io, "| Case | Buses | Formulation | Base (VA) | Reps | Status | Usable bound | Solver bound report (W) | NLP−bound (W) | Residual | AC recovery | Build (s) | Solve (s) | Variables | Decomposition | Cliques / order |")
         println(io, "|---|---:|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|")
         for case in data["cases"], row in get(case, "runs", Any[])
             nlp = get(get(case, "nlp", Dict()), "source_W", nothing)

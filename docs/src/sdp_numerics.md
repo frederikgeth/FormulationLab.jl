@@ -364,15 +364,15 @@ objective units, and accepts an optional Mosek optimizer without adding a runtim
 dependency. Solver time limits may not bound model construction or factorization
 setup; use external process limits for unattended large-case sweeps.
 
-## Scalable ENWL ladder, 21 September 2026
+## Original scalable ENWL ladder, 21 September 2026
 
-`examples/benchmark_enwl_scalable_sdp.jl` compares BMOPFTools/Ipopt with Mosek
-solutions of chordal IVRSDP and local BranchFlowSDP at 3, 10, and 30 kVA power
-bases. Inputs, NLP validation, and reported objectives remain in SI; only the two
-SDP models use per-unit coordinates internally. A row is accepted only when the
-solver returns `OPTIMAL` and the largest JuMP model residual is at most `1e-7`.
-This is a numerical publication gate, not a proof that the reported objective is
-a certified relaxation bound.
+The first `examples/benchmark_enwl_scalable_sdp.jl` artifact compared
+BMOPFTools/Ipopt with Mosek solutions of chordal IVRSDP and local BranchFlowSDP
+at 3, 10, and 30 kVA power bases. Inputs, NLP validation, and reported objectives
+remained in SI; only the two SDP models used per-unit coordinates internally. A
+row was accepted when the solver returned `OPTIMAL` and the largest JuMP model
+residual was at most `1e-7`. This historical gate did not yet audit the dual
+status or lower-bound ordering.
 
 At the 10 kVA primary base, both formulations passed on the 96- and 134-bus
 cases. On those cases BranchFlowSDP built roughly two to five times faster, while
@@ -394,7 +394,10 @@ was therefore skipped by the staged gate; this is not an applicability result.
 Exact inputs, revisions, timings, statuses, candidate objectives, residuals,
 rank diagnostics, and topology counts are recorded in
 `examples/results/enwl_scalable_sdp_2026-09-21.json`; the adjacent Markdown file
-is the human-readable table. The artifact revision is `4551982`.
+is the human-readable table. The artifact revision is `4551982`. The current
+script and the 22 September study use data-derived bases, continue beyond failed
+stages, and apply `validate_relaxation_solution`; see
+[SDP structure and scaling studies](sdp_performance.md).
 
 ## ENWL validation, 11 September 2026
 
