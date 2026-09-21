@@ -33,6 +33,7 @@ formulation = IVRSDP(decomposition=:chordal, current_bounds=true,
 | `clique_merge` | `:size` | unused on dense path |
 | `clique_size` | `32` for `:size`, `12` for `:cost` | unused on dense path |
 | `clique_overlap_weight` | `1.0` | unused on dense path |
+| `kcl_split_size` | `12` | unused on dense path |
 | `state_scaling` | `:voltage_region` | `:global` |
 
 These are engineering choices, not a guarantee that Clarabel will solve every
@@ -213,6 +214,36 @@ moment to supply all clique entries. It eliminates overlap equalities, but can
 produce a much denser solver system. Its larger clique restrictions use real
 symmetric PSD embeddings; the `cone` choice applies to local moments and the dense
 fallback.
+
+### High-degree KCL aggregation
+
+A nodal balance with many incident devices is physically simple but awkward for
+a chordal SDP: covering one equation such as
+
+```math
+i_1+i_2+\cdots+i_d=0
+```
+
+would place all `d` current coordinates in one clique. This occurs in star
+networks and can dominate the entire conic model even when every branch is small.
+For non-dense builds, a KCL row whose support exceeds `kcl_split_size` is replaced
+by a balanced tree of partial-current sums. For example, an auxiliary `y` may be
+defined by `i_1+i_2-y=0`, then used in a later balance. Every compiled row has
+bounded support. Eliminating all auxiliary coordinates reproduces the original
+KCL equation exactly, so this is a sparse extended formulation, not a relaxation
+or strengthening. It does not aggregate branch ratings or reported currents.
+
+The default maximum support is 12 and must be at least 3. Dense builds retain the
+original KCL rows. Diagnostics report `max_kcl_support`, `split_kcl_rows`,
+`kcl_auxiliary_coordinates`, and `kcl_split_size`. Auxiliary coordinates are
+internal and are reconstructed from the same homogeneous electrical equations
+during containment audits.
+
+Local chordal moments also keep their congruence maps factored while the model is
+being assembled. Only products required by an electrical/device support or an
+independent separator are expanded into JuMP expressions. Numerical recovery
+materializes the complete local Gram after the solve. This changes construction
+cost and storage, but not the cone or the products constrained by the model.
 
 Why is this equivalent? A global feasible PSD moment restricts to feasible clique
 moments. Conversely, consistent PSD clique moments have a PSD completion `W`.
