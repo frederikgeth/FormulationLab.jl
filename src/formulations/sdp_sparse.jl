@@ -7,6 +7,28 @@ struct SDPSparseMoment
     parents::Vector{Int}
     entries::Dict{Tuple{Int,Int},Any}
 end
+
+# Lazy local congruence G = (T*H)*Tᴴ. Optimization only needs products declared
+# by the support graph and separator constraints; materializing every affine
+# entry can dominate construction even though numerical recovery eventually
+# needs the full local Gram.
+struct SDPLocalGram
+    T::Matrix{ComplexF64}
+    TH::Matrix{Any}
+end
+Base.size(G::SDPLocalGram)=(size(G.T,1),size(G.T,1))
+Base.size(G::SDPLocalGram,k::Int)=k<=2 ? size(G.T,1) : 1
+function Base.getindex(G::SDPLocalGram,i::Int,j::Int)
+    sum((G.TH[i,a]*conj(G.T[j,a]) for a in axes(G.T,2)
+         if !iszero(G.T[j,a]));init=0im)
+end
+function Base.Broadcast.broadcasted(::typeof(JuMP.value),G::SDPLocalGram)
+    values=Matrix{ComplexF64}(undef,size(G.TH))
+    for i in eachindex(values)
+        values[i]=ComplexF64(JuMP.value(G.TH[i]))
+    end
+    values*G.T'
+end
 Base.size(H::SDPSparseMoment)=(H.dimension,H.dimension)
 Base.size(H::SDPSparseMoment,k::Int)=k<=2 ? H.dimension : 1
 function Base.getindex(H::SDPSparseMoment,i::Int,j::Int)
@@ -129,7 +151,18 @@ function _sdp_cliques(n,supports)
         active[i]=false;empty!(graph[i])
     end
     # Retain maximal cliques, deterministically.
-    order=sortperm(bags;by=b->(-length(b),Tuple(b)))
+    # Compare the already sorted vectors directly. Materializing variable-length
+    # tuples here gives the compiler a pathological `Tuple{Int,Vararg{Int}}`
+    # ordering problem on large sparse feeders.
+    function bag_order(i, j)
+        a, b = bags[i], bags[j]
+        length(a) == length(b) || return length(a) > length(b)
+        for k in eachindex(a)
+            a[k] == b[k] || return a[k] < b[k]
+        end
+        i < j
+    end
+    order=sortperm(eachindex(bags);lt=bag_order)
     maximal=Vector{Int}[]
     for k in order
         any(all(in(c),bags[k]) for c in maximal) || push!(maximal,bags[k])
@@ -238,7 +271,8 @@ function _sdp_sparse_moment(model,A,supports,options,diagnostics;scales=ones(siz
     consistency=options.consistency==:auto ? (m<=32 ? :shared : :local) : options.consistency
     diagnostics[:consistency]=consistency
     if consistency==:local
-        return _sdp_local_cliques(model,A,N,cliques,parents,selections,options,diagnostics),Matrix{ComplexF64}(I,n,n)
+        return _sdp_local_cliques(model,A,N,cliques,parents,selections,
+            supports,options,diagnostics),Matrix{ComplexF64}(I,n,n)
     end
     # One shared reduced Hermitian matrix gives overlap consistency by
     # construction. Only clique restrictions must be PSD. PSD completion gives
@@ -276,8 +310,28 @@ function _sdp_sparse_moment(model,A,supports,options,diagnostics;scales=ones(siz
     SDPSparseMoment(n,cliques,grams,parents,entries),Matrix{ComplexF64}(I,n,n)
 end
 
-function _sdp_local_cliques(model,A,N,cliques,parents,selections,options,diagnostics)
+function _sdp_local_cliques(model,A,N,cliques,parents,selections,supports,
+                            options,diagnostics)
     grams=Any[];entries=Dict{Tuple{Int,Int},Any}();projection_residual=0.0
+    required=Dict{Int,Set{Int}}()
+    require!(i,j)=push!(get!(required,i,Set{Int}()),j)
+    for support in supports,i in support,j in support
+        require!(i,j)
+    end
+    separator_coordinates=[Int[] for _ in cliques]
+    for index in eachindex(cliques)
+        parents[index]==0 && continue
+        shared=intersect(cliques[index],cliques[parents[index]])
+        if !isempty(shared)
+            C=N[shared,:];singular=svdvals(C)
+            rank=count(>(maximum(size(C))*eps(Float64)*maximum(singular;init=0.0)),singular)
+            shared=shared[qr(Matrix{ComplexF64}(C'),ColumnNorm()).p[1:rank]]
+        end
+        separator_coordinates[index]=shared
+        for i in shared,j in shared
+            require!(i,j)
+        end
+    end
     for (index,(clique,selected)) in enumerate(zip(cliques,selections))
         r=length(selected)
         T=r==0 ? zeros(ComplexF64,length(clique),0) : N[clique,:]/N[selected,:]
@@ -290,22 +344,15 @@ function _sdp_local_cliques(model,A,N,cliques,parents,selections,options,diagnos
         scales=[norm(N[i,:]) for i in selected]
         T=T*Diagonal(scales)
         H=_sdp_psd(model,r,options.cone)
-        function entry(i,j)
-            out=JuMP.GenericAffExpr{ComplexF64,JuMP.VariableRef}(0im)
-            for a in 1:r,b in 1:r
-                c=T[i,a]*conj(T[j,b]);iszero(c) || JuMP.add_to_expression!(out,c,H[a,b])
-            end
-            out
-        end
-        G=[entry(i,j) for i in eachindex(clique),j in eachindex(clique)]
+        # Associate the symbolic congruence as (T*H)*Tᴴ. Expanding every
+        # G[i,j] independently costs O(|C|²r²); the factored construction is
+        # O(|C|r² + |C|²r) and is algebraically identical.
+        TH=Any[sum((T[i,a]*H[a,b] for a in 1:r if !iszero(T[i,a]));init=0im)
+               for i in eachindex(clique),b in 1:r]
+        G=SDPLocalGram(T,TH)
         push!(grams,G)
         if parents[index]!=0
-            shared=intersect(clique,cliques[parents[index]])
-            if !isempty(shared)
-                C=N[shared,:];singular=svdvals(C)
-                rank=count(>(maximum(size(C))*eps(Float64)*maximum(singular;init=0.0)),singular)
-                shared=shared[qr(Matrix{ComplexF64}(C'),ColumnNorm()).p[1:rank]]
-            end
+            shared=separator_coordinates[index]
             # Independent separator coordinates suffice: every other separator
             # coordinate is already an electrical linear combination of these.
             for (ki,i) in enumerate(shared),j in shared[ki:end]
@@ -314,8 +361,10 @@ function _sdp_local_cliques(model,A,N,cliques,parents,selections,options,diagnos
                 i==j || @constraint(model,imag(f)==0)
             end
         end
-        for (i,gi) in enumerate(clique),(j,gj) in enumerate(clique)
-            get!(entries,(gi,gj),G[i,j])
+        position=Dict(value=>i for (i,value) in enumerate(clique))
+        for (i,gi) in enumerate(clique),gj in get(required,gi,Set{Int}())
+            haskey(position,gj) || continue
+            get!(entries,(gi,gj),G[i,position[gj]])
         end
     end
     diagnostics[:clique_orders]=length.(selections);diagnostics[:cliques]=length(cliques)

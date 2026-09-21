@@ -13,6 +13,9 @@ coordinates and sparse QR above that; `:physical` retains the legacy basis.
 `clique_merge=:cost` uses a reduced-rank cone/separator cost surrogate instead
 of the default original-coordinate size heuristic. `clique_size` then caps
 the reduced order of proposed merges (default 12 instead of 32).
+For chordal models, `kcl_split_size` replaces a high-degree nodal balance by an
+exact tree of auxiliary partial-current balances. This limits the support of
+each homogeneous equation without changing the electrical state projection.
 The Clarabel profile uses `state_scaling=:voltage_region` to precondition
 electrical elimination; `:global` retains the previous coordinates. Outputs
 and physical bounds keep their original units. Cost merging is experimental;
@@ -34,6 +37,7 @@ Base.@kwdef struct SDPOptions
     clique_merge::Symbol = :size
     clique_size::Int = clique_merge==:cost ? 12 : 32
     clique_overlap_weight::Float64 = 1.0
+    kcl_split_size::Int = 12
     state_scaling::Symbol = profile==:clarabel ? :voltage_region : :global
     consistency::Symbol = :auto
     recovery::Symbol = profile==:clarabel ? :anchor : :dominant
@@ -56,6 +60,42 @@ function _sdp_add!(a, b, scale=1)
         iszero(a[k]) && delete!(a,k)
     end
     a
+end
+
+# A single KCL row at a high-degree bus creates a clique containing every
+# incident current. Replace only that row by an equivalent balanced aggregation
+# tree. Every auxiliary coordinate is a partial current sum; eliminating the
+# auxiliaries recovers the original row exactly.
+function _sdp_split_zero!(equations, row, newvar, max_support)
+    length(row) <= max_support && (push!(equations, row); return 0)
+    nodes = [_SDPRow(i => c) for (i, c) in sort!(collect(row); by=first)]
+    auxiliaries = 0
+    while length(nodes) > max_support
+        reduced = _SDPRow[]
+        for offset in 1:max_support-1:length(nodes)
+            group = nodes[offset:min(offset + max_support - 2, length(nodes))]
+            if length(group) == 1
+                push!(reduced, only(group))
+                continue
+            end
+            aggregate = _SDPRow()
+            for node in group
+                _sdp_add!(aggregate, node)
+            end
+            auxiliary = newvar()
+            _sdp_add!(aggregate, _sdp_e(auxiliary), -1)
+            push!(equations, aggregate)
+            push!(reduced, _sdp_e(auxiliary))
+            auxiliaries += 1
+        end
+        nodes = reduced
+    end
+    final = _SDPRow()
+    for node in nodes
+        _sdp_add!(final, node)
+    end
+    push!(equations, final)
+    auxiliaries
 end
 
 function _sdp_fields(data, allowed, label; matrix=())
@@ -158,6 +198,7 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     options.clique_size>=1 || throw(ArgumentError("clique_size must be positive"))
     options.clique_merge in (:size,:cost) || throw(ArgumentError("unknown clique merge policy"))
     isfinite(options.clique_overlap_weight) && options.clique_overlap_weight>=0 || throw(ArgumentError("clique_overlap_weight must be finite and nonnegative"))
+    options.kcl_split_size>=3 || throw(ArgumentError("kcl_split_size must be at least 3"))
     options.state_scaling in (:global,:voltage_region) || throw(ArgumentError("unknown state scaling"))
     options.recovery in (:anchor,:dominant) || throw(ArgumentError("unknown SDP recovery"))
     options.basis in (:auto,:orthonormal,:physical,:physical_sparse,:sparse) || throw(ArgumentError("unknown SDP basis"))
@@ -398,7 +439,17 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     for (i,imax,_) in derived
         if iszero(imax) && !isempty(i);push!(equations,copy(i));face_rows+=1;end
     end
-    append!(equations,values(kcl))
+    kcl_rows=collect(values(kcl))
+    max_kcl_support=maximum(length,kcl_rows;init=0)
+    split_kcl_rows=0;kcl_auxiliaries=0
+    for row in kcl_rows
+        if options.decomposition!=:dense && length(row)>options.kcl_split_size
+            split_kcl_rows+=1
+            kcl_auxiliaries+=_sdp_split_zero!(equations,row,newvar,options.kcl_split_size)
+        else
+            push!(equations,row)
+        end
+    end
     A=zeros(ComplexF64,length(equations),coordinate_count[])
     for (r,row) in enumerate(equations), (c,value) in row;A[r,c]=value;end
     # Row equilibration affects neither the nullspace nor the feasible set.
@@ -407,7 +458,9 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     end
     diagnostics=Dict{Symbol,Any}(:basis=>options.basis,:cone=>options.cone,
         :decomposition=>options.decomposition,:state_dimension=>size(A,2),
-        :bound_report=>bound_info,:face_equations=>face_rows,:derived_current_bounds=>length(derived))
+        :bound_report=>bound_info,:face_equations=>face_rows,:derived_current_bounds=>length(derived),
+        :max_kcl_support=>max_kcl_support,:split_kcl_rows=>split_kcl_rows,
+        :kcl_auxiliary_coordinates=>kcl_auxiliaries,:kcl_split_size=>options.kcl_split_size)
     diagnostics[:port_rlt_diagnostics]=NamedTuple[]
     scales,scaling_info=_sdp_state_scales(net,voltage,devices,limits,size(A,2),vb,options.state_scaling)
     diagnostics[:state_scaling]=scaling_info
