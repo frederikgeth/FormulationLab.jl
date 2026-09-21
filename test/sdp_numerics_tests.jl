@@ -14,9 +14,35 @@
         @test improved.voltage_candidate[("load","a")] ≈ reference.voltage_candidate[("load","a")] rtol=2e-5
         @test solve_diagnostics(improved).numerical[:voltage_rank_ratio] < 1e-6
     end
-    for options in (SDPOptions(profile=:bad),SDPOptions(basis=:bad),SDPOptions(cone=:bad),SDPOptions(shunt_coordinates=:bad),SDPOptions(decomposition=:bad),SDPOptions(recovery=:bad),SDPOptions(clique_size=0),SDPOptions(clique_merge=:bad),SDPOptions(state_scaling=:bad),SDPOptions(clique_overlap_weight=-1.),SDPOptions(clique_overlap_weight=Inf))
+    for options in (SDPOptions(profile=:bad),SDPOptions(basis=:bad),SDPOptions(cone=:bad),SDPOptions(shunt_coordinates=:bad),SDPOptions(decomposition=:bad),SDPOptions(recovery=:bad),SDPOptions(clique_size=0),SDPOptions(clique_merge=:bad),SDPOptions(state_scaling=:bad),SDPOptions(clique_overlap_weight=-1.),SDPOptions(clique_overlap_weight=Inf),SDPOptions(kcl_split_size=2))
         @test_throws ArgumentError build_sdp_opf(net;options)
     end
+end
+
+@testset "Chordal KCL aggregation preserves high-degree stars" begin
+    template=_l3f_case();bus=deepcopy(template["bus"]["load"])
+    load=deepcopy(template["load"]["load"]);line=deepcopy(template["line"]["line"])
+    net=deepcopy(template);net["bus"]=Dict("source"=>template["bus"]["source"])
+    net["load"]=Dict();net["line"]=Dict()
+    for k in 1:10
+        id="b$k";net["bus"][id]=deepcopy(bus)
+        d=deepcopy(load);d["bus"]=id;d["p_nom"]=[100.];d["q_nom"]=[20.];net["load"][id]=d
+        e=deepcopy(line);e["bus_from"]="source";e["bus_to"]=id;net["line"][id]=e
+    end
+    sparse=_sdp_test_solve(net;options=SDPOptions(s_base=1000.,objective=:source_import,
+        decomposition=:chordal,consistency=:local,clique_size=4,kcl_split_size=4),
+        solver_options=(verbose=false,))
+    diagnostics=solve_diagnostics(sparse).numerical
+    s=100+20im;z=.2+.1im;vs=230.
+    a=2real(z*conj(s))-vs^2
+    w=(-a+sqrt(a^2-4abs2(z*s)))/2
+    exact_branch_import=real(s)+real(z)*abs2(s)/w
+    @test sparse.solve.optimal
+    @test sparse.objective ≈ 10exact_branch_import rtol=2e-6
+    @test diagnostics[:max_kcl_support]==11
+    @test diagnostics[:split_kcl_rows]==1
+    @test diagnostics[:kcl_auxiliary_coordinates]>0
+    @test maximum(diagnostics[:clique_orders])<=4
 end
 
 @testset "SDP finite shunt current coordinates retain admittance physics" begin

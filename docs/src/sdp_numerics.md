@@ -33,6 +33,7 @@ formulation = IVRSDP(decomposition=:chordal, current_bounds=true,
 | `clique_merge` | `:size` | unused on dense path |
 | `clique_size` | `32` for `:size`, `12` for `:cost` | unused on dense path |
 | `clique_overlap_weight` | `1.0` | unused on dense path |
+| `kcl_split_size` | `12` | unused on dense path |
 | `state_scaling` | `:voltage_region` | `:global` |
 
 These are engineering choices, not a guarantee that Clarabel will solve every
@@ -214,6 +215,36 @@ produce a much denser solver system. Its larger clique restrictions use real
 symmetric PSD embeddings; the `cone` choice applies to local moments and the dense
 fallback.
 
+### High-degree KCL aggregation
+
+A nodal balance with many incident devices is physically simple but awkward for
+a chordal SDP: covering one equation such as
+
+```math
+i_1+i_2+\cdots+i_d=0
+```
+
+would place all `d` current coordinates in one clique. This occurs in star
+networks and can dominate the entire conic model even when every branch is small.
+For non-dense builds, a KCL row whose support exceeds `kcl_split_size` is replaced
+by a balanced tree of partial-current sums. For example, an auxiliary `y` may be
+defined by `i_1+i_2-y=0`, then used in a later balance. Every compiled row has
+bounded support. Eliminating all auxiliary coordinates reproduces the original
+KCL equation exactly, so this is a sparse extended formulation, not a relaxation
+or strengthening. It does not aggregate branch ratings or reported currents.
+
+The default maximum support is 12 and must be at least 3. Dense builds retain the
+original KCL rows. Diagnostics report `max_kcl_support`, `split_kcl_rows`,
+`kcl_auxiliary_coordinates`, and `kcl_split_size`. Auxiliary coordinates are
+internal and are reconstructed from the same homogeneous electrical equations
+during containment audits.
+
+Local chordal moments also keep their congruence maps factored while the model is
+being assembled. Only products required by an electrical/device support or an
+independent separator are expanded into JuMP expressions. Numerical recovery
+materializes the complete local Gram after the solve. This changes construction
+cost and storage, but not the cone or the products constrained by the model.
+
 Why is this equivalent? A global feasible PSD moment restricts to feasible clique
 moments. Conversely, consistent PSD clique moments have a PSD completion `W`.
 Every row `a` of the electrical system has its support in a clique and satisfies
@@ -284,6 +315,38 @@ explicitly opt-in. It records statuses, residuals, timing, numerical settings an
 objective units, and accepts an optional Mosek optimizer without adding a runtime
 dependency. Solver time limits may not bound model construction or factorization
 setup; use external process limits for unattended large-case sweeps.
+
+## Scalable ENWL ladder, 21 September 2026
+
+`examples/benchmark_enwl_scalable_sdp.jl` compares BMOPFTools/Ipopt with Mosek
+solutions of chordal IVRSDP and local BranchFlowSDP at 3, 10, and 30 kVA power
+bases. Inputs, NLP validation, and reported objectives remain in SI; only the two
+SDP models use per-unit coordinates internally. A row is accepted only when the
+solver returns `OPTIMAL` and the largest JuMP model residual is at most `1e-7`.
+This is a numerical publication gate, not a proof that the reported objective is
+a certified relaxation bound.
+
+At the 10 kVA primary base, both formulations passed on the 96- and 134-bus
+cases. On those cases BranchFlowSDP built roughly two to five times faster, while
+solve times were similar. Power-base choice remained material: 3 kVA gave the
+IVR candidates closest to the feasible NLP objectives, but the 134-bus
+BranchFlowSDP 3 kVA run failed the residual gate. Even accepted candidates were
+between `4e-6` and `2.8e-2` W above the feasible NLP objective. Those tiny reversed
+gaps are retained in the table rather than described as lower bounds.
+
+The 178-bus case contains a 144-branch star at one bus. Before exact KCL
+aggregation, the IVR clique cover produced 1,763,405 variables and a maximum cone
+order of 147. The sparse extended KCL representation reduces this to 46,599
+variables and maximum order 16 (six split rows and 55 auxiliary current sums).
+The model is now practical to build and solve, but no tested base passed the
+publication gate. The best residuals occurred at 30 kVA: `4.69e-7` for IVR with
+`SLOW_PROGRESS`, and `4.54e-7` for solver-optimal BranchFlowSDP. The 244-bus case
+was therefore skipped by the staged gate; this is not an applicability result.
+
+Exact inputs, revisions, timings, statuses, candidate objectives, residuals,
+rank diagnostics, and topology counts are recorded in
+`examples/results/enwl_scalable_sdp_2026-09-21.json`; the adjacent Markdown file
+is the human-readable table. The artifact revision is `4551982`.
 
 ## ENWL validation, 11 September 2026
 
