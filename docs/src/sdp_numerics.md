@@ -33,6 +33,7 @@ formulation = IVRSDP(decomposition=:chordal, current_bounds=true,
 | `clique_merge` | `:size` | unused on dense path |
 | `clique_size` | `32` for `:size`, `12` for `:cost` | unused on dense path |
 | `clique_overlap_weight` | `1.0` | unused on dense path |
+| `chordal_ordering` | `:minimum_degree` | unused on dense path |
 | `kcl_split_size` | `12` | unused on dense path |
 | `state_scaling` | `:voltage_region` | `:global` |
 
@@ -196,7 +197,13 @@ represented exactly by rotated SOCs. Neither shortcut weakens the relaxation.
 For chordal decomposition, a sparsity graph covers every electrical equation's
 support, every required voltage/current product, and every predeclared LNC.
 Minimum-degree elimination adds fill edges, producing a chordal graph and maximal
-cliques. Adjacent tree bags are amalgamated up to `clique_size=32` original
+cliques. `chordal_ordering=:minimum_fill` is also available: at each step it
+eliminates the coordinate that adds the fewest missing neighbor edges, with
+degree and coordinate index as deterministic tie-breakers. These are ordering
+heuristics, not globally minimum-fill algorithms; benchmark both on the target
+network. Diagnostics report the aggregate graph edge count, added fill edges,
+unmerged clique count, and largest unmerged clique. Adjacent tree bags are
+amalgamated up to `clique_size=32` original
 state coordinates to avoid excessive numbers of small cones; larger initial
 bags are retained. A maximum-weight clique tree supplies the running-intersection structure.
 Automatic consistency uses a shared reduced moment for orders at most 32 and
@@ -253,6 +260,14 @@ nullspace. All objective and operating-limit products are covered by the graph
 and unchanged by completion. This argument does not require radial topology or
 independent transformer phases. Dropping arbitrary cross-phase blocks would not
 provide this guarantee.
+
+This construction follows the matrix-completion workflow made explicit for OPF
+by [Jabr](https://doi.org/10.1109/TPWRS.2011.2170772): aggregate the data
+sparsity, compute a low-fill chordal extension, impose PSD on maximal cliques,
+and use a maximum-weight clique tree to select independent overlap equalities.
+FormulationLab forms the aggregate graph from compiled physical supports rather
+than directly from a balanced bus-admittance matrix, because IVR states also
+contain device currents, explicit neutrals and transformer coordinates.
 
 The build's `moment` is a partial Gram container on the chordal path.
 `value.(build.moment)` computes a numerical dense completion; `build.nullspace` is
@@ -413,8 +428,9 @@ increased the model from 10,548 to 176,724 variables and the recorded solve from
 about 0.4 s to about 11 s. The current implementation evaluates automatic line
 LNCs from the existing line-local cross moment instead; those historical counts
 remain useful motivation, not a description of the revised model size.
-Sparse/chordal IVR and improved BranchFlow scaling remain higher-priority next
-experiments than extending the dense reference ladder to still larger feeders.
+The later [SDP structure study](sdp_performance.md) evaluates chordal IVR and
+the sparse BranchFlow voltage closure directly rather than extrapolating from
+those dense historical counts.
 
 The checkpointed data, full ablation tables, exact environment revisions and
 reproduction command are in

@@ -113,6 +113,15 @@ voltage maps and finite domains are available.
 
 ## Sparsity and conic representations
 
+- Jabr,
+  [*Exploiting Sparsity in SDP Relaxations of the OPF
+  Problem*](https://doi.org/10.1109/TPWRS.2011.2170772), gives the OPF-specific
+  matrix-completion recipe used here: low-fill elimination, maximal-clique PSD
+  cones, and maximum-weight clique-tree overlap equalities. `IVRSDP` applies it
+  to the aggregate supports of an eliminated current--voltage state rather than
+  only a balanced voltage matrix. `BranchFlowSDP` applies the same construction
+  only to its conditional global voltage closure; its line and component cones
+  are already local.
 - Grone, Johnson, Sá and Wolkowicz,
   [*Positive Definite Completions of Partial Hermitian
   Matrices*](https://doi.org/10.1016/0024-3795(84)90207-6), provide the chordal

@@ -136,17 +136,35 @@ function _sdp_physical_sparse(A,free,reference,diagnostics)
     fallback ? reference : N
 end
 
-function _sdp_cliques(n,supports)
+function _sdp_cliques(n,supports; ordering=:minimum_degree, diagnostics=nothing)
+    ordering in (:minimum_degree,:minimum_fill) ||
+        throw(ArgumentError("unknown chordal ordering"))
     graph=[Set{Int}() for _ in 1:n]
     for support in supports, i in support,j in support
         i==j || push!(graph[i],j)
     end
+    original_edges=sum(length,graph) ÷ 2
     active=trues(n);bags=Vector{Int}[]
+    fill_edges=0
     for _ in 1:n
         candidates=findall(active)
-        i=candidates[argmin([length(graph[k]) for k in candidates])]
+        function score(k)
+            degree=length(graph[k])
+            ordering==:minimum_degree && return (degree,degree,k)
+            neighbors=collect(graph[k]);missing=0
+            for a in eachindex(neighbors),b in a+1:length(neighbors)
+                neighbors[b] in graph[neighbors[a]] || (missing+=1)
+            end
+            (missing,degree,k)
+        end
+        i=argmin(score,candidates)
         neighbors=sort!(collect(graph[i]));push!(bags,sort!([i;neighbors]))
-        for j in neighbors,k in neighbors;j==k || push!(graph[j],k);end
+        for a in eachindex(neighbors),b in a+1:length(neighbors)
+            j,k=neighbors[a],neighbors[b]
+            if !(k in graph[j])
+                push!(graph[j],k);push!(graph[k],j);fill_edges+=1
+            end
+        end
         for j in neighbors;delete!(graph[j],i);end
         active[i]=false;empty!(graph[i])
     end
@@ -177,7 +195,50 @@ function _sdp_cliques(n,supports)
         end
         push!(selected,best[2]);push!(parents,best[3]);delete!(remaining,best[2])
     end
-    maximal[selected],parents
+    out=maximal[selected]
+    if diagnostics!==nothing
+        diagnostics[:chordal_ordering]=ordering
+        diagnostics[:aggregate_sparsity_edges]=original_edges
+        diagnostics[:chordal_fill_edges]=fill_edges
+        diagnostics[:unmerged_maximal_cliques]=length(out)
+        diagnostics[:unmerged_max_clique_order]=maximum(length,out;init=0)
+    end
+    out,parents
+end
+
+# PSD-completion representation for a partial Hermitian matrix. The aggregate
+# support graph is chordally extended, each maximal-clique principal submatrix
+# is PSD, and a clique tree supplies only the independent separator equalities.
+function _sdp_chordal_psd(model,n,supports,cone;
+                          ordering=:minimum_degree,clique_size=32,
+                          diagnostics=Dict{Symbol,Any}())
+    cliques,parents=_sdp_cliques(n,supports;ordering,diagnostics)
+    diagnostics[:unmerged_cliques]=length(cliques)
+    cliques,parents=_sdp_merge_cliques(cliques,parents,clique_size)
+    grams=Any[];entries=Dict{Tuple{Int,Int},Any}()
+    separator_orders=Int[]
+    for (index,clique) in enumerate(cliques)
+        G=_sdp_psd(model,length(clique),cone);push!(grams,G)
+        if parents[index]!=0
+            parent=cliques[parents[index]]
+            shared=intersect(clique,parent);push!(separator_orders,length(shared))
+            for (a,i) in enumerate(clique),j in clique[a:end]
+                j in shared && i in shared || continue
+                b=findfirst(==(j),clique)
+                reference=entries[(i,j)]
+                @constraint(model,real(G[a,b])==real(reference))
+                i==j || @constraint(model,imag(G[a,b])==imag(reference))
+            end
+        end
+        for (a,i) in enumerate(clique),(b,j) in enumerate(clique)
+            get!(entries,(i,j),G[a,b])
+        end
+    end
+    diagnostics[:cliques]=length(cliques)
+    diagnostics[:clique_orders]=length.(cliques)
+    diagnostics[:separator_ranks]=separator_orders
+    diagnostics[:separator_real_dimension]=sum(abs2,separator_orders;init=0)
+    SDPSparseMoment(n,cliques,grams,parents,entries)
 end
 
 # Amalgamate adjacent tree bags. This adds fill products, preserves running
@@ -241,7 +302,8 @@ function _sdp_sparse_moment(model,A,supports,options,diagnostics;scales=ones(siz
         return _sdp_psd(model,m,options.cone),N
     end
     diagnostics[:decomposition]=:chordal
-    cliques,parents=_sdp_cliques(n,supports)
+    cliques,parents=_sdp_cliques(n,supports;
+        ordering=options.chordal_ordering,diagnostics)
     diagnostics[:unmerged_cliques]=length(cliques)
     diagnostics[:clique_merge]=options.clique_merge
     cliques,parents=_sdp_merge_cliques(cliques,parents,options.clique_size;

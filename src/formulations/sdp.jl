@@ -13,6 +13,8 @@ coordinates and sparse QR above that; `:physical` retains the legacy basis.
 `clique_merge=:cost` uses a reduced-rank cone/separator cost surrogate instead
 of the default original-coordinate size heuristic. `clique_size` then caps
 the reduced order of proposed merges (default 12 instead of 32).
+`chordal_ordering` selects minimum-degree (default) or minimum-fill elimination
+for the chordal extension of the aggregate moment sparsity graph.
 For chordal models, `kcl_split_size` replaces a high-degree nodal balance by an
 exact tree of auxiliary partial-current balances. This limits the support of
 each homogeneous equation without changing the electrical state projection.
@@ -37,6 +39,7 @@ Base.@kwdef struct SDPOptions
     clique_merge::Symbol = :size
     clique_size::Int = clique_merge==:cost ? 12 : 32
     clique_overlap_weight::Float64 = 1.0
+    chordal_ordering::Symbol = :minimum_degree
     kcl_split_size::Int = 12
     state_scaling::Symbol = profile==:clarabel ? :voltage_region : :global
     consistency::Symbol = :auto
@@ -197,6 +200,8 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     options.consistency in (:auto,:local,:shared) || throw(ArgumentError("unknown clique consistency"))
     options.clique_size>=1 || throw(ArgumentError("clique_size must be positive"))
     options.clique_merge in (:size,:cost) || throw(ArgumentError("unknown clique merge policy"))
+    options.chordal_ordering in (:minimum_degree,:minimum_fill) ||
+        throw(ArgumentError("unknown chordal ordering"))
     isfinite(options.clique_overlap_weight) && options.clique_overlap_weight>=0 || throw(ArgumentError("clique_overlap_weight must be finite and nonnegative"))
     options.kcl_split_size>=3 || throw(ArgumentError("kcl_split_size must be at least 3"))
     options.state_scaling in (:global,:voltage_region) || throw(ArgumentError("unknown state scaling"))
