@@ -1,5 +1,7 @@
 # FormulationLab.jl
 
+[![Documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://frederikgeth.github.io/FormulationLab.jl/)
+
 Unbalanced power-flow formulations with explicit mathematical scope and solver-oriented representations. PowerIO is the only power-system runtime dependency; JuMP is the initial modeling backend.
 
 Implemented:
@@ -83,6 +85,9 @@ ExaModels is deferred until a nonconvex model is implemented. The current focus 
 
 ## Documentation
 
+The latest documentation is published at
+[frederikgeth.github.io/FormulationLab.jl](https://frederikgeth.github.io/FormulationLab.jl/).
+
 Build the Documenter site locally:
 
 ```sh
@@ -91,8 +96,8 @@ julia --project=docs docs/make.jl
 ```
 
 Open `docs/build/index.html`. Documentation CI builds the site on every pull
-request and publishes a downloadable HTML artifact. Publication to GitHub Pages
-can be enabled separately; no deployment credentials are needed for the build.
+request and publishes a downloadable HTML artifact. Successful builds on `main`
+are deployed to GitHub Pages using GitHub's short-lived OIDC credentials.
 
 Optional lifted nonlinear cuts can strengthen either SDP on physical voltage maps:
 use `IVRSDP(lnc=:lines)` or `BranchFlowSDP(lnc=:lines)` for conservatively
