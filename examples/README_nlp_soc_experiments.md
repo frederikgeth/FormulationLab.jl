@@ -87,6 +87,9 @@ Interpret the resulting quantities carefully:
 - Agreement between IVRSDP and BranchFlowSDP is especially informative because
   the two formulations lift different variables. A disagreement can indicate
   different relaxations, inconsistent component coverage, or numerical error.
+- Non-optimal Mosek runs remain explicit and contribute no objective or bound.
+  Do not loosen feasibility tolerances merely to turn `SLOW_PROGRESS` into an
+  accepted result; first check whether the objective is stable under scaling.
 - BMOPFTools' `solution_check` independently checks its implemented quantities
   and explicitly records unassessed dimensions. `checks_passed` is therefore
   useful validation evidence, but not an independent replay of every equation.

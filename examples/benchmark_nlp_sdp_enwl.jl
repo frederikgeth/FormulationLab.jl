@@ -58,6 +58,7 @@ function _sdp_run(net, s_base, formulation; time_limit=90.0)
     Dict(
         "formulation" => string(formulation),
         "termination_status" => status.termination_status,
+        "raw_status" => raw_status(build.model),
         "primal_status" => status.primal_status,
         "accepted" => accepted,
         "objective_W" => accepted ? result.objective : nothing,
@@ -88,13 +89,14 @@ function _annotate_comparison!(row)
     bfm = get(get(row, "branch_flow", Dict()), "objective_W", nothing)
     comparison = Dict{String,Any}()
     if nlp isa Real
+        tolerance = max(0.01, 1e-5 * abs(nlp))
+        comparison["ordering_tolerance_W"] = tolerance
         for (name, value) in ("ivr" => ivr, "branch_flow" => bfm)
             value isa Real || continue
             gap = nlp - value
             comparison["nlp_minus_$(name)_W"] = gap
             comparison["nlp_minus_$(name)_percent"] = 100 * gap / max(abs(nlp), 1.0)
-            comparison["$(name)_lower_than_nlp"] =
-                value <= nlp + max(1e-3, 1e-7 * abs(nlp))
+            comparison["$(name)_ordering_within_tolerance"] = value <= nlp + tolerance
         end
     end
     if ivr isa Real && bfm isa Real
@@ -105,7 +107,7 @@ function _annotate_comparison!(row)
     row["comparison"] = comparison
 end
 
-_fmt(x; digits=6) = x isa Real ? string(round(x; digits)) : "—"
+_fmt(x; digits=7) = x isa Real ? string(round(x; sigdigits=digits)) : "—"
 
 function _write_markdown(data, output)
     markdown = splitext(output)[1] * ".md"
@@ -137,6 +139,33 @@ function _write_markdown(data, output)
         println(io, "`NLP−SDP ≥ 0` is the expected relaxation ordering when the implemented constraint ",
             "sets agree. `IVR−BFM` directly measures agreement between the two lifted formulations.")
         println(io)
+        println(io, "Sub-centiwatt ordering reversals are treated as numerical agreement. The JSON ",
+            "uses a per-case tolerance of `max(0.01 W, 1e-5 × |NLP objective|)` and never publishes ",
+            "an objective from a solve that did not terminate `OPTIMAL`.")
+        println(io)
+        println(io, "## Solver outcomes")
+        println(io)
+        println(io, "| Case | Ipopt / BMOPFTools | IVR status | IVR rank ratio | IVR residual | BFM status | BFM rank ratio | BFM residual |")
+        println(io, "|---|---|---|---:|---:|---|---:|---:|")
+        for row in data["cases"]
+            nlp = get(row, "nlp", Dict())
+            check = get(nlp, "solution_check", Dict())
+            ivr = get(row, "ivr", Dict())
+            bfm = get(row, "branch_flow", Dict())
+            println(io, "| ", row["name"], " | ", get(nlp, "status", "error"), " / ",
+                get(check, "verification_status", "not run"), " | ",
+                get(ivr, "termination_status", "error"), " | ",
+                _fmt(get(ivr, "rank_ratio", nothing)), " | ",
+                _fmt(get(ivr, "max_scaled_violation", nothing)), " | ",
+                get(bfm, "termination_status", "error"), " | ",
+                _fmt(get(bfm, "rank_ratio", nothing)), " | ",
+                _fmt(get(bfm, "max_scaled_violation", nothing)), " |")
+        end
+        println(io)
+        println(io, "The rank ratios are formulation-specific diagnostics: IVR uses its global lifted ",
+            "state, whereas BranchFlow reports the worst topology moment block. Compare trends, not ",
+            "the two numbers as if they measured the same matrix.")
+        println(io)
         println(io, "## AC validation")
         println(io)
         for row in data["cases"]
@@ -158,6 +187,7 @@ function run_enwl_panel(data_dir, output; time_limit=90.0)
     data = Dict{String,Any}(
         "julia" => string(VERSION),
         "ipopt" => string(pkgversion(Ipopt)),
+        "mosek" => string(pkgversion(MosekTools.Mosek)),
         "mosek_tools" => string(pkgversion(MosekTools)),
         "bmopftools_revision" => _git_revision(dirname(dirname(pathof(BMOPFTools)))),
         "formulationlab_revision" => _git_revision(pwd()),
@@ -166,6 +196,7 @@ function run_enwl_panel(data_dir, output; time_limit=90.0)
         "s_base_VA" => ENWL_S_BASE,
         "time_limit_seconds" => time_limit,
         "threads" => 1,
+        "mosek_options" => Dict("MSK_IPAR_NUM_THREADS" => 1),
         "input_policy" => [
             "remove generators colocated with a voltage source",
             "fix transformer taps and omit control profiles",
