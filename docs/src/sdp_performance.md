@@ -1,6 +1,6 @@
 # SDP structure and scaling study, 12 September 2026
 
-## Chordal completion follow-up, 21 September 2026
+## Initial chordal completion pilot, 21 September 2026
 
 A one-thread Mosek 11.2 experiment on the prepared 96-bus ENWL feeder compares
 the two chordal orderings and the new `BranchFlowSDP` voltage-closure
@@ -38,6 +38,53 @@ records are `examples/results/sdp_sparsity_2026-09-21.json` and
 `examples/results/sdp_sparsity_2026-09-21.md`.
 Inputs and reported results use SI units; both formulations use per-unit model
 coordinates on a 10 kVA base.
+
+## Repeated chordal panel, 22 September 2026
+
+The follow-up runs three fresh builds and solves for each profile on 10-, 11-,
+24-, 45-, and 96-bus prepared ENWL feeders. Mosek 11.2 uses one thread and
+``10^{-9}`` interior-point feasibility/gap tolerances. Times below are medians.
+IVR uses the radial input; BFM uses the recorded parallel-circuit copy described
+above, so compare formulations only within their own profile pairs.
+
+| Buses | BFM dense / auto / cap-12 variables | BFM dense / auto / cap-12 solve (s) | BFM statuses | IVR degree / fill edges | IVR degree / fill solve (s) | IVR statuses |
+|---:|---:|---:|---|---:|---:|---|
+| 10 | 2,958 / 2,958 / 1,926 | 0.191 / 0.190 / 0.165 | slow / slow / slow | 57 / 57 | 0.028 / 0.029 | optimal / optimal |
+| 11 | 3,354 / 2,619 / 2,085 | 0.103 / 0.081 / 0.066 | optimal / optimal / optimal | 66 / 66 | 0.013 / 0.013 | optimal / optimal |
+| 24 | 13,506 / 5,988 / 4,926 | 0.374 / 0.250 / 0.188 | optimal / optimal / optimal | 549 / 549 | 0.818 / 0.938 | slow / slow |
+| 45 | 41,514 / 11,817 / 9,132 | 1.185 / 0.508 / 0.430 | optimal / optimal / optimal | 333 / 324 | 0.143 / 0.147 | optimal / optimal |
+| 96 | 176,802 / 26,076 / 19,608 | 4.700 / 1.112 / 0.920 | optimal / optimal / optimal | 901 / 780 | 0.634 / 0.518 | optimal / optimal |
+
+The automatic BFM rows use the public defaults: dense closure through order 32,
+then minimum-degree chordal completion with merge cap 32. The cap-12 rows force
+chordal completion. These support graphs need zero fill before clique
+amalgamation, so minimum-degree and minimum-fill produce the same BFM layout.
+Dense/auto/cap-12 objectives differ by at most 0.0031 W on rows where all
+variants terminate `OPTIMAL`; maximum scaled residuals are below
+``3\times10^{-8}``. At 33 live voltage coordinates—the first case above the
+automatic dense threshold of 32—the automatic layout is already smaller and
+faster than dense. The 30-coordinate case has no trustworthy numerical
+comparison because every layout terminates `SLOW_PROGRESS`. These data support
+retaining the threshold at 32.
+
+Cap 12 is smaller and faster than the cap-32 automatic layout on all four
+optimal BFM cases, so it is a good measured Mosek option for similar networks.
+The panel uses one solver and a controlled synthetic parallel circuit, however,
+while the implicit solver profile is Clarabel. We therefore retain the
+solver-agnostic cap-32 public default pending a repeated Clarabel comparison.
+
+For IVR, minimum-fill helps the 96-bus layout, is neutral on the smallest cases,
+and does not improve the 24- or 45-bus solve. Both forced-chordal variants stall
+on the 24-bus case; its largest indivisible clique has order 14 even with merge
+cap 12. This supports retaining `decomposition=:auto` and minimum-degree as the
+defaults while keeping minimum-fill available for measured, target-specific
+use.
+
+The complete protocol, objective differences, dataset caveat, and raw-artifact
+index are in `examples/results/sdp_sparsity_panel_2026-09-22.md`. The only
+genuinely meshed local dataset is currently a 3,409-bus OpenDSS case whose open
+switch statuses do not survive parsing without manual correction; it was not
+used as a quick comparator.
 
 The retained improvement is voltage-region preconditioning for the Clarabel SDP
 profile. It improves both solve time and numerical accuracy on the two mixed

@@ -163,10 +163,12 @@ end
         report = check_branch_flow_sdp_applicability(net)
         @test is_branch_flow_sdp_applicable(report)
         build = build_branch_flow_sdp(net;
-            options=BranchFlowSDPOptions(objective=:source_import))
+            options=BranchFlowSDPOptions(objective=:source_import,
+                voltage_decomposition=:chordal,voltage_clique_size=3))
         @test build.numerical_diagnostics[:cycle_count] == 1
         @test build.numerical_diagnostics[:source_count] == (second_source ? 2 : 1)
         @test build.numerical_diagnostics[:global_voltage_closure]
+        @test build.numerical_diagnostics[:voltage_decomposition] == :chordal
         result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
         reference = solve_sdp_opf(net;
             options=SDPOptions(objective=:source_import), solver_options=(verbose=false,))
@@ -217,6 +219,11 @@ end
         voltage=sparse_result.voltage_candidate,
         currents=sparse_result.current_candidate);
         atol=(voltage=2e-3,current=2e-3,power=0.2)).passed
+    automatic=build_branch_flow_sdp(_bfm_cycle_case(33);
+        options=BranchFlowSDPOptions(objective=:source_import,
+            voltage_clique_size=3))
+    @test automatic.numerical_diagnostics[:voltage_state_dimension]==33
+    @test automatic.numerical_diagnostics[:voltage_decomposition]==:chordal
     @test_throws ArgumentError build_branch_flow_sdp(net;
         options=BranchFlowSDPOptions(voltage_decomposition=:bad))
     @test_throws ArgumentError build_branch_flow_sdp(net;
@@ -332,9 +339,11 @@ end
         "configuration" => "SINGLE_PHASE", "q_rated" => [2_000.0],
         "v_nom" => 230.0))
     result = solve_branch_flow_sdp(net;
-        options=BranchFlowSDPOptions(objective=:source_import),
+        options=BranchFlowSDPOptions(objective=:source_import,
+            voltage_decomposition=:chordal,voltage_clique_size=2),
         solver_options=(verbose=false,))
     @test result.solve.optimal
+    @test result.numerical_diagnostics[:voltage_decomposition]==:chordal
     @test only(result.relaxed_powers[(:capacitor, "c")]) ≈ -2_000im atol=0.02
     @test physical_residuals(net, ACPoint(
         voltage=result.voltage_candidate, currents=result.current_candidate);
@@ -493,8 +502,10 @@ end
     net = _bfm_nwinding_case()
     @test is_branch_flow_sdp_applicable(check_branch_flow_sdp_applicability(net))
     build = build_branch_flow_sdp(net;
-        options=BranchFlowSDPOptions(objective=:source_import))
+        options=BranchFlowSDPOptions(objective=:source_import,
+            voltage_decomposition=:chordal,voltage_clique_size=3))
     @test haskey(build.transformer_blocks, "n_winding/t")
+    @test build.numerical_diagnostics[:voltage_decomposition]==:chordal
     result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
     reference = solve_sdp_opf(net;
         options=SDPOptions(objective=:source_import), solver_options=(verbose=false,))

@@ -8,6 +8,7 @@ include("benchmark_nlp_sdp_enwl.jl")
 
 const SPARSITY_S_BASE = 1e4
 const SPARSITY_TIME_LIMIT = 120.0
+const SPARSITY_REPETITIONS = 3
 
 function _sparsity_mesh(net)
     out=deepcopy(net)
@@ -29,6 +30,9 @@ function _sparsity_formulation(name)
         return BranchFlowSDP(;cone=:real,objective=:source_import,
             scale_objective=true,s_base=SPARSITY_S_BASE,
             voltage_decomposition=:dense)
+    elseif name==:bfm_auto
+        return BranchFlowSDP(;cone=:real,objective=:source_import,
+            scale_objective=true,s_base=SPARSITY_S_BASE)
     elseif name in (:bfm_minimum_degree,:bfm_minimum_fill)
         ordering=name==:bfm_minimum_degree ? :minimum_degree : :minimum_fill
         return BranchFlowSDP(;cone=:real,objective=:source_import,
@@ -85,6 +89,47 @@ function _sparsity_run(net,name;time_limit=SPARSITY_TIME_LIMIT)
     )
 end
 
+function _sparsity_median(values)
+    ordered=sort!(Float64[values...]);n=length(ordered)
+    isodd(n) ? ordered[(n+1)÷2] : (ordered[n÷2]+ordered[n÷2+1])/2
+end
+
+function _sparsity_repeated(net,name;
+                            repetitions=SPARSITY_REPETITIONS,
+                            time_limit=SPARSITY_TIME_LIMIT)
+    repetitions>=1 || throw(ArgumentError("repetitions must be positive"))
+    samples=Any[]
+    for repetition in 1:repetitions
+        println("  repetition ",repetition,"/",repetitions);flush(stdout)
+        push!(samples,_sparsity_run(net,name;time_limit))
+        GC.gc()
+    end
+    structural=("formulation","variables","constraints","decomposition",
+        "chordal_ordering","aggregate_sparsity_edges","chordal_fill_edges",
+        "cliques","max_clique_order","separator_real_dimension")
+    for key in structural
+        all(get(sample,key,nothing)==get(first(samples),key,nothing)
+            for sample in samples) || error("profile $name changed $key across repetitions")
+    end
+    row=copy(first(samples))
+    row["repetitions"]=repetitions
+    row["build_seconds"]=_sparsity_median(sample["build_seconds"] for sample in samples)
+    row["solve_seconds"]=_sparsity_median(sample["solve_seconds"] for sample in samples)
+    objectives=Float64[sample["objective_W"] for sample in samples
+        if sample["objective_W"] isa Real]
+    row["objective_span_W"]=isempty(objectives) ? nothing :
+        maximum(objectives)-minimum(objectives)
+    isempty(objectives) || (row["objective_W"]=_sparsity_median(objectives))
+    violations=Float64[sample["max_scaled_violation"] for sample in samples
+        if sample["max_scaled_violation"] isa Real]
+    row["max_scaled_violation"]=isempty(violations) ? nothing : maximum(violations)
+    row["optimal"]=all(get(sample,"optimal",false) for sample in samples)
+    statuses=unique(String(sample["termination_status"]) for sample in samples)
+    row["termination_status"]=length(statuses)==1 ? only(statuses) : join(statuses,", ")
+    row["samples"]=samples
+    row
+end
+
 _sparsity_fmt(x)=x isa Real ? string(round(x;sigdigits=7)) : "—"
 
 function _sparsity_markdown(data,output)
@@ -95,13 +140,15 @@ function _sparsity_markdown(data,output)
         println(io,"The IVR rows use the prepared radial feeder. The BranchFlow rows use ",
             "the same feeder with one named line duplicated as a parallel circuit, which ",
             "forces the otherwise conditional global voltage closure. Inputs and outputs ",
-            "are SI; model coordinates are per unit on a 10 kVA base. Mosek uses one thread.")
+            "are SI; model coordinates are per unit on a 10 kVA base. Mosek uses one thread. ",
+            "Times are medians of ",data["repetitions"]," fresh build/solve repetitions.")
         println(io)
-        println(io,"| Profile | Status | Objective (W) | Residual | Build (s) | Solve (s) | Variables | Constraints | Fill edges | Cliques | Max order |")
-        println(io,"|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+        println(io,"| Profile | Status | Objective (W) | Objective span (W) | Residual | Build median (s) | Solve median (s) | Variables | Constraints | Fill edges | Cliques | Max order |")
+        println(io,"|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
         for row in data["runs"]
             println(io,"| ",row["profile"]," | ",row["termination_status"]," | ",
                 _sparsity_fmt(row["objective_W"])," | ",
+                _sparsity_fmt(row["objective_span_W"])," | ",
                 _sparsity_fmt(row["max_scaled_violation"])," | ",
                 _sparsity_fmt(row["build_seconds"])," | ",
                 _sparsity_fmt(row["solve_seconds"])," | ",row["variables"]," | ",
@@ -110,25 +157,29 @@ function _sparsity_markdown(data,output)
                 _sparsity_fmt(row["max_clique_order"])," |")
         end
         println(io)
-        println(io,"This is a single-run structural and numerical experiment, not a ",
-            "solver-independent timing claim. Compare objectives only within one ",
+        println(io,"This is a small repeated structural and numerical experiment, not a ",
+            "solver-independent timing claim. Repetitions run in a fixed profile order; ",
+            "compare objectives only within one ",
             "formulation/network pair and inspect the residual and termination status.")
     end
     path
 end
 
-function run_sdp_sparsity_benchmark(input,output;time_limit=SPARSITY_TIME_LIMIT)
+function run_sdp_sparsity_benchmark(input,output;
+        repetitions=SPARSITY_REPETITIONS,time_limit=SPARSITY_TIME_LIMIT)
     net,_,changes,provenance,reduction=_prepare_enwl_case(input)
     mesh,parallel_id,duplicated_id=_sparsity_mesh(net)
     runs=Any[]
     for name in (:ivr_minimum_degree,:ivr_minimum_fill)
         println("RUN ",name);flush(stdout)
-        push!(runs,_capture(() -> _sparsity_run(net,name;time_limit)))
+        push!(runs,_capture(() -> _sparsity_repeated(net,name;
+            repetitions,time_limit)))
         GC.gc()
     end
-    for name in (:bfm_dense,:bfm_minimum_degree,:bfm_minimum_fill)
+    for name in (:bfm_dense,:bfm_auto,:bfm_minimum_degree,:bfm_minimum_fill)
         println("RUN ",name);flush(stdout)
-        push!(runs,_capture(() -> _sparsity_run(mesh,name;time_limit)))
+        push!(runs,_capture(() -> _sparsity_repeated(mesh,name;
+            repetitions,time_limit)))
         GC.gc()
     end
     data=Dict{String,Any}(
@@ -144,7 +195,8 @@ function run_sdp_sparsity_benchmark(input,output;time_limit=SPARSITY_TIME_LIMIT)
         "kron_reduction"=>reduction,
         "bfm_mesh_modification"=>Dict("added_line"=>parallel_id,
             "duplicate_of"=>duplicated_id),
-        "time_limit_seconds"=>time_limit,"threads"=>1,"runs"=>runs)
+        "time_limit_seconds"=>time_limit,"threads"=>1,
+        "repetitions"=>repetitions,"runs"=>runs)
     open(io->JSON3.write(io,finite(data)),output,"w")
     markdown=_sparsity_markdown(finite(data),output)
     println("WROTE ",output," and ",markdown)
@@ -152,7 +204,8 @@ function run_sdp_sparsity_benchmark(input,output;time_limit=SPARSITY_TIME_LIMIT)
 end
 
 if abspath(PROGRAM_FILE)==@__FILE__
-    length(ARGS)==2 || error("Usage: julia --project=test/integration " *
-        "examples/benchmark_sdp_sparsity.jl INPUT.json OUTPUT.json")
-    run_sdp_sparsity_benchmark(ARGS[1],ARGS[2])
+    length(ARGS) in (2,3) || error("Usage: julia --project=test/integration " *
+        "examples/benchmark_sdp_sparsity.jl INPUT.json OUTPUT.json [REPETITIONS]")
+    repetitions=length(ARGS)==3 ? parse(Int,ARGS[3]) : SPARSITY_REPETITIONS
+    run_sdp_sparsity_benchmark(ARGS[1],ARGS[2];repetitions)
 end

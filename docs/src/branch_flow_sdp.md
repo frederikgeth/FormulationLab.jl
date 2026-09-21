@@ -83,6 +83,12 @@ The conditional global voltage closure has its own representation controls:
 - `voltage_clique_size=32` caps adjacent-clique amalgamation. It does not split
   an indivisible maximal clique.
 
+The cap of 32 is a solver-agnostic default. In the repeated Mosek controlled-mesh
+panel, a cap of 12 produced smaller models and faster solves on every optimal
+BFM case; use it as a measured tuning option rather than a universal setting.
+See the [SDP structure study](sdp_performance.md) for the protocol, numerical
+agreement checks, and the remaining Clarabel validation gap.
+
 These options affect only the voltage closure. The physical line, transformer,
 switch and device moment blocks remain local and unchanged. If no closure is
 required—normally a single-source radial feeder without a closed switch,
