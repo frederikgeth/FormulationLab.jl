@@ -196,6 +196,10 @@ end
     lnc_build = build_branch_flow_sdp(net; options=BranchFlowSDPOptions(
         s_base=1.0, objective=:cost, lnc=:lines))
     @test any(d -> d.status == :applied, lnc_build.lnc_diagnostics)
+    @test !lnc_build.numerical_diagnostics[:global_voltage_closure]
+    no_lnc_build = build_branch_flow_sdp(net; options=BranchFlowSDPOptions(
+        s_base=1.0, objective=:cost))
+    @test JuMP.num_variables(lnc_build.model) == JuMP.num_variables(no_lnc_build.model)
 
     grounded = _l3f_case(explicit_neutral=true)
     delete!(grounded["bus"]["load"], "v_min")

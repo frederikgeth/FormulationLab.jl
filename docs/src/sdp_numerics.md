@@ -344,18 +344,44 @@ bound despite the solver status and small model residual.
 
 The ablations expose two structural facts. First, these ENWL generator records
 do not have finite P/Q boxes that activate the port-RLT construction, so the
-port-RLT variants add no cuts. Second, automatic line LNCs require the
-BranchFlow global voltage closure: on the 96-bus feeder they increase the model
-from 10,548 to 176,724 variables and the recorded solve from about 0.4 s to
-about 11 s. Implied-current bounds are much cheaper. Sparse/chordal IVR and
-improved BranchFlow scaling are therefore higher-priority next experiments than
-extending this dense reference ladder to still larger feeders.
+port-RLT variants add no cuts. Second, at the benchmark revision automatic line
+LNCs activated the BranchFlow global voltage closure: on the 96-bus feeder they
+increased the model from 10,548 to 176,724 variables and the recorded solve from
+about 0.4 s to about 11 s. The current implementation evaluates automatic line
+LNCs from the existing line-local cross moment instead; those historical counts
+remain useful motivation, not a description of the revised model size.
+Sparse/chordal IVR and improved BranchFlow scaling remain higher-priority next
+experiments than extending the dense reference ladder to still larger feeders.
 
 The checkpointed data, full ablation tables, exact environment revisions and
 reproduction command are in
 `examples/results/enwl_sdp_ladder_mosek_2026-09-21.json`,
 `examples/results/enwl_sdp_ladder_mosek_2026-09-21.md`, and
 `examples/benchmark_enwl_sdp_ladder.jl`.
+
+### Line-local LNC follow-up
+
+The revised BranchFlow implementation was rerun on the 96-bus case with the
+same normalized input, Ipopt reference, Mosek acceptance gate, and 10 kVA
+primary base. Evaluating automatic line LNCs from the line block's existing
+local cross moment keeps the model at 10,548 variables instead of the historical
+176,724-variable global closure. The line-LNC run applied 285 cuts, skipped 285
+channels without sufficient finite voltage bounds, solved in about 0.57 seconds,
+and returned -1369.0521 W. This is within 0.0044 W of the locally feasible Ipopt
+point and within 0.001 W of the old global-closure line-LNC result.
+
+With all strengthening enabled, all three tested power bases now pass the
+solver/residual gate. Their accepted objectives span about 0.0202 W, down from
+the historical 0.2347 W span. This is a substantial numerical improvement, but
+not a certificate: the 10 and 30 kVA objectives still lie above the Ipopt point
+by more than the experiment's 0.0137 W ordering tolerance. The next formulation
+work should therefore target conditioning and relaxation structure rather than
+loosening the acceptance threshold.
+
+The focused runner and its machine-readable and rendered results are
+`examples/benchmark_branch_flow_local_lnc.jl`,
+`examples/results/enwl_branch_flow_local_lnc_2026-09-21.json`, and
+`examples/results/enwl_branch_flow_local_lnc_2026-09-21.md`.
 
 ## Bound provenance and schema conventions
 

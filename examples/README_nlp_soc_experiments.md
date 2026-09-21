@@ -133,3 +133,17 @@ checkpoints after every solve and resumes from an existing JSON file. It runs
 the 96-bus stage only when both SDP formulations pass the 45-bus gate with all
 strengthening at the primary 10 kVA base. Skipping that stage is an experiment
 budget decision, not evidence that the formulation is inapplicable.
+
+After changing the BranchFlow line-LNC representation, rerun the focused
+96-bus regression without repeating the dense-IVR ladder:
+
+```sh
+julia --project=test/integration examples/benchmark_branch_flow_local_lnc.jl \
+  ../BMOPFDraftData/benchmarks/ENWLbenchmark/reduced \
+  examples/results/enwl_branch_flow_local_lnc_2026-09-21.json
+```
+
+This compares baseline, line-LNC, and all-strengthening models at 10 kVA, then
+checks the all-strengthening model at 3, 10, and 30 kVA. It records both the
+model size and the Ipopt-ordering test, so a smaller/faster conic model is not
+mistaken for a numerically reliable lower bound.

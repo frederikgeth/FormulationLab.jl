@@ -9,8 +9,12 @@ function _lnc_voltage_bounds(net,bus,row,terminal_rows,fixed)
 end
 _lnc_abs_sum(coeff,bounds)=sum((abs(c)*v for (c,v) in zip(coeff,bounds) if !iszero(c));init=0.0)
 
-function _add_line_lncs!(build,lines,terminal_rows,fixed;voltage_range=nothing)
-    physical_bounds(bus,row)=voltage_range===nothing ? _lnc_voltage_bounds(build.network,bus,row,terminal_rows,fixed) : voltage_range(row)
+function _add_line_lncs!(build,lines,terminal_rows,fixed;
+                         voltage_range=nothing,
+                         add_spec=(build, line, d, spec) -> add_voltage_lnc!(build, spec))
+    physical_bounds(bus,row)=voltage_range===nothing ?
+        _lnc_voltage_bounds(build.network,bus,row,terminal_rows,fixed) :
+        voltage_range(bus,row)
     net=build.network;neutral=_kr_neutral_map(net)
     for line in lines
         (;id,from,to,tmf,tmt,vf,vt,Z,Yf,Yt,ratings)=line
@@ -89,7 +93,8 @@ function _add_line_lncs!(build,lines,terminal_rows,fixed;voltage_range=nothing)
             end
             u=VoltagePhasor(Dict((from,tmf[k])=>d[k] for k in 1:n if !iszero(d[k])))
             v=VoltagePhasor(Dict((to,tmt[k])=>d[k] for k in 1:n if !iszero(d[k])))
-            add_voltage_lnc!(build,VoltageLNC(key,u,v,bounds;origin=:derived,provenance))
+            spec=VoltageLNC(key,u,v,bounds;origin=:derived,provenance)
+            add_spec(build,line,d,spec)
         end
     end
 end

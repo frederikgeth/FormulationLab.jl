@@ -587,7 +587,8 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     for spec in options.voltage_lncs;add_voltage_lnc!(build,spec);end
     if options.lnc==:lines
         fixed=Dict(k=>value*vb for (k,value) in fixed_source_coordinates)
-        _add_line_lncs!(build,lnc_lines,terminal_rows,fixed;voltage_range)
+        _add_line_lncs!(build,lnc_lines,terminal_rows,fixed;
+            voltage_range=(_,row)->voltage_range(row))
     end
     diagnostics[:removed_affine_constraints]=options.preprocess ? _sdp_preprocess_affine!(model) : 0
     if optimizer isa _SDPDefaultOptimizer
