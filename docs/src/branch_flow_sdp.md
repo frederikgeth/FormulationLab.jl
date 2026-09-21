@@ -53,6 +53,16 @@ and current bounds. Explicit `VoltageLNC` objects may be passed through
 series-current bounds inferred from apparent-power and voltage bounds; set it
 to `false` only for formulation ablations.
 
+The builder sorts bus and source records before emitting variables and
+constraints. This does not change the formulation, but keeps the solver matrix
+independent of Julia dictionary hash order, which matters for numerically
+sensitive SDP factorizations.
+
+When Clarabel is selected implicitly, the BranchFlow profile disables chordal
+decomposition, uses static regularization `1e-7`, and permits up to 30 iterative
+refinement steps. Explicit optimizer factories remain caller-owned, and
+`solver_options` can override these defaults.
+
 ## Variables and relaxation
 
 For every bus ``i`` and oriented line ``i\to j``, the model introduces

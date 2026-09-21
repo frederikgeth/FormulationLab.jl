@@ -695,7 +695,7 @@ end
 function _bfm_bus_limits!(model, net, voltage_moments, vb)
     fields = ("v_min", "v_max", "vpn_min", "vpn_max", "vpp_min", "vpp_max",
               "vn_max", "vpos_min", "vpos_max", "vneg_max", "vzero_max")
-    for (bus, data) in net["bus"]
+    for (bus, data) in sort!(collect(net["bus"]); by=first)
         maps = _bfm_voltage_maps(net, bus)
         for key in fields
             haskey(data, key) || continue
@@ -831,7 +831,7 @@ function _bfm_voltage_closure!(model, net, voltage_moments, cone)
         end
     end
     block = _sdp_psd(model, cursor, cone)
-    for (bus, data) in net["bus"]
+    for (bus, data) in sort!(collect(net["bus"]); by=first)
         terms = string.(data["terminal_names"])
         for a in eachindex(terms), b in a:length(terms)
             ia, ib = indices[(String(bus), terms[a])], indices[(String(bus), terms[b])]
@@ -1488,7 +1488,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     vb = maximum((maximum(abs, values) for values in values(source_voltages)); init=0.0)
     vb > 0 || _bfm_refuse("the root source needs a nonzero phasor")
     source_pu = Dict{String,Vector{ComplexF64}}()
-    for (id, values) in source_voltages
+    for (id, values) in sort!(collect(source_voltages); by=first)
         bus = String(plan.sources[id]["bus"])
         if haskey(source_pu, bus)
             source_pu[bus] ≈ values ./ vb || _bfm_refuse(
@@ -1707,7 +1707,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
 
     # Fixed source voltage Grams and their common cross-source angle reference.
     fixed_source_coordinates = Dict{Tuple{String,String},ComplexF64}()
-    for (id, values) in source_voltages
+    for (id, values) in sort!(collect(source_voltages); by=first)
         source = plan.sources[id]
         bus = String(source["bus"])
         terms = string.(net["bus"][bus]["terminal_names"])
@@ -1721,7 +1721,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         end
     end
     if voltage_global !== nothing
-        fixed = [(voltage_indices[key], value) for (key, value) in fixed_source_coordinates
+        fixed = [(voltage_indices[key], value)
+                 for (key, value) in sort!(collect(fixed_source_coordinates); by=first)
                  if voltage_indices[key] != 0]
         for (ia, va) in fixed, (ibx, vbv) in fixed
             ia <= ibx || continue
@@ -1729,7 +1730,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         end
     end
     neutrals = _kr_neutral_map(net)
-    for (bus, data) in net["bus"]
+    for (bus, data) in sort!(collect(net["bus"]); by=first)
         W = voltage_moments[bus]
         terms = string.(data["terminal_names"])
         grounded = Set(string.(get(data, "perfectly_grounded_terminals", String[])))
@@ -1945,7 +1946,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
 
     matrix_kcl_count = 0
     matrix_kcl = Dict{Tuple{String,Int,Int,Symbol},JuMP.ConstraintRef}()
-    for (bus, data) in net["bus"]
+    for (bus, data) in sort!(collect(net["bus"]); by=first)
         terms = string.(data["terminal_names"])
         grounded = Set(string.(get(data, "perfectly_grounded_terminals", String[])))
         # W_root is a prescribed rank-one Gram. One nonzero voltage row is an
@@ -1989,8 +1990,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         :objective_scale => objective_scale,
     )
     if optimizer isa _SDPDefaultOptimizer
-        JuMP.set_optimizer(model, default_sdp_optimizer(:dense))
-        diagnostics[:optimizer_profile] = :clarabel_dense
+        JuMP.set_optimizer(model, default_sdp_optimizer(:branch_flow))
+        diagnostics[:optimizer_profile] = :clarabel_branch_flow
     else
         diagnostics[:optimizer_profile] = :caller_supplied
     end
