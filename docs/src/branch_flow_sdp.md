@@ -47,7 +47,12 @@ The applicability check is intentionally separate from model construction so a
 caller can report formulation-selection decisions before invoking a solver.
 `objective` may be `:cost`, `:source_import` or `:feasibility`; `cone` may be
 `:real` or `:hermitian`. `s_base` controls per-unit power scaling and defaults
-to 10 kVA. `lnc=:lines` derives conservative line cuts from declared voltage
+to 10 kVA. BMOPF input remains in SI units. Internally, the voltage base is the
+largest fixed-source magnitude, ``I_b=S_b/V_b``, and ``Z_b=V_b^2/S_b``; result
+voltages, currents, powers, and objectives are converted back to SI. Changing
+`s_base` is therefore a coordinate change, not a physical-data transformation,
+although finite-precision solver behavior can depend strongly on that choice.
+`lnc=:lines` derives conservative line cuts from declared voltage
 and current bounds. Explicit `VoltageLNC` objects may be passed through
 `voltage_lncs`. `implied_current_limits=true` adds valid endpoint- and
 series-current bounds inferred from apparent-power and voltage bounds; set it

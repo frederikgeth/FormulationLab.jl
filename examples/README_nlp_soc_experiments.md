@@ -93,3 +93,22 @@ Interpret the resulting quantities carefully:
 - BMOPFTools' `solution_check` independently checks its implemented quantities
   and explicitly records unassessed dimensions. `checks_passed` is therefore
   useful validation evidence, but not an independent replay of every equation.
+
+### Per-unit scaling study
+
+The BMOPF files and published results use SI units, while all three optimization
+models use per-unit coordinates internally. `benchmark_enwl_sdp_scaling.jl`
+checks that this coordinate choice does not silently change the SI objective:
+
+```sh
+julia --project=test/integration examples/benchmark_enwl_sdp_scaling.jl \
+  ../BMOPFDraftData/benchmarks/ENWLbenchmark/reduced \
+  examples/results/enwl_sdp_scaling_mosek.json
+```
+
+The broad sweep varies ``S_base`` from 1 to 100 kVA for both SDP formulations.
+On the 10-bus numerical witness, a second grid varies objective normalization,
+IVR state scaling (`global` versus `voltage_region`), and Mosek interior-point
+scaling (`free` versus `none`). The voltage base remains the largest source
+voltage magnitude. Failed iterates are retained only as diagnostics and never
+included in reported objective intervals.
