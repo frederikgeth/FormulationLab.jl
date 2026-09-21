@@ -1503,6 +1503,22 @@ function add_voltage_lnc!(build::BranchFlowSDPBuild, spec::VoltageLNC)
     refs
 end
 
+function _bfm_add_line_lnc!(build::BranchFlowSDPBuild, line, d,
+                            spec::VoltageLNC)
+    any(record -> record.id == spec.id, build.lnc_diagnostics) &&
+        throw(ArgumentError("duplicate LNC id $(spec.id)"))
+    product(matrix) = sum((d[a] * conj(d[b]) * matrix[a, b]
+                           for a in eachindex(d), b in eachindex(d)); init=0im)
+    scale = build.voltage_base^2
+    cross = scale * product(line.cross)
+    refs = add_lnc!(build.model,
+        scale * real(product(line.Wp)), scale * real(product(line.Wc)),
+        real(cross), imag(cross), spec.bounds)
+    push!(build.lnc_diagnostics, LNCDiagnostic(spec.id, :applied, spec.origin,
+        spec.provenance, "", spec.bounds))
+    refs
+end
+
 function _bfm_box!(model, p, q, data, positions, terminal_count, label, sb)
     for (low_key, high_key, values) in (("p_min", "p_max", p),
                                          ("q_min", "q_max", q))
@@ -1572,7 +1588,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     closed_switch = any(switch -> !switch["open_switch"],
         values(get(net, "switch", Dict())))
     use_global_voltage = plan.requires_global_voltage ||
-        !isempty(options.voltage_lncs) || options.lnc == :lines ||
+        !isempty(options.voltage_lncs) ||
         closed_switch ||
         !isempty(get(get(net, "transformer", Dict()), "n_winding", Dict()))
     voltage_global, voltage_indices = use_global_voltage ?
@@ -1645,9 +1661,9 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         end
         _bfm_add_matrix!(balance[parent], parent_matrix)
         _bfm_add_matrix!(balance[child], child_matrix)
+        cross = Any[Wp[a, b] - sum(S[a, k] * conj(Z[b, k]) for k in 1:n)
+                    for a in 1:n, b in 1:n]
         if voltage_global !== nothing
-            cross = Any[Wp[a, b] - sum(S[a, k] * conj(Z[b, k]) for k in 1:n)
-                        for a in 1:n, b in 1:n]
             _bfm_overlap_global!(model, voltage_global, voltage_indices,
                 parent, net["bus"][parent]["terminal_names"], child,
                 net["bus"][child]["terminal_names"], cross)
@@ -1743,8 +1759,11 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             child_matrix, endpoint_current_parent=Jp, endpoint_current_child=Jc,
             S, L))
         if options.lnc == :lines
-            rows(bus, terminals) = [_sdp_e(voltage_indices[(String(bus), String(t))])
-                                    for t in terminals]
+            rows(bus, terminals) = begin
+                declared = string.(net["bus"][String(bus)]["terminal_names"])
+                [_sdp_e(something(findfirst(==(String(t)), declared), 0))
+                 for t in terminals]
+            end
             ratings_lnc = Dict{String,Any}()
             for key in ("i_max", "s_max")
                 if haskey(line, key)
@@ -1759,7 +1778,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
                 tmf=parent_terms, tmt=child_terms,
                 vf=rows(parent, parent_terms), vt=rows(child, child_terms),
                 Z=Z * zb, Yf=Yp / zb, Yt=Yc / zb, ratings=ratings_lnc,
-                series_current=series_limit))
+                series_current=series_limit, Wp, Wc, cross))
         end
     end
 
@@ -2133,12 +2152,15 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         add_voltage_lnc!(build, spec)
     end
     if options.lnc == :lines
-        terminal_rows = (bus, terminals) ->
-            [_sdp_e(voltage_indices[(String(bus), String(t))]) for t in terminals]
-        fixed = Dict(index => value * vb
-            for (key, value) in fixed_source_coordinates
-            for index in (voltage_indices[key],) if index != 0)
-        _add_line_lncs!(build, lnc_lines, terminal_rows, fixed)
+        terminal_rows = (bus, terminals) -> begin
+            declared = string.(net["bus"][String(bus)]["terminal_names"])
+            [_sdp_e(something(findfirst(==(String(t)), declared), 0))
+             for t in terminals]
+        end
+        voltage_range = (bus, row) ->
+            _bfm_voltage_range(net, String(bus), row, source_pu, vb)
+        _add_line_lncs!(build, lnc_lines, terminal_rows, Dict();
+            voltage_range, add_spec=_bfm_add_line_lnc!)
     end
     build
 end
