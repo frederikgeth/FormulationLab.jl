@@ -346,7 +346,7 @@ was therefore skipped by the staged gate; this is not an applicability result.
 Exact inputs, revisions, timings, statuses, candidate objectives, residuals,
 rank diagnostics, and topology counts are recorded in
 `examples/results/enwl_scalable_sdp_2026-09-21.json`; the adjacent Markdown file
-is the human-readable table. The artifact revision is `8e12e9f`.
+is the human-readable table. The artifact revision is `4551982`.
 
 ## ENWL validation, 11 September 2026
 
