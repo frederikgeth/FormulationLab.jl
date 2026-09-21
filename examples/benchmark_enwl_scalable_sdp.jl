@@ -147,7 +147,9 @@ function _scalable_markdown(data, output)
         println(io, "Inputs and reported objectives use SI units; both SDP formulations ",
             "use per-unit coordinates internally. IVRSDP uses its automatic chordal ",
             "profile, while BranchFlowSDP uses component-local moments. Accepted rows ",
-            "must terminate `OPTIMAL` and pass a `1e-7` scaled residual gate.")
+            "must terminate `OPTIMAL` and pass a `1e-7` scaled residual gate. This is ",
+            "a numerical reporting gate, not a certified lower-bound test; a negative ",
+            "NLP−candidate entry exposes reversed numerical ordering.")
         println(io)
         println(io, "| Case | Buses | Formulation | Base (VA) | Status | Accepted | Candidate objective (W) | NLP−candidate (W) | Residual | Build (s) | Solve (s) | Variables | Decomposition | Cliques / order |")
         println(io, "|---|---:|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---|---:|")
