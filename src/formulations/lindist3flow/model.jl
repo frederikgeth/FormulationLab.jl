@@ -767,6 +767,8 @@ function _l3f_build_model(net, topology, reference, report, optimizer, options;
         end
     end
 
+    options.topology==:meshed_linear && _l3f_mesh_angles!(model,variables,constraints,net,topology,reference,p_line,q_line)
+
     balance_p = Dict(key => JuMP.AffExpr(0.0) for key in keys(w))
     balance_q = Dict(key => JuMP.AffExpr(0.0) for key in keys(w))
     for edge in topology
@@ -893,16 +895,22 @@ end
 
 """
     build_l3f_opf(net, optimizer=default_optimizer();
-                  options=L3FOptions(), reference=nothing)
+                  options=L3FOptions(), reference=nothing, dispatch=nothing)
 
-Build the L3F-BMOPF lossless radial LP/SOCP. Explicit-neutral inputs are
+Build the L3F-BMOPF lossless LP/SOCP (radial by default; opt-in meshed line
+mode adds linear angle consistency). Explicit-neutral inputs are
 Kron-reduced on a copy when enabled. Inapplicable networks raise
 [`L3FInapplicableError`](@ref), whose report contains stable diagnostics.
 Input and extracted results are SI. `options.per_unit` selects only the model's
-working coordinates.
+working coordinates. In `operating_mode=:power_flow`, `dispatch` maps retained
+generator IDs to SI `pg`/`qg` vectors. Omitted entries require equal P/Q bounds.
+Branch thermal limits are monitored by [`l3f_limit_report`](@ref), while other
+bounds and physics remain enforced.
 """
 function build_l3f_opf(net, optimizer=default_optimizer();
-                       options::L3FOptions=L3FOptions(), reference=nothing)
+                       options::L3FOptions=L3FOptions(), reference=nothing, dispatch=nothing)
+    options.operating_mode == :opf && dispatch !== nothing &&
+        throw(ArgumentError("dispatch is only accepted in operating_mode=:power_flow"))
     prepared = _l3f_prepare(net; options, reference)
     is_l3f_applicable(prepared.applicability) ||
         throw(L3FInapplicableError(prepared.applicability))
@@ -915,10 +923,12 @@ function build_l3f_opf(net, optimizer=default_optimizer();
     end
     working, working_reference, bases = _l3f_working_coordinates(
         prepared.network, physical_reference, options)
-    _l3f_build_model(working, prepared.topology, working_reference,
+    build = _l3f_build_model(working, prepared.topology, working_reference,
                      prepared.applicability, optimizer, options;
                      physical_network=prepared.network,
                      physical_reference=physical_reference, bases)
+    _l3f_apply_operating_mode!(build, dispatch)
+    build
 end
 
 """Classify a continuous L3F model as `:LP`, `:QP`, or `:SOCP`."""
@@ -1208,7 +1218,7 @@ end
 """
     solve_l3f_opf(net, optimizer=default_optimizer(); options=L3FOptions(),
                   reference=nothing, nonlinear_optimizer=nothing, powerflow=nothing,
-                  solver_options=())
+                  solver_options=(), dispatch=nothing)
 
 Build and solve the L3F-BMOPF LP/SOCP. The result includes applicability,
 reference provenance, stable semantic outputs, and optional nonlinear replay.
@@ -1216,8 +1226,8 @@ reference provenance, stable semantic outputs, and optional nonlinear replay.
 function solve_l3f_opf(net, optimizer=default_optimizer();
                        options::L3FOptions=L3FOptions(), reference=nothing,
                        nonlinear_optimizer=nothing, powerflow=nothing, solver_options=(),
-                       voltage_tolerance=nothing)
-    build = build_l3f_opf(net, optimizer; options, reference)
+                       voltage_tolerance=nothing, dispatch=nothing)
+    build = build_l3f_opf(net, optimizer; options, reference, dispatch)
     _set_solver_options!(build.model, solver_options)
     JuMP.optimize!(build.model)
     outcome = _solve_outcome(build.model)
@@ -1228,6 +1238,11 @@ function solve_l3f_opf(net, optimizer=default_optimizer();
         _l3f_physical_objective(build, outcome),
         Dict{String,Any}(
             "name" => "L3F-BMOPF", "version" => "0.1-prototype",
+            "operating_mode" => String(options.operating_mode),
+            "dispatch_policy" => options.operating_mode == :power_flow ? "fixed_pq" : "optimized",
+            "fixed_dispatch" => deepcopy(get(build.model.ext, :l3f_fixed_dispatch, nothing)),
+            "branch_limits_enforced" => options.operating_mode == :opf,
+            "operating_limits" => l3f_limit_report(build),
             "problem_class" => String(l3f_model_class(build)),
             "working_units" => options.per_unit ? "per_unit" : "SI",
             "per_unit" => options.per_unit,
@@ -1237,6 +1252,8 @@ function solve_l3f_opf(net, optimizer=default_optimizer();
             "model_kind" => "approximation",
             "provides_ac_lower_bound" => false,
             "unsupported_policy" => String(options.unsupported),
+            "topology" => String(options.topology),
+            "transformer_impedance_convention" => String(options.transformer_impedance),
             "network_semantics" => any(f -> startswith(f.code, "A.L3F."),
                 build.applicability.findings) ? "projected" : "as_supplied",
             "physical_feasibility_certified" => false,

@@ -88,3 +88,21 @@ end
         @test maximum(errors) > 1e-5
     end
 end
+
+@testset "Nested winding-2 exciting branch normalization" begin
+    for pu in (false,true)
+        canonical=_l3f_center_tap_oracle_case()
+        tx=canonical["transformer"]["center_tap"]["ct"]
+        tx["g_no_load"]=.002;tx["b_no_load"]=-.004
+        nested=deepcopy(canonical);nt=nested["transformer"]["center_tap"]["ct"]
+        nt["no_load_shunt"]=Dict("winding"=>2,"g"=>pop!(nt,"g_no_load"),"b"=>pop!(nt,"b_no_load"))
+        opts=L3FOptions(unsupported=:lower,per_unit=pu)
+        models=[build_l3f_opf(n,Clarabel.Optimizer;options=opts) for n in (canonical,nested)]
+        for b in models;JuMP.set_silent(b.model);JuMP.optimize!(b.model);@test JuMP.termination_status(b.model)==JuMP.MOI.OPTIMAL;end
+        for key in keys(models[1].variables[:w])
+            @test JuMP.value(models[1].variables[:w][key]) ≈ JuMP.value(models[2].variables[:w][key]) rtol=1e-8
+        end
+        @test haskey(nt,"no_load_shunt") # input remains untouched
+        @test any(f->f.code=="L.L3F.NO_LOAD_SHUNT_NORMALIZED",models[2].applicability.findings)
+    end
+end

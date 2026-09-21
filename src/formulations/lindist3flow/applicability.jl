@@ -844,8 +844,9 @@ function _l3f_validate_lines!(findings, net)
         else
             nothing
         end
-        if coefficient_source isa AbstractDict && _l3f_has_matrix_key(coefficient_source,
-                    ("G_from_", "B_from_", "G_to_", "B_to_"))
+        if coefficient_source isa AbstractDict && any(
+                    any(p->startswith(String(k),p), ("G_from_", "B_from_", "G_to_", "B_to_")) &&
+                    !(v isa Real && isfinite(v) && iszero(v)) for (k,v) in coefficient_source)
             _l3f_error!(findings, "E.L3F.LINE_SHUNT_UNSUPPORTED", :line, id,
                         "line shunts require the Phase 3 affine shunt kernel")
         end
@@ -920,7 +921,7 @@ single-phase regulator bank on one bus pair is therefore radial — the units
 occupy disjoint conductors — even though the bus graph shows three parallel
 edges. Islands and source assignment stay at bus granularity.
 """
-function _l3f_topology!(findings, net)
+function _l3f_topology!(findings, net; meshed=false)
     buses = sort!(String.(collect(keys(get(net, "bus", Dict())))))
     branches = _l3f_branches(net)
 
@@ -941,7 +942,7 @@ function _l3f_topology!(findings, net)
         end
     end
     for (key, labels) in sort!(collect(terminal_pairs); by=first)
-        length(labels) <= 1 || _l3f_error!(findings, "E.L3F.TOPOLOGY_NOT_RADIAL",
+        (meshed || length(labels) <= 1) || _l3f_error!(findings, "E.L3F.TOPOLOGY_NOT_RADIAL",
             :network, nothing,
             "parallel conductors connect $(key[1][1]).$(key[1][2]) and " *
             "$(key[2][1]).$(key[2][2])";
@@ -964,7 +965,7 @@ function _l3f_topology!(findings, net)
             end
         end
         edges = incidences ÷ 2
-        edges <= nodes - 1 || _l3f_error!(findings, "E.L3F.TOPOLOGY_NOT_RADIAL",
+        (meshed || edges <= nodes - 1) || _l3f_error!(findings, "E.L3F.TOPOLOGY_NOT_RADIAL",
             :network, nothing,
             "conductor component containing $(start[1]).$(start[2]) has $nodes " *
             "terminals and $edges conductors, so it is not radial";
@@ -1034,6 +1035,9 @@ function _l3f_topology!(findings, net)
             evidence=Dict("source" => source_id, "terminals" => missing_terminals))
         for (e, (family, subtype, id, bf, mf, bt, mt)) in enumerate(branches)
             bf in members || continue
+            if meshed && !haskey(oriented,e)
+                oriented[e] = true # A chord retains its input orientation.
+            end
             pairs = _l3f_branch_terminal_pairs(subtype, mf, mt)
             missing = [(bf, tf, bt, tt) for (tf, tt) in pairs
                        if !((bf, tf) in visited && (bt, tt) in visited)]
@@ -1281,6 +1285,10 @@ end
 function _l3f_prepare(input; options::L3FOptions=L3FOptions(), reference=nothing)
     net = _l3f_input(input)
     findings = L3FFinding[]
+    _l3f_normalize_inputs!(findings, net, options)
+    if any(f->f.severity==:error,findings)
+        return (network=net,applicability=L3FApplicabilityReport(:inapplicable,findings,String[],Vector{String}[],false,false),topology=L3FOrientedLine[])
+    end
     options.unsupported == :permissive &&
         _l3f_permissive_restricted_controls!(findings, net)
     options.unsupported == :permissive &&
@@ -1372,11 +1380,27 @@ function _l3f_prepare(input; options::L3FOptions=L3FOptions(), reference=nothing
         end
     end
     _l3f_validate_objective!(findings, net, options)
-    topology, roots, islands = _l3f_topology!(findings, net)
+    topology, roots, islands = _l3f_topology!(findings, net; meshed=options.topology==:meshed_linear)
+    options.topology==:meshed_linear && _l3f_mesh_contract!(findings, net, topology)
     actual_reference = try
         _l3f_reference(net, topology, reference, options.reference_policy)
     catch
         nothing
+    end
+    if options.topology==:meshed_linear
+        if actual_reference===nothing
+            _l3f_error!(findings,"E.L3F.MESH_REFERENCE_INVALID",:network,nothing,
+                "meshed_linear requires a consistent source-propagated or explicit reference")
+        else
+            for e in topology
+                e.family==:line || continue
+                for (a,b) in zip(e.parent_map,e.child_map)
+                    isapprox(actual_reference.voltage[(e.parent,a)],actual_reference.voltage[(e.child,b)];rtol=1e-9,atol=1e-9) ||
+                        _l3f_error!(findings,"E.L3F.MESH_REFERENCE_INVALID",:line,e.id,
+                            "meshed_linear requires equal line endpoint reference phasors")
+                end
+            end
+        end
     end
     _l3f_validate_delta_orientation!(findings, net, topology, options,
                                      actual_reference)
