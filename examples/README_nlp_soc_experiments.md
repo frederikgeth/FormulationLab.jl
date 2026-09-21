@@ -112,3 +112,24 @@ IVR state scaling (`global` versus `voltage_region`), and Mosek interior-point
 scaling (`free` versus `none`). The voltage base remains the largest source
 voltage magnitude. Failed iterates are retained only as diagnostics and never
 included in reported objective intervals.
+
+### Medium/large SDP ladder
+
+`benchmark_enwl_sdp_ladder.jl` extends the comparison to the established 24-,
+45-, and conditionally 96-bus ENWL cases. It separates a three-point power-base
+sweep from strengthening ablations, so a change attributed to LNCs, port RLT
+cuts, or implied component-current limits is not confounded with a coordinate
+change:
+
+```sh
+julia --project=test/integration examples/benchmark_enwl_sdp_ladder.jl \
+  ../BMOPFDraftData/benchmarks/ENWLbenchmark/reduced \
+  examples/results/enwl_sdp_ladder_mosek.json
+```
+
+Every SDP objective published in the generated Markdown must terminate
+`OPTIMAL` and pass a `1e-7` maximum scaled JuMP-residual gate. The runner
+checkpoints after every solve and resumes from an existing JSON file. It runs
+the 96-bus stage only when both SDP formulations pass the 45-bus gate with all
+strengthening at the primary 10 kVA base. Skipping that stage is an experiment
+budget decision, not evidence that the formulation is inapplicable.

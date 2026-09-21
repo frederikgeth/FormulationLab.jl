@@ -324,6 +324,39 @@ with JSON3, then call `benchmark_sdp` from `examples/benchmark_sdp.jl` with
 and `variants=(:clarabel,)`. BMOPFTools/Ipopt were used externally for comparison;
 neither was added as a runtime dependency.
 
+## Dense-IVR and BranchFlow ENWL ladder, 21 September 2026
+
+A second experiment compares BMOPFTools/Ipopt with Mosek solves of the dense
+reference `IVRSDP` and `BranchFlowSDP` on 24-, 45-, and 96-bus reduced ENWL
+feeders. Inputs and reported objectives remain in SI units; the optimization
+models use per-unit coordinates internally. SDP results are accepted only after
+an `OPTIMAL` termination and a maximum scaled JuMP residual no larger than
+`1e-7`.
+
+At the primary 10 kVA base with all available strengthening, the 24- and 45-bus
+objectives agree with the feasible Ipopt objectives to about 0.0014 W or less.
+Both formulations pass the residual gate at all three tested bases on those two
+feeders. Dense IVR reaches the 180 s limit at every tested base on the 96-bus
+case. BranchFlow solves the 96-bus case at 10 and 30 kVA, but its two accepted
+objectives differ by about 0.235 W. The 10 kVA objective is about 0.075 W above
+the feasible Ipopt point, so it must not be presented as a trustworthy lower
+bound despite the solver status and small model residual.
+
+The ablations expose two structural facts. First, these ENWL generator records
+do not have finite P/Q boxes that activate the port-RLT construction, so the
+port-RLT variants add no cuts. Second, automatic line LNCs require the
+BranchFlow global voltage closure: on the 96-bus feeder they increase the model
+from 10,548 to 176,724 variables and the recorded solve from about 0.4 s to
+about 11 s. Implied-current bounds are much cheaper. Sparse/chordal IVR and
+improved BranchFlow scaling are therefore higher-priority next experiments than
+extending this dense reference ladder to still larger feeders.
+
+The checkpointed data, full ablation tables, exact environment revisions and
+reproduction command are in
+`examples/results/enwl_sdp_ladder_mosek_2026-09-21.json`,
+`examples/results/enwl_sdp_ladder_mosek_2026-09-21.md`, and
+`examples/benchmark_enwl_sdp_ladder.jl`.
+
 ## Bound provenance and schema conventions
 
 `bound_report(build)` returns `PhysicalBoundReport`. Entries contain a normalized
