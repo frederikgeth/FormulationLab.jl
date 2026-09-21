@@ -53,8 +53,10 @@ voltages, currents, powers, and objectives are converted back to SI. Changing
 `s_base` is therefore a coordinate change, not a physical-data transformation,
 although finite-precision solver behavior can depend strongly on that choice.
 `lnc=:lines` derives conservative line cuts from declared voltage
-and current bounds. Explicit `VoltageLNC` objects may be passed through
-`voltage_lncs`. `implied_current_limits=true` adds valid endpoint- and
+and current bounds. These automatic cuts use each line block's existing
+cross-voltage product and do not by themselves activate the global voltage
+closure. Explicit `VoltageLNC` objects may be passed through `voltage_lncs`.
+`implied_current_limits=true` adds valid endpoint- and
 series-current bounds inferred from apparent-power and voltage bounds; set it
 to `false` only for formulation ablations. It also derives matching current
 bounds for closed switches and `n_winding` coils carrying an `s_max` rating.
@@ -195,8 +197,10 @@ Transformer and closed-switch cross-voltage blocks overlap ``G`` in the same
 way. Products between fixed source coordinates are prescribed from their input
 phasors. Thus cycles and relative source angles use one PSD-completable voltage
 state while current and power remain in local branch-flow blocks. The same Gram
-is enabled for explicit cross-bus LNCs. This is a relaxation—rank-one voltage
-recovery and AC residual checks remain necessary.
+is enabled for explicit cross-bus LNCs. Automatic line LNCs instead use the
+line-local product ``W_i-S_{ij}Z_{ij}^H`` and need no additional voltage Gram.
+This is a relaxation—rank-one voltage recovery and AC residual checks remain
+necessary.
 
 ## Matrix current balance and connection moments
 
@@ -372,9 +376,11 @@ An explicit `VoltageLNC` evaluates its phasor maps in the voltage-closure Gram,
 adds the declared magnitude/angle domain, and records its provenance. With
 `lnc=:lines`, each line uses physical voltage bounds, endpoint current ratings,
 the complete coupled series impedance and endpoint shunts to derive a safe
-voltage-drop sector. A cut lacking the required finite bounds is recorded as
-`:skipped` with a reason; it is never guessed from nominal angles or a solved
-power-flow sample.
+voltage-drop sector. Its products come directly from ``W_i``, ``W_j`` and the
+line-local cross moment, including on radial feeders without a global voltage
+closure. A cut lacking the required finite bounds is recorded as `:skipped`
+with a reason; it is never guessed from nominal angles or a solved power-flow
+sample.
 
 Every source voltage matrix is fixed to its supplied phasor Gram. Without a
 global voltage closure, tree recovery starts from the source phasors, estimates
