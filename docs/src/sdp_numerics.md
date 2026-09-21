@@ -74,6 +74,14 @@ ordering against that feasible AC objective. The feasible objective is only an
 upper bound for the minimization problem; the audit does not assume it is a
 global optimum.
 
+The report retains `objective_bound` and `dual_objective` separately, records
+which one supplied `solver_bound`, and exposes the solver's reported relative
+gap. When MosekTools is loaded, an optional package extension also records
+Mosek's interior-point primal-feasibility, dual-feasibility and optimality
+measures plus its final primal/dual constraint, cone and variable violations.
+The Mosek metrics are in the internally scaled solver model; objective fields in
+the validation report are converted back to the public objective units.
+
 The audit independently evaluates the recovered voltage/current candidate in
 SI units through `physical_residuals`. Its result is exposed as
 `recovery_feasible` and `physical`. Recovery is deliberately separate from

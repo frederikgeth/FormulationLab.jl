@@ -8,6 +8,7 @@ Mosek installation and license.
 ```sh
 julia --project=test/integration -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="../BMOPFTools.jl")]); Pkg.instantiate()'
 julia --project=test/integration test/integration/relaxation_reference.jl /tmp/transformer-audit.json
+julia --project=test/integration test/integration/mosek_bound_diagnostics.jl
 ```
 
 The reproducible small-ENWL comparison uses BMOPFTools/Ipopt as a local AC

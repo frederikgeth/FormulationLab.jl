@@ -46,7 +46,12 @@ function _scalable_validation_dict(report)
         "reasons" => report.reasons,
         "dual_status" => report.dual_status,
         "primal_objective_W" => report.primal_objective,
+        "objective_bound_W" => report.objective_bound,
+        "dual_objective_W" => report.dual_objective,
         "solver_bound_W" => report.solver_bound,
+        "bound_source" => report.bound_source,
+        "bound_disagreement_W" => report.bound_disagreement,
+        "solver_relative_gap" => report.relative_gap,
         "primal_dual_gap_W" => report.primal_dual_gap,
         "model_violation" => report.model_violation,
         "model_feasible" => report.model_feasible,
@@ -59,6 +64,7 @@ function _scalable_validation_dict(report)
         "recovery_maxima" => physical === nothing ? nothing : physical.maxima,
         "recovery_unassessed" => physical === nothing ? nothing : physical.unassessed,
         "recovery_error" => report.physical_error,
+        "solver_metrics" => report.solver_metrics,
     )
 end
 
