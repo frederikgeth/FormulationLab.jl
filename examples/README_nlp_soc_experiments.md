@@ -143,7 +143,8 @@ julia --project=test/integration examples/benchmark_branch_flow_local_lnc.jl \
   examples/results/enwl_branch_flow_local_lnc_2026-09-21.json
 ```
 
-This compares baseline, line-LNC, and all-strengthening models at 10 kVA, then
-checks the all-strengthening model at 3, 10, and 30 kVA. It records both the
-model size and the Ipopt-ordering test, so a smaller/faster conic model is not
-mistaken for a numerically reliable lower bound.
+This compares baseline, line-LNC, all-strengthening, TCR-voltage, and
+TCR-plus-all models at 10 kVA, then checks the latter two all-strengthening
+models at 3, 10, and 30 kVA. It records both the model size and the
+Ipopt-ordering test, so a smaller/faster conic model is not mistaken for a
+numerically reliable lower bound.

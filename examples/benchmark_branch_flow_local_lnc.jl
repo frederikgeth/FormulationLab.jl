@@ -13,7 +13,7 @@ function _local_lnc_markdown(data, output)
     nlp = get(data["nlp"], "source_W", nothing)
     tolerance = nlp isa Real ? max(0.01, 1e-5 * abs(nlp)) : nothing
     open(markdown, "w") do io
-        println(io, "# BranchFlowSDP line-local LNC regression")
+        println(io, "# BranchFlowSDP local-strengthening regression")
         println(io)
         println(io, "The input and objective use SI units. BranchFlowSDP uses per-unit ",
             "coordinates internally. An SDP row is accepted only after an `OPTIMAL` ",
@@ -24,7 +24,7 @@ function _local_lnc_markdown(data, output)
         println(io)
         println(io, "| Configuration | Accepted | Objective (W) | NLP−SDP (W) | Residual | Variables | Constraints | Solve (s) | LNC applied/skipped |")
         println(io, "|---|---:|---:|---:|---:|---:|---:|---:|---:|")
-        for name in ("baseline", "line_lnc", "all")
+        for name in ("baseline", "line_lnc", "all", "tcr", "tcr_all")
             index = findfirst(row -> get(row, "configuration", "") == name &&
                 get(row, "s_base_VA", 0.0) == ENWL_LADDER_PRIMARY_BASE, rows)
             index === nothing && continue
@@ -41,26 +41,33 @@ function _local_lnc_markdown(data, output)
         println(io)
         println(io, "## Power-base sensitivity with all strengthening")
         println(io)
-        println(io, "| Base (VA) | Accepted | Objective (W) | NLP−SDP (W) | Within ordering tolerance | Residual | Solve (s) |")
-        println(io, "|---:|---:|---:|---:|---:|---:|---:|")
-        objectives = Float64[]
-        for s_base in LOCAL_LNC_BASES
-            index = findfirst(row -> get(row, "configuration", "") == "all" &&
-                get(row, "s_base_VA", 0.0) == s_base, rows)
-            index === nothing && continue
-            row = rows[index]
-            objective = get(row, "objective_W", nothing)
-            objective isa Real && get(row, "accepted", false) && push!(objectives, objective)
-            gap = nlp isa Real && objective isa Real ? nlp - objective : nothing
-            within = tolerance isa Real && objective isa Real ? objective <= nlp + tolerance : nothing
-            println(io, "| ", Int(s_base), " | ", get(row, "accepted", false), " | ",
-                _ladder_fmt(objective), " | ", _ladder_fmt(gap), " | ", within, " | ",
-                _ladder_fmt(get(row, "max_scaled_violation", nothing)), " | ",
-                _ladder_fmt(get(row, "solve_seconds", nothing)), " |")
+        println(io, "| Configuration | Base (VA) | Accepted | Objective (W) | NLP−SDP (W) | Within ordering tolerance | Residual | Solve (s) |")
+        println(io, "|---|---:|---:|---:|---:|---:|---:|---:|")
+        spans = Dict{String,Any}()
+        for configuration in ("all", "tcr_all")
+            objectives = Float64[]
+            for s_base in LOCAL_LNC_BASES
+                index = findfirst(row -> get(row, "configuration", "") == configuration &&
+                    get(row, "s_base_VA", 0.0) == s_base, rows)
+                index === nothing && continue
+                row = rows[index]
+                objective = get(row, "objective_W", nothing)
+                objective isa Real && get(row, "accepted", false) && push!(objectives, objective)
+                gap = nlp isa Real && objective isa Real ? nlp - objective : nothing
+                within = tolerance isa Real && objective isa Real ?
+                    objective <= nlp + tolerance : nothing
+                println(io, "| ", configuration, " | ", Int(s_base), " | ",
+                    get(row, "accepted", false), " | ", _ladder_fmt(objective), " | ",
+                    _ladder_fmt(gap), " | ", within, " | ",
+                    _ladder_fmt(get(row, "max_scaled_violation", nothing)), " | ",
+                    _ladder_fmt(get(row, "solve_seconds", nothing)), " |")
+            end
+            spans[configuration] = isempty(objectives) ? nothing :
+                maximum(objectives) - minimum(objectives)
         end
         println(io)
-        span = isempty(objectives) ? nothing : maximum(objectives) - minimum(objectives)
-        println(io, "Accepted-objective span: ", _ladder_fmt(span), " W. ",
+        println(io, "Accepted-objective spans: all = ", _ladder_fmt(spans["all"]),
+            " W; tcr_all = ", _ladder_fmt(spans["tcr_all"]), " W. ",
             "The ordering tolerance is ", _ladder_fmt(tolerance), " W.")
     end
     markdown
@@ -98,18 +105,24 @@ function run_branch_flow_local_lnc(data_dir, output; time_limit=180.0)
     save()
 
     configs = ENWL_LADDER_CONFIGS[:branch_flow]
-    selected = [only(filter(c -> c.name == name, configs)) for
-        name in (:baseline, :line_lnc, :all)]
+    selected = Any[only(filter(c -> c.name == name, configs)) for
+                   name in (:baseline, :line_lnc, :all)]
+    push!(selected,
+        (name=:tcr, lnc=:off, port_rlt=false,
+         implied_current_limits=false, tcr_voltage=true),
+        (name=:tcr_all, lnc=:lines, port_rlt=true,
+         implied_current_limits=true, tcr_voltage=true))
     for config in selected
         push!(data["runs"], _capture(() -> _ladder_sdp_run(net, :branch_flow, config;
             s_base=ENWL_LADDER_PRIMARY_BASE, time_limit)))
         save()
     end
-    all_config = last(selected)
-    for s_base in (first(LOCAL_LNC_BASES), last(LOCAL_LNC_BASES))
-        push!(data["runs"], _capture(() -> _ladder_sdp_run(net, :branch_flow, all_config;
-            s_base, time_limit)))
-        save()
+    for config in (selected[3], selected[5])
+        for s_base in (first(LOCAL_LNC_BASES), last(LOCAL_LNC_BASES))
+            push!(data["runs"], _capture(() -> _ladder_sdp_run(
+                net, :branch_flow, config; s_base, time_limit)))
+            save()
+        end
     end
     markdown = _local_lnc_markdown(finite(data), output)
     println("WROTE ", output, " and ", markdown)

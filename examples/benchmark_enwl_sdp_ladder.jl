@@ -38,7 +38,8 @@ function _ladder_formulation(formulation, config, s_base)
         return BranchFlowSDP(; cone=:real, objective=:source_import,
             scale_objective=true, s_base, lnc=config.lnc,
             port_rlt=config.port_rlt,
-            implied_current_limits=config.implied_current_limits)
+            implied_current_limits=config.implied_current_limits,
+            tcr_voltage=get(config, :tcr_voltage, false))
     end
     throw(ArgumentError("unknown formulation: $formulation"))
 end
@@ -102,6 +103,7 @@ function _ladder_sdp_run(net, formulation, config;
         "lnc" => string(config.lnc),
         "port_rlt" => config.port_rlt,
         "implied_current_limits" => config.implied_current_limits,
+        "tcr_voltage" => get(config, :tcr_voltage, false),
         "termination_status" => status.termination_status,
         "raw_status" => raw_status(model),
         "primal_status" => status.primal_status,

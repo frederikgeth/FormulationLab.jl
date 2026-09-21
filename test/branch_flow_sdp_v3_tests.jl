@@ -1,5 +1,6 @@
 using Test, FormulationLab, Clarabel, LinearAlgebra
 isdefined(@__MODULE__, :_L3F_FIXTURES_LOADED) || include("lindist3flow_fixtures.jl")
+isdefined(@__MODULE__, :_sdp_tx_case) || include("sdp_transformer_fixtures.jl")
 
 function _bfm_mesh_case(; second_source=false)
     buses = Dict(id => Dict{String,Any}(
@@ -230,6 +231,46 @@ end
     @test reversed_bounds.derived_endpoint_current_child[1] ≈ 20_000 / 180
     @test isinf(reversed_bounds.derived_endpoint_current_parent[2])
     @test isinf(reversed_bounds.derived_endpoint_current_child[2])
+end
+
+@testset "Branch-flow SDP TCR first-order voltage skeleton" begin
+    net = _l3f_case()
+    build = build_branch_flow_sdp(net; options=BranchFlowSDPOptions(
+        objective=:source_import, tcr_voltage=true))
+    @test !build.numerical_diagnostics[:global_voltage_closure]
+    @test build.numerical_diagnostics[:tcr_voltage]
+    @test build.numerical_diagnostics[:tcr_voltage_block_count] == 1
+    @test Set(keys(build.tcr_voltage_blocks)) == Set(["line/line"])
+    @test length(build.voltage_first_order) == 2
+    result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
+    @test result.solve.optimal
+    @test solve_diagnostics(result).numerical[:recovery] == :tcr_first_order
+    @test result.voltage_candidate[("source", "a")] == 230.0 + 0im
+    @test physical_residuals(net, ACPoint(
+        voltage=result.voltage_candidate, currents=result.current_candidate);
+        atol=(voltage=2e-4, current=2e-4, power=0.02)).passed
+
+    multiwinding = _bfm_nwinding_case()
+    multi_build = build_branch_flow_sdp(multiwinding;
+        options=BranchFlowSDPOptions(objective=:source_import, tcr_voltage=true))
+    @test Set(keys(multi_build.tcr_voltage_blocks)) ==
+          Set(["transformer/n_winding/t"])
+    @test multi_build.numerical_diagnostics[:tcr_voltage_block_count] == 1
+
+    transformer = _sdp_tx_case("delta_wye"; tap=1.0)
+    transformer_build = build_branch_flow_sdp(transformer;
+        options=BranchFlowSDPOptions(objective=:source_import, tcr_voltage=true))
+    @test haskey(transformer_build.tcr_voltage_blocks, "transformer/delta_wye/tx")
+
+    switched = _l3f_case()
+    line = pop!(switched["line"], "line")
+    switched["switch"] = Dict("sw" => Dict{String,Any}(
+        "bus_from" => line["bus_from"], "bus_to" => line["bus_to"],
+        "terminal_map_from" => line["terminal_map_from"],
+        "terminal_map_to" => line["terminal_map_to"], "open_switch" => false))
+    switch_build = build_branch_flow_sdp(switched;
+        options=BranchFlowSDPOptions(objective=:source_import, tcr_voltage=true))
+    @test haskey(switch_build.tcr_voltage_blocks, "switch/sw")
 end
 
 @testset "Branch-flow SDP device bounds and operational-box RLT cuts" begin

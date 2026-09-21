@@ -63,6 +63,10 @@ bounds for closed switches and `n_winding` coils carrying an `s_max` rating.
 `port_rlt=true` adds valid voltage-current RLT/LNC pairs when a dispatch P/Q box
 excludes the origin and finite voltage bounds prove its current-magnitude and
 power-angle domain. It may be disabled independently for ablations.
+`tcr_voltage=true` adds a Tight-and-Cheap-inspired first-order voltage skeleton.
+It is off by default pending broader numerical evaluation; see the construction
+below. The option is a strengthening and recovery aid, not a different input
+model or a claim that the resulting voltage candidate is AC feasible.
 No standalone nonnegative-loss row is added: the branch-flow line and winding
 moments already retain their physical current-loss identities, so that row
 would be redundant here.
@@ -112,6 +116,38 @@ Their diagonals are the public endpoint conductor-power outputs. Endpoint
 current limits use the corresponding affine current Grams, so a declared
 `i_max` rates total endpoint current rather than silently rating only the series
 current.
+
+### Optional first-order voltage skeleton
+
+The standard branch-flow relaxation stores second-order voltage products but
+does not retain a shared first-order voltage vector. With `tcr_voltage=true`,
+the model introduces one complex representative ``u_{i\phi}`` for every bus
+terminal and fixes source and ideal-ground entries to their prescribed values.
+For each line, transformer, and closed switch local voltage moment ``X_e``, it
+adds the small PSD block
+
+```math
+\begin{bmatrix}
+1 & u_e^H\\
+u_e & X_e
+\end{bmatrix}\succeq0,
+```
+
+where ``u_e`` selects the shared terminal representatives incident to that
+component. A multiwinding transformer uses all of its winding-terminal voltage
+coordinates in one such block. A physical AC point satisfies these constraints
+with ``u=v`` and ``X_e=v_ev_e^H``, so the construction is a valid strengthening.
+Sharing ``u`` across local blocks transfers the fixed source reference and
+first-order consistency through the network.
+
+This is inspired by the first/second-moment coupling used in Tight-and-Cheap
+relaxations, adapted to the multiphase component-local BranchFlow blocks. It is
+not a literal implementation of a single-phase polar TCR model: no nominal-angle
+linearization is introduced, and the existing full multiphase voltage products
+are retained. The construction adds one local cone of order ``1+dim(X_e)`` per
+energized network component, not a dense network-wide voltage cone. When it is
+enabled, the public voltage candidate comes directly from ``u``; rank and
+physical-residual diagnostics still determine whether that candidate is useful.
 
 ### Declared and implied line-current limits
 
@@ -450,7 +486,9 @@ The current implementation accepts:
   excitation, neutral grounding, galvanic bonds and declared current limits;
 - general fixed `n_winding` transformer hyperedges with pairwise leakage,
   excitation, neutral grounding and winding ratings;
-- explicit voltage LNCs and optional line-derived LNCs; and
+- explicit voltage LNCs and optional line-derived LNCs;
+- an optional TCR-inspired first-order voltage skeleton over line, transformer,
+  and closed-switch local moments; and
 - `:cost`, `:source_import` and `:feasibility` objectives.
 
 An explicit grounded return is supported as a zero-voltage terminal. Ideal
@@ -486,4 +524,4 @@ likewise be measured rather than inferred from cone counts.
 2. Partial or permuted line endpoint maps.
 3. Adjustable controls and taps with explicit convex relaxations.
 4. Sparse/chordal alternatives to the dense voltage closure on large meshes.
-5. Stronger state recovery and performance studies on larger feeders.
+5. Broader TCR-skeleton and state-recovery performance studies on larger feeders.

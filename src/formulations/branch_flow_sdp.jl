@@ -2,8 +2,9 @@
 
 `implied_current_limits` covers lines, closed switches and rated multiwinding
 coils. `port_rlt` derives voltage-current RLT/LNC cuts only from proven physical
-voltage and P/Q-box domains. Both are enabled by default and independently
-switchable for ablations.
+voltage and P/Q-box domains. `tcr_voltage` adds an opt-in first-order voltage
+skeleton tied to the existing component-local voltage moments. The first two
+are enabled by default and all three are independently switchable for ablations.
 """
 Base.@kwdef struct BranchFlowSDPOptions
     s_base::Float64 = 1e4
@@ -15,6 +16,7 @@ Base.@kwdef struct BranchFlowSDPOptions
     voltage_lncs::Vector{VoltageLNC} = VoltageLNC[]
     implied_current_limits::Bool = true
     port_rlt::Bool = true
+    tcr_voltage::Bool = false
 end
 
 struct BranchFlowSDPInapplicableError <: Exception
@@ -585,6 +587,42 @@ function _bfm_hermitian(model, n)
         return reshape([value + 0im], 1, 1)
     end
     @variable(model, [1:n, 1:n] in HermitianMatrixSpace())
+end
+
+function _bfm_first_order_voltages!(model, net, source_pu)
+    voltage = Dict{Tuple{String,String},Any}()
+    for (bus, data) in sort!(collect(net["bus"]); by=first)
+        terms = string.(data["terminal_names"])
+        vr = @variable(model, [1:length(terms)])
+        vi = @variable(model, [1:length(terms)])
+        for k in eachindex(terms)
+            voltage[(String(bus), terms[k])] = vr[k] + im * vi[k]
+        end
+        if haskey(source_pu, bus)
+            for (terminal, value) in zip(terms, source_pu[bus])
+                @constraint(model, voltage[(String(bus), terminal)] == value)
+            end
+        end
+        grounded = Set(string.(get(data, "perfectly_grounded_terminals", String[])))
+        for terminal in grounded
+            @constraint(model, voltage[(String(bus), terminal)] == 0)
+        end
+    end
+    voltage
+end
+
+function _bfm_tcr_voltage_block!(model, first_order, keys, moment, cone)
+    n = length(keys)
+    size(moment) == (n, n) || throw(DimensionMismatch("TCR voltage moment"))
+    block = _sdp_psd(model, n + 1, cone)
+    @constraint(model, block[1, 1] == 1)
+    for k in 1:n
+        @constraint(model, block[1, k + 1] == conj(first_order[keys[k]]))
+    end
+    for a in 1:n, b in a:n
+        @constraint(model, block[a + 1, b + 1] == moment[a, b])
+    end
+    block
 end
 
 function _bfm_connection(net, device, coils, label)
@@ -1446,6 +1484,8 @@ end
 struct BranchFlowSDPBuild
     model::JuMP.Model
     voltage_moments::Dict{String,Any}
+    voltage_first_order::Dict{Tuple{String,String},Any}
+    tcr_voltage_blocks::Dict{String,Any}
     edge_blocks::Dict{String,Any}
     component_blocks::Dict{Tuple{Symbol,String},Any}
     transformer_blocks::Dict{String,Any}
@@ -1594,6 +1634,10 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     voltage_global, voltage_indices = use_global_voltage ?
         _bfm_voltage_closure!(model, net, voltage_moments, options.cone) :
         (nothing, Dict{Tuple{String,String},Int}())
+    voltage_first_order = options.tcr_voltage ?
+        _bfm_first_order_voltages!(model, net, source_pu) :
+        Dict{Tuple{String,String},Any}()
+    tcr_voltage_blocks = Dict{String,Any}()
 
     edge_blocks = Dict{String,Any}()
     component_blocks = Dict{Tuple{Symbol,String},Any}()
@@ -1605,6 +1649,17 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     powers = Dict{Tuple{Symbol,String},Vector{Any}}()
     lnc_lines = NamedTuple[]
     line_bound_diagnostics = NamedTuple[]
+    function add_record_tcr!(label, record)
+        options.tcr_voltage || return
+        indices = record.voltage_state_indices
+        moment = Any[record.block[indices[a], indices[b]]
+                     for a in eachindex(indices), b in eachindex(indices)]
+        keys = Tuple{String,String}[(String(bus), String(terminal))
+            for (bus, terminal) in zip(record.voltage_state_buses,
+                                       record.voltage_state_terminals)]
+        tcr_voltage_blocks[label] = _bfm_tcr_voltage_block!(
+            model, voltage_first_order, keys, moment, options.cone)
+    end
     for oriented in filter(edge -> edge.kind == :line, plan.oriented)
         id, parent, child = oriented.id, oriented.parent, oriented.child
         line = net["line"][id]
@@ -1663,6 +1718,21 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         _bfm_add_matrix!(balance[child], child_matrix)
         cross = Any[Wp[a, b] - sum(S[a, k] * conj(Z[b, k]) for k in 1:n)
                     for a in 1:n, b in 1:n]
+        if options.tcr_voltage
+            local_voltage = Matrix{Any}(undef, 2n, 2n)
+            local_voltage[1:n, 1:n] .= Wp
+            local_voltage[1:n, n+1:2n] .= cross
+            local_voltage[n+1:2n, 1:n] .= adjoint(cross)
+            local_voltage[n+1:2n, n+1:2n] .= Wc
+            parent_terms = string.(net["bus"][parent]["terminal_names"])
+            child_terms = string.(net["bus"][child]["terminal_names"])
+            keys = vcat(Tuple{String,String}[(parent, terminal)
+                                             for terminal in parent_terms],
+                        Tuple{String,String}[(child, terminal)
+                                             for terminal in child_terms])
+            tcr_voltage_blocks["line/$id"] = _bfm_tcr_voltage_block!(
+                model, voltage_first_order, keys, local_voltage, options.cone)
+        end
         if voltage_global !== nothing
             _bfm_overlap_global!(model, voltage_global, voltage_indices,
                 parent, net["bus"][parent]["terminal_names"], child,
@@ -2044,6 +2114,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         record.block === nothing ||
             (component_blocks[(:switch, String(id))] = record.block)
         push!(switch_records, record)
+        record.block === nothing || add_record_tcr!("switch/$id", record)
     end
 
     for (subtype, table) in sort!(collect(get(net, "transformer", Dict())); by=first),
@@ -2054,6 +2125,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             source_pu, voltage_global, voltage_indices)
         transformer_blocks[record.key] = record.block
         push!(transformer_records, record)
+        add_record_tcr!("transformer/$(record.key)", record)
     end
     for (id, data) in sort!(collect(get(get(net, "transformer", Dict()),
                                       "n_winding", Dict())); by=first)
@@ -2063,6 +2135,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
             options.implied_current_limits)
         transformer_blocks[record.key] = record.block
         push!(transformer_records, record)
+        add_record_tcr!("transformer/$(record.key)", record)
     end
 
     matrix_kcl_count = 0
@@ -2131,6 +2204,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         :component_block_count => length(component_blocks),
         :matrix_kcl_entries => matrix_kcl_count,
         :global_voltage_closure => voltage_global !== nothing,
+        :tcr_voltage => options.tcr_voltage,
+        :tcr_voltage_block_count => length(tcr_voltage_blocks),
         :cone => options.cone,
         :objective_scale => objective_scale,
     )
@@ -2142,7 +2217,8 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     end
     envelopes = sort!([String(id) for (id, data) in get(net, "load", Dict())
                        if _sdp_has_load_envelope(data)])
-    build = BranchFlowSDPBuild(model, voltage_moments, edge_blocks,
+    build = BranchFlowSDPBuild(model, voltage_moments, voltage_first_order,
+        tcr_voltage_blocks, edge_blocks,
         component_blocks, transformer_blocks, edge_records, component_records,
         transformer_records, switch_records, plan.oriented, powers, net,
         options, vb, ib, plan.root, root_voltage, source_voltages,
@@ -2252,7 +2328,20 @@ function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
     currents = Dict{Tuple{Symbol,String},Vector{ComplexF64}}()
     line_records = Dict(edge.id => edge for edge in build.edge_records)
     transformer_records = Dict(record.key => record for record in build.transformer_records)
-    if global_value !== nothing
+    if build.options.tcr_voltage
+        for (key, value) in build.voltage_first_order
+            voltage[key] = ComplexF64(JuMP.value(value)) * vb
+        end
+        # Preserve prescribed source phasors exactly in the public candidate;
+        # the first-order variables are constrained to the same values, but the
+        # explicit overwrite avoids exposing solver-scale roundoff as input drift.
+        for (id, values) in build.source_voltages
+            data = build.network["voltage_source"][id]
+            for (terminal, value) in zip(data["terminal_map"], values)
+                voltage[(String(data["bus"]), String(terminal))] = value
+            end
+        end
+    elseif global_value !== nothing
         source_id = first(sort!(collect(keys(build.source_voltages))))
         source = build.network["voltage_source"][source_id]
         source_values = build.source_voltages[source_id] ./ vb
@@ -2398,7 +2487,8 @@ function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
     bound *= build.objective_scale
     ratio = isempty(topology_ratios) ? NaN : maximum(topology_ratios)
     diagnostics[:local_rank_ratios] = rank_ratios
-    diagnostics[:recovery] = global_value === nothing ? :tree : :global_anchor
+    diagnostics[:recovery] = build.options.tcr_voltage ? :tcr_first_order :
+        global_value === nothing ? :tree : :global_anchor
     BranchFlowSDPResult(JuMP.objective_value(build.model) * build.objective_scale,
         bound, W, S, L, voltage, currents, powers, ratio, status,
         copy(build.load_envelopes), copy(build.lnc_diagnostics), diagnostics)

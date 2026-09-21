@@ -383,6 +383,16 @@ The focused runner and its machine-readable and rendered results are
 `examples/results/enwl_branch_flow_local_lnc_2026-09-21.json`, and
 `examples/results/enwl_branch_flow_local_lnc_2026-09-21.md`.
 
+The same focused runner also evaluates the opt-in TCR-inspired first-order
+voltage skeleton, both alone and with all other strengthening. On this feeder it
+is not a numerical improvement: it increases the model from 10,548 to 21,099
+variables, takes roughly 0.9–1.5 seconds across the tested configurations and
+bases, and moves the accepted objective farther above the Ipopt reference. The
+all-plus-TCR objective span is about 0.0372 W, compared with 0.0202 W without
+the skeleton. This single case supports retaining `tcr_voltage=false` as the
+default and treating the option as an experimental ablation, not removing the
+mathematically valid strengthening or claiming a general performance result.
+
 ## Bound provenance and schema conventions
 
 `bound_report(build)` returns `PhysicalBoundReport`. Entries contain a normalized
