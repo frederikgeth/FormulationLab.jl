@@ -393,6 +393,23 @@ the skeleton. This single case supports retaining `tcr_voltage=false` as the
 default and treating the option as an experimental ablation, not removing the
 mathematically valid strengthening or claiming a general performance result.
 
+A follow-up exact-lift audit distinguishes validity from solver behavior. The
+BMOPFTools/Ipopt voltage point produces 95 rank-one augmented TCR blocks with a
+worst minimum eigenvalue of about `-2.3e-15` and zero source-anchor mismatch.
+When those first-order voltages are fixed, the same Mosek model returns an
+objective within about 0.00052 W of Ipopt; fixing the voltage moments as well
+reduces the primal difference below 0.00001 W. The free model nevertheless
+reports an objective about 0.106 W higher than Ipopt. This reverses elementary
+set-inclusion monotonicity for a minimization—the free model contains the
+voltage-fixed model—so the free TCR result is a numerical failure despite its
+`OPTIMAL` status and small reported residual. Do not use this option for bounds
+until its cone scaling is redesigned and the monotonicity audit passes.
+
+The reproducible audit and exact-revision results are
+`examples/audit_branch_flow_tcr.jl`,
+`examples/results/enwl_branch_flow_tcr_audit_2026-09-21.json`, and
+`examples/results/enwl_branch_flow_tcr_audit_2026-09-21.md`.
+
 ## Bound provenance and schema conventions
 
 `bound_report(build)` returns `PhysicalBoundReport`. Entries contain a normalized

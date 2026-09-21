@@ -1486,6 +1486,7 @@ struct BranchFlowSDPBuild
     voltage_moments::Dict{String,Any}
     voltage_first_order::Dict{Tuple{String,String},Any}
     tcr_voltage_blocks::Dict{String,Any}
+    tcr_voltage_keys::Dict{String,Vector{Tuple{String,String}}}
     edge_blocks::Dict{String,Any}
     component_blocks::Dict{Tuple{Symbol,String},Any}
     transformer_blocks::Dict{String,Any}
@@ -1638,6 +1639,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         _bfm_first_order_voltages!(model, net, source_pu) :
         Dict{Tuple{String,String},Any}()
     tcr_voltage_blocks = Dict{String,Any}()
+    tcr_voltage_keys = Dict{String,Vector{Tuple{String,String}}}()
 
     edge_blocks = Dict{String,Any}()
     component_blocks = Dict{Tuple{Symbol,String},Any}()
@@ -1659,6 +1661,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
                                        record.voltage_state_terminals)]
         tcr_voltage_blocks[label] = _bfm_tcr_voltage_block!(
             model, voltage_first_order, keys, moment, options.cone)
+        tcr_voltage_keys[label] = keys
     end
     for oriented in filter(edge -> edge.kind == :line, plan.oriented)
         id, parent, child = oriented.id, oriented.parent, oriented.child
@@ -1732,6 +1735,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
                                              for terminal in child_terms])
             tcr_voltage_blocks["line/$id"] = _bfm_tcr_voltage_block!(
                 model, voltage_first_order, keys, local_voltage, options.cone)
+            tcr_voltage_keys["line/$id"] = keys
         end
         if voltage_global !== nothing
             _bfm_overlap_global!(model, voltage_global, voltage_indices,
@@ -2218,7 +2222,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
     envelopes = sort!([String(id) for (id, data) in get(net, "load", Dict())
                        if _sdp_has_load_envelope(data)])
     build = BranchFlowSDPBuild(model, voltage_moments, voltage_first_order,
-        tcr_voltage_blocks, edge_blocks,
+        tcr_voltage_blocks, tcr_voltage_keys, edge_blocks,
         component_blocks, transformer_blocks, edge_records, component_records,
         transformer_records, switch_records, plan.oriented, powers, net,
         options, vb, ib, plan.root, root_voltage, source_voltages,

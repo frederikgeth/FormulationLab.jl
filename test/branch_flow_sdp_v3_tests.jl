@@ -241,6 +241,8 @@ end
     @test build.numerical_diagnostics[:tcr_voltage]
     @test build.numerical_diagnostics[:tcr_voltage_block_count] == 1
     @test Set(keys(build.tcr_voltage_blocks)) == Set(["line/line"])
+    @test build.tcr_voltage_keys["line/line"] ==
+          [("source", "a"), ("load", "a")]
     @test length(build.voltage_first_order) == 2
     result = solve_branch_flow_sdp(build; solver_options=(verbose=false,))
     @test result.solve.optimal

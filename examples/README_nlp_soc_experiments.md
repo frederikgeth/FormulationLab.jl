@@ -148,3 +148,17 @@ TCR-plus-all models at 10 kVA, then checks the latter two all-strengthening
 models at 3, 10, and 30 kVA. It records both the model size and the
 Ipopt-ordering test, so a smaller/faster conic model is not mistaken for a
 numerically reliable lower bound.
+
+Audit the experimental TCR voltage skeleton against an exact lift of the
+BMOPFTools/Ipopt voltage point:
+
+```sh
+julia --project=test/integration examples/audit_branch_flow_tcr.jl \
+  ../BMOPFDraftData/benchmarks/ENWLbenchmark/reduced \
+  examples/results/enwl_branch_flow_tcr_audit_2026-09-21.json
+```
+
+The audit checks every local augmented block, then compares the free conic model
+with nested models that fix the first-order voltages and all voltage moments.
+This provides a direct monotonicity test: for minimization, freeing variables
+cannot increase the true optimum.

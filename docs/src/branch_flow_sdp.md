@@ -148,6 +148,9 @@ are retained. The construction adds one local cone of order ``1+dim(X_e)`` per
 energized network component, not a dense network-wide voltage cone. When it is
 enabled, the public voltage candidate comes directly from ``u``; rank and
 physical-residual diagnostics still determine whether that candidate is useful.
+The 96-bus audit currently exhibits a solver monotonicity failure even though
+the exact Ipopt lift satisfies every new block, so this option must not be used
+to claim a bound until that numerical issue is resolved.
 
 ### Declared and implied line-current limits
 
