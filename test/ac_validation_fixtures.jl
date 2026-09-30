@@ -1,6 +1,6 @@
 # Construct feasible circuits forward from winding EMFs and chosen currents.
 # No formulation builder, optimizer or _sdp_* coefficient helper is used.
-function _audit_transformer_state(kind;tap=1.03,rotation=0.0,reverse=false)
+function _audit_transformer_state(kind;tap=1.03,rotation=0.0,reverse=false,current_scale=1.0)
     net=_sdp_tx_case(kind;tap)
     tx=net["transformer"][kind]["tx"];mf=tx["terminal_map_from"];mt=tx["terminal_map_to"]
     nf,nt=length(mf),length(mt)
@@ -24,7 +24,7 @@ function _audit_transformer_state(kind;tap=1.03,rotation=0.0,reverse=false)
     s=net["voltage_source"]["s"];vf=s["v_magnitude"].*cis.(s["v_angle"].+rotation)
     s["v_angle"] .+= rotation
     nominal=gain*(Df*vf)
-    jt=-(1-.2im).*nominal./abs.(nominal).*[1+0.2k for k in eachindex(nominal)]
+    jt=-current_scale*(1-.2im).*nominal./abs.(nominal).*[1+0.2k for k in eachindex(nominal)]
     kind=="wye_delta" && (jt[3]=-sum(jt[1:2]))
     reverse && (jt .*= -1)
     jf=-transpose(gain)*jt;ut=gain*(Df*vf-zf*jf)+zt*jt

@@ -374,7 +374,9 @@ Retained bus limits impose
 ```
 
 Generator and source channel boxes impose their declared ``p_min/p_max`` and
-``q_min/q_max`` directly.
+``q_min/q_max`` directly. Generator active bounds are required; either reactive
+bound may be omitted, leaving that side unbounded. Missing reactive bounds do
+not impose zero reactive dispatch. Declared generator bounds must be finite.
 
 ### Native second-order-cone bounds
 

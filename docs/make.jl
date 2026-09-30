@@ -24,6 +24,7 @@ makedocs(;
             "Fixed transformers and regulators"=>"sdp_transformers.md",
             "Lifted nonlinear cuts"=>"lnc.md",
         ],
+        "Explicit-neutral LinIVR"=>"linivr.md",
         "LinDist3Flow"=>["Formulation and usage"=>"lindist3flow.md",
                          "Component equations"=>"lindist3flow_components.md",
                          "OPF and power-flow modes"=>"lindist3flow_modes.md",

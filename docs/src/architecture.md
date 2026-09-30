@@ -7,7 +7,8 @@ The [formulation guide](formulations.md) defines the mathematical layers; the
 [notation chapter](notation.md) defines symbols, units and ordering. This page
 describes how those layers are separated in software.
 
-`LinDist3Flow`, `IVRSDP`, `IVRSOC` and experimental `BranchFlowSDP` select mathematical formulations. `build_opf` and
+`LinDist3Flow`, `IVRSDP`, `IVRSOC`, experimental `LinIVR` and
+`BranchFlowSDP` select mathematical formulations. `build_opf` and
 `solve_opf` separately accept optimizer factories. `formulation_kind` distinguishes
 an approximation from a relaxation; LP/SOCP/SDP cone types alone do not do so.
 
@@ -22,9 +23,11 @@ Parser diagnostics and input digest remain available on `BMOPFInput`. It does
 not call PowerIO's formulation-specific matrix builders. Raw dictionaries remain
 useful for tests and construction, without a claim of schema validity.
 
-The first SDP assembles linear current/voltage laws independently from the L3F
-approximations. Shared matrix decoding and connection-incidence helpers have no
-solver state. A dense nullspace implementation is a reference for small cases;
+The SDP and LinIVR share a solver-independent current/voltage circuit assembler
+in `formulations/ivr_electrical.jl`, independently from the L3F approximations.
+LinIVR adds a sparse passive-reference solve and affine device-power products;
+SDP/SOC add moment representations. Shared matrix decoding and connection-incidence
+helpers have no solver state. A dense nullspace implementation is a reference for small cases;
 it is not intended as the scalable production representation.
 
 Sparse/chordal SDP representations, fixed SOC relaxations, LNCs, shared network

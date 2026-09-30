@@ -135,7 +135,7 @@ end
     unbounded = _l3f_case(generator=true)
     delete!(unbounded["generator"]["pv"], "q_max")
     report = check_l3f_applicability(unbounded)
-    @test any(f -> f.code == "E.L3F.DEVICE_ARITY", report.findings)
+    @test is_l3f_applicable(report)
 
     zip_i = _l3f_case()
     merge!(zip_i["load"]["load"], Dict{String,Any}(

@@ -1,0 +1,256 @@
+{
+  "cases": 128,
+  "buses_min": 5,
+  "buses_max": 538,
+  "paired_replays": 118,
+  "paired_checked_replays": 115,
+  "models": {
+    "linivr": {
+      "statuses": {
+        "OPTIMAL": 127,
+        "INFEASIBLE": 1
+      },
+      "replay_statuses": {
+        "LOCALLY_SOLVED": 126,
+        "LOCALLY_INFEASIBLE": 1,
+        "not run": 1
+      },
+      "reported_cost_difference_pct": {
+        "n": 127,
+        "median": -4.202904220056507,
+        "p95": -0.672319675689474,
+        "min": -28.84895781096718,
+        "max": -0.2340712897778563
+      },
+      "replayed_cost_difference_pct_paired": {
+        "n": 118,
+        "median": 0.23215385393135002,
+        "p95": 3.3246192739803977,
+        "min": 1.8058661059465494e-05,
+        "max": 18.022546413893462
+      },
+      "replayed_cost_difference_pct_paired_checked": {
+        "n": 115,
+        "median": 0.19466794563025014,
+        "p95": 2.882759235140983,
+        "min": 1.8058661059465494e-05,
+        "max": 4.791222347183507
+      },
+      "voltage_own_optimum": {
+        "vpn": {
+          "n": 127,
+          "median": 0.575444365905895,
+          "p95": 4.9209628833744965,
+          "min": 0.003430492728853096,
+          "max": 11.048932065567158,
+          "pooled_rmse_V": 1.5474085917941425
+        },
+        "vng": {
+          "n": 127,
+          "median": 0.4086751580929498,
+          "p95": 2.512586883367842,
+          "min": 0.0009380728884592071,
+          "max": 7.052174655147241,
+          "pooled_rmse_V": 0.9596909382963152
+        }
+      },
+      "voltage_same_dispatch_paired": {
+        "vpn": {
+          "n": 118,
+          "median": 0.06147425611446522,
+          "p95": 0.517779309823976,
+          "min": 0.0006994296464597483,
+          "max": 1.8562638744310505,
+          "pooled_rmse_V": 0.166428138810684
+        },
+        "vng": {
+          "n": 118,
+          "median": 0.023722724720708688,
+          "p95": 0.17985109900271193,
+          "min": 0.0002430231640301317,
+          "max": 0.3334149419835697,
+          "pooled_rmse_V": 0.05879956822563975
+        }
+      },
+      "replay_vpn_violation_cases": [],
+      "replay_check_statuses": {
+        "checks_passed": 126
+      },
+      "replay_operational_failures": [],
+      "max_replay_dispatch_error_VA": 1.9155744092972083e-06,
+      "failed_replays": [
+        {
+          "name": "network_10_Feeder_3.json",
+          "status": "LOCALLY_INFEASIBLE"
+        },
+        {
+          "name": "network_17_Feeder_7.json",
+          "status": "not run"
+        }
+      ]
+    },
+    "lindist3flow": {
+      "statuses": {
+        "OPTIMAL": 127,
+        "INFEASIBLE": 1
+      },
+      "replay_statuses": {
+        "LOCALLY_SOLVED": 119,
+        "ALMOST_LOCALLY_SOLVED": 7,
+        "LOCALLY_INFEASIBLE": 1,
+        "not run": 1
+      },
+      "reported_cost_difference_pct": {
+        "n": 127,
+        "median": -4.202904336101896,
+        "p95": -0.6723197991438139,
+        "min": -28.848957893935236,
+        "max": -0.23407243093888297
+      },
+      "replayed_cost_difference_pct_paired": {
+        "n": 118,
+        "median": 0.9343907857232339,
+        "p95": 9.643108019102256,
+        "min": 0.00017066545105954534,
+        "max": 187.4654494338351
+      },
+      "replayed_cost_difference_pct_paired_checked": {
+        "n": 115,
+        "median": 0.8445922193095774,
+        "p95": 9.172507488723001,
+        "min": 0.00017066545105954534,
+        "max": 14.064043344876834
+      },
+      "voltage_own_optimum": {
+        "vpn": {
+          "n": 127,
+          "median": 1.2822885179176922,
+          "p95": 7.394653559670467,
+          "min": 0.11237909465714324,
+          "max": 18.283223983634542,
+          "pooled_rmse_V": 2.3013254669284993
+        },
+        "vng": {
+          "n": 127,
+          "median": 1.6564247593128762,
+          "p95": 4.478112617600805,
+          "min": 0.15718355868966902,
+          "max": 12.604699398981136,
+          "pooled_rmse_V": 2.126744891826694
+        }
+      },
+      "voltage_same_dispatch_paired": {
+        "vpn": {
+          "n": 118,
+          "median": 0.865845861935,
+          "p95": 2.874592052646271,
+          "min": 0.09477908500363696,
+          "max": 10.275903476695134,
+          "pooled_rmse_V": 1.2120772114032226
+        },
+        "vng": {
+          "n": 118,
+          "median": 2.001961623650819,
+          "p95": 5.968786823850918,
+          "min": 0.21336712737508895,
+          "max": 25.113403556145972,
+          "pooled_rmse_V": 3.770985886263195
+        }
+      },
+      "replay_vpn_violation_cases": [
+        "network_12_Feeder_3.json",
+        "network_13_Feeder_4.json"
+      ],
+      "replay_check_statuses": {
+        "checks_passed": 116,
+        "failed": 3
+      },
+      "replay_operational_failures": [
+        {
+          "name": "network_12_Feeder_3.json",
+          "max_vpn_violation_V": 9.950723253458307,
+          "error_codes": {
+            "E.SOL.VOLT_VIOLATION": 217,
+            "E.SOL.THERMAL_VIOLATION": 52
+          }
+        },
+        {
+          "name": "network_13_Feeder_4.json",
+          "max_vpn_violation_V": 7.638401738155267,
+          "error_codes": {
+            "E.SOL.VOLT_VIOLATION": 145,
+            "E.SOL.THERMAL_VIOLATION": 2
+          }
+        },
+        {
+          "name": "network_2_Feeder_3.json",
+          "max_vpn_violation_V": 0.0,
+          "error_codes": {
+            "E.SOL.THERMAL_VIOLATION": 2
+          }
+        }
+      ],
+      "max_replay_dispatch_error_VA": 3.170359832441669e-07,
+      "failed_replays": [
+        {
+          "name": "network_9_Feeder_4.json",
+          "status": "ALMOST_LOCALLY_SOLVED"
+        },
+        {
+          "name": "network_2_Feeder_5.json",
+          "status": "ALMOST_LOCALLY_SOLVED"
+        },
+        {
+          "name": "network_22_Feeder_1.json",
+          "status": "LOCALLY_INFEASIBLE"
+        },
+        {
+          "name": "network_13_Feeder_2.json",
+          "status": "ALMOST_LOCALLY_SOLVED"
+        },
+        {
+          "name": "network_15_Feeder_7.json",
+          "status": "ALMOST_LOCALLY_SOLVED"
+        },
+        {
+          "name": "network_19_Feeder_5.json",
+          "status": "ALMOST_LOCALLY_SOLVED"
+        },
+        {
+          "name": "network_23_Feeder_1.json",
+          "status": "ALMOST_LOCALLY_SOLVED"
+        },
+        {
+          "name": "network_17_Feeder_7.json",
+          "status": "not run"
+        },
+        {
+          "name": "network_9_Feeder_5.json",
+          "status": "ALMOST_LOCALLY_SOLVED"
+        }
+      ]
+    }
+  },
+  "reference_statuses": {
+    "LOCALLY_SOLVED": 127,
+    "LOCALLY_INFEASIBLE": 1
+  },
+  "reference_check_statuses": {
+    "checks_passed": 127,
+    "not assessed": 1
+  },
+  "zero_cost_reference_exclusions": 0,
+  "max_linear_cost_disagreement_per_hour": 0.0011962436214633873,
+  "linear_cost_agreement_within_1e-8": 124,
+  "max_objective_reconstruction_error": 1.5612511283791264e-16,
+  "reference_cost_per_hour": {
+    "n": 127,
+    "median": 0.008209896455427235,
+    "p95": 0.0208256752162175,
+    "min": -0.002271779764932708,
+    "max": 0.04144870610264911
+  },
+  "reference_max_neutral_V": 12.604699398981136,
+  "linivr_wins_same_dispatch_vpn": 118,
+  "linivr_lower_replayed_cost": 115
+}

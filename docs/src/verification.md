@@ -1,5 +1,80 @@
 # Verification
 
+## ENWL generation-cost comparison — 30 September 2026
+
+The complete 128-file ENWL reduced-topology panel (5–538 buses) compares
+generation-cost-minimising LinIVR, Kron-reduced LinDist3Flow and BMOPFTools'
+four-wire nonlinear IVR. All three solve 127 cases. The main panel explicitly
+consolidates each priced `grid` generator with its otherwise unpriced source;
+five as-supplied audits retain the original artificial export-credit behavior.
+Original DER prices and bounds are preserved. Prices receive a common positive
+numerical scaling, and costs are independently reconstructed in original units.
+
+On 118 paired converged four-wire replays, median feeder-maximum magnitude
+errors are 0.0615 V versus 0.8658 V for phase-to-neutral voltage and 0.0237 V
+versus 2.002 V for neutral-to-ground voltage (LinIVR versus LinDist3Flow).
+The latter has no neutral state and is assessed using its imposed zero-neutral
+assumption. Its Kron projection also discards neutral current ratings; both
+model changes remain explicit findings.
+
+Both approximations understate the nonlinear reference cost by a median 4.20%.
+Among 115 paired replays passing the assessed operational checks, the median
+replayed cost excess is 0.195% for LinIVR versus 0.845% for LinDist3Flow.
+Three converged LinDist3Flow replays fail assessed limits; no converged LinIVR
+replay does. Solver failures and near-convergence statuses are retained and
+excluded from paired accuracy statistics. Nonlinear optimality remains local,
+and the solution checker retains its unassessed dimensions.
+
+The panel required LinDist3Flow to accept omitted/one-sided reactive generator
+bounds, without adding artificial Q limits. Eleven new regressions and the full
+**6,842/6,842** suite pass. The reproducible runners are
+`examples/benchmark_enwl_cost.jl` and `examples/report_enwl_cost.py`.
+The report, figures, aggregate JSON and compressed complete observations are
+under `examples/results/enwl_cost_comparison_2026-09-30.*`.
+
+## Explicit-neutral LinIVR experiment — 30 September 2026
+
+After the coverage expansion, the Julia 1.12.6 default suite passes
+**6,831/6,831** checks, including 439 dedicated LinIVR checks. The documentation
+site builds successfully. OpenDSSDirect emits its existing precompilation
+warnings and runs its tests without the cache.
+
+The initial Julia 1.12.6 default suite passed **6,518/6,518** checks after extracting
+the shared solver-independent IVR circuit assembler. The first 126 LinIVR checks
+cover analytical neutral displacement and finite grounding, per-unit and
+rotation invariance, dispatch/loss objectives, zero-reference neutral limits,
+constant-impedance references, singular/unsupported inputs, coupled four-wire
+lines, delta loads, endpoint shunts, a parallel circuit and a fixed transformer.
+
+The coverage expansion adds 313 checks for all seven fixed transformer families,
+tap changes and reversed flow, exact impedance aliases, delta coil dispatch,
+current-only reference freedom, transformer loss identities and all three static
+inverter topologies. It tests an affine internal-power budget that is exceeded
+by the actual filter power, so that limitation remains visible. The independent
+checker accepts `physical_residuals(input, result::LinIVRResult)` and selects the
+appropriate delta coil convention automatically.
+
+The optional BMOPFTools comparison covers 18 synthetic scenarios and three
+existing ENWL cases without applying neutral Kron reduction. Nonlinear replay
+exposes a voltage-limit violation in a stressed case accepted by LinIVR. See
+[the formulation and experiment](linivr.md); these checks establish neither
+universal approximation accuracy nor AC-feasible dispatch guarantees.
+
+The expanded panel contains 73 transformer cases with independently constructed
+and physically validated AC references, plus seven BMOPFTools PCC comparisons:
+three inverter topologies at a fixed source and on an unbalanced feeder, and an
+unbalanced delta generator. The loaded references are validation data only.
+Delta P/Q and current ratings follow BMOPFTools' coil convention; existing SDP
+conductor semantics are unchanged. The inspected nonlinear comparator does not
+stamp the inverter filter/internal-power extensions, which are tested separately.
+Raw observations and limitations are retained in
+`examples/results/linivr_coverage_2026-09-30.json` and its Markdown companion.
+All 73 transformer approximations solve, with maximum conductor phasor error
+0.359 V on this panel. All seven device replays report `LOCALLY_SOLVED` and pass
+the comparator's assessed solution checks; replayed device dispatch differs from
+the requested dispatch by less than ``2\times10^{-8}`` VA. These results do not
+extend to untested limits or certify AC feasibility of the approximate states.
+
 ## Branch-flow milestone — 21 September 2026
 
 The `BranchFlowSDP` checks cover analytical radial optima, coupled unbalanced
