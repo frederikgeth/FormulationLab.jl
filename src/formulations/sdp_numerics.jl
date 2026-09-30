@@ -179,7 +179,23 @@ end
 # must not become a unit-sized artificial restriction.
 # Merge only identical scaled coefficient vectors, never approximately parallel
 # rows. Opposing equal bounds become one equality; conflicting bounds survive.
-function _sdp_preprocess_affine!(model)
+function _sdp_split_complex_equalities!(model)
+    F = JuMP.GenericAffExpr{ComplexF64,JuMP.VariableRef}
+    S = JuMP.MOI.EqualTo{ComplexF64}
+    refs = JuMP.all_constraints(model, F, S)
+    for ref in refs
+        object = JuMP.constraint_object(ref)
+        residual = object.func - object.set.value
+        JuMP.delete(model, ref)
+        @constraint(model, real(residual) == 0)
+        @constraint(model, imag(residual) == 0)
+    end
+    length(refs)
+end
+
+function _sdp_preprocess_affine!(model; split_complex=false)
+    split = split_complex ? _sdp_split_complex_equalities!(model) : 0
+    model.ext[:split_complex_equalities] = split
     groups=Dict{Any,Any}()
     count_before=0
     for (F,S) in JuMP.list_of_constraint_types(model)

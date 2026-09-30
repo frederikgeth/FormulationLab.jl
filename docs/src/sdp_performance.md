@@ -1,4 +1,49 @@
-# SDP structure and scaling study, 12 September 2026
+# SDP structure and scaling studies
+
+## Reliability and scale ladder, 22 September 2026
+
+The completed ENWL panel extends the radial ladder to 96, 134, 178, 244, 302,
+376, and 538 buses. A numerical failure at one size no longer suppresses
+structurally different later cases. Each case selects a per-phase base from the
+larger of nominal apparent load, installed active generation and 3 kVA, then
+tests factors one third, one and three. The primary-base rows are medians of
+three fresh builds and solves after execution-path warm-up; sensitivity rows run
+once.
+
+Rows distinguish the relaxation's primal objective, the solver's numerical
+lower bound, and the feasible BMOPFTools/Ipopt objective. Publication requires
+the common `validate_relaxation_solution` audit; recovered AC feasibility is a
+separate diagnostic. This matters in practice: across 42 top-level rows, only
+4/21 IVR and 10/21 BranchFlow bounds passed all termination, residual, dual, and
+ordering checks. Several rejected rows were labelled `OPTIMAL` and had residuals
+below `1e-8`, but their numerical lower bounds exceeded the feasible Ipopt
+objective beyond the declared tolerance. Solver status and a small primal
+residual are therefore not sufficient publication criteria.
+
+Power-base sensitivity is material and not monotone. No tested base passed at
+178 or 244 buses. BranchFlow passed all three bases at 302 buses, the primary
+base at 376 buses, and only the largest base at 538 buses. IVR passed the
+smallest base at 376 buses, while its other large-case runs commonly ended in
+`SLOW_PROGRESS`. These observations select numerical configurations; they do
+not establish that one base changes the mathematical relaxation.
+
+The run also exposed and removed a sparse-assembly bottleneck. The clique-tree
+builder previously formed every pairwise clique intersection. It now uses an
+inverted vertex-to-clique index while retaining the deterministic
+maximum-weight tree and running-intersection property. Final median IVR build
+times were 2.43 s at 302 buses, 3.31 s at 376 buses, and 7.22 s at 538 buses;
+the interrupted pre-fix run took roughly 59--66 s, 110 s, and 276 s,
+respectively. The final 538-bus IVR and BranchFlow models contained 74,314 and
+60,384 scalar variables.
+
+The BranchFlow profile exercises opt-in exact affine preprocessing, which
+exposes complex rows to shared row scaling and exact duplicate elimination.
+Native ENWL feeders remain radial, so a separate controlled-mesh panel is still
+required to measure sparse global voltage completion at these sizes. Exact
+inputs, revisions, individual repetitions, residual groups, physical recovery
+checks, and timings are in
+`examples/results/enwl_scalable_sdp_2026-09-22.json`; the adjacent Markdown file
+contains the generated table.
 
 ## Initial chordal completion pilot, 21 September 2026
 
