@@ -1,6 +1,26 @@
 using Test, FormulationLab, Clarabel, JuMP
 isdefined(@__MODULE__, :_l3f_case) || include("lindist3flow_fixtures.jl")
 
+@testset "SDP residuals retain complex equality components" begin
+    MOI = JuMP.MOI
+    mock = MOI.Utilities.MockOptimizer(MOI.Utilities.Model{Float64}())
+    model = JuMP.Model(() -> mock)
+    @variable(model, x)
+    @variable(model, y)
+    equality = @constraint(model, x + im * y == 1 + 2im)
+    lower = @constraint(model, x >= 0)
+    for (point, expected) in (([1.0, 2.0], 0.0), ([1.5, 2.0], 0.5),
+                              ([1.0, 2.25], 0.25), ([-1.0, 2.0], 2.0))
+        MOI.Utilities.set_mock_optimize!(mock,
+            m -> MOI.Utilities.mock_optimize!(m, point))
+        JuMP.optimize!(model)
+        raw = FormulationLab._relaxation_primal_feasibility_report(model)
+        @test get(raw, equality, 0.0) == expected
+        @test get(raw, lower, 0.0) == max(0.0, -point[1])
+        expected == 0 && @test isempty(raw)
+    end
+end
+
 @testset "SDP relaxation validation accepts exact feasibility" begin
     # An unloaded source has a single squared-voltage variable fixed to one.
     # Supply its exact solution so this regression does not depend on solver
