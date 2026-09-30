@@ -14,6 +14,30 @@ const _L3F_FEASIBLE = L3FOptions(validate_nonlinear=false, objective=:feasibilit
 _l3f_clarabel() = ("verbose" => false,)
 _l3f_ipopt() = ("print_level" => 0,)
 
+@testset "LinDist3Flow optional reactive generator bounds" begin
+    # Missing Q bounds must not become zero-Q restrictions in cost comparisons.
+    # Source Q is fixed, so the generator must supply the full load Q.
+    function optional_q_case(extra=Dict{String,Any}())
+        Dict{String,Any}(
+            "bus"=>Dict("b"=>Dict("terminal_names"=>["a"])),
+            "voltage_source"=>Dict("s"=>Dict("bus"=>"b","terminal_map"=>["a"],
+                "v_magnitude"=>[230.],"v_angle"=>[0.],"cost"=>[1.],"q_min"=>[0.],"q_max"=>[0.])),
+            "load"=>Dict("d"=>Dict("bus"=>"b","terminal_map"=>["a"],"configuration"=>"WYE",
+                "model"=>"constant_power","p_nom"=>[10000.],"q_nom"=>[2000.])),
+            "generator"=>Dict("g"=>merge(Dict{String,Any}("bus"=>"b","terminal_map"=>["a"],
+                "configuration"=>"WYE","p_min"=>[0.],"p_max"=>[1000.],"cost"=>[.5]),extra)))
+    end
+    for extra in (Dict{String,Any}(),Dict("q_min"=>[500.]),Dict("q_max"=>[3000.]))
+        r=solve_l3f_opf(optional_q_case(extra),Clarabel.Optimizer;solver_options=(verbose=false,))
+        @test r.solve.optimal
+        @test only(r.generators["g"]["qg"]) ≈ 2000 atol=1e-4
+        @test r.objective ≈ 9.5 atol=1e-5
+    end
+    for extra in (Dict("q_min"=>[NaN]),Dict("q_min"=>[3000.],"q_max"=>[1000.]))
+        @test !is_l3f_applicable(check_l3f_applicability(optional_q_case(extra)))
+    end
+end
+
 """Minimal single-phase two-bus feeder: source -- line -- load."""
 function _l3f_two_bus(; line_extra=Dict{String,Any}(), load_extra=Dict{String,Any}(),
                       source_extra=Dict{String,Any}())

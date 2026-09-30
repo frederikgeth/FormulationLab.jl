@@ -6,6 +6,11 @@ Unbalanced power-flow formulations with explicit mathematical scope and solver-o
 
 Implemented:
 
+- **LinIVR (experimental)**: no-load current–voltage approximation retaining
+  explicit neutrals and power decision variables, without Kron reduction or a
+  loaded starting point. Includes SOC physical limits, optional quadratic
+  line/shunt/transformer/filter loss minimization, and device-power mismatch diagnostics. See the
+  [formulation and experiment](docs/src/linivr.md).
 - **LinDist3Flow**: migrated from PowerOptLab, including affine/SOC limits, component lowering, applicability diagnostics, per-unit scaling, and IEEE/OpenDSS regression tests. This is a fixed-reference, lossless **approximation**, not an AC lower bound.
 - **IVRSDP**: a dense or chordal semidefinite **relaxation** of current–voltage equations. It retains explicit neutrals and delta connections, eliminates linear electrical equations, and lifts voltage/current products. It supports the static AC electrical component families, including general multiwinding transformers and inverter capability models. Nonlinear loads use additional convex envelopes; control laws are not evaluated.
 

@@ -30,6 +30,25 @@ struct RelaxationValidationReport
     reasons::Vector{String}
 end
 
+function _relaxation_primal_feasibility_report(model)
+    # JuMP 1.32's feasibility checker converts scalar values to Float64, which
+    # fails for complex equalities (or loses their type when the value is real).
+    # Evaluate those equalities in C; keep MOI's distances for all other sets.
+    raw = Dict{Any,Float64}()
+    for (F, S) in JuMP.list_of_constraint_types(model)
+        for ref in JuMP.all_constraints(model, F, S)
+            constraint = JuMP.constraint_object(ref)
+            value = JuMP.value.(constraint.func)
+            distance = constraint.set isa JuMP.MOI.EqualTo{<:Complex} ?
+                abs(value - constraint.set.value) :
+                JuMP.MOI.Utilities.distance_to_set(value, constraint.set)
+            isfinite(distance) || error("nonfinite residual for constraint $ref")
+            distance > 0 && (raw[ref] = distance)
+        end
+    end
+    raw
+end
+
 function _relaxation_constraint_summary(model, raw, tolerance)
     maxima = Dict{String,Float64}()
     violations = Dict{String,Int}()
@@ -100,15 +119,20 @@ function validate_relaxation_solution(
     status = solve_status(result)
     scale = build.objective_scale
     has_primal = JuMP.has_values(model)
+    model_error = nothing
     raw = has_primal ? try
-        JuMP.primal_feasibility_report(model; atol=0.0)
-    catch
-        Dict{Any,Float64}()
-    end : Dict{Any,Float64}()
-    model_violation = has_primal && !isempty(raw) ? maximum(values(raw)) : Inf
+        _relaxation_primal_feasibility_report(model)
+    catch err
+        model_error = sprint(showerror, err)
+        nothing
+    end : nothing
+    # JuMP only returns violated constraints: an empty successful report is
+    # exactly feasible. Keep failed/unavailable evaluations distinct from it.
+    model_violation = raw === nothing ? Inf : maximum(values(raw); init=0.0)
     model_feasible = has_primal && isfinite(model_violation) &&
         model_violation <= model_atol
-    maxima, violations = _relaxation_constraint_summary(model, raw, model_atol)
+    maxima, violations = _relaxation_constraint_summary(model,
+        something(raw, Dict{Any,Float64}()), model_atol)
 
     primal = has_primal ? _relaxation_objective(model, scale, JuMP.objective_value) : NaN
     bound = _relaxation_objective(model, scale, JuMP.objective_bound)
@@ -142,6 +166,8 @@ function validate_relaxation_solution(
     reasons = String[]
     status.optimal || push!(reasons, "solver termination is not optimal")
     has_primal || push!(reasons, "no primal point is available")
+    model_error === nothing || push!(reasons,
+        "original-model residual evaluation failed: $model_error")
     model_feasible || push!(reasons,
         "original-model residual $(model_violation) exceeds $(model_atol)")
     dual_feasible || push!(reasons, "dual status is not feasible")

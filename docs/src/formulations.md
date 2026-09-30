@@ -37,6 +37,7 @@ contract or physical units reported to the caller.
 
 | Formulation | Main variables | Mathematical class | Best use | Principal limitation |
 |:--|:--|:--|:--|:--|
+| [`LinIVR`](linivr.md) | conductor voltages/currents and explicit device powers | LP/SOCP or quadratic conic approximation | no-load explicit-neutral experiments without Kron reduction | first-order device-power mismatch; loss-sensitive dispatch needs separate assessment |
 | [`LinDist3Flow`](lindist3flow.md) | voltage and power perturbations around a fixed reference | LP/SOCP approximation | fast fixed-reference studies on networks within its applicability contract | lossless linearization; not an AC relaxation or lower bound |
 | [`IVRSDP`](sdp.md) | one reduced Gram matrix of terminal voltages and component currents | SDP relaxation | broad static-component coverage and a strong reference relaxation | global current--voltage state can produce large PSD blocks |
 | [`IVRSOC`](soc.md) | the IVR electrical maps with pairwise and selected projected cones | SOCP outer relaxation, plus load power cones | scalable conic experiments and Clarabel-oriented profiles | weaker than the corresponding PSD constraint; strength depends on selected coordinates and cuts |

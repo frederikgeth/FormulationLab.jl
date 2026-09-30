@@ -747,18 +747,21 @@ function _l3f_validate_components!(findings, net)
             _l3f_error!(findings, "E.L3F.DEVICE_ARITY", :generator, gid, sprint(showerror, err))
         end
         for field in ("p_min", "p_max", "q_min", "q_max")
+            # Missing reactive bounds mean an unbounded side, as in BMOPF.
+            # The model's bound stamper already handles each side independently.
+            startswith(field,"q_") && !haskey(gen,field) && continue
             value = get(gen, field, nothing)
             value isa AbstractVector && length(value) == nch ||
                 _l3f_error!(findings, "E.L3F.DEVICE_ARITY", :generator, gid,
-                            "$field is required and must have one value per physical power channel")
+                            "$field must have one value per physical power channel (active bounds are required)")
         end
         try
             pmin, pmax = Float64.(gen["p_min"]), Float64.(gen["p_max"])
-            qmin, qmax = Float64.(gen["q_min"]), Float64.(gen["q_max"])
+            qmin, qmax = Float64.(get(gen,"q_min",Float64[])), Float64.(get(gen,"q_max",Float64[]))
             all(isfinite, vcat(pmin, pmax, qmin, qmax)) ||
                 throw(ArgumentError("generator bounds must be finite"))
             all(pmin .<= pmax) || throw(ArgumentError("p_min exceeds p_max"))
-            all(qmin .<= qmax) || throw(ArgumentError("q_min exceeds q_max"))
+            isempty(qmin) || isempty(qmax) || all(qmin .<= qmax) || throw(ArgumentError("q_min exceeds q_max"))
         catch err
             _l3f_error!(findings, "E.L3F.DEVICE_DATA_INVALID", :generator, gid,
                         sprint(showerror, err))

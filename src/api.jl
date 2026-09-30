@@ -1,6 +1,17 @@
 """An electrical formulation, independent of the optimizer used to solve it."""
 abstract type AbstractFormulation end
 
+"""No-load current–voltage approximation with explicit neutrals and power variables."""
+struct LinIVR <: AbstractFormulation
+    options::LinIVROptions
+end
+LinIVR(;kwargs...) = LinIVR(LinIVROptions(;kwargs...))
+formulation_kind(::LinIVR) = :approximation
+build_opf(input,f::LinIVR;optimizer=default_optimizer(),kwargs...) =
+    build_linivr_opf(input,optimizer;options=f.options,kwargs...)
+solve_opf(input,f::LinIVR;optimizer=default_optimizer(),kwargs...) =
+    solve_linivr_opf(input,optimizer;options=f.options,kwargs...)
+
 """Fixed-reference, lossless radial approximation with affine/SOC limits."""
 struct LinDist3Flow <: AbstractFormulation
     options::L3FOptions

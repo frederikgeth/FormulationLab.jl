@@ -1,5 +1,10 @@
 # Independent SI evaluation. This file deliberately never calls the formulation's
 # _sdp_* stamping, connection, bound-propagation or matrix-decoding helpers.
+"""Check a LinIVR candidate using its delta coil-power/current convention."""
+physical_residuals(input,result::LinIVRResult;kwargs...)=physical_residuals(input,
+    ACPoint(voltage=result.voltage_candidate,currents=result.current_candidate);
+    delta_dispatch=:coil,kwargs...)
+
 _vcheck_array(d,k,n,default=0.0)=haskey(d,k) ? (d[k] isa Number ? fill(Float64(d[k]),n) : Float64.(d[k])) : fill(default,n)
 function _vcheck_matrix(d,prefix,n;symmetric=false)
     M=zeros(n,n)
@@ -32,8 +37,11 @@ limit violations and explicit unassessed items. No optimization and no compiled
 formulation expressions are used. A partial assessment never reports `passed`.
 Currently covers buses, sources, lines, loads, generators, fixed switches,
 shunts/capacitors fixed transformer winding networks and static IBR filters/capabilities. `atol` is a named tuple of V, A and VA tolerances.
+`delta_dispatch=:coil` selects BMOPFTools/LinIVR delta coil powers and currents;
+the default `:conductor` preserves the existing SDP result convention.
 """
-function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6,power=1e-3))
+function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6,power=1e-3),delta_dispatch=:conductor)
+    delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown delta dispatch convention"))
     net=input isa BMOPFInput ? _l3f_input(input) : input
     records=NamedTuple[];unassessed=String[]
     V(b,tm)=[get(point.voltage,(b,t),ComplexF64(NaN)) for t in tm]
@@ -124,7 +132,7 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
     for family in ("load","generator","capacitor"),(id,d) in get(net,family,Dict())
         tm=d["terminal_map"];cfg=uppercase(d["configuration"]);n=cfg=="SINGLE_PHASE" || length(tm)==2 && cfg=="DELTA" ? 1 : cfg=="DELTA" ? 3 : count(!=(_vcheck_neutral(net,d["bus"])),tm)
         D=_vcheck_incidence(_vcheck_pairs(net,d["bus"],tm,cfg,n),length(tm));v=V(d["bus"],tm);u=D*v
-        if family=="generator" && cfg=="DELTA" && length(tm)==3
+        if family=="generator" && cfg=="DELTA" && length(tm)==3 && delta_dispatch==:conductor
             i=current(:generator,id,3);s=v.*conj.(i);inject(d["bus"],tm,i,-1)
             check("generator/$id/three_wire",sum(i),:current)
         elseif family=="capacitor"
@@ -148,8 +156,9 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
         elseif family=="generator"
             bounds(d,real.(s),"p_min","p_max","generator/$id",:power);bounds(d,imag.(s),"q_min","q_max","generator/$id",:power)
             bounds(d,abs.(s),"__none","s_max","generator/$id",:power)
-            terminal_i=cfg=="DELTA" && length(tm)==3 ? i : transpose(D)*i
-            rated=haskey(d,"i_max") && length(d["i_max"])==length(terminal_i) ? terminal_i : i
+            terminal_i=cfg=="DELTA" && length(tm)==3 && delta_dispatch==:conductor ? i : transpose(D)*i
+            rated=cfg=="DELTA" && delta_dispatch==:coil && length(tm)==3 ? i :
+                haskey(d,"i_max") && length(d["i_max"])==length(terminal_i) ? terminal_i : i
             bounds(d,abs.(rated),"__none","i_max","generator/$id",:current)
         end
     end
@@ -172,14 +181,15 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
         D=_vcheck_incidence(_vcheck_pairs(net,d["bus"],tm,cfg,n),length(tm));v=V(d["bus"],tm);u=D*v
         i=current(:ibr,id,n);jf=current(:ibr_internal,id,n)
         coil=jf-im*get(d,"b_filter_shunt",0.).*u
-        terminal_i=top=="THREE_LEG" ? i : transpose(D)*i
+        terminal_i=top=="THREE_LEG" && delta_dispatch==:conductor ? i : transpose(D)*i
         check("ibr/$id/filter_current",transpose(D)*coil-terminal_i,:current)
         e=u+complex.(_vcheck_array(d,"r_filter",n),_vcheck_array(d,"x_filter",n)).*jf
-        s=(top=="THREE_LEG" ? v : u).*conj.(i);internal=e.*conj.(jf)
+        s=(top=="THREE_LEG" && delta_dispatch==:conductor ? v : u).*conj.(i);internal=e.*conj.(jf)
         inject(d["bus"],tm,terminal_i,-1)
         bounds(d,real.(s),"p_min","p_max","ibr/$id",:power);bounds(d,imag.(s),"q_min","q_max","ibr/$id",:power)
         bounds(d,abs.(s),"__none","s_max","ibr/$id",:power)
-        rated=haskey(d,"i_max") && length(d["i_max"])==length(terminal_i) ? terminal_i : i
+        rated=top=="THREE_LEG" && delta_dispatch==:coil ? i :
+            haskey(d,"i_max") && length(d["i_max"])==length(terminal_i) ? terminal_i : i
         bounds(d,abs.(rated),"__none","i_max","ibr/$id",:current)
         bounds(d,[sum(real,s)],"__none","p_avail","ibr/$id",:power)
         if get(d,"dc_link_coupled",false)

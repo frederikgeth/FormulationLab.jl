@@ -48,6 +48,7 @@ export L3FOptions, L3FFinding, L3FApplicabilityReport, L3FInapplicableError,
 
 include("cuts/lnc.jl")
 include("formulations/sdp.jl")
+include("formulations/ivr_electrical.jl")
 include("formulations/sdp_transformers.jl")
 include("formulations/sdp_static.jl")
 include("formulations/sdp_numerics.jl")
@@ -58,6 +59,7 @@ include("formulations/branch_flow_sdp.jl")
 include("cuts/lnc_lines.jl")
 include("formulations/soc.jl")
 include("cuts/soc_fixed.jl")
+include("formulations/linivr.jl")
 include("api.jl")
 include("validation/containment.jl")
 include("validation/physical.jl")
@@ -78,6 +80,8 @@ export BranchFlowSDPOptions, BranchFlowSDPBuild, BranchFlowSDPResult,
 export LNCBounds, VoltagePhasor, VoltageLNC, LNCDiagnostic, add_lnc!, add_voltage_lnc!, phasor_products
 export AbstractFormulation, LinDist3Flow, IVRSDP, BranchFlowSDP,
        formulation_kind, build_opf, solve_opf
+export LinIVR, LinIVROptions, LinIVRBuild, LinIVRResult, LinIVRInapplicableError,
+       build_linivr_opf, solve_linivr_opf
 export SDPOptions, SDPBuild, SDPResult, SDPInapplicableError, build_sdp_opf, solve_sdp_opf
 export BMOPFInput, read_bmopf, SolveStatus, solve_status, solve_diagnostics
 export kron_reduce_bmopf, reduce_bmopf_neutrals, kron_reduce_neutrals

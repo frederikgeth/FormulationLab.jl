@@ -1,6 +1,15 @@
 # BMOPF component coverage
 
 This is an implementation inventory, not a claim of complete BMOPF conformance.
+Experimental [LinIVR](linivr.md) has a separately documented scope:
+explicit-neutral passive circuit laws, all seven fixed transformer families,
+constant-power/impedance loads, wye/delta generation and static single-phase,
+three-leg and four-leg inverters, with affine power products and SOC limits. It does
+not inherit the full SDP device-law coverage merely by sharing its assembler.
+LinIVR's delta generator/three-leg inverter powers and current ratings use the
+BMOPFTools coil convention; the existing SDP conductor convention is retained.
+Its inverter filter/internal-power extensions are independently tested, but are
+not implemented by the inspected BMOPFTools nonlinear comparator.
 Read it after the [formulation guide](formulations.md); symbols such as series
 and total endpoint current follow the shared [notation](notation.md).
 The local PowerIO 0.11 source identifies 0.1.0 as the accepted schema and 0.2.0
