@@ -1,6 +1,31 @@
 using Test, FormulationLab, Clarabel, JuMP
 isdefined(@__MODULE__, :_l3f_case) || include("lindist3flow_fixtures.jl")
 
+@testset "SDP relaxation validation accepts exact feasibility" begin
+    # An unloaded source has a single squared-voltage variable fixed to one.
+    # Supply its exact solution so this regression does not depend on solver
+    # roundoff leaving at least one entry in JuMP's sparse violation report.
+    net = _l3f_case()
+    empty!(net["load"])
+    empty!(net["line"])
+    delete!(net["bus"], "load")
+    MOI = JuMP.MOI
+    mock = MOI.Utilities.MockOptimizer(MOI.Utilities.Model{Float64}())
+    MOI.Utilities.set_mock_optimize!(mock, m -> begin
+        MOI.Utilities.mock_optimize!(m, [1.0], MOI.FEASIBLE_POINT)
+        MOI.set(m, MOI.ObjectiveBound(), 0.0)
+    end)
+    build = build_sdp_opf(net, () -> mock;
+        options=SDPOptions(objective=:source_import))
+    result = solve_sdp_opf(build)
+    @test isempty(JuMP.primal_feasibility_report(build.model; atol=0.0))
+    report = validate_relaxation_solution(build, result; model_atol=0.0)
+    @test report.model_violation == 0.0
+    @test report.model_feasible
+    @test report.bound_usable
+    @test isempty(report.reasons)
+end
+
 @testset "SDP relaxation validation separates bounds from recovery" begin
     for formulation in (
         IVRSDP(objective=:source_import),
@@ -43,6 +68,7 @@ end
     @test !result.solve.optimal
     report = validate_relaxation_solution(build, result)
     @test !report.bound_usable
+    @test !report.model_feasible
     @test !report.solve.optimal
     @test !isempty(report.reasons)
     @test_throws ArgumentError validate_relaxation_solution(build, result;

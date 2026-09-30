@@ -103,12 +103,15 @@ function validate_relaxation_solution(
     raw = has_primal ? try
         JuMP.primal_feasibility_report(model; atol=0.0)
     catch
-        Dict{Any,Float64}()
-    end : Dict{Any,Float64}()
-    model_violation = has_primal && !isempty(raw) ? maximum(values(raw)) : Inf
+        nothing
+    end : nothing
+    # JuMP only returns violated constraints: an empty successful report is
+    # exactly feasible. Keep failed/unavailable evaluations distinct from it.
+    model_violation = raw === nothing ? Inf : maximum(values(raw); init=0.0)
     model_feasible = has_primal && isfinite(model_violation) &&
         model_violation <= model_atol
-    maxima, violations = _relaxation_constraint_summary(model, raw, model_atol)
+    maxima, violations = _relaxation_constraint_summary(model,
+        something(raw, Dict{Any,Float64}()), model_atol)
 
     primal = has_primal ? _relaxation_objective(model, scale, JuMP.objective_value) : NaN
     bound = _relaxation_objective(model, scale, JuMP.objective_bound)
