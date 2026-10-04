@@ -1,6 +1,6 @@
 """Experimental exact static IVR options. Approximate network reduction is never applied.
 
-Supports lines, fixed switches/sources, fixed isolated winding transformers, shunts/grounds, constant-power/impedance loads
+Supports lines, fixed switches/sources/capacitors, fixed isolated winding transformers, shunts/grounds, constant-power/impedance loads
 and generator boxes with coil-based delta dispatch. Costs are linear, in the
 same currency/kWh convention as LinIVR. An optimizer is supplied by the caller.
 `specialization=:conductor_difference` attempts a certified radial zero-sum
@@ -34,7 +34,7 @@ struct IVRNLPBuild
 end
 
 function _ivrn_check(net)
-    for family in ("capacitor","ibr","control_profile")
+    for family in ("ibr","control_profile")
         isempty(get(net,family,Dict())) || _ivrn_refuse("$family is outside the initial static IVR scope")
     end
     for (kind,table) in get(net,"transformer",Dict())
@@ -51,12 +51,13 @@ end
 
 # Unloaded source propagation supplies starts only; it does not constrain any
 # operating currents. All fixed source coordinates are handled by the NLP.
-_ivrn_needs_circuit_start(net)=any(!isempty,values(get(net,"transformer",Dict()))) || !isempty(get(net,"switch",Dict()))
+_ivrn_needs_circuit_start(net)=any(!isempty,values(get(net,"transformer",Dict()))) ||
+    !isempty(get(net,"switch",Dict())) || !isempty(get(net,"capacitor",Dict()))
 
 function _ivrn_start(net,e)
     if _ivrn_needs_circuit_start(net)
         # The unloaded linear circuit retains leakage, excitation, grounding,
-        # impedance loads and fixed switches. It supplies starts only, never
+        # impedance loads, capacitors and fixed switches. It supplies starts only, never
         # NLP constraints. Open switches provide no voltage reference.
         try
             z,_,_=_linivr_reference(e;fixed_coordinates=e.fixed_source_coordinates)

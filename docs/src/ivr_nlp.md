@@ -86,6 +86,16 @@ Results expose `:switch_from` and `:switch_to` currents and powers; supplied-poi
 checks bind the through-current and check both endpoint channels. Switch state
 is fixed equipment data: changing it requires a fresh build.
 
+Fixed capacitors use exact connection-aware susceptances for single-phase,
+wye and delta connections. Scalar `q_rated` is total bank vars, with three-phase
+`v_nom` specified line-to-line; wye coil voltage is therefore `v_nom/sqrt(3)`.
+Array `q_rated` retains the explicit per-coil rating/coil-voltage convention,
+including asymmetric banks. See [capacitor contracts](sdp_static.md) for arity
+and conversion details. Currents and consumed powers appear under `:capacitor`;
+reactive consumption is negative and varies with squared voltage. A rating
+does not create a var cap. Unknown capacitor current/power limits or controls
+are refused. Rating/nominal-voltage changes require a fresh build.
+
 Fixed isolated-winding transformers support `single_phase`, `center_tap`,
 `delta_wye`, `wye_delta` and `n_winding`. The shared winding circuit retains
 leakage, fixed ratios and phase shifts, excitation, neutral grounding and
@@ -106,12 +116,12 @@ changed through the load/generator update APIs.
 Supported objectives are `:cost` (linear currency/kWh coefficients),
 `:source_import` (watts), and `:feasibility`. Inputs and outputs use SI units;
 `s_base` controls internal scaling. Inputs are copied rather than modified.
-Without transformers or switches, each voltage conductor must have a line path to a fixed source, ideal ground,
+Without transformers, switches or capacitors, each voltage conductor must have a line path to a fixed source, ideal ground,
 or finite one-terminal ground. A finite ground supplies only an initial voltage
 guess; its voltage is not fixed and its actual admittance/KCL remain enforced.
-With transformers or switches, a sparse linear circuit solve provides starts using every
+With transformers, switches or capacitors, a sparse linear circuit solve provides starts using every
 fixed source phasor. Constant-power load and generator currents are zero only
-in this initialization; impedance loads, excitation, grounds and closed switches remain active.
+in this initialization; impedance loads, capacitors, excitation, grounds and closed switches remain active.
 It requires unique no-load conductor voltages and rejects inconsistent circuits
 or floating sections, including an unreferenced delta secondary. No artificial
 ground or voltage gauge is inserted. Current-only freedom is allowed in the
@@ -120,7 +130,7 @@ initial solve and retained in the nonlinear model. Diagnostics distinguish
 An open switch cannot provide a voltage reference to a floating island;
 independently supplied sections may have different source phasors.
 
-Autotransformers/regulators, capacitors, static IBRs, control profiles, DC components
+Autotransformers/regulators, static IBRs, control profiles, DC components
 and other load laws are outside this initial scope. They are explicitly refused.
 No topology or Kron reduction is run. User-supplied already-reduced data still
 represent that user's input, not a recovered original network.
@@ -164,8 +174,8 @@ inventory, not proof of completeness for every possible input or future schema.
 bindings, independent circuit witnesses, open islands, reversed terminal maps,
 reverse flow, load reuse and transformer composition.
 
-The remaining static AC element groups are capacitors,
-autotransformers/regulators, static IBRs, and constant-current/ZIP/exponential
+The remaining static AC element groups are autotransformers/regulators,
+static IBRs, and constant-current/ZIP/exponential
 load laws. Controls, tap optimization, DC and time-series semantics require
 additional contracts. Each added group needs physical-state and negative-bound
 tests before its scope gate is removed. Element support also does not establish
@@ -176,6 +186,12 @@ specialization to fall back to full IVR with `:transformer_boundary`. The
 existing line-only proof has not been extended across winding boundaries.
 Switches similarly cause `:switch_boundary` fallback, including open switches.
 If both are present, the transformer-boundary diagnostic takes precedence.
+Capacitors participate in the existing downstream zero-sum connection check.
+Delta, explicit-neutral wye and terminal-pair banks may retain eligibility;
+a downstream phase-earth bank causes `:earth_return_device` fallback even
+when its rating is zero. Root capacitor connections do not eliminate root KCL.
+Capacitor regressions include full/reduced supplied states, nominal and
+off-nominal rating checks, line limits with charging current, and OpenDSS banks.
 
 Bus `v_declared`, `latitude` and `longitude` are retained descriptive annotations.
 `v_declared` must be a positive finite scalar; it does not set source phasors,

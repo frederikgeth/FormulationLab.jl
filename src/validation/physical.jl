@@ -140,7 +140,12 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
             i=current(:generator,id,3);s=v.*conj.(i);inject(d["bus"],tm,i,-1)
             check("generator/$id/three_wire",sum(i),:current)
         elseif family=="capacitor"
-            vn=_vcheck_array(d,"v_nom",n);i=im.*d["q_rated"]./vn.^2 .*u;s=u.*conj.(i);inject(d["bus"],tm,transpose(D)*i)
+            # Independently decode bank ratings (scalar Q, three-phase LL V)
+            # versus the legacy explicit coil-rating/coil-voltage arrays.
+            q=d["q_rated"] isa Real ? fill(d["q_rated"]/n,n) : d["q_rated"]
+            vn=_vcheck_array(d,"v_nom",n)
+            d["q_rated"] isa Real && cfg=="WYE" && (vn=vn./sqrt(3))
+            i=im.*q./vn.^2 .*u;s=u.*conj.(i);inject(d["bus"],tm,transpose(D)*i)
             haskey(point.currents,(:capacitor,id)) && check("capacitor/$id/current",point.currents[(:capacitor,id)]-i,:current)
         else
             i=current(Symbol(family),id,n);s=u.*conj.(i);inject(d["bus"],tm,transpose(D)*i,family=="load" ? 1 : -1)

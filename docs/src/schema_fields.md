@@ -53,6 +53,9 @@ Matrix-pattern fields are also supported: line/linecode `R_series_i_j`,
   generate no control constraints; referenced profiles appear in `omitted_controls`.
   No root control-profile fields execute Volt-VAr, Volt-Watt or power-factor laws.
 - `dc_link_coupled` with `p_dc_min/max` is an internal active-power budget.
+- Capacitor scalar `q_rated` is whole-bank vars and three-phase scalar `v_nom`
+  is line-to-line. The per-coil array-rating/coil-voltage dictionary extension
+  retains its previous meaning; see [capacitor contracts](sdp_static.md).
 - Taps are fixed values (checked against any supplied bounds), or are specified
   by equal bounds. Unequal bounds alone do not introduce a tap decision.
   Transformer and winding `s_rating` are base metadata, not implicit operating

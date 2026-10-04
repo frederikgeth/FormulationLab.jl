@@ -522,12 +522,12 @@ function _bfm_validate(net)
         _bfm_fields(capacitor, ("bus", "terminal_map", "configuration",
             "q_rated", "v_nom"), label)
         device = _bfm_device_positions(net, capacitor, label; allow_delta=true)
-        n = _bfm_channel_count(device, label)
-        q = _bfm_vector(capacitor, "q_rated", n, label)
-        q === nothing && _bfm_refuse("$label requires q_rated")
-        all(>=(0), q) || _bfm_refuse("$label q_rated must be nonnegative")
-        vn = _bfm_vector(capacitor, "v_nom", n, label)
-        vn !== nothing && all(>(0), vn) || _bfm_refuse("$label requires positive v_nom")
+        try
+            _sdp_capacitor_plan(net, capacitor, label)
+        catch err
+            err isa SDPInapplicableError || rethrow()
+            _bfm_refuse(err.message)
+        end
     end
     for (subtype, table) in get(net, "transformer", Dict()), (id, data) in table
         kind = String(subtype)
@@ -2086,11 +2086,10 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         device = _bfm_device_positions(net, capacitor, "capacitor/$id";
             allow_delta=true)
         n = _bfm_channel_count(device, "capacitor/$id")
-        q = _bfm_vector(capacitor, "q_rated", n, "capacitor/$id")
-        vn = _bfm_vector(capacitor, "v_nom", n, "capacitor/$id")
+        capacitor_plan = _sdp_capacitor_plan(net, capacitor, "capacitor/$id")
         D = _bfm_connection(net, device, n, "capacitor/$id")
         W = voltage_moments[device.bus]
-        factors = -im .* q ./ sb .* (vb ./ vn).^2
+        factors = -im .* capacitor_plan.b .* zb
         C = Any[sum(W[a, b] * D[k, b] for b in axes(W, 2)) * factors[k]
                 for a in axes(W, 1), k in 1:n]
         coil = Any[sum(D[k, a] * C[a, h] for a in axes(W, 1))
@@ -2101,7 +2100,7 @@ function build_branch_flow_sdp(input, optimizer=default_sdp_optimizer();
         _bfm_add_matrix!(balance[device.bus], terminal)
         push!(component_records, (; family=:capacitor, id=String(id),
             bus=device.bus, D, block=nothing, C, J=nothing, law=:capacitor,
-            admittance=im .* q ./ vn.^2, current_kind=:coil))
+            admittance=im .* capacitor_plan.b, current_kind=:coil))
     end
 
     for (id, switch) in sort!(collect(get(net, "switch", Dict())); by=first)

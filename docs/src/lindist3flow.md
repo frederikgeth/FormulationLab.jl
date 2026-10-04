@@ -591,7 +591,8 @@ closure or omitted-series-loss approximation.
 - **Closed switch → zero-impedance line.** A closed ideal switch is a branch
   with no series drop. An open switch is removed; if that leaves a subnetwork
   unenergized, the island check reports it rather than this pass guessing.
-- **Fixed capacitor → fixed shunt.** ``B = q_{rated}/v_{nom}^2`` per coil, and
+- **Fixed capacitor → fixed shunt.** ``B = q_{coil}/v_{coil}^2`` after decoding
+  total-bank scalar or per-coil array ratings (see [capacitor contracts](sdp_static.md)), and
   for a delta bank ``D^{\mathsf T}\operatorname{diag}(b)D`` — the terminal
   admittance matrix of the same three coils. BMOPF capacitors carry no switching
   state, so nothing is assumed.

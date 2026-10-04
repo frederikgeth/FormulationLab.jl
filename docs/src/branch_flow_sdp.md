@@ -418,6 +418,9 @@ Fixed capacitors are exact connection-aware admittances. With rated reactive
 power ``q`` and nominal coil voltage ``v^{nom}``, their current is
 ``\mathrm j(q/(v^{nom})^2)D_dU_i``; consumed coil power is therefore negative
 reactive power.
+Scalar bank ratings are converted from total vars and three-phase line-line
+nominal voltage before this equation is applied. Array ratings retain the
+per-coil convention described in [capacitor contracts](sdp_static.md).
 A closed switch has a local block enforcing equal mapped endpoint voltages and
 opposite through currents, including endpoint current/apparent-power ratings.
 An open switch has zero endpoint current and no voltage equality. Merely

@@ -27,9 +27,25 @@ U_d=D_dU_i,\qquad J_d=\mathrm j\,\operatorname{Diag}(q^{rated}/(v^{nom})^2)U_d,
 ```
 
 Wye, delta, and single terminal-pair connections retain their return paths.
-`q_rated` is a nonnegative per-coil array; `v_nom` may be scalar or per-coil.
+The shared static IVR and branch-flow models distinguish two input contracts:
+
+- Scalar `q_rated` is the nonnegative **whole-bank** var rating. Scalar `v_nom`
+  is line-to-line for three-phase WYE and DELTA, and element voltage for
+  SINGLE_PHASE. A three-phase bank has `q_coil = q_rated/3`; wye coil voltage
+  is `v_nom/sqrt(3)` and delta coil voltage is `v_nom`. Scalar WYE/DELTA bank
+  data require exactly three coils.
+- Array `q_rated` retains the legacy dictionary extension: nonnegative
+  **per-coil** ratings, with `v_nom` specifying positive coil voltages as a
+  scalar or matching array. This supports asymmetric and partial banks.
+
+The equation above uses the decoded coil ratings and coil voltages. L3F's
+capacitor-to-shunt lowering uses the same conversion; its surrounding network
+model remains an approximation. No input data are rewritten to conflate the
+two contracts. Separate Kron grounded-capacitor conversion still requires its
+documented vector-rating/scalar-coil-voltage input.
 The result `:capacitor` contains consumed coil powers, so an energized capacitor
-has negative reactive consumption. It is not a constant-Q generator.
+has negative reactive consumption. Its var output scales with squared coil
+voltage; `q_rated` is not an operating cap or a constant-Q setpoint.
 
 ## Grounding
 

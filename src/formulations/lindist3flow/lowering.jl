@@ -98,7 +98,8 @@ end
 """
 Fixed capacitor banks become fixed shunt susceptance.
 
-`B = q_rated / v_nom^2` per coil. For a delta bank the coil admittances are
+After decoding bank or per-coil nameplate data, `B = q_coil / v_coil^2`.
+For a delta bank the coil admittances are
 referred to the terminals by ``D^{T}\\operatorname{diag}(b)D``. BMOPF capacitors
 carry no switching state, so this preserves the canonical L3F component model;
 it does not make the surrounding LinDist3Flow equations exact AC physics.
@@ -112,14 +113,12 @@ function _l3f_lower_capacitors!(findings, net)
         capacitor isa AbstractDict || continue
         try
             tm = string.(capacitor["terminal_map"])
-            q = Float64.(capacitor["q_rated"])
-            v_nom = Float64(capacitor["v_nom"])
-            isfinite(v_nom) && v_nom > 0 ||
-                throw(ArgumentError("v_nom must be positive and finite"))
-            all(isfinite, q) || throw(ArgumentError("q_rated must be finite"))
-            cfg = uppercase(String(get(capacitor, "configuration", "WYE")))
-            D = _l3f_connection_incidence(cfg, length(tm), length(q))
-            Y = transpose(D) * Diagonal(q ./ v_nom^2) * D
+            # Keep L3F's legacy omitted-configuration default on its owned
+            # lowering view; other formulations require the explicit field.
+            data = haskey(capacitor, "configuration") ? capacitor :
+                merge(capacitor, Dict("configuration" => "WYE"))
+            plan = _sdp_capacitor_plan(net, data, "capacitor/$cid")
+            Y = transpose(plan.D) * Diagonal(plan.b) * plan.D
             id = _l3f_derived("capacitor", cid)
             shunt = Dict{String,Any}("bus" => String(capacitor["bus"]),
                                      "terminal_map" => tm)
@@ -131,7 +130,7 @@ function _l3f_lower_capacitors!(findings, net)
             _l3f_info!(findings, "L.L3F.CAPACITOR_LOWERED", :capacitor, cid,
                 "fixed capacitor represented in the canonical L3F model as the " *
                 "shunt '$id' with " *
-                "B = q_rated / v_nom^2";
+                "B = q_coil / v_coil^2 after bank/coil rating conversion";
                 evidence=Dict("shunt" => id))
         catch err
             _l3f_error!(findings, "E.L3F.CAPACITOR_INVALID", :capacitor, cid,

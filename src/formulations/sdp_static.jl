@@ -50,6 +50,42 @@ function _sdp_connection(net,bus,tm,cfg,n;roll=1,neutral=get(_kr_neutral_map(net
     _l3f_connection_incidence(cfg,length(tm),n)
 end
 
+# Scalar ratings follow the pinned schema's whole-bank / line-line convention.
+# Arrays retain the explicit per-coil dictionary contract, including coil volts.
+# Do not broadcast a scalar bank rating to every coil.
+function _sdp_capacitor_plan(net,d,label)
+    _sdp_fields(d,("bus","terminal_map","configuration","q_rated","v_nom"),label)
+    all(haskey(d,k) for k in ("bus","terminal_map","configuration","q_rated","v_nom")) ||
+        _sdp_refuse("$label requires bus, terminal_map, configuration, q_rated and v_nom")
+    d["configuration"] isa AbstractString || _sdp_refuse("$label requires a named configuration")
+    tm=d["terminal_map"];cfg=uppercase(d["configuration"])
+    cfg in ("SINGLE_PHASE","WYE","DELTA") || _sdp_refuse("$label unknown configuration")
+    nt=get(_kr_neutral_map(net),d["bus"],nothing)
+    n=cfg=="SINGLE_PHASE" || cfg=="DELTA" && length(tm)==2 ? 1 :
+        cfg=="DELTA" ? 3 : count(!=(nt),tm)
+    n>0 || _sdp_refuse("$label requires a capacitor connection")
+    D=_sdp_connection(net,d["bus"],tm,cfg,n;neutral=nt)
+    raw=d["q_rated"];volts=d["v_nom"]
+    valid(x)=x isa Real && !(x isa Bool) && isfinite(x)
+    if raw isa Real
+        valid(raw) && raw>=0 || _sdp_refuse("$label invalid bank rating")
+        valid(volts) && volts>0 || _sdp_refuse("$label bank rating requires positive scalar v_nom")
+        cfg=="SINGLE_PHASE" || n==3 || _sdp_refuse("$label scalar WYE/DELTA rating requires three coils")
+        q=fill(Float64(raw)/n,n)
+        vn=fill(Float64(volts)/(cfg=="WYE" ? sqrt(3) : 1),n)
+    else
+        raw isa AbstractVector && length(raw)==n && all(x->valid(x)&&x>=0,raw) ||
+            _sdp_refuse("$label q_rated requires $n nonnegative coil ratings")
+        v=volts isa Real ? fill(volts,n) : volts
+        v isa AbstractVector && length(v)==n && all(x->valid(x)&&x>0,v) ||
+            _sdp_refuse("$label v_nom requires positive coil voltages")
+        q=Float64.(raw);vn=Float64.(v)
+    end
+    b=q./vn.^2
+    all(isfinite,b) || _sdp_refuse("$label nonfinite susceptance")
+    (;D,b)
+end
+
 # Stamps an internal neutral-earth branch, including an exact ideal ground.
 # Return its current separately so winding and terminal ratings are distinguishable.
 function _sdp_ground!(d,rkey,xkey,neutral_index,v,newvar,equations,zb)
@@ -84,15 +120,11 @@ function _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,de
         end
     end
     for (id,d) in get(net,"capacitor",Dict())
-        _sdp_fields(d,("bus","terminal_map","configuration","q_rated","v_nom"),"capacitor/$id")
-        q=Float64.(d["q_rated"]);n=length(q)
-        all(x->isfinite(x)&&x>=0,q) || _sdp_refuse("capacitor/$id invalid rating")
-        vn=_sdp_vector(d,"v_nom",n);vn!==nothing && all(>(0),vn) || _sdp_refuse("capacitor/$id requires positive v_nom")
+        p=_sdp_capacitor_plan(net,d,"capacitor/$id")
         tm=d["terminal_map"];v=terminal_rows(d["bus"],tm)
-        D=_sdp_connection(net,d["bus"],tm,uppercase(d["configuration"]),n)
-        u=matrows(D,v);i=[_sdp_add!(_SDPRow(),u[k],im*q[k]/vn[k]^2*zb) for k in 1:n]
-        inject(d["bus"],tm,matrows(transpose(D),i))
-        push!(devices,(:capacitor,id,u,i,Dict()))
+        u=matrows(p.D,v);i=[_sdp_add!(_SDPRow(),u[k],im*p.b[k]*zb) for k in eachindex(u)]
+        inject(d["bus"],tm,matrows(transpose(p.D),i))
+        push!(devices,(:capacitor,id,u,i,d))
     end
 end
 
