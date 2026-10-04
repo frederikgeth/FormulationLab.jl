@@ -9,6 +9,8 @@ reduced representation is accepted only when reconstruction matches the supplied
 state. Also use `physical_residuals` for independent original-network physics.
 Transformer coil currents are bound directly; ideal winding-ground currents
 are derived from supplied terminal currents and the already bound coil state.
+IBR coil currents are derived from supplied internal filter currents and voltages;
+the PCC current channels are then checked independently.
 Closed-switch through currents bind directly from `:switch_from`; the opposite
 endpoint and both open-switch zero-current channels are checked independently.
 
@@ -52,10 +54,11 @@ function ivr_nlp_point_report(build::IVRNLPBuild,point::ACPoint;atol=1e-7)
     end
     # Isolated winding terminal currents reveal any ideal-ground branch
     # current after the supplied coil currents and voltages have been bound.
+    # IBR internal currents similarly reveal coil currents once voltages are bound.
     # Solve only a single remaining coordinate, without a least-squares fit or
     # changes to observed channels. All terminal bindings are checked below.
     for (f,id,_,rows,_) in e.devices
-        f in (:transformer_from,:transformer_to,:transformer_winding) || continue
+        f in (:transformer_from,:transformer_to,:transformer_winding,:ibr_internal) || continue
         observed=current(f,id,length(rows))/e.ib
         for (row,value) in zip(rows,observed)
             unknown=[k for k in keys(row) if !isfinite(z[k])]

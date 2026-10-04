@@ -1,7 +1,9 @@
 """Experimental exact static IVR options. Approximate network reduction is never applied.
 
 Supports lines, fixed switches/sources/capacitors, fixed isolated winding transformers, shunts/grounds, constant-power/impedance loads
-and generator boxes with coil-based delta dispatch. Costs are linear, in the
+and generator boxes with coil-based delta dispatch. Static IBRs use conductor-rated
+THREE_LEG dispatch, fixed filters, capability bounds and optional internal-voltage
+setpoints; control profiles are unsupported. Costs are linear, in the
 same currency/kWh convention as LinIVR. An optimizer is supplied by the caller.
 `specialization=:conductor_difference` attempts a certified radial zero-sum
 current reduction and retains reference-conductor voltages. Ineligible networks
@@ -34,7 +36,7 @@ struct IVRNLPBuild
 end
 
 function _ivrn_check(net)
-    for family in ("ibr","control_profile")
+    for family in ("control_profile",)
         isempty(get(net,family,Dict())) || _ivrn_refuse("$family is outside the initial static IVR scope")
     end
     for (kind,table) in get(net,"transformer",Dict())
@@ -43,16 +45,72 @@ function _ivrn_check(net)
             _ivrn_refuse("transformer/$kind is outside the fixed isolated-winding IVR scope")
     end
     _sdp_check(net)
+    for (id,d) in get(net,"ibr",Dict())
+        _ivrn_check_ibr(net,id,d)
+    end
     for (id,d) in get(net,"load",Dict())
         lowercase(get(d,"model","constant_power")) in ("constant_power","constant_impedance") ||
             _ivrn_refuse("load/$id requires constant_power or constant_impedance")
     end
 end
 
+function _ivrn_check_ibr(net,id,d)
+    label="ibr/$id"
+    all(haskey(d,k) for k in ("bus","terminal_map","topology","s_max")) ||
+        _ivrn_refuse("$label requires bus, terminal_map, topology and s_max")
+    any(haskey(d,k) for k in ("control_profile","voltage_aggregation")) &&
+        _ivrn_refuse("$label control profiles and voltage aggregation are not evaluated")
+    for field in ("grid_forming","dc_link_coupled")
+        get(d,field,false) isa Bool || _ivrn_refuse("$label $field must be Boolean")
+    end
+    valid(x)=x isa Real && !(x isa Bool) && isfinite(x)
+    ratings=d["s_max"]
+    ratings isa AbstractVector && !isempty(ratings) && all(x->valid(x)&&x>=0,ratings) ||
+        _ivrn_refuse("$label s_max must be a nonnegative finite vector")
+    n=length(ratings);tm=d["terminal_map"];top=d["topology"]
+    nt=get(_kr_neutral_map(net),d["bus"],nothing)
+    if top=="THREE_LEG"
+        n==3 && length(tm)==3 && !(nt in tm) || _ivrn_refuse("$label THREE_LEG requires three phase conductors")
+    elseif top=="FOUR_LEG"
+        nt in tm && length(tm)==n+1 || _ivrn_refuse("$label FOUR_LEG requires an explicit neutral return")
+    elseif top=="SINGLE_PHASE"
+        n==1 && length(tm) in (1,2) || _ivrn_refuse("$label SINGLE_PHASE requires one connection channel")
+    else
+        _ivrn_refuse("$label unknown topology")
+    end
+    for field in ("p_min","p_max","q_min","q_max","cost","energy_cost_rate","i_max","r_filter","x_filter")
+        haskey(d,field) || continue
+        raw=d[field];xs=raw isa Real ? [raw] : raw
+        xs isa AbstractVector && all(valid,xs) || _ivrn_refuse("$label $field must be finite real values")
+        if field in ("r_filter","x_filter")
+            raw isa Real || length(xs)==n || _ivrn_refuse("$label $field must match channels")
+        elseif field=="i_max"
+            length(xs) in (n,length(tm)) || _ivrn_refuse("$label i_max must match phases or terminals")
+            all(>=(0),xs) || _ivrn_refuse("$label negative current rating")
+        else
+            length(xs)==n || _ivrn_refuse("$label $field must match phases")
+        end
+    end
+    for field in ("p_avail","p_dc_min","p_dc_max","b_filter_shunt","v_ref_internal")
+        haskey(d,field) && !valid(d[field]) && _ivrn_refuse("$label $field must be a finite scalar")
+    end
+    for (lo,hi) in (("p_min","p_max"),("q_min","q_max"),("p_dc_min","p_dc_max"))
+        haskey(d,lo) && haskey(d,hi) && any(d[lo].>d[hi]) && _ivrn_refuse("$label inverted $lo/$hi bounds")
+    end
+    haskey(d,"p_avail") && d["p_avail"]<0 && _ivrn_refuse("$label negative availability")
+    any(haskey(d,k) for k in ("p_dc_min","p_dc_max")) && !get(d,"dc_link_coupled",false) &&
+        _ivrn_refuse("$label DC-link limits require dc_link_coupled=true")
+    if get(d,"grid_forming",false)
+        get(d,"v_ref_internal",0)>0 || _ivrn_refuse("$label requires positive v_ref_internal")
+    elseif haskey(d,"v_ref_internal")
+        _ivrn_refuse("$label v_ref_internal requires grid_forming=true")
+    end
+end
+
 # Unloaded source propagation supplies starts only; it does not constrain any
 # operating currents. All fixed source coordinates are handled by the NLP.
 _ivrn_needs_circuit_start(net)=any(!isempty,values(get(net,"transformer",Dict()))) ||
-    !isempty(get(net,"switch",Dict())) || !isempty(get(net,"capacitor",Dict()))
+    !isempty(get(net,"switch",Dict())) || !isempty(get(net,"capacitor",Dict())) || !isempty(get(net,"ibr",Dict()))
 
 function _ivrn_start(net,e)
     if _ivrn_needs_circuit_start(net)
@@ -176,7 +234,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.specialization in (:off,:conductor_difference) || throw(ArgumentError("unknown IVRNLP specialization"))
     net=_l3f_input(input);_ivrn_check(net)
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
-                           delta_dispatch=:coil,source_mode=:affine)
+                           delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine)
     z0=_ivrn_start(net,e)
     report,plan=options.specialization==:off ? ((;status=:disabled,code=:disabled,components=String[]),nothing) : _ivrn_structure(net,e)
     maps=_ivrn_coordinates(e,plan)
@@ -224,7 +282,34 @@ function _build_ivr_nlp_opf(input,optimizer,options)
             cp=[@constraint(model,p[k]==pn[k]/e.sb) for k in 1:count]
             cq=[@constraint(model,q[k]==qn[k]/e.sb) for k in 1:count]
             loads[id]=(;p=cp,q=cq)
-        elseif family in (:generator,:voltage_source)
+        elseif family==:ibr_internal
+            if get(d,"dc_link_coupled",false)
+                if haskey(d,"p_dc_min") && haskey(d,"p_dc_max") && d["p_dc_min"]==d["p_dc_max"]
+                    @constraint(model,sum(p)==d["p_dc_min"]/e.sb)
+                else
+                    for (field,lower) in (("p_dc_min",true),("p_dc_max",false))
+                        haskey(d,field) || continue
+                        bound=d[field]/e.sb
+                        lower ? @constraint(model,sum(p)>=bound) : @constraint(model,sum(p)<=bound)
+                    end
+                end
+            end
+            if get(d,"grid_forming",false)
+                ref=d["v_ref_internal"]/e.vb
+                for row in v
+                    if all(haskey(e.fixed_source_coordinates,k) for k in keys(row))
+                        known=sum((a*e.fixed_source_coordinates[k] for (k,a) in row);init=0im)
+                        isapprox(abs(known),ref;rtol=1e-12,atol=0) || _ivrn_refuse("ibr/$id internal voltage conflicts with fixed source")
+                        continue
+                    end
+                    u=_linivr_eval(row,z)
+                    @constraint(model,(real(u)/ref)^2+(imag(u)/ref)^2==1)
+                end
+            end
+        elseif family in (:generator,:voltage_source,:ibr)
+            if family==:ibr && haskey(d,"p_avail")
+                @constraint(model,sum(p)<=d["p_avail"]/e.sb)
+            end
             for (lo,hi,x) in (("p_min","p_max",p),("q_min","q_max",q))
                 low=family==:voltage_source ? get(d,lo,nothing) : e.values_for(d,lo,count)
                 high=family==:voltage_source ? get(d,hi,nothing) : e.values_for(d,hi,count)
@@ -272,7 +357,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     @objective(model,Min,objective/e.sb)
     unavailable=[(id,t) for (id,d) in net["voltage_source"] for t in d["terminal_map"]
                  if e.voltage[(d["bus"],t)]==0]
-    diagnostics=Dict{Symbol,Any}(:power_model=>:exact,:delta_dispatch=>:coil,
+    diagnostics=Dict{Symbol,Any}(:power_model=>:exact,:delta_dispatch=>:coil,:ibr_delta_dispatch=>:conductor,
         :specialization=>plan===nothing ? :off : :conductor_difference,
         :specialization_report=>report,:structure_analysis_count=>options.specialization==:off ? 0 : 1,
         :network_reduction=>:off,:assembly_count=>1,

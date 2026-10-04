@@ -15,9 +15,7 @@ using FormulationLab, Ipopt
 build = build_opf(input, IVRNLP(objective=:source_import);
                   optimizer=Ipopt.Optimizer)
 result = solve_ivr_nlp_opf(build; solver_options=(print_level=0,))
-audit = physical_residuals(build.network,
-    ACPoint(voltage=result.voltage_candidate, currents=result.current_candidate);
-    delta_dispatch=:coil)
+audit = physical_residuals(build.network, result)
 
 # SI watts and vars, with one entry per connection channel.
 update_ivr_loads!(build, Dict("load_id" => (p=[1000.0], q=[200.0])))
@@ -72,8 +70,8 @@ constant-power and constant-impedance loads, and generator P/Q boxes. Wye,
 delta and single-phase connection maps are retained. Physical limits include
 conductor current, apparent power, phase-ground, phase-neutral, phase-phase,
 neutral and supported sequence-voltage magnitudes. Lower voltage magnitudes
-are exact nonconvex inequalities. Delta device dispatch and ratings use coil
-semantics consistently with `physical_residuals(...; delta_dispatch=:coil)`.
+are exact nonconvex inequalities. Delta-generator dispatch and ratings use coil
+semantics; THREE_LEG IBR port limits use conductor quantities as described below.
 Line current limits apply to total endpoint currents including shunts.
 
 Fixed switches require a Boolean `open_switch`. A closed switch equates
@@ -96,6 +94,35 @@ reactive consumption is negative and varies with squared voltage. A rating
 does not create a var cap. Unknown capacitor current/power limits or controls
 are refused. Rating/nominal-voltage changes require a fresh build.
 
+Static IBRs support `SINGLE_PHASE`, explicit-neutral `FOUR_LEG`, and three-phase
+`THREE_LEG`. `s_max` is a required nonnegative phase vector. P/Q boxes, total PCC
+`p_avail`, conductor/return `i_max`, and linear phase prices remain active.
+Missing P/Q bounds do not introduce implicit prime-mover restrictions; `prime_mover`
+is descriptive. A phase-only FOUR_LEG current vector leaves its neutral unrated;
+include the return entry to constrain it. THREE_LEG P/Q, apparent power, current
+and prices use **PCC conductor** quantities, unlike delta-generator coil dispatch.
+
+The internal circuit retains the shared winding-filter convention: THREE_LEG
+uses delta coils, FOUR_LEG uses phase-neutral coils, and SINGLE_PHASE uses its
+terminal pair (or earth return). In SI units, `Jf = Icoil + im*B*Ucoil` and
+`E = Ucoil + Z*Jf`. Filter parameters and `v_ref_internal` refer to those coil
+channels. `:ibr` exposes PCC port currents/powers; `:ibr_internal` exposes filter
+coil currents and internal powers. `dc_link_coupled=true` applies scalar
+`p_dc_min/max` to the **sum of internal active powers**, including copper loss.
+It does not create a DC network. `grid_forming=true` fixes each internal coil
+voltage magnitude to positive `v_ref_internal`; it is a static algebraic setpoint,
+not droop, a dynamic controller or an island voltage-angle reference.
+
+Control-profile references, voltage aggregation, external DC ports and controls
+are explicitly refused. Inverter equipment, capability and price changes require
+a fresh build; the generator update API does not update IBRs. Load reuse retains
+the IBR equations and bounds. Use `physical_residuals(net, result)` for exact-IVR
+results; for a supplied `ACPoint`, specify both `delta_dispatch=:coil` and
+`ibr_delta_dispatch=:conductor`. The latter defaults to `delta_dispatch` for
+backward compatibility with older formulation callers. Diagnostics expose both
+conventions. This is the declared native static contract, not complete schema
+or control-model coverage.
+
 Fixed isolated-winding transformers support `single_phase`, `center_tap`,
 `delta_wye`, `wye_delta` and `n_winding`. The shared winding circuit retains
 leakage, fixed ratios and phase shifts, excitation, neutral grounding and
@@ -116,11 +143,11 @@ changed through the load/generator update APIs.
 Supported objectives are `:cost` (linear currency/kWh coefficients),
 `:source_import` (watts), and `:feasibility`. Inputs and outputs use SI units;
 `s_base` controls internal scaling. Inputs are copied rather than modified.
-Without transformers, switches or capacitors, each voltage conductor must have a line path to a fixed source, ideal ground,
+Without transformers, switches, capacitors or IBRs, each voltage conductor must have a line path to a fixed source, ideal ground,
 or finite one-terminal ground. A finite ground supplies only an initial voltage
 guess; its voltage is not fixed and its actual admittance/KCL remain enforced.
-With transformers, switches or capacitors, a sparse linear circuit solve provides starts using every
-fixed source phasor. Constant-power load and generator currents are zero only
+With transformers, switches, capacitors or IBRs, a sparse linear circuit solve provides starts using every
+fixed source phasor. Constant-power load, generator and IBR PCC currents are zero only
 in this initialization; impedance loads, capacitors, excitation, grounds and closed switches remain active.
 It requires unique no-load conductor voltages and rejects inconsistent circuits
 or floating sections, including an unreferenced delta secondary. No artificial
@@ -130,7 +157,7 @@ initial solve and retained in the nonlinear model. Diagnostics distinguish
 An open switch cannot provide a voltage reference to a floating island;
 independently supplied sections may have different source phasors.
 
-Autotransformers/regulators, static IBRs, control profiles, DC components
+Autotransformers/regulators, control profiles, DC components
 and other load laws are outside this initial scope. They are explicitly refused.
 No topology or Kron reduction is run. User-supplied already-reduced data still
 represent that user's input, not a recovered original network.
@@ -150,6 +177,8 @@ the independent SI auditor:
 | Fixed switch | `i_max`, `s_max` | Conductor current and terminal-ground apparent power at both ends, including neutral; zero ratings are supported |
 | Generator | `p_min`, `p_max`, `q_min`, `q_max`, `s_max` | Connection-channel power, including delta **coil** power |
 | Generator | `i_max` | Coil current, or terminal current when an explicit return-conductor entry is supplied; three-coil delta ratings use coil current |
+| IBR PCC | `p_min`, `p_max`, `q_min`, `q_max`, `s_max`, `i_max`, `p_avail` | Phase-port power/current and total active availability; THREE_LEG uses conductor ports; optional FOUR_LEG neutral current entry |
+| IBR internal | `p_dc_min`, `p_dc_max`, `v_ref_internal` | Coupled total internal active power including filter loss; fixed internal coil voltage magnitude when enabled |
 | Voltage source | `p_min`, `p_max`, `q_min`, `q_max` | Per-phase or full-terminal power arrays |
 | Voltage source | `s_max`, `i_max` | Phase apparent power; terminal current only when no source terminal is ideally grounded |
 | Ordinary fixed transformer | `i_max_from`, `i_max_to` | Delta-side coil current; other-side terminal current |
@@ -174,8 +203,8 @@ inventory, not proof of completeness for every possible input or future schema.
 bindings, independent circuit witnesses, open islands, reversed terminal maps,
 reverse flow, load reuse and transformer composition.
 
-The remaining static AC element groups are autotransformers/regulators,
-static IBRs, and constant-current/ZIP/exponential
+The remaining static AC element groups are autotransformers/regulators
+and constant-current/ZIP/exponential
 load laws. Controls, tap optimization, DC and time-series semantics require
 additional contracts. Each added group needs physical-state and negative-bound
 tests before its scope gate is removed. Element support also does not establish
@@ -192,6 +221,10 @@ a downstream phase-earth bank causes `:earth_return_device` fallback even
 when its rating is zero. Root capacitor connections do not eliminate root KCL.
 Capacitor regressions include full/reduced supplied states, nominal and
 off-nominal rating checks, line limits with charging current, and OpenDSS banks.
+IBRs also participate in the zero-sum connection proof; implicit earth-return
+devices cause fallback. IBR tests hold supplied states fixed while violating
+every supported limit, including internal voltage and shared-link budgets,
+and cover signed dispatch, filters, neutral ratings and full/reduced forms.
 
 Bus `v_declared`, `latitude` and `longitude` are retained descriptive annotations.
 `v_declared` must be a positive finite scalar; it does not set source phasors,

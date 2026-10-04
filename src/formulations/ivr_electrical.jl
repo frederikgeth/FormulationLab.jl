@@ -3,8 +3,9 @@
 # No Kron reduction, power approximation, lifting, or operational-bound tightening.
 function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
                               line_records=false, delta_dispatch=:conductor,
-                              source_mode=:homogeneous)
+                              source_mode=:homogeneous, ibr_delta_dispatch=delta_dispatch)
     delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown delta dispatch convention"))
+    ibr_delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown IBR dispatch convention"))
     source_mode in (:homogeneous,:affine) || throw(ArgumentError("unknown source mode"))
     candidates=[d for (_,d) in sort!(collect(net["voltage_source"]);by=first) if any(!iszero,d["v_magnitude"])]
     isempty(candidates) && _sdp_refuse("at least one nonzero reference phasor is required")
@@ -165,7 +166,8 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         end
         # Preserve the existing SDP conductor-power convention by default.
         # LinIVR selects coil powers, matching BMOPFTools' delta dispatch.
-        conductor_dispatch=delta_dispatch==:conductor && cfg=="DELTA" && length(tm)==3
+        dispatch=family=="ibr" ? ibr_delta_dispatch : delta_dispatch
+        conductor_dispatch=dispatch==:conductor && cfg=="DELTA" && length(tm)==3
         port_v,port_i = family in ("generator","ibr") && conductor_dispatch ?
             (vr,terminal_current) : (vc,ic)
         push!(devices,(Symbol(family),id,port_v,port_i,d))
@@ -173,7 +175,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
             bounds=Dict(k=>d[k] for k in ("s_max",) if haskey(d,k))
             if haskey(d,"i_max")
                 imax=d["i_max"]
-                if cfg=="DELTA" && delta_dispatch==:coil && length(imax)==n
+                if cfg=="DELTA" && dispatch==:coil && length(imax)==n
                     bounds["i_max"]=imax
                 elseif length(imax)==length(tm)
                     push!(limits,(vr,terminal_current,Dict("i_max"=>imax)))

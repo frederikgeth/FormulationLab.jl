@@ -13,6 +13,7 @@ using OpenDSSDirect
     include("ivr_switch_tests.jl")
     include("ivr_capacitor_tests.jl")
     include("ivr_capacitor_opendss_tests.jl")
+    include("ivr_ibr_tests.jl")
     include("sdp_tests.jl")
     include("branch_flow_sdp_tests.jl")
     include("branch_flow_sdp_extended_tests.jl")

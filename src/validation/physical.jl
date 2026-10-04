@@ -5,6 +5,11 @@ physical_residuals(input,result::LinIVRResult;kwargs...)=physical_residuals(inpu
     ACPoint(voltage=result.voltage_candidate,currents=result.current_candidate);
     delta_dispatch=:coil,kwargs...)
 
+"""Check exact IVR with coil delta generators and conductor-rated THREE_LEG IBRs."""
+physical_residuals(input,result::IVRNLPResult;kwargs...)=physical_residuals(input,
+    ACPoint(voltage=result.voltage_candidate,currents=result.current_candidate);
+    delta_dispatch=:coil,ibr_delta_dispatch=:conductor,kwargs...)
+
 _vcheck_array(d,k,n,default=0.0)=haskey(d,k) ? (d[k] isa Number ? fill(Float64(d[k]),n) : Float64.(d[k])) : fill(default,n)
 function _vcheck_matrix(d,prefix,n;symmetric=false)
     M=zeros(n,n)
@@ -36,12 +41,16 @@ _vcheck_incidence(pairs,n)=[Float64(k==i)-Float64(k==j) for (i,j) in pairs,k in 
 limit violations and explicit unassessed items. No optimization and no compiled
 formulation expressions are used. A partial assessment never reports `passed`.
 Currently covers buses, sources, lines, loads, generators, fixed switches,
-shunts/capacitors fixed transformer winding networks and static IBR filters/capabilities. `atol` is a named tuple of V, A and VA tolerances.
+shunts/capacitors, fixed transformer winding networks and static IBR filters/capabilities.
+`atol` is a named tuple of V, A and VA tolerances.
 `delta_dispatch=:coil` selects BMOPFTools/LinIVR delta coil powers and currents;
 the default `:conductor` preserves the existing SDP result convention.
+`ibr_delta_dispatch` defaults to the same convention but can be selected separately.
+For exact IVR, pass the typed result to select coil generators and conductor IBRs.
 """
-function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6,power=1e-3),delta_dispatch=:conductor)
+function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6,power=1e-3),delta_dispatch=:conductor,ibr_delta_dispatch=delta_dispatch)
     delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown delta dispatch convention"))
+    ibr_delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown IBR dispatch convention"))
     net=input isa BMOPFInput ? _l3f_input(input) : input
     records=NamedTuple[];unassessed=String[]
     V(b,tm)=[get(point.voltage,(b,t),ComplexF64(NaN)) for t in tm]
@@ -191,14 +200,14 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
         D=_vcheck_incidence(_vcheck_pairs(net,d["bus"],tm,cfg,n),length(tm));v=V(d["bus"],tm);u=D*v
         i=current(:ibr,id,n);jf=current(:ibr_internal,id,n)
         coil=jf-im*get(d,"b_filter_shunt",0.).*u
-        terminal_i=top=="THREE_LEG" && delta_dispatch==:conductor ? i : transpose(D)*i
+        terminal_i=top=="THREE_LEG" && ibr_delta_dispatch==:conductor ? i : transpose(D)*i
         check("ibr/$id/filter_current",transpose(D)*coil-terminal_i,:current)
         e=u+complex.(_vcheck_array(d,"r_filter",n),_vcheck_array(d,"x_filter",n)).*jf
-        s=(top=="THREE_LEG" && delta_dispatch==:conductor ? v : u).*conj.(i);internal=e.*conj.(jf)
+        s=(top=="THREE_LEG" && ibr_delta_dispatch==:conductor ? v : u).*conj.(i);internal=e.*conj.(jf)
         inject(d["bus"],tm,terminal_i,-1)
         bounds(d,real.(s),"p_min","p_max","ibr/$id",:power);bounds(d,imag.(s),"q_min","q_max","ibr/$id",:power)
         bounds(d,abs.(s),"__none","s_max","ibr/$id",:power)
-        rated=top=="THREE_LEG" && delta_dispatch==:coil ? i :
+        rated=top=="THREE_LEG" && ibr_delta_dispatch==:coil ? i :
             haskey(d,"i_max") && length(d["i_max"])==length(terminal_i) ? terminal_i : i
         bounds(d,abs.(rated),"__none","i_max","ibr/$id",:current)
         bounds(d,[sum(real,s)],"__none","p_avail","ibr/$id",:power)

@@ -69,11 +69,12 @@ function _ivrn_structure(net,e)
         sort!(collect(setdiff(Set(keys(net["bus"])),Set(queue)))))
     isempty(visited_edges) && return decline(:no_lines,[root])
     for (family,id,_,currents,d) in e.devices
-        family in (:load,:generator,:capacitor) || continue
+        family in (:load,:generator,:capacitor,:ibr) || continue
         # Root KCL is retained in full. Only downstream device identities are
         # needed for the subtree proof; root devices may exchange with earth.
         d["bus"]==root && continue
-        D=_sdp_connection(net,d["bus"],d["terminal_map"],uppercase(d["configuration"]),length(currents);
+        cfg=family==:ibr ? Dict("FOUR_LEG"=>"WYE","THREE_LEG"=>"DELTA","SINGLE_PHASE"=>"SINGLE_PHASE")[d["topology"]] : uppercase(d["configuration"])
+        D=_sdp_connection(net,d["bus"],d["terminal_map"],cfg,length(currents);
                           neutral=get(neutral,d["bus"],nothing))
         all(iszero,sum(D;dims=2)) || return decline(:earth_return_device,["$family/$id"])
     end
