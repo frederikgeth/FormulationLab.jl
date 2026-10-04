@@ -45,6 +45,22 @@ The physical checker uses separate voltage, current and power tolerances
 remain outside the model. It is a numerical verification tool, not a replacement
 for PowerIO schema validation or a formal certificate of correctness.
 
+## Exact-IVR supplied-point assessment
+
+For an `IVRNLPBuild`, use `ivr_nlp_point_report(build, point)` instead of the
+lifted `containment_report`. It binds supplied voltages/currents without
+least-squares repair, checks any reduced-coordinate reconstruction and evaluates
+the actual nonlinear constraints and objective. No `audit=true` option is needed.
+`physical_residuals(net, result::IVRNLPResult)` selects the native coil-generator
+and conductor-rated THREE_LEG inverter conventions. For a bare `ACPoint`, set
+`delta_dispatch=:coil, ibr_delta_dispatch=:conductor` explicitly.
+
+Both assessments remain necessary: compiled-constraint evaluation checks the
+encoding, while the independent SI evaluator checks the stated physical model.
+See [the exact-IVR tutorial](tutorial_exact_ivr.md) for a fixed-state neutral-bound
+violation and full/reduced mapping checks. The exact formulation has a narrower
+component scope than the relaxation containment suite described below.
+
 ## Coverage of the new containment suite
 
 The suite constructs feasible states without solving the relaxation:

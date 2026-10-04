@@ -1,6 +1,37 @@
 # BMOPF component coverage
 
 This is an implementation inventory, not a claim of complete BMOPF conformance.
+
+## Exact IVR scope
+
+[`IVRNLP`](ivr_nlp.md) has its own applicability gate; sharing the circuit assembler
+does not grant it every SDP or LinIVR device law. See the
+[equations and equivalence domain](ivr_theory.md) and
+[operating-bound inventory](ivr_nlp.md#Operating-bound-coverage).
+
+| Element or operation | Exact IVR | Conductor specialization |
+|:--|:--|:--|
+| Coupled lines, endpoint shunts, explicit terminals | Supported, both-end current/apparent limits | Complete uniform radial 2/3/4-wire sections; nonzero line shunts cause fallback |
+| Fixed sources, ideal/finite grounds and shunts | Supported, subject to voltage-reference/current-observability conditions | Single source; root equations retained; downstream earth paths cause fallback |
+| Single-phase, wye and delta constant-power/impedance loads | Supported with physical connection channels | Requires downstream zero-sum connection identities |
+| Generators | P/Q/S/I capability and linear prices; delta uses coil quantities | Device currents remain explicit |
+| Fixed capacitors | Scalar bank and explicit per-coil rating contracts | Zero-sum connections may qualify; phase-earth banks cause fallback |
+| Fixed open/closed switches | Supported, explicit through current and both-end limits | `:switch_boundary` fallback |
+| Fixed isolated-winding transformers | Single-phase, center-tap, delta–wye, wye–delta, general multiwinding | `:transformer_boundary` fallback |
+| Static IBRs | Single-phase, explicit-neutral four-leg, three-leg; filters and internal budgets/setpoints | Zero-sum connections may qualify; THREE_LEG PCC ratings use conductor quantities |
+| Autotransformers/regulators; current/ZIP/exponential loads | Refused | Not applicable |
+| Control profiles, optimized taps, external DC and time-series laws | Refused | Not applicable |
+| Constant-power demand and generator P/Q/price updates | Supported through dedicated APIs | Existing certificate/maps reused |
+| Equipment, source and IBR capability updates | Require a new build | Reassess applicability on the new build |
+
+A supported full-IVR network may fail the narrower specialization certificate;
+this triggers a diagnostic fallback, not deletion of the offending component.
+Unknown electrical fields are refused. Native dictionary extensions are not
+complete external-schema support. [The tutorial](tutorial_exact_ivr.md) includes
+both a tightened-bound rejection and a supported earth-shunt fallback.
+
+## Approximation and relaxation scope
+
 Experimental [LinIVR](linivr.md) has a separately documented scope:
 explicit-neutral passive circuit laws, all seven fixed transformer families,
 constant-power/impedance loads, wye/delta generation and static single-phase,
@@ -29,7 +60,7 @@ as a proposal. The proposal revision inspected during migration is
 | Valid-inequality strengthening | — | Explicit/line-derived voltage LNCs; dispatch P/Q-box port cuts; implied switch and multiwinding-coil currents | Explicit/line-derived voltage LNCs; dispatch P/Q-box port cuts; implied physical-current bounds |
 | Load `p_nom`, `q_nom`, connections | Fixed-reference channel allocation | Wye/single-phase and two-/three-terminal delta incidence with local moments | Physical incidence and channel currents |
 | Load `model`, `v_nom`, ZIP/exponents | P/Z/ZP; documented projections for I/exponential | P/Z exact laws; I/ZIP/exponential power-cone envelopes | P/Z current/power laws; I/ZIP/exponential power-cone envelopes |
-| Generator P/Q bounds, `s_max`, `i_max`, `cost` | Affine/SOC with restricted controls | Wye/delta conductor P/Q/S/I capability and linear cost | Coil powers and coil/terminal currents, including neutral |
+| Generator P/Q bounds, `s_max`, `i_max`, `cost` | Affine/SOC with restricted controls | Wye/delta conductor P/Q/S/I capability and linear cost | Conductor powers for three-terminal delta; coil powers otherwise; coil/terminal current maps, including neutral |
 | Fixed source phasors, bounds, costs | Per radial island | Multiple complete-map sources with shared relative phasors | Multiple fixed sources; grounded-source ampacity extension rejected |
 | Fixed shunt G/B matrices | Affine voltage-product closure | Full bus-map moment law | Full linear current law |
 | Switches, capacitors | Documented fixed-state lowering | Fixed-state electrical laws | Fixed-state electrical laws |

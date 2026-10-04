@@ -7,6 +7,12 @@ specialization preserves the supported full-IVR problem.
 `formulation_kind(IVRNLP()) == :exact` describes these equations; Ipopt normally
 returns a local solution, not a global optimality certificate.
 
+Read the [equations and equivalence domain](ivr_theory.md) for the mathematical
+model, [motivating examples](ivr_examples.md) for study design, and the
+[executable tutorial](tutorial_exact_ivr.md) for an end-to-end workflow. This page
+is the detailed scope, bound and update contract; it does not assert full BMOPF
+coverage.
+
 ## Usage and repeated operating points
 
 ```julia
@@ -15,7 +21,9 @@ using FormulationLab, Ipopt
 build = build_opf(input, IVRNLP(objective=:source_import);
                   optimizer=Ipopt.Optimizer)
 result = solve_ivr_nlp_opf(build; solver_options=(print_level=0,))
+@assert result.solve.optimal
 audit = physical_residuals(build.network, result)
+@assert audit.passed
 
 # SI watts and vars, with one entry per connection channel.
 update_ivr_loads!(build, Dict("load_id" => (p=[1000.0], q=[200.0])))
@@ -61,6 +69,25 @@ ratings are outside this update API. Diagnostics include `:generator_update_coun
 and `:dispatch_variable_count`; `:update_count` counts successful nonempty calls
 to either update API. Each call validates its own batch; two separate calls are
 not one transaction. Use the APIs rather than modifying the owned snapshot.
+
+### Options and returned data
+
+| Option | Default | Meaning |
+|:--|:--|:--|
+| `s_base` | `1e4` | Positive finite internal power base in VA; SI inputs/results unchanged |
+| `objective` | `:cost` | `:cost`, `:source_import` or `:feasibility` |
+| `specialization` | `:off` | `:conductor_difference` attempts the documented certificate and falls back when inapplicable |
+
+`IVRNLPResult.voltage_candidate` maps `(bus, terminal)` to complex volts;
+`current_candidate` and `powers` map `(family::Symbol, id::String)` to channel
+vectors in A and VA. See the component paragraphs below for coil/terminal
+conventions. `objective` is W in source-import mode, currency/h in cost mode,
+and zero in feasibility mode. A snapshot objective has no time integration.
+`solve` records solver status; `numerical_diagnostics` records bases,
+specialization/fallback, assembly/update counts and unobserved grounded-source
+current entries. If strict solver acceptance fails, candidate maps are empty
+and the objective is `NaN`. An accepted local result still needs independent
+physical assessment. See [the API reference](api.md).
 
 ## Supported scope
 

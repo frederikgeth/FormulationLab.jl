@@ -1,7 +1,7 @@
 # FormulationLab.jl
 
-FormulationLab builds terminal-explicit unbalanced power-flow approximations and
-convex relaxations from BMOPF data. It is a laboratory for comparing electrical
+FormulationLab builds terminal-explicit unbalanced exact AC models, power-flow
+approximations and convex relaxations from BMOPF data. It is a laboratory for comparing electrical
 formulations, bound semantics, conic representations and recovery methods under
 one input and result contract.
 
@@ -17,6 +17,12 @@ If you are new to the package, begin with:
 The [literature map](literature.md) relates the implementations to published
 BIM, BFM, IVR, chordal, SOC and strengthening results without importing their
 assumptions or exactness claims wholesale.
+
+For a complete nonlinear workflow, follow the [exact-IVR tutorial](tutorial_exact_ivr.md):
+construct a feeder with an analytical answer, solve, verify physical residuals,
+compare full/reduced forms and reuse demand/dispatch updates. The
+[motivating examples](ivr_examples.md) explain which research questions these
+capabilities address.
 
 ## First solve
 
@@ -34,6 +40,11 @@ and expose the selected bases in their diagnostics.
 
 ## Formulation families
 
+- [IVRNLP](ivr_theory.md) retains exact static AC products, explicit neutral
+  voltages and operating limits, with optional certified conductor specialization.
+  Nonlinear solver success is local; independent physical checks remain required.
+- [LinIVR](linivr.md) linearizes device powers around an unloaded circuit while
+  retaining explicit conductor voltages and currents.
 - [LinDist3Flow](lindist3flow.md) is a fixed-reference, lossless approximation.
 - [IVRSDP](sdp.md) is a dense or chordal current--voltage semidefinite
   relaxation with explicit component currents and winding equations.
@@ -44,8 +55,8 @@ and expose the selected bases in their diagnostics.
   transformer blocks, and conditional voltage closure for meshes and multiple
   sources.
 
-These models can agree at a rank-one AC point while behaving differently after
-relaxation. A solver-reported optimum, small rank ratio or reconstructed voltage
+The lifted models can agree at a rank-one AC point while behaving differently
+after relaxation. A solver-reported optimum, small rank ratio or reconstructed voltage
 is not by itself an AC-feasibility certificate. Use the [verification](verification.md)
 and [AC containment](ac_validation.md) guidance when interpreting results.
 
@@ -53,7 +64,8 @@ and [AC containment](ac_validation.md) guidance when interpreting results.
 
 PowerIO is the only power-system runtime dependency. Clarabel is an optional
 extension; MosekTools is an optional test dependency and can also be supplied by
-a caller. ExaModels is deferred until a nonconvex formulation is implemented.
+a caller. Exact IVR requires a caller-supplied nonlinear optimizer such as Ipopt.
+ExaModels remains deferred while the JuMP exact-IVR baseline is evaluated.
 
 For implementation structure, see [architecture](architecture.md). For
 numerical profiles and measured behavior, see [SDP numerics](sdp_numerics.md),

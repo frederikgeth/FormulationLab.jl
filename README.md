@@ -8,10 +8,12 @@ Implemented:
 
 - **IVRNLP (experimental)**: exact static current–voltage equations, physical
   magnitude limits, reusable load demands, and generator boxes/prices. Requires an
-  explicit nonlinear optimizer and currently supports lines, sources, shunts, fixed isolated-winding transformers,
-  constant-power/impedance loads and generator boxes. Optional certified radial
+  explicit nonlinear optimizer and supports lines, sources, shunts, fixed switches,
+  capacitors, isolated-winding transformers, static IBRs, constant-power/impedance
+  loads and generator boxes. Optional certified radial
   conductor-difference specialization retains ground-dependent limits; local
-  solves carry no global optimality guarantee. See [exact IVR](docs/src/ivr_nlp.md).
+  solves carry no global optimality guarantee. See [exact IVR](docs/src/ivr_nlp.md), its [equations](docs/src/ivr_theory.md)
+  and the [build–verify–reuse tutorial](docs/src/tutorial_exact_ivr.md).
 - **LinIVR (experimental)**: no-load current–voltage approximation retaining
   explicit neutrals and power decision variables, without Kron reduction or a
   loaded starting point. Includes SOC physical limits, optional quadratic
@@ -81,8 +83,10 @@ julia --project=test/optional -e 'using Pkg; Pkg.develop(path="."); Pkg.instanti
 julia --project=test/optional test/optional/mosek.jl
 ```
 
-The default test environment includes Clarabel, Ipopt (for migrated affine-model comparisons), and OpenDSSDirect. It has no BMOPFTools or Mosek dependency. Nonlinear BMOPFTools replay comparisons are retained separately in [test/integration](test/integration/README.md).
+The default test environment includes Clarabel, Ipopt (for exact IVR and nonlinear reference comparisons), and OpenDSSDirect. It has no BMOPFTools or Mosek dependency. Nonlinear BMOPFTools replay comparisons are retained separately in [test/integration](test/integration/README.md).
 
+- [Motivating exact-IVR examples](docs/src/ivr_examples.md) and the
+  [executable tutorial](docs/src/tutorial_exact_ivr.md)
 - [Choose a formulation](docs/src/formulations.md) and review the shared
   [notation and conventions](docs/src/notation.md)
 - [Literature and formulation lineage](docs/src/literature.md)

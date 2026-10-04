@@ -1,5 +1,10 @@
 # Pinned schema field inventory
 
+Exact `IVRNLP` has a narrower contract than the shared static-field inventory
+below. Its authoritative accepted scope and bound arities are in the
+[exact-IVR reference](ivr_nlp.md); [component coverage](coverage.md) separates
+full-model support from conductor-specialization eligibility.
+
 Property names below come from PowerIO’s BMOPF 0.2 proposal at revision
 `8b1ad73af935fa5e15e055718cb6f5f7d6002217`, SHA-256
 `74d6c6de3637d52e42a26c4cb0584f51df70d69f360b236cf5e23afaf7669462`.

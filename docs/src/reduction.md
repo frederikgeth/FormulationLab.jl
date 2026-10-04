@@ -1,5 +1,10 @@
 # Network reduction and original-network states
 
+For the exact-IVR conductor-difference coordinate change, see
+[equations and equivalence domain](ivr_theory.md). That opt-in representation
+retains reference-conductor voltages and differs from the network preparation,
+Kron reduction and topology simplification described here.
+
 Network preparation is independent of the formulation and optimizer. It consumes
 an SI BMOPF snapshot through the existing PowerIO boundary; BMOPFTools is **not**
 a runtime dependency. The compatibility implementation is adapted from

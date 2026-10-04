@@ -1,5 +1,47 @@
 # Verification
 
+## Exact IVR static components and reusable models — 4 October 2026
+
+At implementation commit `ac89168`, the default Julia 1.12.6 suite passes
+**19,545/19,545** assertions (test summary 2m26.6s). This includes 1,657 new static
+IBR checks. Documentation builds pass. OpenDSSDirect still reports its existing
+method-overwrite precompilation error, falls back to loading without the cache,
+and its oracle tests pass. The dated counts below describe earlier milestones.
+
+The exact-IVR validation separates four kinds of evidence:
+
+| Claim assessed | Reproducible evidence | Limit of inference |
+|:--|:--|:--|
+| Local coordinate identities and conditional network equivalence | `test/compiler_algebra_tests.jl`, `test/compiler_network_tests.jl` | Narrow declared certificate, not mixed-section/transformer composition |
+| Physical equations and port conventions | independently manufactured SI states; fixed-transformer and capacitor OpenDSS tests | Stated native circuits, not universal schema or hardware equivalence |
+| Operating bounds retained | `test/ivr_bound_coverage_tests.jl`, switch/capacitor/IBR suites hold states fixed and violate one limit | Implemented inventory; future fields require new tests |
+| Reusable updates preserve the problem | fresh/reused solves, objectives, variable identity and bidirectional supplied-point checks | No implicit warm-start/factorization claim or universal speedup |
+
+The [equation chapter](ivr_theory.md) states the equivalence assumptions and
+source map. The [tutorial](tutorial_exact_ivr.md) runs its analytical, full/reduced,
+fresh/reused, generator-price, inverter-loss and refusal checks during every
+Documenter build, using `examples/tutorial_exact_ivr.jl`. Tutorial assertions
+are a documentation gate, separate from the dated default-suite count above.
+
+An exploratory local panel used 18 ENWL inverter snapshots (30–538 buses,
+28–302 single-phase inverters). Explicitly removing their unsupported control
+records on owned copies produced changed static-capability scenarios. Of 36
+initial full/reduced solves, 32 passed strict acceptance; four full 538-bus runs
+returned ALMOST_LOCALLY_SOLVED and remained rejected. Disabling acceptable
+termination and raising the iteration limit from 300 to 600, with the same
+1e-10 tolerances, produced four strictly accepted retries. Physical/model checks
+passed and retry objectives agreed with the reduced counterparts. These results
+are local experimental evidence, not a repository CI gate, raw controlled-input
+support, a global certificate or a performance conclusion. The user's planning
+documents and raw panel evidence remain outside Git; the portable synthetic
+tutorial supplies the repository's reproducible demonstration.
+
+No omitted operating bound was found in the implemented native inventory;
+negative tests and independent decoding provide evidence rather than a proof
+of completeness for all possible schema fields. Fixed regulators/autotransformers,
+constant-current/ZIP/exponential loads, control profiles, optimized taps, external
+DC and time-series semantics remain outside exact-IVR scope.
+
 ## ENWL generation-cost comparison — 30 September 2026
 
 The complete 128-file ENWL reduced-topology panel (5–538 buses) compares

@@ -24,7 +24,12 @@ makedocs(;
             "Fixed transformers and regulators"=>"sdp_transformers.md",
             "Lifted nonlinear cuts"=>"lnc.md",
         ],
-        "Exact IVR"=>"ivr_nlp.md",
+        "Exact IVR"=>[
+            "Motivating examples"=>"ivr_examples.md",
+            "Equations and equivalence domain"=>"ivr_theory.md",
+            "Build, verify and reuse: tutorial"=>"tutorial_exact_ivr.md",
+            "Scope, bounds and update contract"=>"ivr_nlp.md",
+        ],
         "Explicit-neutral LinIVR"=>"linivr.md",
         "LinDist3Flow"=>["Formulation and usage"=>"lindist3flow.md",
                          "Component equations"=>"lindist3flow_components.md",

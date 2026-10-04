@@ -15,6 +15,11 @@ Base.@kwdef struct IVRNLPOptions
     specialization::Symbol = :off
 end
 
+"""An exact-IVR scope refusal, carrying a stable `code` and explanatory `message`.
+
+A failed optional conductor certificate instead produces full-model fallback
+diagnostics when the electrical problem itself is supported.
+"""
 struct IVRNLPInapplicableError <: Exception
     code::String
     message::String
@@ -22,6 +27,13 @@ end
 Base.showerror(io::IO,e::IVRNLPInapplicableError)=print(io,e.code,": ",e.message)
 _ivrn_refuse(message)=throw(IVRNLPInapplicableError("E.IVRNLP.UNSUPPORTED",message))
 
+"""Built exact-IVR JuMP model with an owned SI `network` snapshot.
+
+Inspect `model`, `options` and `numerical_diagnostics`; use `update_ivr_loads!`
+and `update_ivr_generators!` for supported changes. Directly editing `network`
+does not update constraints. Electrical coordinate and constraint maps are
+implementation details, not a persistence format.
+"""
 struct IVRNLPBuild
     model::JuMP.Model
     state::Any
@@ -471,6 +483,15 @@ function update_ivr_generators!(build::IVRNLPBuild,updates::AbstractDict)
     build
 end
 
+"""Exact-IVR solve result in SI units, subject to strict local solver acceptance.
+
+`voltage_candidate` maps `(bus, terminal)` to complex volts. `current_candidate`
+and `powers` map `(family, id)` to channel vectors in A and VA. `objective` is
+watts for source import, currency/h for linear energy prices, or zero for
+feasibility. Unaccepted results have empty candidate maps and a NaN objective.
+Inspect `solve` before using candidates, then independently assess them with
+`physical_residuals`. Local acceptance is not a global optimality certificate.
+"""
 struct IVRNLPResult <: AbstractSolveResult
     objective::Float64
     voltage_candidate::Dict{Tuple{String,String},ComplexF64}

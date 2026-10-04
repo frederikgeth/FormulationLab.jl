@@ -10,7 +10,7 @@ describes how those layers are separated in software.
 `LinDist3Flow`, `IVRSDP`, `IVRSOC`, experimental `IVRNLP`, `LinIVR` and
 `BranchFlowSDP` select mathematical formulations. `build_opf` and
 `solve_opf` separately accept optimizer factories. `formulation_kind` distinguishes
-an approximation from a relaxation; LP/SOCP/SDP cone types alone do not do so.
+an exact model, approximation or relaxation; LP/SOCP/SDP cone types alone do not do so.
 
 The initial migration retains the proven LinDist3Flow compiler's dictionaries
 and named variable/constraint maps. This is an intentionally bounded migration,
@@ -23,8 +23,9 @@ Parser diagnostics and input digest remain available on `BMOPFInput`. It does
 not call PowerIO's formulation-specific matrix builders. Raw dictionaries remain
 useful for tests and construction, without a claim of schema validity.
 
-The SDP and LinIVR share a solver-independent current/voltage circuit assembler
+Exact IVR, SDP/SOC and LinIVR share a solver-independent current/voltage circuit assembler
 in `formulations/ivr_electrical.jl`, independently from the L3F approximations.
+Exact IVR adds quadratic power products and updateable generator variables;
 LinIVR adds a sparse passive-reference solve and affine device-power products;
 SDP/SOC add moment representations. Shared matrix decoding and connection-incidence
 helpers have no solver state. A dense nullspace implementation is a reference for small cases;
@@ -46,8 +47,9 @@ evaluation exists, while AC-feasible recovery from relaxations is not guaranteed
 time-series semantics remain separately scoped. Geometry compilation belongs
 upstream of the electrical coefficient boundary.
 
-The static AC extension now covers general multiwinding transformers, voltage
-sequence limits, static IBRs, and explicit load envelopes. The pinned field
+The SDP/SOC static AC extension covers general multiwinding transformers, voltage
+sequence limits, static IBRs, and explicit load envelopes. Exact IVR supports
+its own narrower static scope and no current/ZIP/exponential load envelopes. The pinned field
 inventory records scope exceptions; control laws and adjustable taps remain out.
 
 The branch-flow formulation uses bus voltage moments, classic current/power

@@ -37,7 +37,7 @@ contract or physical units reported to the caller.
 
 | Formulation | Main variables | Mathematical class | Best use | Principal limitation |
 |:--|:--|:--|:--|:--|
-| [`IVRNLP`](ivr_nlp.md) | conductor voltages and component currents | exact nonconvex NLP | static AC studies and repeated constant-power demand updates | narrow component scope; a local solution is not a global certificate |
+| [`IVRNLP`](ivr_nlp.md) | conductor voltages and component currents | exact nonconvex NLP | static AC studies and repeated demand/generator-bound/price updates | declared static scope; a local solution is not a global certificate |
 | [`LinIVR`](linivr.md) | conductor voltages/currents and explicit device powers | LP/SOCP or quadratic conic approximation | no-load explicit-neutral experiments without Kron reduction | first-order device-power mismatch; loss-sensitive dispatch needs separate assessment |
 | [`LinDist3Flow`](lindist3flow.md) | voltage and power perturbations around a fixed reference | LP/SOCP approximation | fast fixed-reference studies on networks within its applicability contract | lossless linearization; not an AC relaxation or lower bound |
 | [`IVRSDP`](sdp.md) | one reduced Gram matrix of terminal voltages and component currents | SDP relaxation | broad static-component coverage and a strong reference relaxation | global current--voltage state can produce large PSD blocks |
@@ -49,6 +49,11 @@ the same rank-one AC point. `IVRSOC` is an outer relaxation of the IVR moment
 structure, not a branch-flow SOCP. Numerical profiles, chordal decompositions
 and optional cuts are choices *within* a formulation rather than additional
 electrical formulations.
+
+For the native exact baseline, start with [motivating examples](ivr_examples.md),
+then [the equations and equivalence proof](ivr_theory.md), and the
+[executable tutorial](tutorial_exact_ivr.md). Its local solution is a candidate
+for independent AC assessment, not a global reference optimum.
 
 ## From an AC state to lifted variables
 

@@ -23,3 +23,22 @@ restore_prepared_network
 ReconstructedSolution
 reconstruct_solution
 ```
+
+## Exact IVR construction, updates and assessment
+
+The [tutorial](tutorial_exact_ivr.md) demonstrates these routines. The
+[scope and result contract](ivr_nlp.md) defines channel ordering, SI units and
+fallback behavior. Internal coordinate maps are implementation details.
+Independent SI checks are documented under [`physical_residuals`](@ref).
+
+```@docs
+IVRNLPOptions
+IVRNLPBuild
+IVRNLPResult
+IVRNLPInapplicableError
+build_ivr_nlp_opf
+solve_ivr_nlp_opf
+update_ivr_loads!
+update_ivr_generators!
+ivr_nlp_point_report
+```
