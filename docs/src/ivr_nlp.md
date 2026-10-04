@@ -568,6 +568,12 @@ assembly reuses decoded linecode matrices and neutral-role discovery within each
 build; line lengths and per-unit scaling remain branch-specific. These caches
 are not shared across builds or retained for equipment updates.
 
+Sparse circuit rows are accumulated into fresh complex JuMP affine expressions,
+avoiding a separately allocated scaled expression for each term. The input rows
+and coordinate expressions remain unchanged; numeric physical reconstruction
+keeps its scalar evaluator. This preparation optimization applies to full and
+specialized models and introduces no new reduction or operating-domain rule.
+
 ### Matched regional experiments
 
 Use the regional runner to distinguish variable reduction from measured cost:

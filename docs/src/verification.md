@@ -1,5 +1,71 @@
 # Verification
 
+## Sparse affine expression preparation — 5 October 2026
+
+The default Julia 1.12.6 suite passes **28,065/28,065** assertions (2m03.6s),
+including **132 new expression checks**. Exact IVR and LinIVR now accumulate
+sparse linear rows directly into a fresh complex JuMP affine expression. They
+previously allocated a scaled expression for each row term before summation.
+The numerical reference/reconstruction evaluator is unchanged. This modifies
+preparation, not the circuit equations, conductor coordinates, objective,
+operating bounds, input domain or update API.
+
+For affine coordinates ``z_k(x)=a_k^T x+b_k`` and a circuit row ``c``, the emitted
+polynomial remains
+
+```math
+\sum_k c_k z_k(x)
+=\left(\sum_k c_k a_k\right)^T x+\sum_k c_k b_k.
+```
+
+This is an unconjugated linear combination. Tests compare its coefficients,
+constant and numerical values against independently assembled dense coefficients.
+They cover complex coefficients, cancellation, constant/empty rows, vector views,
+repeated coordinate objects and mutations of the returned expression. Each
+result is owned independently; neither input rows nor shared coordinate
+expressions can be mutated by accumulation. The complete suite exercises this
+helper through LinIVR, full and specialized exact IVR, device laws, operating
+bounds, supplied-point reconstruction and update paths.
+
+A controlled same-process ablation compares the old and new emitters on three
+external feeders in full and regional modes. Each case/mode excludes one
+warm-up per variant and measures six pairs in balanced alternating order with
+single-thread BLAS. All inputs retain their electrical data; the explicitly
+chosen objective is feasibility. Independent physical and both cross-model
+checks pass for **72 measured solves**. All variable, constraint and backend
+Jacobian/Hessian counts match. A further **12 production-method confirmation
+solves** pass physical/model checks and retain those counts without the
+experimental switch. No timings run concurrently with tests or documentation.
+
+| Input / mode | Build allocation MB: old / new | Median paired build-time ratio | Observed build-ratio range |
+|:--|--:|--:|:--|
+| DSuite 265 buses, full | 65.60 / 57.53 | 0.912 | 0.129–2.624 |
+| DSuite 265 buses, regional | 68.46 / 60.02 | 0.947 | 0.927–1.981 |
+| DSuite 2,854 buses, full | 743.32 / 655.74 | 0.826 | 0.584–1.588 |
+| DSuite 2,854 buses, regional | 768.67 / 678.48 | 0.808 | 0.626–1.381 |
+| Reduced ENWL 538 buses, full | 224.61 / 184.17 | 0.679 | 0.393–2.135 |
+| Reduced ENWL 538 buses, regional | 239.33 / 193.17 | 0.394 | 0.279–1.672 |
+
+Allocation values are separate medians in decimal MB; ratios are new/old within
+pairs. Build allocation falls approximately **12–19%** in the controlled
+ablation; the production-method checks confirm the saving. Julia allocated
+bytes exclude native solver memory and peak resident memory. GC is included in
+timings and contributes to their broad ranges. Solve-time ratios are near one;
+the full 538-bus case's median paired total time increases about 5% despite the
+lower median build-time ratio. Consequently these observations support an
+allocation improvement, not a general runtime or solver-speed guarantee.
+Six pairs and three selected inputs do not provide a statistical significance
+or population claim. This repeats the preparation workload under a separate
+feasibility objective, not the earlier source-import optimization study.
+
+Raw scripts, hashes, versions, warm-ups, trials and confirmation results remain
+in the local evidence directory outside Git. An earlier exploratory run partly
+overlapped focused-test compilation and is retained separately; its timings
+are not used above. The known OpenDSSDirect method-overwrite precompilation
+error still falls back to successful loading and passing reference comparisons.
+It is not changed by this optimization. Earlier regional timing results below
+describe the older emitter.
+
 ## Regional performance and coordinate ablation — 5 October 2026
 
 The expanded experiment uses `examples/benchmark_ivr_regions.jl`: one excluded

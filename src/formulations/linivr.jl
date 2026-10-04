@@ -17,6 +17,18 @@ Base.showerror(io::IO, e::LinIVRInapplicableError) = print(io, "LinIVR: ", e.mes
 _linivr_refuse(message) = throw(LinIVRInapplicableError(message))
 _linivr_eval(row, z) = sum((c*z[k] for (k,c) in row); init=0.0im)
 
+# Circuit rows are linear combinations of complex affine coordinates. Build
+# one owned expression instead of allocating a scaled expression for every
+# term. Numeric evaluation keeps the generic method above; neither input rows
+# nor coordinate expressions may be mutated or aliased by this operation.
+function _linivr_eval(row,z::AbstractVector{JuMP.GenericAffExpr{ComplexF64,V}}) where V
+    result=zero(JuMP.GenericAffExpr{ComplexF64,V})
+    for (k,c) in row
+        JuMP.add_to_expression!(result,c,z[k])
+    end
+    result
+end
+
 struct LinIVRBuild
     model::JuMP.Model
     state::Any

@@ -31,6 +31,14 @@ SDP/SOC add moment representations. Shared matrix decoding and connection-incide
 helpers have no solver state. A dense nullspace implementation is a reference for small cases;
 it is not intended as the scalable production representation.
 
+At the JuMP emission boundary, exact IVR and LinIVR accumulate each sparse
+linear row into one fresh complex affine expression. Input circuit rows and
+coordinate expressions remain unchanged, including when several rows share a
+coordinate object. This avoids allocating a scaled temporary for every term;
+it changes neither physical coordinates nor operating expressions. Numerical
+reference-state and supplied-point evaluation use the separate scalar path.
+The optimization is local to one expression, not a cross-build cache.
+
 Sparse/chordal SDP representations, fixed SOC relaxations, LNCs, shared network
 reduction, and original-network reconstruction are implemented. Formulation,
 reduction, strengthening, numerical settings and recovery remain separate layers.
@@ -41,15 +49,17 @@ are collected separately in the [literature map](literature.md).
 The next conic performance work targets Clarabel solve time. Experimental
 `IVRNLP` adds exact static equations and reusable load, generator-bound and price updates,
 using affine source prescriptions in the shared assembler. Optional conductor
-specialization certifies complete radial sections and retains common-mode voltage
-coordinates; mixed sections and an optional ExaModels backend remain future work. Physical residual
+specialization certifies complete radial sections or pendant regions behind
+retained boundaries, keeping reference-conductor voltages. Transformations
+through mixed junctions and an optional ExaModels backend remain future work. Physical residual
 evaluation exists, while AC-feasible recovery from relaxations is not guaranteed. DC and
 time-series semantics remain separately scoped. Geometry compilation belongs
 upstream of the electrical coefficient boundary.
 
 The SDP/SOC static AC extension covers general multiwinding transformers, voltage
 sequence limits, static IBRs, and explicit load envelopes. Exact IVR supports
-its own narrower static scope and no current/ZIP/exponential load envelopes. The pinned field
+its own static applicability domain, including exact current/ZIP/exponential
+laws on certified coil-voltage domains rather than load envelopes. The pinned field
 inventory records scope exceptions; control laws and adjustable taps remain out.
 
 The branch-flow formulation uses bus voltage moments, classic current/power
