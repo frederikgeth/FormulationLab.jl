@@ -91,6 +91,7 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
                 push!(unassessed,"bus/$b sequence limits without three phases")
             else
                 order=get(get(net,"terminal_conventions",Dict()),"phase",["a","b","c"])
+                all(t->t in tm[ph],order) && length(order)==3 || (order=["a","b","c"])
                 all(t->t in tm[ph],order) && length(order)==3 || (order=tm[ph])
                 vals=[v[findfirst(==(t),tm)]-vn for t in order];a=cis(2pi/3)
                 bounds(d,[abs((vals[1]+a*vals[2]+a^2*vals[3])/3)],"vpos_min","vpos_max","bus/$b",:voltage)
@@ -112,6 +113,7 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
             end
         end
         bounds(d,abs.(i),"__none","i_max","source/$id",:current)
+        bounds(d,abs.(s[ph]),"__none","s_max","source/$id",:power)
     end
     for (id,d) in get(net,"line",Dict())
         f,t=d["bus_from"],d["bus_to"];mf,mt=d["terminal_map_from"],d["terminal_map_to"];n=length(mf)
@@ -123,9 +125,11 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
         check("line/$id/voltage_drop",vf-vt-Z*jf,:voltage);check("line/$id/series_current",jf+jt,:current)
         inject(f,mf,cf);inject(t,mt,ct)
         limits=merge(code,d)
+        # Ratings follow from-side conductor positions at both ends, even
+        # when the receiving bus assigns different terminal roles/names.
+        ph=findall(!=(_vcheck_neutral(net,f)),mf)
         for (side,b,tm,v,i) in (("from",f,mf,vf,cf),("to",t,mt,vt,ct))
             bounds(limits,abs.(i),"__none","i_max","line/$id/$side",:current)
-            ph=findall(!=(_vcheck_neutral(net,b)),tm)
             bounds(limits,abs.(v[ph].*conj.(i[ph])),"__none","s_max","line/$id/$side",:power)
         end
     end

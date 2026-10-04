@@ -113,6 +113,48 @@ and other load laws are outside this initial scope. They are explicitly refused.
 No topology or Kron reduction is run. User-supplied already-reduced data still
 represent that user's input, not a recovered original network.
 
+### Operating-bound coverage
+
+The exact-IVR bound inventory is narrower than the shared SDP/SOC schema
+inventory. The following expressions are enforced in the NLP and checked by
+the independent SI auditor:
+
+| Record | Bound fields | Physical quantity / indexing |
+|---|---|---|
+| Bus | `v_min`, `v_max` | Phase-ground magnitudes; phase-only or full-terminal arrays |
+| Bus | `vpn_min`, `vpn_max`, `vpp_min`, `vpp_max`, `vn_max` | Phase-neutral, phase-pair and neutral-ground magnitudes |
+| Bus | `vpos_min`, `vpos_max`, `vneg_max`, `vzero_max` | Three-phase sequence magnitudes of phase-neutral voltages |
+| Line / linecode | `i_max`, `s_max` | Total endpoint current and phase-ground apparent power at **both** ends; array positions follow `terminal_map_from` at both ends; line fields override linecode fields |
+| Generator | `p_min`, `p_max`, `q_min`, `q_max`, `s_max` | Connection-channel power, including delta **coil** power |
+| Generator | `i_max` | Coil current, or terminal current when an explicit return-conductor entry is supplied; three-coil delta ratings use coil current |
+| Voltage source | `p_min`, `p_max`, `q_min`, `q_max` | Per-phase or full-terminal power arrays |
+| Voltage source | `s_max`, `i_max` | Phase apparent power; terminal current only when no source terminal is ideally grounded |
+| Ordinary fixed transformer | `i_max_from`, `i_max_to` | Delta-side coil current; other-side terminal current |
+| General multiwinding transformer | Winding `i_max`, `s_max` | Coil current and coil apparent power, including scalar broadcast |
+
+Source Q/current/apparent bounds and multiwinding `s_max` are dictionary
+extensions to the pinned schema. Fixed tap bounds are checked against the
+equipment setting before construction; they are not optimization variables.
+`s_rating`, load `p_nom`/`q_nom`, nominal voltages and retained geometry ratings
+do not imply extra operating caps under this contract.
+
+`test/ivr_bound_coverage_tests.jl` holds feasible physical states fixed, tightens
+individual bound entries, and requires both the actual NLP and the independent
+auditor to reject them without a change in electrical residuals. It covers
+single-phase, three-wire delta and four-wire wye networks, full and specialized
+models, two power bases, signed reverse flow, both line ends with shunts,
+linecode overrides, and the five supported transformer families. Existing
+generator-update tests cover bound removal and fixed/free transitions; tap
+alias tests cover fixed-setting bounds. This is a maintained regression
+inventory, not proof of completeness for every possible input or future schema.
+
+The remaining static AC element groups are fixed switches, capacitors,
+autotransformers/regulators, static IBRs, and constant-current/ZIP/exponential
+load laws. Controls, tap optimization, DC and time-series semantics require
+additional contracts. Each added group needs physical-state and negative-bound
+tests before its scope gate is removed. Element support also does not establish
+conductor-specialization eligibility.
+
 A transformer anywhere in the input causes requested conductor-difference
 specialization to fall back to full IVR with `:transformer_boundary`. The
 existing line-only proof has not been extended across winding boundaries.

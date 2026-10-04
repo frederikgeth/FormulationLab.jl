@@ -53,8 +53,11 @@ Matrix-pattern fields are also supported: line/linecode `R_series_i_j`,
   generate no control constraints; referenced profiles appear in `omitted_controls`.
   No root control-profile fields execute Volt-VAr, Volt-Watt or power-factor laws.
 - `dc_link_coupled` with `p_dc_min/max` is an internal active-power budget.
-- Taps are fixed values or equal bounds. General multiwinding `s_rating` is base
-  metadata; the six two-bus types retain their documented nameplate limits.
+- Taps are fixed values (checked against any supplied bounds), or are specified
+  by equal bounds. Unequal bounds alone do not introduce a tap decision.
+  Transformer and winding `s_rating` are base metadata, not implicit operating
+  apparent-power caps. Use explicit winding current limits, or the documented
+  multiwinding `s_max` extension, for operating limits.
 - Nonlinear load laws use the documented envelopes, reported in `load_envelopes`.
 
 ## Excluded tables and dictionary extensions
