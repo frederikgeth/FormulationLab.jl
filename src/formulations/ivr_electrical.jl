@@ -3,7 +3,8 @@
 # No Kron reduction, power approximation, lifting, or operational-bound tightening.
 function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
                               line_records=false, delta_dispatch=:conductor,
-                              source_mode=:homogeneous, ibr_delta_dispatch=delta_dispatch)
+                              source_mode=:homogeneous, ibr_delta_dispatch=delta_dispatch,
+                              record_transformer_bonds=false)
     delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown delta dispatch convention"))
     ibr_delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown IBR dispatch convention"))
     source_mode in (:homogeneous,:affine) || throw(ArgumentError("unknown source mode"))
@@ -102,7 +103,8 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         passive=all(M->minimum(eigvals(Hermitian((M+M')/2));init=0.0)>=0,(Z,Yf,Yt))
         push!(devices,(:line_from,id,vf,cf,Dict("passive"=>passive)));push!(devices,(:line_to,id,vt,ct,Dict()))
     end
-    _sdp_stamp_transformers!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
+    _sdp_stamp_transformers!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;
+                            record_bonds=record_transformer_bonds)
     _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
     _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
     for (id,d) in get(net,"shunt",Dict())

@@ -92,9 +92,29 @@ Fixed switches impose either equal mapped endpoint voltages with opposite
 endpoint currents, or zero endpoint currents without a voltage tie. Capacitors
 use ``I_d=\mathrm j B_d U_d``; positive rated vars therefore mean negative
 reactive consumption. See [bank-rating conventions](sdp_static.md). Fixed
-isolated-winding transformers retain the
-[winding, leakage and excitation equations](sdp_transformers.md), restricted to
-the five exact-IVR families in [the scope reference](ivr_nlp.md).
+transformers and regulators retain the
+[winding, leakage and excitation equations](sdp_transformers.md) for all seven
+fixed-setting families in [the scope reference](ivr_nlp.md).
+
+### Conductive bonds in fixed regulators
+
+Let ``b`` denote current in a bond from terminal ``k`` on the from side to
+terminal ``k`` on the to side. Its equations and contributions are
+
+```math
+U_{f,k}=U_{t,k},\qquad
+I_f^{\mathrm{term}}=D_f^T(J_f+Y_fU_f^w)+e_k b,\qquad
+I_t^{\mathrm{term}}=D_t^T(J_t+Y_tU_t^w)-e_k b.
+```
+
+Multiple bonds contribute additively; internal neutral-earth branches add their
+own terminal current. The common conductor is an electrical connection, not a
+choice of voltage gauge. An ideal earth branch fixes its voltage and leaves its
+current free. Consequently, some combinations of ideal grounds and bonds admit
+nonunique current allocations even with unique conductor voltages. Explicit
+bond observations allow the supplied-point checker to test a particular
+allocation. Independent physical validation without those observations tests
+only observable relations. Neither procedure claims current uniqueness.
 
 ### Static inverter circuit and port quantities
 

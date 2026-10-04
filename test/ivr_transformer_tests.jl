@@ -111,9 +111,6 @@ end
     floating=_sdp_tx_case("wye_delta")
     empty!(floating["bus"]["t"]["perfectly_grounded_terminals"])
     @test_throws IVRNLPInapplicableError build_opf(floating,IVRNLP())
-    for kind in ("single_phase_autotransformer","open_delta_regulator")
-        @test_throws IVRNLPInapplicableError build_opf(_sdp_tx_case(kind),IVRNLP())
-    end
     net=_sdp_tx_case("single_phase");tx=net["transformer"]["single_phase"]["tx"]
     delete!(tx,"tap");tx["tap_min"]=.9;tx["tap_max"]=1.1
     @test_throws IVRNLPInapplicableError build_opf(net,IVRNLP())

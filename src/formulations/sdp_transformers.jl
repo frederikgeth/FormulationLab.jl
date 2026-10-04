@@ -136,7 +136,7 @@ function _sdp_transformer_plan(subtype, d, label)
 end
 
 function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
-                                 equations, devices, limits, zb)
+                                 equations, devices, limits, zb; record_bonds=false)
     for (subtype,table) in sort!(collect(get(net,"transformer",Dict()));by=first),
         (id,d) in sort!(collect(table);by=first)
         subtype=="n_winding" && continue
@@ -155,9 +155,11 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
         cf=[_sdp_add!(copy(jf[k]),uf[k],p.Yf[k]*zb) for k in eachindex(jf)]
         ct=[_sdp_add!(copy(jt[k]),ut[k],p.Yt[k]*zb) for k in eachindex(jt)]
         tf=matrows(transpose(p.Df),cf);tt=matrows(transpose(p.Dt),ct)
+        bond_rows=_SDPRow[];bond_drops=_SDPRow[]
         for (f,t) in p.bonds
             push!(equations,_sdp_add!(copy(vf[f]),vt[t],-1))
             bond=_sdp_e(newvar());_sdp_add!(tf[f],bond);_sdp_add!(tt[t],bond,-1)
+            push!(bond_rows,bond);push!(bond_drops,_sdp_add!(copy(vf[f]),vt[t],-1))
         end
         for (side,v,terminals) in ((:from,vf,tf),(:to,vt,tt))
             neutral=get(_kr_neutral_map(net),d["bus_$side"],nothing)
@@ -169,6 +171,9 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
         inject(d["bus_to"],d["terminal_map_to"],tt)
         # Include subtype in IDs: BMOPF IDs need not be globally unique.
         key="$subtype/$id"
+        if record_bonds && !isempty(bond_rows)
+            push!(devices,(:transformer_bond,key,bond_drops,bond_rows,Dict()))
+        end
         for (side,v,i,u,j) in ((:from,vf,tf,uf,jf),(:to,vt,tt,ut,jt))
             push!(devices,(Symbol("transformer_",side),key,v,i,Dict()))
             push!(devices,(Symbol("transformer_coil_",side),key,u,j,Dict()))

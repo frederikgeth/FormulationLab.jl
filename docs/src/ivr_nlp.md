@@ -167,6 +167,44 @@ per winding. Unequal tap bounds require an explicit fixed setting.
 Taps are fixed equipment data and cannot be
 changed through the load/generator update APIs.
 
+### Fixed regulators and conductive bonds
+
+`single_phase_autotransformer` and `open_delta_regulator` use the same fixed
+winding equations. Define the ideal coil voltage gain by
+`E_to = g * E_from`: type A has `g = 1/tap_ratio`, type B has
+`g = tap_ratio`. Leakage and excitation remain explicit; this gain is not a
+loaded terminal-voltage identity. The default is type B and unity tap.
+The [winding reference](sdp_transformers.md) specifies coil polarity and the
+`ABBC`, `BCAC` and `CABA` open-delta connections. The single-phase common
+conductor need not be a neutral. A one-terminal map uses implicit earth;
+matching two-terminal maps retain an explicit common-conductor bond.
+
+Exact-IVR results expose `(:transformer_bond, "subtype/id")` current channels,
+positive from the from-side bus to the to-side bus. Their order is the common
+conductor for a single-phase unit, or shared phase followed by optional neutral
+for open delta. A one-terminal single-phase unit has no explicit bond channel.
+Bond power uses its **voltage drop**, which is zero at a feasible point; it is
+not a port-transfer-power observation. Side powers use total terminal currents.
+`i_max_from` and `i_max_to` constrain every rated terminal, including the bond
+and any internal neutral-ground contribution. `s_rating` adds no thermal cap.
+
+Optional `r_neutral_from/to` and `x_neutral_from/to` are native dictionary
+extensions for these regulator types. An ideal internal ground and a conductive
+bond can have nonunique individual currents. `ivr_nlp_point_report` requires the
+explicit bond observation before deriving the ground current from terminal
+observations. It does not fit an allocation. The independent physical auditor
+also accepts older points without bond channels, but checks only relations
+identifiable from their terminal and coil observations. This does not establish
+a unique ground/bond allocation. Controls, optimized taps and equipment updates
+remain outside this fixed-setting contract.
+
+`test/ivr_regulator_tests.jl` covers independently manufactured states, both
+types, all connections, finite/ideal earth paths, reverse flow, current-channel
+perturbations and individual side-current bound violations. The OpenDSS suite
+compares eight equivalent fixed circuits with explicit shared nodes. It tests
+circuit equivalence under the stated parameter conversion, not controller
+behavior or a universal manufacturer interpretation of type A/B labels.
+
 Supported objectives are `:cost` (linear currency/kWh coefficients),
 `:source_import` (watts), and `:feasibility`. Inputs and outputs use SI units;
 `s_base` controls internal scaling. Inputs are copied rather than modified.
@@ -184,7 +222,7 @@ initial solve and retained in the nonlinear model. Diagnostics distinguish
 An open switch cannot provide a voltage reference to a floating island;
 independently supplied sections may have different source phasors.
 
-Autotransformers/regulators, control profiles, DC components
+Control profiles, DC components
 and other load laws are outside this initial scope. They are explicitly refused.
 No topology or Kron reduction is run. User-supplied already-reduced data still
 represent that user's input, not a recovered original network.
@@ -209,6 +247,7 @@ the independent SI auditor:
 | Voltage source | `p_min`, `p_max`, `q_min`, `q_max` | Per-phase or full-terminal power arrays |
 | Voltage source | `s_max`, `i_max` | Phase apparent power; terminal current only when no source terminal is ideally grounded |
 | Ordinary fixed transformer | `i_max_from`, `i_max_to` | Delta-side coil current; other-side terminal current |
+| Fixed autotransformer / open-delta regulator | `i_max_from`, `i_max_to` | Total terminal current, including conductive-bond and internal grounding contributions |
 | General multiwinding transformer | Winding `i_max`, `s_max` | Coil current and coil apparent power, including scalar broadcast |
 
 Source Q/current/apparent bounds and switch/multiwinding `s_max` are dictionary
@@ -222,7 +261,7 @@ individual bound entries, and requires both the actual NLP and the independent
 auditor to reject them without a change in electrical residuals. It covers
 single-phase, three-wire delta and four-wire wye networks, full and specialized
 models, two power bases, signed reverse flow, both line ends with shunts,
-linecode overrides, and the five supported transformer families. Existing
+linecode overrides, and the five isolated-winding transformer families. Existing
 generator-update tests cover bound removal and fixed/free transitions; tap
 alias tests cover fixed-setting bounds. This is a maintained regression
 inventory, not proof of completeness for every possible input or future schema.
@@ -230,8 +269,7 @@ inventory, not proof of completeness for every possible input or future schema.
 bindings, independent circuit witnesses, open islands, reversed terminal maps,
 reverse flow, load reuse and transformer composition.
 
-The remaining static AC element groups are autotransformers/regulators
-and constant-current/ZIP/exponential
+The remaining static AC load models are constant-current, ZIP and exponential
 load laws. Controls, tap optimization, DC and time-series semantics require
 additional contracts. Each added group needs physical-state and negative-bound
 tests before its scope gate is removed. Element support also does not establish

@@ -2,7 +2,7 @@
 
 This tutorial starts with a two-wire feeder whose solution can be calculated by
 hand. It then checks conductor specialization, demand reuse, generator prices
-and an inverter's internal budget. Finally it deliberately violates a bound and
+an inverter's internal budget and a fixed regulator. Finally it deliberately violates a bound and
 adds an earth-current path that invalidates the reduction certificate.
 
 The learning objective is to distinguish **physical correctness**, **equivalent
@@ -236,11 +236,31 @@ nothing # hide
 
 `:bus_shunt` is a specialization diagnostic, not an unsupported-component
 error. Other full-IVR networks may similarly fall back for meshes, multiple
-sources, switches or transformers. In contrast, unsupported load laws,
-autotransformers/regulators or control profiles cause an applicability refusal.
+sources, switches or transformers. In contrast, unsupported load laws
+or control profiles cause an applicability refusal.
 See [the coverage matrix](coverage.md) before importing a new device family.
 
-## 8. Extend the experiment without changing its meaning
+## 8. Check a fixed regulator and its output rating
+
+Replace the service line with a `single_phase_autotransformer`, using the same
+ordered phase/neutral maps at both ends. Its fixed type-B `tap_ratio = 1.04`
+means an ideal voltage gain of 1.04. The example includes no leakage or
+excitation, so the independently expected output is 239.2 V, current is
+`2000/239.2` A, and source import is 2000 W. Both side-current ratings start at
+10 A. The exact implementation and assertions are in `T.regulator_example`.
+
+```@example exactivr
+regulator = T.regulator_example(); nothing
+```
+
+The helper then lowers only the output phase-current rating to 8 A. Both the
+built-model evaluator and independent physical auditor reject the unchanged
+state. It also verifies full-IVR fallback when specialization is requested.
+No tap is optimized. For type A, the native ideal gain is `1/tap_ratio`; see
+[fixed regulator conventions](ivr_nlp.md#Fixed-regulators-and-conductive-bonds)
+for conductive-bond observations and grounding ambiguity.
+
+## 9. Extend the experiment without changing its meaning
 
 For a larger study, record the input digest and every deliberate data change;
 retain failed solves and explicit fallback reasons; compare accepted objectives

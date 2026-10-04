@@ -1,6 +1,6 @@
 """Experimental exact static IVR options. Approximate network reduction is never applied.
 
-Supports lines, fixed switches/sources/capacitors, fixed isolated winding transformers, shunts/grounds, constant-power/impedance loads
+Supports lines, fixed switches/sources/capacitors, fixed transformers/regulators, shunts/grounds, constant-power/impedance loads
 and generator boxes with coil-based delta dispatch. Static IBRs use conductor-rated
 THREE_LEG dispatch, fixed filters, capability bounds and optional internal-voltage
 setpoints; control profiles are unsupported. Costs are linear, in the
@@ -53,8 +53,8 @@ function _ivrn_check(net)
     end
     for (kind,table) in get(net,"transformer",Dict())
         isempty(table) && continue
-        kind in ("single_phase","center_tap","delta_wye","wye_delta","n_winding") ||
-            _ivrn_refuse("transformer/$kind is outside the fixed isolated-winding IVR scope")
+        kind in (_SDP_TRANSFORMERS...,"n_winding") ||
+            _ivrn_refuse("transformer/$kind is outside the fixed winding IVR scope")
     end
     _sdp_check(net)
     for (id,d) in get(net,"ibr",Dict())
@@ -246,7 +246,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.specialization in (:off,:conductor_difference) || throw(ArgumentError("unknown IVRNLP specialization"))
     net=_l3f_input(input);_ivrn_check(net)
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
-                           delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine)
+                           delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
+                           record_transformer_bonds=true)
     z0=_ivrn_start(net,e)
     report,plan=options.specialization==:off ? ((;status=:disabled,code=:disabled,components=String[]),nothing) : _ivrn_structure(net,e)
     maps=_ivrn_coordinates(e,plan)

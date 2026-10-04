@@ -246,11 +246,11 @@ function _physical_transformers!(net,point,V,current,check,bounds,inject,unasses
         if kind=="open_delta_regulator"
             pf=pt=Dict("ABBC"=>[(1,2),(2,3)],"BCAC"=>[(2,3),(1,3)],"CABA"=>[(3,1),(2,1)])[d["connection"]]
             length(tap)==1 && (tap=fill(only(tap),2))
-            gain=get(d,"regulator_type","B")=="A" ? inv.(tap) : tap
+            gain=uppercase(String(get(d,"regulator_type","B")))=="A" ? inv.(tap) : tap
             R=Matrix(Diagonal(gain));push!(bonds,only(intersect(collect(pf[1]),collect(pf[2]))))
             nf==4 && push!(bonds,4)
         elseif kind=="single_phase_autotransformer"
-            pf,pt=pair(nf),pair(nt);R=fill(get(d,"regulator_type","B")=="A" ? inv(only(tap)) : only(tap),1,1)
+            pf,pt=pair(nf),pair(nt);R=fill(uppercase(String(get(d,"regulator_type","B")))=="A" ? inv(only(tap)) : only(tap),1,1)
             nf==2 && push!(bonds,2)
         else
             ratio=d["v_nom_to"]/d["v_nom_from"]/only(tap)
@@ -279,15 +279,32 @@ function _physical_transformers!(net,point,V,current,check,bounds,inject,unasses
             sh["winding"]==1 ? (yf.=y) : kind=="center_tap" ? (yt[sh["winding"]-1]=y) : (yt.=y)
         end
         expectedf=transpose(Df)*(jf+yf.*uf);expectedt=transpose(Dt)*(jt+yt.*ut)
+        # Optional explicit bond observations distinguish the through current
+        # from ideal neutral-earth currents. Older formulation points supply
+        # only total terminal currents and are checked on observable relations.
+        observed_bonds=haskey(point.currents,(:transformer_bond,key))
+        if observed_bonds
+            jb=current(:transformer_bond,key,length(bonds))
+            for (a,k) in enumerate(bonds);expectedf[k]+=jb[a];expectedt[k]-=jb[a];end
+        end
         for (side,tm,v,expected,bus) in (("from",mf,vf,expectedf,d["bus_from"]),("to",mt,vt,expectedt,d["bus_to"]))
             _physical_neutral!(net,d,"r_neutral_$side","x_neutral_$side",bus,tm,v,expected,check,unassessed,"transformer/$key/$side",side=="from" ? cf : ct)
         end
         for k in bonds
             check("transformer/$key/bond_voltage/$k",vf[k]-vt[k],:voltage)
-            check("transformer/$key/bond_current/$k",cf[k]-expectedf[k]+ct[k]-expectedt[k],:current)
+            ideal(side,tm)=begin
+                neutral=_vcheck_neutral(net,d["bus_$side"])
+                tm[k]==neutral && (haskey(d,"r_neutral_$side") || haskey(d,"x_neutral_$side")) &&
+                    iszero(complex(get(d,"r_neutral_$side",0.),get(d,"x_neutral_$side",0.)))
+            end
+            if !observed_bonds && !ideal("from",mf) && !ideal("to",mt)
+                check("transformer/$key/bond_current/$k",cf[k]-expectedf[k]+ct[k]-expectedt[k],:current)
+            end
         end
         for (side,c,e,v,u,j,tm,bus) in (("from",cf,expectedf,vf,uf,jf,mf,d["bus_from"]),("to",ct,expectedt,vt,ut,jt,mt,d["bus_to"]))
-            for k in eachindex(c);k in bonds || check("transformer/$key/terminal_$side/$k",c[k]-e[k],:current);end
+            for k in eachindex(c)
+                (!observed_bonds && k in bonds) || check("transformer/$key/terminal_$side/$k",c[k]-e[k],:current)
+            end
             delta=kind=="wye_delta" && side=="to" || kind=="delta_wye" && side=="from"
             bounds(d,abs.(delta ? j : c),"__none","i_max_$side","transformer/$key",:current)
             inject(bus,tm,c)

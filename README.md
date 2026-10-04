@@ -9,7 +9,7 @@ Implemented:
 - **IVRNLP (experimental)**: exact static current–voltage equations, physical
   magnitude limits, reusable load demands, and generator boxes/prices. Requires an
   explicit nonlinear optimizer and supports lines, sources, shunts, fixed switches,
-  capacitors, isolated-winding transformers, static IBRs, constant-power/impedance
+  capacitors, fixed transformers/regulators, static IBRs, constant-power/impedance
   loads and generator boxes. Optional certified radial
   conductor-difference specialization retains ground-dependent limits; local
   solves carry no global optimality guarantee. See [exact IVR](docs/src/ivr_nlp.md), its [equations](docs/src/ivr_theory.md)

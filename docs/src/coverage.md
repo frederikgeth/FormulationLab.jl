@@ -18,8 +18,9 @@ does not grant it every SDP or LinIVR device law. See the
 | Fixed capacitors | Scalar bank and explicit per-coil rating contracts | Zero-sum connections may qualify; phase-earth banks cause fallback |
 | Fixed open/closed switches | Supported, explicit through current and both-end limits | `:switch_boundary` fallback |
 | Fixed isolated-winding transformers | Single-phase, center-tap, delta–wye, wye–delta, general multiwinding | `:transformer_boundary` fallback |
+| Fixed autotransformers/regulators | Single-phase and all three open-delta connections; explicit conductive bonds and both-side current limits | `:transformer_boundary` fallback |
 | Static IBRs | Single-phase, explicit-neutral four-leg, three-leg; filters and internal budgets/setpoints | Zero-sum connections may qualify; THREE_LEG PCC ratings use conductor quantities |
-| Autotransformers/regulators; current/ZIP/exponential loads | Refused | Not applicable |
+| Constant-current/ZIP/exponential loads | Refused | Not applicable |
 | Control profiles, optimized taps, external DC and time-series laws | Refused | Not applicable |
 | Constant-power demand and generator P/Q/price updates | Supported through dedicated APIs | Existing certificate/maps reused |
 | Equipment, source and IBR capability updates | Require a new build | Reassess applicability on the new build |

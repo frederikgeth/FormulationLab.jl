@@ -1,5 +1,39 @@
 # Verification
 
+## Exact IVR fixed regulators — 5 October 2026
+
+The default Julia 1.12.6 suite passes **23,074/23,074** assertions (test summary
+2m36.9s). The regulator package adds 3,471 analytical, perturbation, bound,
+refusal and solve checks, plus 60 assertions against eight OpenDSS fixed
+circuits; two former unsupported-family checks are retired. The OpenDSSDirect
+precompilation warning described below persists, with successful fallback
+loading and reference-test completion.
+
+Both type-A/type-B fixed gains, all three open-delta connections, optional
+neutral, single-phase implicit earth and nonneutral common conductors are
+covered. Tests vary leakage, excitation location, power base and power-flow
+direction. Grounding cases distinguish unique voltages from possibly nonunique
+bond/earth current allocations. Explicit bond-current observations bind the
+supplied exact-IVR point; older formulation observations retain only physically
+identifiable audit relations. Side-current negative tests tighten individual
+entries while holding the physical state fixed.
+
+The OpenDSS comparison uses explicit shared nodes and a documented conversion
+from native leakage ohms to fixed two-winding parameters. It compares output
+phasors and source complex power, not regulator-controller behavior or a
+universal interpretation of connection labels. A read-only scan of transformer
+entries in the earlier 2,815-network local dataset inventory found only
+single-phase and delta–wye types, so it supplies no regulator feeder evidence.
+The executable tutorial now includes an analytical fixed-gain example and an
+output-current bound violation. No regulator performance claim is made.
+
+All seven fixed transformer families are now accepted by exact IVR. The
+remaining static load-law package is constant-current/ZIP/exponential demand;
+controls, optimized taps, external DC and time-series semantics remain outside
+scope. Every transformer still causes conductor-specialization fallback. This
+checkpoint supersedes the earlier scope statements below; their dated results
+remain historical evidence.
+
 ## Exact IVR static components and reusable models — 4 October 2026
 
 At implementation commit `ac89168`, the default Julia 1.12.6 suite passes

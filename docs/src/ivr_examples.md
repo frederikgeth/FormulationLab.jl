@@ -97,6 +97,23 @@ the native static contract; it contains no controller, external DC network,
 storage energy balance or temporal coupling. Repeated snapshots alone do not
 supply those missing equations.
 
+## E. Fixed voltage regulation and the output-current limit
+
+Replace the tutorial service line with an ideal single-phase type-B
+regulator at fixed tap 1.04. Its common conductor is bonded and its source
+neutral is grounded. With no leakage or excitation, the 2 kW load sees
+239.2 V and draws approximately 8.361 A. Source import is still 2000 W;
+voltage regulation has changed current, not created energy.
+
+**Question.** Does the model retain the correct physical port when voltage and
+current scale in opposite directions? The example verifies the analytical
+voltage, output current and lossless power balance. Tightening only the output
+phase rating to 8 A rejects the unchanged state in both checks. Requested
+conductor specialization falls back with `:transformer_boundary`. This is a
+fixed circuit demonstration; it neither chooses a tap nor simulates a regulator
+controller. The reference regression suite separately tests leakage, excitation,
+open-delta coupling and nonunique bond/earth current allocations.
+
 ## Interpreting benefit and evidence
 
 There are three distinct potential benefits: a native exact reference for

@@ -71,7 +71,13 @@ Open-delta `connection` selects coil pairs `ABBC = (a−b,b−c)`,
 `BCAC = (b−c,a−c)`, or `CABA = (c−a,b−a)`. The shared conductor is bonded from
 input to output. `tap_ratio` has two entries, one per regulator. For either
 regulator subtype, type A uses `n_eff = tap_ratio` and type B uses its reciprocal.
-The default is type B and unity tap.
+The default is type B and unity tap. These are the native equations, also used
+by exact IVR: ideal to/from voltage gain is `1/tap_ratio` for A and `tap_ratio`
+for B. Ratio orientation must be checked explicitly when importing data; the
+inspected PowerIO 0.2.0 schema prose states the reciprocal `n_eff` convention,
+whereas the inspected BMOPFTools `_autotransformer_neff` implementation agrees
+with the equations here. No external schema conformance follows from accepting
+a native dictionary.
 
 ## Leakage, excitation, and taps
 

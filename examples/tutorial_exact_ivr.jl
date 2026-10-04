@@ -148,6 +148,32 @@ function inverter_example()
     solved
 end
 
+"""Ideal fixed regulator: ratio orientation, terminal limits and full-IVR fallback."""
+function regulator_example()
+    net = two_wire_case()
+    delete!(net, "line")
+    net["transformer"] = Dict("single_phase_autotransformer"=>Dict("reg"=>Dict(
+        "bus_from"=>"source", "bus_to"=>"demand",
+        "terminal_map_from"=>["a","n"], "terminal_map_to"=>["a","n"],
+        "regulator_type"=>"B", "tap_ratio"=>1.04,
+        "i_max_from"=>[10.,10.], "i_max_to"=>[10.,10.])))
+    solved = solve_checked(net; specialization=:conductor_difference)
+    key = "single_phase_autotransformer/reg"
+    u = solved.result.voltage_candidate[("demand","a")]-solved.result.voltage_candidate[("demand","n")]
+    @assert isapprox(u, 230*1.04; atol=1e-6)
+    @assert isapprox(solved.result.current_candidate[(:transformer_to,key)][1], -2000/u; atol=1e-6)
+    @assert isapprox(solved.result.objective, 2000; atol=1e-5)
+    @assert solved.build.numerical_diagnostics[:specialization_report].code==:transformer_boundary
+    tight = deepcopy(net)
+    tight["transformer"]["single_phase_autotransformer"]["reg"]["i_max_to"][1]=8.
+    @assert !ivr_nlp_point_report(build_opf(tight, IVRNLP()), point(solved.result)).passed
+    assessment = physical_residuals(tight, solved.result)
+    @assert [r.label for r in assessment.records if r.residual>getproperty(assessment.tolerances,r.unit)]==["transformer/$key/i_max_to"]
+    @printf("fixed type-B tap 1.04: %.6f V; output current %.6f A; source import %.6f W\n", real(u), abs(2000/u), solved.result.objective)
+    println("Full-IVR fallback; tightening output phase rating to 8 A rejects the unchanged state.")
+    (; net, solved, assessment)
+end
+
 function refusal_examples()
     baseline = analytical_example()
     tight = deepcopy(baseline.net)
@@ -175,6 +201,7 @@ function run_all()
     reuse_example()
     dispatch_example()
     inverter_example()
+    regulator_example()
     refusal_examples()
     println("All tutorial checks passed.")
 end

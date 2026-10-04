@@ -7,8 +7,10 @@ series currents are derived from supplied endpoint currents and endpoint shunts;
 the opposite endpoint is independently checked as a binding. Projection onto a
 reduced representation is accepted only when reconstruction matches the supplied
 state. Also use `physical_residuals` for independent original-network physics.
-Transformer coil currents are bound directly; ideal winding-ground currents
-are derived from supplied terminal currents and the already bound coil state.
+Transformer coil and conductive-bond currents are bound directly; ideal
+winding-ground currents are derived from supplied terminal currents after those
+channels and voltages are bound. Bond observations are required when present in
+the circuit; no arbitrary split between bond and ideal-earth currents is chosen.
 IBR coil currents are derived from supplied internal filter currents and voltages;
 the PCC current channels are then checked independently.
 Closed-switch through currents bind directly from `:switch_from`; the opposite
@@ -45,15 +47,15 @@ function ivr_nlp_point_report(build::IVRNLPBuild,point::ACPoint;atol=1e-7)
         end
     end
     for (f,id,_,rows,_) in e.devices
-        f in (:load,:generator,:voltage_source,:switch_from,:transformer_coil_from,:transformer_coil_to,:transformer_coil) || continue
+        f in (:load,:generator,:voltage_source,:switch_from,:transformer_coil_from,:transformer_coil_to,:transformer_coil,:transformer_bond) || continue
         values=current(f,id,length(rows))/e.ib
         for (row,value) in zip(rows,values)
             isempty(row) && continue # Grounded source or open-switch current.
             z[only(keys(row))]=value
         end
     end
-    # Isolated winding terminal currents reveal any ideal-ground branch
-    # current after the supplied coil currents and voltages have been bound.
+    # Winding terminal currents reveal any ideal-ground branch current after
+    # the supplied coil/bond currents and voltages have been bound.
     # IBR internal currents similarly reveal coil currents once voltages are bound.
     # Solve only a single remaining coordinate, without a least-squares fit or
     # changes to observed channels. All terminal bindings are checked below.
