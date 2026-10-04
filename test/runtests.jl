@@ -10,6 +10,8 @@ using OpenDSSDirect
     include("ivr_transformer_tests.jl")
     include("ivr_regulator_tests.jl")
     include("ivr_regulator_opendss_tests.jl")
+    include("ivr_load_law_tests.jl")
+    include("ivr_load_law_opendss_tests.jl")
     include("ivr_input_annotations_tests.jl")
     include("ivr_bound_coverage_tests.jl")
     include("ivr_switch_tests.jl")

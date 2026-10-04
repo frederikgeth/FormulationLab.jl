@@ -114,6 +114,23 @@ fixed circuit demonstration; it neither chooses a tap nor simulates a regulator
 controller. The reference regression suite separately tests leakage, excitation,
 open-delta coupling and nonunique bond/earth current allocations.
 
+## F. Voltage reduction changes the load as well as the network
+
+Hold a load coil at 207 V, or 0.9 of its 230 V nominal voltage. A nominal
+2 kW load still consumes 2 kW under constant power, 1.8 kW under constant
+current and 1.62 kW under constant impedance. With active ZIP fractions
+`(0.2, 0.3, 0.5)` it consumes 1.864 kW. Reactive fractions may differ, so the
+power factor need not remain constant for ZIP or exponential models.
+
+**Question.** Is an observed import reduction a formulation benefit or a changed
+physical demand? The tutorial evaluates all five laws at the same fixed voltage
+and independently checks each power function. It isolates the demand effect;
+it does not label the lower-demand law a more efficient optimizer. The regression
+suite separately uses variable-voltage networks to test load/network coupling,
+exact auxiliary magnitude binding and retained limits in full/reduced forms.
+Missing positive coil-voltage domains cause a refusal rather than an invented
+voltage floor. Deenergized behavior would require another explicit contract.
+
 ## Interpreting benefit and evidence
 
 There are three distinct potential benefits: a native exact reference for

@@ -174,6 +174,35 @@ function regulator_example()
     (; net, solved, assessment)
 end
 
+"""Compare five load laws at the same 0.9 pu physical coil voltage."""
+function load_law_example()
+    rows=NamedTuple[]
+    println("law                | active power (W) | reactive power (var)")
+    for law in ("constant_power","constant_current","constant_impedance","zip","exponential")
+        net=two_wire_case();delete!(net,"line");delete!(net["bus"],"demand")
+        net["voltage_source"]["grid"]["v_magnitude"][1]=207.
+        d=net["load"]["house"];d["bus"]="source";d["model"]=law;d["v_nom"]=[230.];d["q_nom"]=[300.]
+        if law=="zip"
+            for (prefix,values) in (("alpha",(.2,.3,.5)),("beta",(.4,.5,.1))), (suffix,x) in zip(("z","i","p"),values)
+                d[prefix*"_"*suffix]=[x]
+            end
+        elseif law=="exponential"
+            d["gamma_p"]=[.4];d["gamma_q"]=[2.7]
+        end
+        solved=solve_checked(net)
+        r=.9
+        fp,fq=law=="constant_power" ? (1.,1.) : law=="constant_current" ? (r,r) :
+            law=="constant_impedance" ? (r^2,r^2) : law=="zip" ? (.2r^2+.3r+.5,.4r^2+.5r+.1) : (r^.4,r^2.7)
+        power=only(solved.result.powers[(:load,"house")])
+        @assert isapprox(power,2000fp+300fq*im;atol=1e-5)
+        @assert isapprox(only(solved.result.current_candidate[(:load,"house")]),conj(power/207);atol=1e-6)
+        @assert solved.build.numerical_diagnostics[:load_voltage_variable_count]==0
+        @printf("%-18s | %16.6f | %.6f\n",law,real(power),imag(power))
+        push!(rows,(;law,power))
+    end
+    rows
+end
+
 function refusal_examples()
     baseline = analytical_example()
     tight = deepcopy(baseline.net)
@@ -202,6 +231,7 @@ function run_all()
     dispatch_example()
     inverter_example()
     regulator_example()
+    load_law_example()
     refusal_examples()
     println("All tutorial checks passed.")
 end

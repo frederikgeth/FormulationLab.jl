@@ -10,7 +10,8 @@ Implemented:
   magnitude limits, reusable load demands, and generator boxes/prices. Requires an
   explicit nonlinear optimizer and supports lines, sources, shunts, fixed switches,
   capacitors, fixed transformers/regulators, static IBRs, constant-power/impedance
-  loads and generator boxes. Optional certified radial
+  loads and voltage-dependent current/ZIP/exponential laws on certified positive
+  coil-voltage domains. Optional certified radial
   conductor-difference specialization retains ground-dependent limits; local
   solves carry no global optimality guarantee. See [exact IVR](docs/src/ivr_nlp.md), its [equations](docs/src/ivr_theory.md)
   and the [build–verify–reuse tutorial](docs/src/tutorial_exact_ivr.md).

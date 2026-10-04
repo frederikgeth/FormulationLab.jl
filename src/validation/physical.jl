@@ -165,12 +165,23 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
                 law=="constant_power" && return ones(n)
                 law=="constant_impedance" && return ratio.^2
                 law=="constant_current" && return ratio
-                law=="exponential" && return ratio.^d[gamma]
-                law=="zip" && return d[prefix*"_z"].*ratio.^2+d[prefix*"_i"].*ratio+d[prefix*"_p"]
+                law=="exponential" && return ratio.^_vcheck_array(d,gamma,n)
+                law=="zip" && return _vcheck_array(d,prefix*"_z",n).*ratio.^2+
+                    _vcheck_array(d,prefix*"_i",n).*ratio+_vcheck_array(d,prefix*"_p",n)
                 push!(unassessed,"load/$id law $law");fill(NaN,n)
             end
             expected=complex.(d["p_nom"].*factor("alpha","gamma_p"),d["q_nom"].*factor("beta","gamma_q"))
             check("load/$id/power",s-expected,:power)
+            # Power alone cannot identify impedance current at zero voltage.
+            # Decode pure-Z special cases independently of the assembler.
+            pure_z=law=="constant_impedance" ||
+                law=="exponential" && all(==(2),_vcheck_array(d,"gamma_p",n)) && all(==(2),_vcheck_array(d,"gamma_q",n)) ||
+                law=="zip" && all(prefix->all(==(1),_vcheck_array(d,prefix*"_z",n)) &&
+                    all(iszero,_vcheck_array(d,prefix*"_i",n)) && all(iszero,_vcheck_array(d,prefix*"_p",n)),("alpha","beta"))
+            if pure_z
+                admittance=conj.(complex.(d["p_nom"],d["q_nom"]))./vnom.^2
+                check("load/$id/impedance_current",i-admittance.*u,:current)
+            end
         elseif family=="generator"
             bounds(d,real.(s),"p_min","p_max","generator/$id",:power);bounds(d,imag.(s),"q_min","q_max","generator/$id",:power)
             bounds(d,abs.(s),"__none","s_max","generator/$id",:power)

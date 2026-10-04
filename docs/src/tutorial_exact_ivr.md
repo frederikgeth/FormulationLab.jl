@@ -2,7 +2,7 @@
 
 This tutorial starts with a two-wire feeder whose solution can be calculated by
 hand. It then checks conductor specialization, demand reuse, generator prices
-an inverter's internal budget and a fixed regulator. Finally it deliberately violates a bound and
+an inverter's internal budget, a fixed regulator and voltage-dependent demand. Finally it deliberately violates a bound and
 adds an earth-current path that invalidates the reduction certificate.
 
 The learning objective is to distinguish **physical correctness**, **equivalent
@@ -260,7 +260,32 @@ No tap is optimized. For type A, the native ideal gain is `1/tap_ratio`; see
 [fixed regulator conventions](ivr_nlp.md#Fixed-regulators-and-conductive-bonds)
 for conductive-bond observations and grounding ambiguity.
 
-## 9. Extend the experiment without changing its meaning
+## 9. Compare demand laws at the same voltage
+
+A voltage reduction changes the demand itself for current, impedance, ZIP and
+exponential models. Compare them at a **fixed 207 V** coil voltage, with nominal
+values 2000 W and 300 var at 230 V. This keeps the physical voltage identical
+across cases, so the different powers come entirely from the load law.
+
+```@example exactivr
+load_laws = T.load_law_example(); nothing
+```
+
+The ZIP example uses active fractions `(0.2, 0.3, 0.5)` and reactive fractions
+`(0.4, 0.5, 0.1)` in Z/I/P order; exponential powers use exponents 0.4 and 2.7.
+The helper checks the tabulated powers and current against independently
+calculated factors. These fixed nonzero source coils require no magnitude
+auxiliaries or additional voltage bounds. At an unfixed bus, a positive lower
+bound on the actual load-coil voltage is required; see the
+[domain and data contract](ivr_nlp.md#Voltage-dependent-load-laws).
+
+These cases share nominal demand, but represent **different physical models**.
+Their objective values should not be treated as a full/reduced formulation
+comparison or evidence of algorithmic improvement. Voltage-law coefficients and
+nominal powers require a fresh build when changed; the existing demand-update
+API applies only to declared constant-power loads.
+
+## 10. Extend the experiment without changing its meaning
 
 For a larger study, record the input digest and every deliberate data change;
 retain failed solves and explicit fallback reasons; compare accepted objectives

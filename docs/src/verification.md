@@ -1,5 +1,47 @@
 # Verification
 
+## Exact IVR voltage-dependent demand — 5 October 2026
+
+The voltage-law extension adds **2,461 assertions**: 2,335 manufactured-state,
+solve, bound, domain, input and update checks, and 126 assertions against
+18 OpenDSS circuits. The default Julia 1.12.6 suite passes **25,535/25,535**
+assertions. The known OpenDSSDirect precompilation issue still falls back to
+successful loading; reference comparisons pass. The new executable tutorial
+compares all five laws at an identical fixed voltage, separate from the suite
+count. Counts here supersede earlier dated milestones below.
+
+Independent SI witnesses cover single-phase, three-wire delta and four-wire
+wye loads; unbalanced P/Q; positive, zero and reverse demand; two power bases;
+full/reduced representations; fractional, zero and negative exponents; and
+terminal reordering. Holding each state fixed, tests violate its load-current
+law, matched voltage bound, line current bound or auxiliary squared-voltage
+binding. Mixed invalid updates leave valid constant-power entries unchanged.
+Pure-Z witnesses check zero current at zero coil voltage while preserving KCL
+and power in the deliberately invalid point. This found an independent-auditor
+gap: power alone did not identify zero-voltage impedance current. Equal engineering magnitude bounds also have
+60 checks that ensure constant power factors add no redundant fixed auxiliary. Scalar ZIP
+broadcasting in that auditor was also corrected.
+
+OpenDSS comparisons cover all three connections and laws at 0.85 and 1.08 pu,
+with a series line, matching source phasors and coil nominal voltages. They
+compare load power, downstream phasors and line input current. DSS ZIP dropout
+is disabled and all points stay inside its declared model voltage thresholds;
+no claim is made for the different low/high-voltage substitutions documented
+in the [OpenDSS load reference](https://dss-extensions.org/dss-format/Load.html).
+The local 2,815-network inventory contains 334,486 constant-power load entries
+and no explicit current/ZIP/exponential entries. It therefore supplies no
+new-law feeder validation or performance conclusion.
+
+All five native static load laws and seven fixed transformer families are now
+implemented within documented restrictions. General nonlinear load powers
+require a positive bound on the **actual coil voltage** or a fixed nonzero
+source coil; nominal voltage supplies no such certificate. Pure impedance laws
+retain their linear current equations at zero. This is an explicit applicability
+domain, not full deenergized-load behavior or full schema coverage. Controls,
+optimized taps, external DC and time-series semantics remain outside scope.
+Region-wise conductor specialization and broader reusable parameter APIs also
+remain future work.
+
 ## Exact IVR fixed regulators — 5 October 2026
 
 The default Julia 1.12.6 suite passes **23,074/23,074** assertions (test summary

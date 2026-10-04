@@ -15,6 +15,8 @@ IBR coil currents are derived from supplied internal filter currents and voltage
 the PCC current channels are then checked independently.
 Closed-switch through currents bind directly from `:switch_from`; the opposite
 endpoint and both open-switch zero-current channels are checked independently.
+Voltage-dependent load auxiliaries are calculated from supplied coil voltages;
+zero-voltage inputs reject before evaluating fractional or negative powers.
 
 Residuals for coordinate/channel bindings are per unit; constraint residuals use
 the built model's normalization. Grounded source-current allocations remain
@@ -96,9 +98,17 @@ function ivr_nlp_point_report(build::IVRNLPBuild,point::ACPoint;atol=1e-7)
                 supplied[refs.p[k]]=real(s);supplied[refs.q[k]]=imag(s)
             end
         end
-        residuals=JuMP.primal_feasibility_report(build.model,supplied;atol=0.0)
-        violation=maximum(values(residuals);init=0.0)
-        objective=JuMP.value(v->supplied[v],JuMP.objective_function(build.model))*e.sb
+        # Voltage-law auxiliaries are physical magnitudes, never fitted values.
+        domain=true
+        for refs in values(build.load_voltage_variables),ref in refs
+            x=abs2(_linivr_eval(ref.row,reconstructed))*ref.scale
+            supplied[ref.variable]=x;domain &= isfinite(x) && x>0
+        end
+        if domain
+            residuals=JuMP.primal_feasibility_report(build.model,supplied;atol=0.0)
+            violation=maximum(values(residuals);init=0.0)
+            objective=JuMP.value(v->supplied[v],JuMP.objective_function(build.model))*e.sb
+        end
     end
     volts=Dict(key=>(k==0 ? 0im : reconstructed[k]*e.vb) for (key,k) in e.voltage)
     amps=Dict((f,id)=>ComplexF64[_linivr_eval(row,reconstructed)*e.ib for row in rows]

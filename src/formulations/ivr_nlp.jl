@@ -1,6 +1,7 @@
 """Experimental exact static IVR options. Approximate network reduction is never applied.
 
 Supports lines, fixed switches/sources/capacitors, fixed transformers/regulators, shunts/grounds, constant-power/impedance loads
+and current/ZIP/exponential power laws on certified positive coil-voltage domains
 and generator boxes with coil-based delta dispatch. Static IBRs use conductor-rated
 THREE_LEG dispatch, fixed filters, capability bounds and optional internal-voltage
 setpoints; control profiles are unsupported. Costs are linear, in the
@@ -42,6 +43,7 @@ struct IVRNLPBuild
     network::Dict{String,Any}
     options::IVRNLPOptions
     load_constraints::Dict{String,Any}
+    load_voltage_variables::Dict{String,Any}
     generator_variables::Dict{String,Any}
     numerical_diagnostics::Dict{Symbol,Any}
     coordinates::Any
@@ -61,8 +63,7 @@ function _ivrn_check(net)
         _ivrn_check_ibr(net,id,d)
     end
     for (id,d) in get(net,"load",Dict())
-        lowercase(get(d,"model","constant_power")) in ("constant_power","constant_impedance") ||
-            _ivrn_refuse("load/$id requires constant_power or constant_impedance")
+        _ivrn_check_load(id,d)
     end
 end
 
@@ -272,7 +273,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         @constraint(model,real(a)==0);@constraint(model,imag(a)==0)
     end
     powers=Dict{Tuple{Symbol,String},Vector{Any}}()
-    loads=Dict{String,Any}();generators=Dict{String,Any}()
+    loads=Dict{String,Any}();load_voltages=Dict{String,Any}();generators=Dict{String,Any}()
+    voltage_range=nothing # Build this index only for voltage-dependent powers.
     objective=JuMP.QuadExpr(JuMP.AffExpr(0.0))
     for (family,id,v,i,d) in e.devices
         count=length(v)
@@ -292,9 +294,17 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         if family==:load && !_sdp_is_impedance_load(d)
             pn=e.values_for(d,"p_nom",count);qn=e.values_for(d,"q_nom",count)
             pn===nothing || qn===nothing ? _ivrn_refuse("load/$id requires P and Q") : nothing
-            cp=[@constraint(model,p[k]==pn[k]/e.sb) for k in 1:count]
-            cq=[@constraint(model,q[k]==qn[k]/e.sb) for k in 1:count]
-            loads[id]=(;p=cp,q=cq)
+            if lowercase(get(d,"model","constant_power"))=="constant_power"
+                cp=[@constraint(model,p[k]==pn[k]/e.sb) for k in 1:count]
+                cq=[@constraint(model,q[k]==qn[k]/e.sb) for k in 1:count]
+                loads[id]=(;p=cp,q=cq)
+            else
+                if voltage_range===nothing
+                    voltage_range=_sdp_voltage_ranges(net,e.terminal_rows,
+                        Dict(k=>v*e.vb for (k,v) in e.fixed_source_coordinates))
+                end
+                load_voltages[id]=_ivrn_load_law!(model,id,d,v,p,q,z,z0,e,voltage_range)
+            end
         elseif family==:ibr_internal
             if get(d,"dc_link_coupled",false)
                 if haskey(d,"p_dc_min") && haskey(d,"p_dc_max") && d["p_dc_min"]==d["p_dc_max"]
@@ -376,13 +386,14 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :network_reduction=>:off,:assembly_count=>1,
         :update_count=>0,:generator_update_count=>0,
         :dispatch_variable_count=>sum(length(g.p)+length(g.q) for g in values(generators);init=0),
+        :load_voltage_variable_count=>sum(length,values(load_voltages);init=0),
         :state_dimension=>e.coordinate_count[],
         :solver_state_dimension=>n,:discharged_complex_kcl=>length(omitted),:source_mode=>:affine,
         :initialization=>_ivrn_needs_circuit_start(net) ? :linear_circuit : :line_propagation,
         :legacy_slack_generators=>sort!([id for (id,d) in get(net,"generator",Dict()) if get(d,"_slack",false)]),
         :unobserved_grounded_source_currents=>unavailable)
     coordinates=(;maps...,real_variables=xr,imaginary_variables=xi)
-    IVRNLPBuild(model,z,powers,e,net,options,loads,generators,diagnostics,coordinates)
+    IVRNLPBuild(model,z,powers,e,net,options,loads,load_voltages,generators,diagnostics,coordinates)
 end
 
 """Update constant-power loads in SI units without reassembly.

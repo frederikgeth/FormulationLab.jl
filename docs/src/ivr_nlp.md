@@ -93,7 +93,8 @@ physical assessment. See [the API reference](api.md).
 
 The initial implementation supports mutually coupled lines, endpoint shunts,
 ideal bus grounds, finite grounding admittances, fixed source phasors,
-constant-power and constant-impedance loads, and generator P/Q boxes. Wye,
+constant-power/impedance and voltage-dependent current/ZIP/exponential loads,
+and generator P/Q boxes. Wye,
 delta and single-phase connection maps are retained. Physical limits include
 conductor current, apparent power, phase-ground, phase-neutral, phase-phase,
 neutral and supported sequence-voltage magnitudes. Lower voltage magnitudes
@@ -167,6 +168,65 @@ per winding. Unequal tap bounds require an explicit fixed setting.
 Taps are fixed equipment data and cannot be
 changed through the load/generator update APIs.
 
+### Voltage-dependent load laws
+
+Loads use physical connection coils: one terminal pair for SINGLE_PHASE,
+phase-neutral (or implicit-earth) coils for WYE, and ordered phase-pair coils
+for DELTA. Native `v_nom` is the nominal voltage **across that coil**. In
+particular, a 230 V phase-neutral wye uses 230 V per coil, while a corresponding
+delta uses approximately 398.37 V. The inspected PowerIO schema's prose calls
+three-phase nominal values line-to-line; accepting a native dictionary does
+not resolve that different input convention or automatically convert it.
+
+Besides constant power and impedance, `constant_current`, `zip` and
+`exponential` implement the exact [power functions](ivr_theory.md#Voltage-dependent-demand).
+P/Q nominal powers are finite per-coil vectors; signed values are allowed.
+Positive finite `v_nom`, ZIP coefficients and exponents accept either a scalar
+broadcast or a full channel vector. Length-one vectors do not broadcast to
+multiple channels. All six ZIP fractions are required, nonnegative and sum to
+one separately for P and Q in each channel (absolute tolerance `1e-10`). Both
+finite `gamma_p` and `gamma_q` are required for exponential loads; fractional,
+zero and negative exponents are supported. Coefficients belonging to a different
+law are refused. Nominal powers and fractions introduce no operating cap.
+
+Every non-impedance voltage-dependent coil requires a **strictly positive
+engineering lower voltage bound on that exact voltage map**, or a fixed
+nonzero voltage derived directly from source phasors. `vpn_min` can certify a
+wye coil and `vpp_min` a delta coil; separate phase-ground bounds generally
+cannot certify either difference voltage. Ground elimination, polarity and
+terminal-map permutations are respected. No nominal-voltage floor, epsilon,
+current cutoff or extrapolation at zero is introduced. The detector is
+conservative: it does not propagate lower bounds through lines or transformers.
+An absent certificate causes an explicit refusal, even for zero demand or an
+exponential exponent of zero. Pure-Z ZIP and all-exponent-two loads instead
+use the exact linear impedance current law and need no positive-domain
+certificate; at zero coil voltage that law enforces zero coil current.
+
+For a nonfixed coil the NLP adds one normalized squared-voltage variable,
+bounded by the matched engineering bounds, and equates it to the physical
+squared magnitude. Coils with fixed source voltages or equal matched magnitude bounds evaluate
+the power function directly, avoiding a redundant fixed auxiliary.
+`:load_voltage_variable_count` reports the added variables.
+`ivr_nlp_point_report` derives their values from the supplied physical voltages;
+it cannot choose them to repair a mismatch. Fractional powers are evaluated
+only on the positive domain. A supplied zero-voltage state rejects safely.
+
+`update_ivr_loads!` remains restricted to declared constant-power loads. Changes
+to voltage-law nominal demands, fractions or exponents require a fresh build;
+a mixed invalid update is rejected before its valid constant-power entries are
+changed. A constant-power load in the same network can still be reused while
+all voltage-law equations remain fixed. These laws do not change the connection
+identities used by conductor specialization, and their auxiliary variables and
+all physical operating bounds are retained in both representations.
+
+The OpenDSS reference tests use models 5 (current), 8 (ZIPV) and 4 (CVR powers),
+with the same coil nominal voltages and a shared operating range. They set ZIP
+cutoff to zero and stay inside the declared DSS voltage thresholds, because
+OpenDSS uses different laws outside them. See the
+[Load reference](https://dss-extensions.org/dss-format/Load.html) and
+[CVR implementation](https://github.com/dss-extensions/dss_capi/blob/master/src/PCElements/Load.pas).
+No equivalence with those out-of-range substitutions is claimed.
+
 ### Fixed regulators and conductive bonds
 
 `single_phase_autotransformer` and `open_delta_regulator` use the same fixed
@@ -212,7 +272,7 @@ Without transformers, switches, capacitors or IBRs, each voltage conductor must 
 or finite one-terminal ground. A finite ground supplies only an initial voltage
 guess; its voltage is not fixed and its actual admittance/KCL remain enforced.
 With transformers, switches, capacitors or IBRs, a sparse linear circuit solve provides starts using every
-fixed source phasor. Constant-power load, generator and IBR PCC currents are zero only
+fixed source phasor. Non-impedance load, generator and IBR PCC currents are zero only
 in this initialization; impedance loads, capacitors, excitation, grounds and closed switches remain active.
 It requires unique no-load conductor voltages and rejects inconsistent circuits
 or floating sections, including an unreferenced delta secondary. No artificial
@@ -222,8 +282,8 @@ initial solve and retained in the nonlinear model. Diagnostics distinguish
 An open switch cannot provide a voltage reference to a floating island;
 independently supplied sections may have different source phasors.
 
-Control profiles, DC components
-and other load laws are outside this initial scope. They are explicitly refused.
+Control profiles, DC components and load laws outside the five declared
+models are explicitly refused.
 No topology or Kron reduction is run. User-supplied already-reduced data still
 represent that user's input, not a recovered original network.
 
@@ -269,10 +329,10 @@ inventory, not proof of completeness for every possible input or future schema.
 bindings, independent circuit witnesses, open islands, reversed terminal maps,
 reverse flow, load reuse and transformer composition.
 
-The remaining static AC load models are constant-current, ZIP and exponential
-load laws. Controls, tap optimization, DC and time-series semantics require
-additional contracts. Each added group needs physical-state and negative-bound
-tests before its scope gate is removed. Element support also does not establish
+All five declared load laws and seven fixed transformer families now have
+exact-IVR implementations within their stated domains. This is not full schema
+or operating-mode coverage: controls, tap optimization, DC and time-series
+semantics require additional contracts. Element support also does not establish
 conductor-specialization eligibility.
 
 A transformer anywhere in the input causes requested conductor-difference

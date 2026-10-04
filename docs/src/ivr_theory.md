@@ -96,6 +96,53 @@ transformers and regulators retain the
 [winding, leakage and excitation equations](sdp_transformers.md) for all seven
 fixed-setting families in [the scope reference](ivr_nlp.md).
 
+### Voltage-dependent demand
+
+For nominal coil voltage ``u_0>0``, define ``r=|u|/u_0``. The active and
+reactive powers are
+
+```math
+p=p_0 f_p(r),\qquad q=q_0 f_q(r),\qquad s=u\overline\iota.
+```
+
+| Law | ``f_p(r)`` | ``f_q(r)`` |
+|:--|:--|:--|
+| Constant power | ``1`` | ``1`` |
+| Constant current | ``r`` | ``r`` |
+| Constant impedance | ``r^2`` | ``r^2`` |
+| ZIP | ``\alpha_z r^2+\alpha_i r+\alpha_p`` | ``\beta_z r^2+\beta_i r+\beta_p`` |
+| Exponential | ``r^{\gamma_p}`` | ``r^{\gamma_q}`` |
+
+Each ZIP triple is nonnegative and sums to one. Active and reactive fractions
+or exponents may differ. “Constant current” denotes constant current magnitude
+and power factor at nonzero voltage; the current phasor rotates with coil
+voltage. It is not a fixed complex current injection.
+
+For nonlinear voltage laws the implementation uses an auxiliary ``x=r^2``:
+
+```math
+x=\frac{u_r^2+u_i^2}{u_0^2},\qquad
+\left(\frac{u^{\min}}{u_0}\right)^2\le x\le
+\left(\frac{u^{\max}}{u_0}\right)^2.
+```
+
+A matched physical bound must establish ``u^{\min}>0``; a finite upper bound is
+optional. Substituting ``r=\sqrt{x}`` gives smooth power functions on this domain,
+including negative exponents. This auxiliary is uniquely determined by the
+physical state, so adding it preserves the feasible set within the declared
+domain. It provides an explicit positive variable domain for nonlinear solvers;
+no regularization changes the equations. Solver trial points and convergence
+still depend on the chosen solver and its bound-handling options.
+
+A fixed nonzero source coil or equal matched engineering magnitude bounds need
+no auxiliary: their power factors are constant on the declared domain. The
+original physical voltage bounds remain enforced. Exactly pure impedance cases
+use ``\iota=\overline{s_0}u/u_0^2`` directly, including at ``u=0``. Checking only
+``u\overline\iota=s_0r^2`` would fail to enforce zero current at zero voltage;
+both the compiled circuit and independent auditor therefore check the current
+law for these cases. The contract deliberately does not define a deenergized
+continuation for the other voltage-dependent load laws.
+
 ### Conductive bonds in fixed regulators
 
 Let ``b`` denote current in a bond from terminal ``k`` on the from side to
@@ -254,7 +301,7 @@ from topology simplification.
 | Responsibility | Implementation | Validation |
 |:--|:--|:--|
 | Exact circuit, maps and endpoint quantities | `src/formulations/ivr_electrical.jl` | manufactured SI states; component/OpenDSS tests |
-| Power products, operating bounds, objectives and updates | `src/formulations/ivr_nlp.jl` | fixed-state negative-bound tests; fresh/reused comparisons |
+| Power products, operating bounds, objectives and updates | `src/formulations/ivr_nlp.jl`, `src/formulations/ivr_loads.jl` | fixed-state negative-bound tests; fresh/reused comparisons |
 | Local difference identities | `src/compilation/conductor_difference.jl` | `test/compiler_algebra_tests.jl` |
 | Applicability, projection and reconstruction | `src/compilation/ivr_structure.jl` | `test/compiler_network_tests.jl` |
 | Supplied-point evaluation of the actual NLP | `src/validation/ivr_nlp.jl` | both mapping directions; deliberately perturbed states |
