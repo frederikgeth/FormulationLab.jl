@@ -177,6 +177,7 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
         check("switch/$id/current",i+j,:current)
         d["open_switch"] ? check("switch/$id/open",[i;j],:current) : check("switch/$id/closed",v-w,:voltage)
         inject(d["bus_from"],tm,i);inject(d["bus_to"],mt,j);rates(d,v,i,"switch/$id")
+        rates(d,w,j,"switch/$id/to")
     end
     _physical_transformers!(net,point,V,current,check,bounds,inject,unassessed)
     for (id,d) in get(net,"ibr",Dict())

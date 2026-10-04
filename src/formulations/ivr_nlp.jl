@@ -1,6 +1,6 @@
 """Experimental exact static IVR options. Approximate network reduction is never applied.
 
-Supports lines, fixed sources, fixed isolated winding transformers, shunts/grounds, constant-power/impedance loads
+Supports lines, fixed switches/sources, fixed isolated winding transformers, shunts/grounds, constant-power/impedance loads
 and generator boxes with coil-based delta dispatch. Costs are linear, in the
 same currency/kWh convention as LinIVR. An optimizer is supplied by the caller.
 `specialization=:conductor_difference` attempts a certified radial zero-sum
@@ -34,7 +34,7 @@ struct IVRNLPBuild
 end
 
 function _ivrn_check(net)
-    for family in ("switch","capacitor","ibr","control_profile")
+    for family in ("capacitor","ibr","control_profile")
         isempty(get(net,family,Dict())) || _ivrn_refuse("$family is outside the initial static IVR scope")
     end
     for (kind,table) in get(net,"transformer",Dict())
@@ -51,10 +51,13 @@ end
 
 # Unloaded source propagation supplies starts only; it does not constrain any
 # operating currents. All fixed source coordinates are handled by the NLP.
+_ivrn_needs_circuit_start(net)=any(!isempty,values(get(net,"transformer",Dict()))) || !isempty(get(net,"switch",Dict()))
+
 function _ivrn_start(net,e)
-    if any(!isempty,values(get(net,"transformer",Dict())))
-        # The unloaded linear circuit retains leakage, excitation, grounding
-        # and impedance loads. It supplies starts only, never NLP constraints.
+    if _ivrn_needs_circuit_start(net)
+        # The unloaded linear circuit retains leakage, excitation, grounding,
+        # impedance loads and fixed switches. It supplies starts only, never
+        # NLP constraints. Open switches provide no voltage reference.
         try
             z,_,_=_linivr_reference(e;fixed_coordinates=e.fixed_source_coordinates)
             return z
@@ -276,7 +279,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :dispatch_variable_count=>sum(length(g.p)+length(g.q) for g in values(generators);init=0),
         :state_dimension=>e.coordinate_count[],
         :solver_state_dimension=>n,:discharged_complex_kcl=>length(omitted),:source_mode=>:affine,
-        :initialization=>any(!isempty,values(get(net,"transformer",Dict()))) ? :linear_circuit : :line_propagation,
+        :initialization=>_ivrn_needs_circuit_start(net) ? :linear_circuit : :line_propagation,
         :legacy_slack_generators=>sort!([id for (id,d) in get(net,"generator",Dict()) if get(d,"_slack",false)]),
         :unobserved_grounded_source_currents=>unavailable)
     coordinates=(;maps...,real_variables=xr,imaginary_variables=xi)

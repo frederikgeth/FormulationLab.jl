@@ -76,6 +76,16 @@ are exact nonconvex inequalities. Delta device dispatch and ratings use coil
 semantics consistently with `physical_residuals(...; delta_dispatch=:coil)`.
 Line current limits apply to total endpoint currents including shunts.
 
+Fixed switches require a Boolean `open_switch`. A closed switch equates
+corresponding endpoint voltages and carries an explicit through-current;
+an open switch carries zero current without equating endpoint voltages.
+`i_max` and the dictionary extension `s_max` apply at both ends, with one
+entry per declared switch conductor (including neutral), in terminal-map
+order. Apparent power is terminal-to-ground voltage times conjugate current.
+Results expose `:switch_from` and `:switch_to` currents and powers; supplied-point
+checks bind the through-current and check both endpoint channels. Switch state
+is fixed equipment data: changing it requires a fresh build.
+
 Fixed isolated-winding transformers support `single_phase`, `center_tap`,
 `delta_wye`, `wye_delta` and `n_winding`. The shared winding circuit retains
 leakage, fixed ratios and phase shifts, excitation, neutral grounding and
@@ -96,19 +106,21 @@ changed through the load/generator update APIs.
 Supported objectives are `:cost` (linear currency/kWh coefficients),
 `:source_import` (watts), and `:feasibility`. Inputs and outputs use SI units;
 `s_base` controls internal scaling. Inputs are copied rather than modified.
-Without transformers, each voltage conductor must have a line path to a fixed source, ideal ground,
+Without transformers or switches, each voltage conductor must have a line path to a fixed source, ideal ground,
 or finite one-terminal ground. A finite ground supplies only an initial voltage
 guess; its voltage is not fixed and its actual admittance/KCL remain enforced.
-With transformers, a sparse linear circuit solve provides starts using every
+With transformers or switches, a sparse linear circuit solve provides starts using every
 fixed source phasor. Constant-power load and generator currents are zero only
-in this initialization; impedance loads, excitation and grounds remain active.
+in this initialization; impedance loads, excitation, grounds and closed switches remain active.
 It requires unique no-load conductor voltages and rejects inconsistent circuits
 or floating sections, including an unreferenced delta secondary. No artificial
 ground or voltage gauge is inserted. Current-only freedom is allowed in the
 initial solve and retained in the nonlinear model. Diagnostics distinguish
 `:linear_circuit` and `:line_propagation` initialization.
+An open switch cannot provide a voltage reference to a floating island;
+independently supplied sections may have different source phasors.
 
-Autotransformers/regulators, switches, capacitors, static IBRs, control profiles, DC components
+Autotransformers/regulators, capacitors, static IBRs, control profiles, DC components
 and other load laws are outside this initial scope. They are explicitly refused.
 No topology or Kron reduction is run. User-supplied already-reduced data still
 represent that user's input, not a recovered original network.
@@ -125,6 +137,7 @@ the independent SI auditor:
 | Bus | `vpn_min`, `vpn_max`, `vpp_min`, `vpp_max`, `vn_max` | Phase-neutral, phase-pair and neutral-ground magnitudes |
 | Bus | `vpos_min`, `vpos_max`, `vneg_max`, `vzero_max` | Three-phase sequence magnitudes of phase-neutral voltages |
 | Line / linecode | `i_max`, `s_max` | Total endpoint current and phase-ground apparent power at **both** ends; array positions follow `terminal_map_from` at both ends; line fields override linecode fields |
+| Fixed switch | `i_max`, `s_max` | Conductor current and terminal-ground apparent power at both ends, including neutral; zero ratings are supported |
 | Generator | `p_min`, `p_max`, `q_min`, `q_max`, `s_max` | Connection-channel power, including delta **coil** power |
 | Generator | `i_max` | Coil current, or terminal current when an explicit return-conductor entry is supplied; three-coil delta ratings use coil current |
 | Voltage source | `p_min`, `p_max`, `q_min`, `q_max` | Per-phase or full-terminal power arrays |
@@ -132,7 +145,7 @@ the independent SI auditor:
 | Ordinary fixed transformer | `i_max_from`, `i_max_to` | Delta-side coil current; other-side terminal current |
 | General multiwinding transformer | Winding `i_max`, `s_max` | Coil current and coil apparent power, including scalar broadcast |
 
-Source Q/current/apparent bounds and multiwinding `s_max` are dictionary
+Source Q/current/apparent bounds and switch/multiwinding `s_max` are dictionary
 extensions to the pinned schema. Fixed tap bounds are checked against the
 equipment setting before construction; they are not optimization variables.
 `s_rating`, load `p_nom`/`q_nom`, nominal voltages and retained geometry ratings
@@ -147,8 +160,11 @@ linecode overrides, and the five supported transformer families. Existing
 generator-update tests cover bound removal and fixed/free transitions; tap
 alias tests cover fixed-setting bounds. This is a maintained regression
 inventory, not proof of completeness for every possible input or future schema.
+`test/ivr_switch_tests.jl` additionally covers fixed-switch ratings, endpoint
+bindings, independent circuit witnesses, open islands, reversed terminal maps,
+reverse flow, load reuse and transformer composition.
 
-The remaining static AC element groups are fixed switches, capacitors,
+The remaining static AC element groups are capacitors,
 autotransformers/regulators, static IBRs, and constant-current/ZIP/exponential
 load laws. Controls, tap optimization, DC and time-series semantics require
 additional contracts. Each added group needs physical-state and negative-bound
@@ -158,6 +174,8 @@ conductor-specialization eligibility.
 A transformer anywhere in the input causes requested conductor-difference
 specialization to fall back to full IVR with `:transformer_boundary`. The
 existing line-only proof has not been extended across winding boundaries.
+Switches similarly cause `:switch_boundary` fallback, including open switches.
+If both are present, the transformer-boundary diagnostic takes precedence.
 
 Bus `v_declared`, `latitude` and `longitude` are retained descriptive annotations.
 `v_declared` must be a positive finite scalar; it does not set source phasors,

@@ -12,6 +12,8 @@ function _ivrn_structure(net,e)
     decline(code,ids=String[])=((;status=:inapplicable,code,components=ids),nothing)
     transformers=sort!(["$kind/$id" for (kind,table) in get(net,"transformer",Dict()) for id in keys(table)])
     isempty(transformers) || return decline(:transformer_boundary,transformers)
+    switches=sort!(collect(keys(get(net,"switch",Dict()))))
+    isempty(switches) || return decline(:switch_boundary,switches)
     sources=net["voltage_source"]
     length(sources)==1 || return decline(:multiple_sources,sort!(collect(keys(sources))))
     source_id=only(keys(sources));source=sources[source_id];root=source["bus"]
