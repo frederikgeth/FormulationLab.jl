@@ -1,5 +1,75 @@
 # Verification
 
+## Assembly-local neutral-role preparation — 5 October 2026
+
+The default Julia 1.12.6 suite passes **28,255/28,255** assertions (2m13.7s),
+including **190 new checks** of neutral-role discovery and reuse. The electrical
+assembler already discovers a bus-to-neutral map. Fixed and multiwinding
+transformers and capacitor banks now consume that same map instead of scanning
+the network again. LinIVR loss preparation also uses the assembled map.
+Standalone device plans and reconstruction retain local discovery when no map
+is supplied. Every new assembly discovers roles afresh; there is no persistent
+cache or new input-mutation contract.
+
+For an unchanged input, each lookup returns the same neutral terminal as a
+fresh invocation of the classifier. Connection matrices, grounding stamps,
+physical observations and operating bounds therefore retain their coefficients.
+Before this change, role discovery inside electrical assembly scanned the
+network ``1+2T+3W+C`` times, where ``T`` counts fixed two-sided transformers,
+``W`` counts all multiwinding ports and ``C`` counts capacitor banks. It now
+scans once. This counts assembly role discovery only, not every preflight or
+public-build operation. Tests exercise all seven transformer families, repeated
+devices, renamed terminals, authoritative conventions, input immutability and
+rejection of newly ambiguous declarations after an earlier successful build.
+
+A same-process ablation against frozen routines from `bfc2d0c` uses three
+external inputs, full and regional modes, one excluded warm-up per variant and
+six balanced alternating-order pairs. BLAS uses one thread. Electrical inputs
+are unchanged; the explicitly selected objective is feasibility. All **72
+measured solves** pass independent physical, own-model and both cross-model
+checks. Every pair has exactly equal assembled equations, KCL rows, device
+records, limits, fixed coordinates and scaling data, together with equal
+variable, constraint and backend derivative counts. Validation runs outside
+timers; timing runs do not overlap tests or documentation builds.
+
+| Input / mode | Build allocation MB: old / new | Median paired build-time ratio | Median paired total-time ratio |
+|:--|--:|--:|--:|
+| DSuite 265 buses, full | 57.19 / 56.48 | 0.989 | 0.984 |
+| DSuite 265 buses, regional | 59.70 / 58.98 | 1.327 | 1.170 |
+| DSuite 2,854 buses, full | 653.79 / 574.18 | 0.816 | 0.915 |
+| DSuite 2,854 buses, regional | 674.44 / 596.97 | 0.827 | 0.928 |
+| Reduced ENWL 538 buses, full | 183.28 / 183.28 | 1.359 | 1.056 |
+| Reduced ENWL 538 buses, regional | 192.39 / 192.39 | 1.291 | 1.061 |
+
+Allocation values are separate medians in decimal MB; ratios are new/old within
+pairs. Total includes build and solve/extraction. The 2,854-bus input has ten
+fixed transformers: assembly role scans fall from 21 to one. A separate
+assembly-only measurement falls from **180.52 to 103.05 MB**, approximately
+**43%**, in both modes. Full-build allocation falls approximately **11–12%**
+by median paired ratios. The 265-bus input has one transformer: its separate
+assembly allocation falls from 11.12 to 10.40 MB, but the regional timing
+regresses. The ENWL control has neither transformers nor capacitors: allocations
+are effectively unchanged (80 additional bytes), while sampled total time rises
+about 6%. Separate assembly measurements are not additive components of the
+timed public build.
+
+Median solve-time ratios lie between 0.995 and 1.001. Build timings remain
+GC-sensitive: individual paired ratios range from 0.446 to 6.349 across the
+panel. These six-pair observations support reduced preparation allocation on
+transformer-rich inputs, not a universal speedup or statistical significance
+claim. Allocated bytes exclude native solver memory and peak resident memory.
+The selected external inputs do not measure capacitor- or multiwinding-heavy
+performance; those paths have regression coverage. This experiment does not
+resolve the earlier source-import failures or expand element/bound coverage.
+
+A preceding prototype skipped exact-zero matrix coefficients before sparse-row
+accumulation. Eight balanced assembly-only pairs per feeder preserved all rows
+but gave an allocation ratio of exactly one on all three inputs; the prototype
+was not adopted. Raw scripts, frozen baselines, hashes, versions, warm-ups,
+trials and logs remain in the local evidence directory outside Git. The known
+OpenDSSDirect precompilation error again falls back to successful loading and
+passing reference tests.
+
 ## Sparse affine expression preparation — 5 October 2026
 
 The default Julia 1.12.6 suite passes **28,065/28,065** assertions (2m03.6s),

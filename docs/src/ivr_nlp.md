@@ -565,7 +565,9 @@ julia --project=test examples/profile_ivr_build.jl /path/to/feeder.json /tmp/ivr
 
 This reports warmed build times, allocations and sampling profiles. Circuit
 assembly reuses decoded linecode matrices and neutral-role discovery within each
-build; line lengths and per-unit scaling remain branch-specific. These caches
+assembly, including winding and capacitor stamps. Standalone device plans and
+reconstruction calls discover roles locally when needed. Line lengths and
+per-unit scaling remain branch-specific. These caches
 are not shared across builds or retained for equipment updates.
 
 Sparse circuit rows are accumulated into fresh complex JuMP affine expressions,

@@ -1,5 +1,5 @@
 # General fixed-tap coupled-coil leakage model. No star fit and no inverse ZB.
-function _sdp_nwinding_plan(net,id,d)
+function _sdp_nwinding_plan(net,id,d;neutral_map=nothing)
     label="transformer/n_winding/$id"
     _sdp_fields(d,("windings","x_sc","s_rating","g_no_load","b_no_load","no_load_shunt"),label)
     ws=get(d,"windings",nothing)
@@ -11,9 +11,10 @@ function _sdp_nwinding_plan(net,id,d)
         v=_sdp_scalar(w,"v_nom");v>0 || _sdp_refuse("$label nonpositive v_nom")
         r=_sdp_scalar(w,"r_winding");r>=0 || _sdp_refuse("$label negative resistance")
         tm=w["terminal_map"];cfg=uppercase(get(w,"configuration","WYE"))
-        nt=get(_kr_neutral_map(net),w["bus"],nothing)
+        neutral_map===nothing && (neutral_map=_kr_neutral_map(net))
+        nt=get(neutral_map,w["bus"],nothing)
         nc=cfg=="SINGLE_PHASE" ? 1 : cfg=="DELTA" ? 3 : count(!=(nt),tm)
-        D=_sdp_connection(net,w["bus"],tm,cfg,nc;roll=get(w,"delta_roll",1))
+        D=_sdp_connection(net,w["bus"],tm,cfg,nc;roll=get(w,"delta_roll",1),neutral=nt)
         push!(Ds,D);push!(volts,v);push!(rs,r);push!(taps,only(_sdp_fixed_tap(w,true,1,label)))
     end
     all(D->size(D,1)==size(first(Ds),1),Ds) || _sdp_refuse("$label unequal coil counts")
@@ -36,9 +37,10 @@ function _sdp_nwinding_plan(net,id,d)
     real(y)>=0 || _sdp_refuse("$label negative core conductance")
     (;ws,Ds,turns,Z,shunt,y)
 end
-function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
+function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing)
     for (id,d) in get(get(net,"transformer",Dict()),"n_winding",Dict())
-        p=_sdp_nwinding_plan(net,id,d);n=length(p.ws)
+        neutral_map===nothing && (neutral_map=_kr_neutral_map(net))
+        p=_sdp_nwinding_plan(net,id,d;neutral_map);n=length(p.ws)
         v=[terminal_rows(w["bus"],w["terminal_map"]) for w in p.ws]
         u=[matrows(p.Ds[k],v[k]) for k in 1:n]
         j=[[_sdp_e(newvar()) for _ in u[k]] for k in 1:n]
@@ -56,7 +58,7 @@ function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,
                 for c in eachindex(cf);_sdp_add!(cf[c],u[k][c],p.y*zb);end
             end
             currents=matrows(transpose(p.Ds[k]),cf)
-            neutral=get(_kr_neutral_map(net),w["bus"],nothing)
+            neutral=get(neutral_map,w["bus"],nothing)
             ground=_sdp_ground!(w,"r_neutral","x_neutral",findfirst(==(neutral),w["terminal_map"]),v[k],newvar,equations,zb)
             for t in eachindex(currents);_sdp_add!(currents[t],ground[t]);end
             inject(w["bus"],w["terminal_map"],currents)

@@ -177,7 +177,7 @@ function _linivr_loss_expression(net,e,z;require_passive=false)
     end
     for (kind,table) in get(net,"transformer",Dict()),(id,d) in table
         if kind=="n_winding"
-            p=_sdp_nwinding_plan(net,id,d)
+            p=_sdp_nwinding_plan(net,id,d;neutral_map=e.neutral_map)
             for (k,w) in enumerate(p.ws)
                 u,j=channels[(:transformer_coil,"n_winding/$id/$k")]
                 # Z uses winding-1 referred impedances; J_k=turns_k*j_k.

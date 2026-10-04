@@ -53,14 +53,14 @@ end
 # Scalar ratings follow the pinned schema's whole-bank / line-line convention.
 # Arrays retain the explicit per-coil dictionary contract, including coil volts.
 # Do not broadcast a scalar bank rating to every coil.
-function _sdp_capacitor_plan(net,d,label)
+function _sdp_capacitor_plan(net,d,label;neutral_map=nothing)
     _sdp_fields(d,("bus","terminal_map","configuration","q_rated","v_nom"),label)
     all(haskey(d,k) for k in ("bus","terminal_map","configuration","q_rated","v_nom")) ||
         _sdp_refuse("$label requires bus, terminal_map, configuration, q_rated and v_nom")
     d["configuration"] isa AbstractString || _sdp_refuse("$label requires a named configuration")
     tm=d["terminal_map"];cfg=uppercase(d["configuration"])
     cfg in ("SINGLE_PHASE","WYE","DELTA") || _sdp_refuse("$label unknown configuration")
-    nt=get(_kr_neutral_map(net),d["bus"],nothing)
+    nt=get(neutral_map===nothing ? _kr_neutral_map(net) : neutral_map,d["bus"],nothing)
     n=cfg=="SINGLE_PHASE" || cfg=="DELTA" && length(tm)==2 ? 1 :
         cfg=="DELTA" ? 3 : count(!=(nt),tm)
     n>0 || _sdp_refuse("$label requires a capacitor connection")
@@ -103,7 +103,7 @@ function _sdp_ground!(d,rkey,xkey,neutral_index,v,newvar,equations,zb)
     result
 end
 
-function _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
+function _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing)
     for (id,d) in get(net,"switch",Dict())
         _sdp_fields(d,("bus_from","bus_to","terminal_map_from","terminal_map_to","open_switch","i_max","s_max"),"switch/$id")
         get(d,"open_switch",nothing) isa Bool || _sdp_refuse("switch/$id needs a fixed Boolean open_switch")
@@ -120,7 +120,8 @@ function _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,de
         end
     end
     for (id,d) in get(net,"capacitor",Dict())
-        p=_sdp_capacitor_plan(net,d,"capacitor/$id")
+        neutral_map===nothing && (neutral_map=_kr_neutral_map(net))
+        p=_sdp_capacitor_plan(net,d,"capacitor/$id";neutral_map)
         tm=d["terminal_map"];v=terminal_rows(d["bus"],tm)
         u=matrows(p.D,v);i=[_sdp_add!(_SDPRow(),u[k],im*p.b[k]*zb) for k in eachindex(u)]
         inject(d["bus"],tm,matrows(transpose(p.D),i))

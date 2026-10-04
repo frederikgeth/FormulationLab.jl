@@ -39,6 +39,14 @@ it changes neither physical coordinates nor operating expressions. Numerical
 reference-state and supplied-point evaluation use the separate scalar path.
 The optimization is local to one expression, not a cross-build cache.
 
+The electrical assembler computes neutral roles from its input and passes that
+index to fixed-transformer, multiwinding and capacitor stamping. These consumers
+read the same index instead of rescanning every bus for each winding or bank.
+Standalone stamping/plan callers discover roles locally when needed. The index
+is never shared across separate assemblies; a fresh build reassesses changed
+terminal conventions and invalid declarations. This reuses classification work,
+not electrical coefficients or solver state.
+
 Sparse/chordal SDP representations, fixed SOC relaxations, LNCs, shared network
 reduction, and original-network reconstruction are implemented. Formulation,
 reduction, strengthening, numerical settings and recovery remain separate layers.

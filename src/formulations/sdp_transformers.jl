@@ -136,7 +136,7 @@ function _sdp_transformer_plan(subtype, d, label)
 end
 
 function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
-                                 equations, devices, limits, zb; record_bonds=false)
+                                 equations, devices, limits, zb; record_bonds=false,neutral_map=nothing)
     for (subtype,table) in sort!(collect(get(net,"transformer",Dict()));by=first),
         (id,d) in sort!(collect(table);by=first)
         subtype=="n_winding" && continue
@@ -162,7 +162,10 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
             push!(bond_rows,bond);push!(bond_drops,_sdp_add!(copy(vf[f]),vt[t],-1))
         end
         for (side,v,terminals) in ((:from,vf,tf),(:to,vt,tt))
-            neutral=get(_kr_neutral_map(net),d["bus_$side"],nothing)
+            # The assembler supplies its own index. Standalone reconstruction
+            # callers discover it once here, only when a winding needs it.
+            neutral_map===nothing && (neutral_map=_kr_neutral_map(net))
+            neutral=get(neutral_map,d["bus_$side"],nothing)
             ni=findfirst(==(neutral),d["terminal_map_$side"])
             ground=_sdp_ground!(d,"r_neutral_$side","x_neutral_$side",ni,v,newvar,equations,zb)
             for k in eachindex(terminals);_sdp_add!(terminals[k],ground[k]);end

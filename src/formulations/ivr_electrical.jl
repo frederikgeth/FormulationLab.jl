@@ -104,9 +104,9 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         push!(devices,(:line_from,id,vf,cf,Dict("passive"=>passive)));push!(devices,(:line_to,id,vt,ct,Dict()))
     end
     _sdp_stamp_transformers!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;
-                            record_bonds=record_transformer_bonds)
-    _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
-    _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb)
+                            record_bonds=record_transformer_bonds,neutral_map)
+    _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map)
+    _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map)
     for (id,d) in get(net,"shunt",Dict())
         rows=terminal_rows(d["bus"],d["terminal_map"])
         Y=_l3f_shunt_matrix(d,length(rows))*zb
