@@ -1,5 +1,89 @@
 # Verification
 
+## Exact-zero line-passivity preparation — 5 October 2026
+
+The default Julia 1.12.6 suite passes **28,855/28,855** assertions (2m01.1s),
+including **600 new checks** of passivity boundaries and SOC constraint emission.
+Electrical assembly now accepts an exactly zero scaled line impedance or
+admittance matrix as passive without an eigendecomposition. Every nonzero
+matrix retains the previous test on its scaled Hermitian part, with the same
+zero threshold. No approximately zero coefficient is discarded.
+
+For a line matrix ``M``, dissipation has the form
+
+```math
+\operatorname{Re}(x^H Mx)=x^H\frac{M+M^H}{2}x.
+```
+
+When ``M=0``, this quantity is identically zero for every ``x``; the previous
+eigenvalue test also accepts it. Series impedance and both end-shunt admittances
+must still all pass before the line is labelled passive. Absent line charging
+provides the motivating case: both shunt matrices are exactly zero. This avoids
+preparation work without changing circuit rows or the SOC nonnegative-line-loss
+inequality. The tests cover one to four conductors, both per-unit scales, each
+of the three matrix positions, signed zeros, positive and singular dissipation,
+pure reactance, tiny negative dissipation and nonreciprocal imaginary coupling.
+They also inspect whether the precise SOC line-loss constraint is present with
+physical projections enabled or disabled.
+
+A same-process ablation against frozen assembly from `ec99700` compares three
+external feeders in full and regional modes. Each case/mode excludes one
+warm-up per variant, then measures six balanced alternating-order pairs with
+single-thread BLAS. The explicit objective is feasibility; input electrical
+data are unchanged. All **72 measured solves** pass independent physical,
+own-model and both cross-model checks. Every pair has exactly equal assembled
+rows, KCL, devices (including passivity flags), limits, fixed coordinates and
+scaling data, plus equal variable, constraint and backend derivative counts.
+Validation lies outside the timers. Tests and documentation builds do not run
+concurrently with timing experiments.
+
+| Input / mode | Build allocation MB: old / new | Median paired build-time ratio | Median paired total-time ratio |
+|:--|--:|--:|--:|
+| DSuite 265 buses, full | 56.48 / 54.56 | 1.010 | 0.997 |
+| DSuite 265 buses, regional | 58.98 / 57.06 | 1.019 | 1.006 |
+| DSuite 2,854 buses, full | 576.39 / 555.30 | 1.038 | 0.989 |
+| DSuite 2,854 buses, regional | 596.97 / 576.01 | 0.675 | 0.877 |
+| Reduced ENWL 538 buses, full | 183.28 / 177.63 | 1.009 | 0.979 |
+| Reduced ENWL 538 buses, regional | 192.39 / 186.74 | 1.327 | 1.122 |
+
+Allocation values are separate medians in decimal MB; ratios are new/old within
+pairs. Total includes build and solve/extraction. Full-build allocation falls
+approximately **3–4%**. Separate assembly-only measurements fall from **10.40
+to 8.48 MB** (265 buses), **103.05 to 82.09 MB** (2,854 buses), and **26.79 to
+21.14 MB** (538 buses), approximately **18–21%**. These separate stage
+measurements are not additive components of the timed public build. Respectively,
+263 of 264, 2,872 of 2,873 and all 537 lines have zero shunts at both ends;
+none has zero series impedance. The selected panel consequently favours this
+shortcut and does not represent all feeder types.
+
+Median paired solve ratios range from 0.988 to 1.019. Individual build ratios
+range from 0.142 to 4.087; GC remains enabled. The largest regional case's total
+median improves about 12%, whereas the regional ENWL total regresses about 12%.
+These six-pair observations establish an allocation saving on the selected
+inputs, not a general speed benefit or statistical significance. Allocated
+bytes exclude native solver memory and peak resident memory. The experiment
+uses a separate feasibility objective and does not resolve the earlier strict
+source-import failures or expand element/bound coverage.
+
+An explicitly derived control sets `G_from_1_1=G_to_1_1=1e-8` on each
+linecode or inline line, making every assembled line matrix nonzero. Eight
+balanced assembly-only pairs per feeder retain exact electrical equality and
+have allocation ratios of exactly one. Median time ratios are 1.019, 1.477 and
+0.988; long GC events affect the first two controls. A separately retained
+sensitivity run requests full GC outside the timer before each assembly:
+its corresponding medians are 1.002, 0.998 and 1.003, with allocations still
+unchanged. This supports negligible direct overhead in that diagnostic; it
+neither replaces the original GC-enabled results nor establishes general
+end-to-end performance. Derived controls are not original-feeder solve results.
+
+Raw scripts, frozen assembly, source hashes, versions, warm-ups, paired trials,
+controls and logs remain in the local evidence directory outside Git. An
+allocation sample at probability 0.02 on the preceding assembly attributes
+3,471 sampled allocations and 585,608 sampled bytes to the passivity expression;
+these are sampled observations, not total allocation estimates. The known
+OpenDSSDirect precompilation error again falls back to successful loading and
+passing reference tests.
+
 ## Assembly-local neutral-role preparation — 5 October 2026
 
 The default Julia 1.12.6 suite passes **28,255/28,255** assertions (2m13.7s),

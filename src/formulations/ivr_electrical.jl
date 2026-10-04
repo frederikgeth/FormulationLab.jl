@@ -100,7 +100,9 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         end
         line_records && push!(lnc_lines,(;id,from=l["bus_from"],to=l["bus_to"],tmf,tmt,vf,vt,
             Z=Z*zb,Yf=Yf/zb,Yt=Yt/zb,ratings,current))
-        passive=all(M->minimum(eigvals(Hermitian((M+M')/2));init=0.0)>=0,(Z,Yf,Yt))
+        # Exactly zero shunts are passive without an eigendecomposition. Keep
+        # the existing scaled-matrix numerical test for every nonzero matrix.
+        passive=all(M->iszero(M) || minimum(eigvals(Hermitian((M+M')/2));init=0.0)>=0,(Z,Yf,Yt))
         push!(devices,(:line_from,id,vf,cf,Dict("passive"=>passive)));push!(devices,(:line_to,id,vt,ct,Dict()))
     end
     _sdp_stamp_transformers!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;

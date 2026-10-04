@@ -47,6 +47,13 @@ is never shared across separate assemblies; a fresh build reassesses changed
 terminal conventions and invalid declarations. This reuses classification work,
 not electrical coefficients or solver state.
 
+Line passivity classification accepts an exactly zero scaled impedance or
+admittance matrix without computing its eigenvalues. Nonzero matrices retain
+the existing Hermitian-part eigenvalue test, including its zero threshold.
+This is particularly useful for absent line charging: both line-end shunt
+matrices are zero. No tolerance-based deletion, linecode-level passivity cache
+or change to the SOC nonnegative-loss constraint is introduced.
+
 Sparse/chordal SDP representations, fixed SOC relaxations, LNCs, shared network
 reduction, and original-network reconstruction are implemented. Formulation,
 reduction, strengthening, numerical settings and recovery remain separate layers.

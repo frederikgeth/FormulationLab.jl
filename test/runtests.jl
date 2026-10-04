@@ -4,6 +4,7 @@ using OpenDSSDirect
     include("boundary_tests.jl")
     include("ivr_expression_tests.jl")
     include("ivr_neutral_index_tests.jl")
+    include("ivr_line_passivity_tests.jl")
     include("linivr_tests.jl")
     include("compiler_algebra_tests.jl")
     include("ivr_nlp_tests.jl")
