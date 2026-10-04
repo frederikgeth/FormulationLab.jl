@@ -568,6 +568,41 @@ assembly reuses decoded linecode matrices and neutral-role discovery within each
 build; line lengths and per-unit scaling remain branch-specific. These caches
 are not shared across builds or retained for equipment updates.
 
+### Matched regional experiments
+
+Use the regional runner to distinguish variable reduction from measured cost:
+
+```sh
+julia --project=test examples/benchmark_ivr_regions.jl \
+  /path/to/dataset /tmp/ivr-regions.json \
+  relative/path/to/feeder.json --profiles
+```
+
+The CLI explicitly minimizes source import and retains all electrical input
+data. It relocates only known provenance on owned copies. It excludes one
+warm-up pair per case and measures six pairs in balanced alternating order,
+using fresh builds and unloaded starts. Each accepted pair must satisfy strict
+solver acceptance, independent physical checks, both model mappings and
+objective agreement. Failed warm-ups are recorded and not repeatedly timed;
+later failures remain in the raw trials and counts. Summaries describe accepted
+pairs only, so inspect the entire output before drawing comparisons.
+
+The output records per-trial build/solve-and-extraction time, Julia allocated
+bytes and GC time; variable/constraint counts; iterations; backend Jacobian and
+Hessian structures; input hashes, versions and source-accounting diagnostics.
+Ratios are calculated within pairs. Minima, quartiles, medians and maxima describe
+this sample, not a confidence interval or population estimate. Validation and
+derivative queries are outside the timers. Allocation counts omit native solver
+and peak resident memory. Derivative structures precede solver preprocessing;
+they do not measure KKT fill. Separate build-stage measurements and optional
+sampling profiles are diagnostics and must not be added to public build times.
+
+For a separate feasibility experiment, include the script and call
+`benchmark_ivr_regions(directory, output, files; objective=:feasibility)` with
+a different output file. A zero objective can distinguish physical feasibility
+from an unbounded or difficult supply-accounting objective; it does not repair
+or validate the original optimization result. See the [dated comparison](verification.md).
+
 The optional BMOPFTools comparison runs separately:
 
 ```sh

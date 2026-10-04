@@ -1,5 +1,82 @@
 # Verification
 
+## Regional performance and coordinate ablation — 5 October 2026
+
+The expanded experiment uses `examples/benchmark_ivr_regions.jl`: one excluded
+warm-up pair per case, then six balanced alternating-order pairs with strict
+Ipopt tolerances, single-thread BLAS, fresh builds and unloaded starts. Physical,
+own-model, cross-model and objective checks lie outside the timers. The runner
+retains failures, raw timing/allocation observations and within-pair ratios.
+Inputs and evidence remain outside Git; production equations and coordinates
+are unchanged by this experiment.
+
+Of eight source-import cases, four pass the warm-up and all six measured pairs.
+The other four are retained as rejected warm-ups. A separately labelled
+feasibility experiment passes three of those four cases. Thus **84 measured
+solves** pass all gates across seven case/objective combinations. These include
+related/reduced variants and are not seven independent feeder designs.
+
+| Input and explicit objective | Buses | Median solve ratio | Median total ratio | Observed total-ratio range |
+|:--|--:|--:|--:|:--|
+| DSuite SPD Suburban, import | 265 | 1.078 | 0.944 | 0.336–1.624 |
+| DSuite SPM Suburban, import | 2,854 | 1.007 | 1.054 | 0.956–1.137 |
+| ENWL network 23 feeder 3, import | 59 | 0.920 | 0.972 | 0.166–0.990 |
+| Reduced DSuite SPD Suburban, import; no selected region | 178 | 1.001 | 1.025 | 0.231–1.540 |
+| Reduced ENWL network 8 feeder 2, feasibility | 538 | 0.377 | 0.497 | 0.403–0.610 |
+| ENWL three-wire Kron variant, feasibility | 844 | 0.955 | 1.356 | 0.793–1.506 |
+| ENWL three-wire phase-neutral variant, feasibility | 844 | 0.954 | 1.025 | 0.823–1.285 |
+
+Ratios are regional/full, calculated per pair before taking the median. Total
+includes build and solve/extraction; it excludes validation. GC remains enabled
+and contributes to the wide observed ranges. Six pairs are descriptive evidence,
+not a significance test. In particular, the 2,854-bus result reverses the earlier
+small total-time improvement. No general speed benefit is established. The
+538-bus feasibility result is promising for that workload but is not an accepted
+source-import optimization result. Regional build allocation increases by about
+2–9% across these cases, including detector overhead in the fallback control.
+
+**Fewer variables can produce more derivative entries.** On 265 buses, variables
+fall from 3,430 to 3,346 while unique backend Jacobian entries rise from 14,528
+to 15,168. On 2,854 buses the corresponding counts are 36,716 to 36,242 and
+159,826 to 163,070. On the 59-bus uniform feeder both variables and Jacobian
+entries fall. These are structures before solver preprocessing, not factorization
+fill or memory. The separate large-feeder stage pass takes approximately 17 ms
+for certification and 3 ms for maps; assembly and GC are more prominent in the
+sampling profile. These separate measurements are diagnostic, not additive
+components of the timed public build.
+
+A process-local prototype retained physical voltages while reducing only line
+currents. It passes 24 measured solves on the two DSuite cases, reduces Jacobian
+entries relative to differential voltages, but leaves them above full-IVR counts.
+It does not recover the two rejected cases included in that ablation. Timing
+variation and inconsistent gains do not justify changing production coordinates;
+the prototype remains only in local experimental evidence.
+
+**Failure interpretation.** The two mixed three-wire inputs have unrestricted
+colocated generators and sources. Separate feasibility witnesses allow increasing
+each generator phase by ``t`` W and decreasing source injection by the same
+amount. Phase injections cancel; the existing unbounded ideal-ground return
+can absorb any neutral imbalance. All downstream states remain unchanged and the import objective falls
+by ``3t`` W. Eight fixed-state witnesses (four per input, up to ``t=10^7`` W)
+pass independent physics and both full/regional models. The absence of limiting
+source/generator bounds establishes an unrestricted decreasing direction; Ipopt's
+`NORM_LIMIT` status alone would not establish this. Source files are unchanged.
+
+The original 844-bus bounded-generator input returns `ALMOST_LOCALLY_SOLVED`
+in both modes even under the separate feasibility objective. Diagnostic raw
+iterates pass the ordinary physical/model audit tolerances, but residuals around
+``3.2\times10^{-9}``–``3.8\times10^{-9}`` exceed the requested ``10^{-10}``
+solver threshold. The largest physical residuals are source-bus KCL. These
+iterates remain rejected; audit tolerances and strict acceptance are not
+interchangeable. The reduced 538-bus source-import comparison similarly lacks
+strict regional acceptance, despite its successful separate feasibility study.
+
+The runner's **17 smoke assertions** cover accepted-only arithmetic, retained
+failures, invalid arguments, balanced order, profiles and JSON output. All
+**14 executable tutorial blocks** and documentation checks pass. The existing
+**27,933-assertion** production gate belongs to the preceding implementation
+checkpoint; it is not a new test count for this benchmark-only change.
+
 ## Exact IVR pendant-region specialization — 5 October 2026
 
 The default Julia 1.12.6 suite passes **27,933/27,933** assertions (test summary

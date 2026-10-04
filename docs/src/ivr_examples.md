@@ -148,6 +148,23 @@ attached to retained transformer/switch buses or mesh cores; it does not prove
 an identity through those components. Smaller local interiors extend coverage,
 but modest variable savings may not improve runtime.
 
+## H. A smaller model can have a denser Jacobian
+
+Consider the 265-bus transformer feeder in the regional comparison. Removing
+42 complex line-current coordinates changes 3,430 real variables to 3,346,
+but unique backend Jacobian entries increase from 14,528 to 15,168. Expressing
+physical voltages and currents in transformed coordinates changes which
+variables appear together in constraints. Variable count alone therefore cannot
+predict the linear algebra performed by the optimizer.
+
+**Question.** Does the chosen coordinate basis improve the intended workload?
+The [regional benchmark](ivr_nlp.md#Matched-regional-experiments) records
+allocations, derivative structure, iterations and accepted timing pairs. A
+separate physical-voltage prototype decreases some derivative entries but gives
+no convincing general runtime advantage. Keep those observations separate from
+the algebraic proof: equivalence can hold while numerical performance worsens.
+The [verification record](verification.md) retains both results and failures.
+
 ## Interpreting benefit and evidence
 
 There are three distinct potential benefits: a native exact reference for
