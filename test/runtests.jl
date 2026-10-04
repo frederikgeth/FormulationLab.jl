@@ -8,6 +8,7 @@ using OpenDSSDirect
     include("compiler_network_tests.jl")
     include("ivr_generator_updates_tests.jl")
     include("ivr_transformer_tests.jl")
+    include("ivr_input_annotations_tests.jl")
     include("sdp_tests.jl")
     include("branch_flow_sdp_tests.jl")
     include("branch_flow_sdp_extended_tests.jl")

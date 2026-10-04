@@ -134,7 +134,16 @@ function _sdp_check(net)
     end
     !isempty(get(net,"voltage_source",Dict())) || _sdp_refuse("at least one voltage source is required")
     for (id,b) in get(net,"bus",Dict())
-        _sdp_fields(b,("terminal_names","perfectly_grounded_terminals","neutral_terminal","v_min","v_max","vn_max","vpn_min","vpn_max","vpp_min","vpp_max","vpos_min","vpos_max","vneg_max","vzero_max"),"bus/$id")
+        _sdp_fields(b,("terminal_names","perfectly_grounded_terminals","neutral_terminal","v_min","v_max","vn_max","vpn_min","vpn_max","vpp_min","vpp_max","vpos_min","vpos_max","vneg_max","vzero_max","v_declared","latitude","longitude"),"bus/$id")
+        # Descriptive fields do not synthesize bounds, change source phasors
+        # or determine the model's voltage base.
+        for (field,lo,hi) in (("v_declared",0.,Inf),("latitude",-90.,90.),("longitude",-180.,180.))
+            haskey(b,field) || continue
+            value=b[field]
+            valid=value isa Real && !(value isa Bool) && isfinite(value) && lo<=value<=hi &&
+                (field!="v_declared" || value>0)
+            valid || _sdp_refuse("bus/$id invalid $field annotation")
+        end
         tm = b["terminal_names"]
         !isempty(tm) && allunique(tm) || _sdp_refuse("bus/$id has empty or repeated terminals")
         all(t -> t in tm, get(b,"perfectly_grounded_terminals",[])) || _sdp_refuse("bus/$id has an undeclared ground terminal")
@@ -152,10 +161,12 @@ function _sdp_check(net)
     end
     for family in ("load","generator","voltage_source")
         allowed = family == "load" ? ("bus","terminal_map","configuration","model","p_nom","q_nom","v_nom","alpha_z","alpha_i","alpha_p","beta_z","beta_i","beta_p","gamma_p","gamma_q") :
-            family == "generator" ? ("bus","terminal_map","configuration","p_min","p_max","q_min","q_max","s_max","i_max","cost","energy_cost_rate") :
+            family == "generator" ? ("bus","terminal_map","configuration","p_min","p_max","q_min","q_max","s_max","i_max","cost","energy_cost_rate","_slack") :
             ("bus","terminal_map","configuration","v_magnitude","v_angle","p_min","p_max","q_min","q_max","s_max","i_max","cost","energy_cost_rate")
         for (id,d) in get(net,family,Dict())
             _sdp_fields(d,allowed,"$family/$id")
+            family=="generator" && haskey(d,"_slack") && !(d["_slack"] isa Bool) &&
+                _sdp_refuse("generator/$id _slack annotation must be Boolean")
             family == "load" && lowercase(get(d,"model","constant_power")) ∉ ("constant_power","constant_impedance","constant_current","zip","exponential") &&
                 _sdp_refuse("load/$id voltage law is not implemented")
         end

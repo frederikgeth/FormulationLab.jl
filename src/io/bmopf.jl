@@ -39,7 +39,7 @@ function read_bmopf(input::PowerIO.PioModule{PowerIO.MulticonductorNetwork})
         version === nothing ? nothing : String(version), bytes2hex(SHA.sha256(raw)))
 end
 
-# The migrated L3F compiler uses the 0.1 transformer tap spelling internally.
+# Formulation builders use the 0.1 ordinary-transformer tap spelling internally.
 # 0.2 names the same multiplier tap_ratio. Never silently prefer conflicting values.
 function _normalize_bmopf_snapshot(input::AbstractDict)
     net = deepcopy(Dict{String,Any}(string(k) => v for (k,v) in input))

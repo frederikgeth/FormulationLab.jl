@@ -85,10 +85,12 @@ other side limits apply to terminal currents. General multiwinding limits
 not an implicit operating limit. See [Transformer winding model](sdp_transformers.md)
 for coefficient and orientation conventions.
 
-Ordinary transformers use canonical `tap` fields; general multiwinding entries
-use `tap_ratio` per winding. Unequal tap bounds require an explicit fixed
-setting. Ordinary-transformer `tap_ratio` aliases are refused because their
-meaning is not established here. Taps are fixed equipment data and cannot be
+Ordinary transformers accept the schema `tap_ratio`, `tap_ratio_min` and
+`tap_ratio_max` spellings through the existing BMOPF adapter, which copies them
+to the internal `tap`, `tap_min` and `tap_max` fields. Both spellings are retained;
+conflicting values are rejected. General multiwinding entries use `tap_ratio`
+per winding. Unequal tap bounds require an explicit fixed setting.
+Taps are fixed equipment data and cannot be
 changed through the load/generator update APIs.
 
 Supported objectives are `:cost` (linear currency/kWh coefficients),
@@ -115,6 +117,16 @@ A transformer anywhere in the input causes requested conductor-difference
 specialization to fall back to full IVR with `:transformer_boundary`. The
 existing line-only proof has not been extended across winding boundaries.
 
+Bus `v_declared`, `latitude` and `longitude` are retained descriptive annotations.
+`v_declared` must be a positive finite scalar; it does not set source phasors,
+model scaling or implicit voltage limits. Coordinates must be finite scalars
+in their latitude/longitude ranges. Explicit voltage bounds remain authoritative.
+A Boolean generator `_slack` is retained as a legacy label and listed in
+`:legacy_slack_generators` when true. It does not remove the generator, change
+its bounds/costs or suppress a colocated voltage source. Source and generator
+injections remain distinct; the label does not repair unpriced-source accounting.
+Unknown electrical fields and undeclared ground terminals remain errors.
+
 Ideal grounded terminals omit KCL in the shared common-earth representation.
 Their source-versus-earth current allocation is not observable here; source
 ratings requiring that allocation are refused. The result uses a zero
@@ -139,8 +151,8 @@ rejections as well as physical checks:
 julia --project=test examples/check_ivr_transformer_datasets.jl /path/to/BMOPFDraftData /tmp/ivr-transformers.json
 ```
 
-The script relocates known provenance and bus latitude/longitude into metadata
-on owned copies, recording the fields and input hashes. It leaves unsupported
+The script relocates known provenance into metadata on owned copies, recording
+the paths and input hashes. Recognized bus annotations remain in place. It leaves unsupported
 electrical fields and invalid ground labels as errors. Reported timings include
 compilation and are not performance evidence. Demand totals distinguish unloaded
 inputs from actual load sweeps; requested reduction falls back at transformers.
@@ -234,7 +246,12 @@ The dataset census distinguishes network inputs from solver-result objects and
 samples the smallest, median-ranked and largest input per directory. It records
 unsupported components, invalid input and reduction fallback separately; it does
 not establish solvability. Related original/reduced variants are not independent
-feeders.
+feeders. An optional third argument limits the bus count for assembly and
+initialization, for example `10000`; larger inputs are explicitly `not_assessed`
+with `size_limit`, never marked supported or failed. The default has no size
+limit. Completed samples are checkpointed, and the report's `complete` flag
+distinguishes a finished census from an interrupted pass. Assembly/start times
+are diagnostic and include compilation.
 
 The dispatch experiment crosses full/reduced with fresh/reused construction at
 N=1 and 10; `--hundred` also runs N=100. A ten-step cycle changes nonroot generator

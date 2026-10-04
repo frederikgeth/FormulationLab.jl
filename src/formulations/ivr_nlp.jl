@@ -41,11 +41,6 @@ function _ivrn_check(net)
         isempty(table) && continue
         kind in ("single_phase","center_tap","delta_wye","wye_delta","n_winding") ||
             _ivrn_refuse("transformer/$kind is outside the fixed isolated-winding IVR scope")
-        for (id,d) in table
-            kind=="n_winding" && continue
-            any(haskey(d,k) for k in ("tap_ratio","tap_ratio_min","tap_ratio_max")) &&
-                _ivrn_refuse("transformer/$kind/$id requires canonical tap fields; tap_ratio aliases are not interpreted")
-        end
     end
     _sdp_check(net)
     for (id,d) in get(net,"load",Dict())
@@ -282,6 +277,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :state_dimension=>e.coordinate_count[],
         :solver_state_dimension=>n,:discharged_complex_kcl=>length(omitted),:source_mode=>:affine,
         :initialization=>any(!isempty,values(get(net,"transformer",Dict()))) ? :linear_circuit : :line_propagation,
+        :legacy_slack_generators=>sort!([id for (id,d) in get(net,"generator",Dict()) if get(d,"_slack",false)]),
         :unobserved_grounded_source_currents=>unavailable)
     coordinates=(;maps...,real_variables=xr,imaginary_variables=xi)
     IVRNLPBuild(model,z,powers,e,net,options,loads,generators,diagnostics,coordinates)

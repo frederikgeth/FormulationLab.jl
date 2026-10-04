@@ -38,6 +38,12 @@ Matrix-pattern fields are also supported: line/linecode `R_series_i_j`,
 
 ## Metadata and interpretation
 
+- In addition to the pinned property inventory, the shared static IVR check
+  accepts retained bus annotations `latitude`, `longitude` and `v_declared`,
+  and the legacy Boolean generator label `_slack`. Coordinates are finite
+  scalars in [-90,90] / [-180,180]; `v_declared` is a positive finite scalar.
+  These fields do not create electrical equations, implicit operating limits,
+  or source accounting rules. This extension is not a schema-validation claim.
 - `name`, `meta`, `extras` and adapter `_meta` are descriptive metadata.
 - `terminal_conventions.phase/neutral` determine sequence/neutral maps; `earth`
   is descriptive. Explicit bus grounding determines ideal earth connections.

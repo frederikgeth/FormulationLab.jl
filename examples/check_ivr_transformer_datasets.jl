@@ -11,19 +11,13 @@ function check_ivr_transformer_datasets(root,output;files=[
     BLAS.set_num_threads(1)
     report=Dict{String,Any}("julia"=>string(VERSION),"ipopt"=>string(pkgversion(Ipopt)),
         "root"=>abspath(root),"cases"=>Any[],"accounting_scenario"=>"declared",
-        "note"=>"Raw dictionary boundary. Known provenance and bus latitude/longitude relocated to metadata in memory; no electrical edits or source-file changes. Three demand factors on one built model per requested specialization. Transformer cases always use full IVR. No warmup or repeated timing panel; timings include compilation and are not performance evidence. Local solver status is not a global certificate.")
+        "note"=>"Raw dictionary boundary. Only known provenance relocated in memory; bus latitude/longitude/v_declared and legacy generator _slack labels retained in place. No electrical edits or source-file changes. Three demand factors on one built model per requested specialization. Transformer cases always use full IVR. No warmup or repeated timing panel; timings include compilation and are not performance evidence. Local solver status is not a global certificate.")
     for file in files
         row=Dict{String,Any}("file"=>file,"trials"=>Any[]);push!(report["cases"],row)
         try
             path=joinpath(root,file);row["sha256"]=bytes2hex(sha256(read(path)))
             net,detached=compiler_feeder_input(path;detach_legacy_provenance=true)
             row["detached_provenance_paths"]=detached
-            geographic=Dict{String,Any}()
-            for (id,bus) in net["bus"],field in ("latitude","longitude")
-                haskey(bus,field) && (geographic["/bus/$id/$field"]=pop!(bus,field))
-            end
-            row["relocated_geographic_metadata"]=geographic
-            get!(net,"_meta",Dict{String,Any}())["ivr_experiment_geographic_metadata"]=geographic
             row["buses"]=length(net["bus"]);row["original_accounting"]=feeder_accounting(net)
             row["transformers"]=Dict(kind=>length(table) for (kind,table) in get(net,"transformer",Dict()))
             demands=[complex(p,q) for load in values(get(net,"load",Dict())) for (p,q) in zip(load["p_nom"],load["q_nom"])]
