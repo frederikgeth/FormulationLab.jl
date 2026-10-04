@@ -292,6 +292,9 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         count=length(v)
         s=Any[_ivrn_power(v[k],i[k],z) for k in 1:count]
         powers[(family,id)]=s
+        # Retain every reported complex power, but split P/Q only for the
+        # device equations, dispatch bounds and objective terms below.
+        family in (:load,:generator,:voltage_source,:ibr,:ibr_internal) || continue
         p=real.(s);q=imag.(s)
         if family==:generator
             # Explicit dispatch variables keep the power equations fixed as

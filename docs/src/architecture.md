@@ -54,6 +54,14 @@ This is particularly useful for absent line charging: both line-end shunt
 matrices are zero. No tolerance-based deletion, linecode-level passivity cache
 or change to the SOC nonnegative-loss constraint is introduced.
 
+Exact IVR retains the complex power polynomial for every device observation,
+including line ends, switches, capacitor banks and transformer terminals/coils.
+It materializes separate real/reactive expressions only for loads, generators,
+sources and inverter ports/internal channels, where the device loop uses them
+in equations, operating bounds or objective terms. Other physical limits still
+use their recorded voltage/current channels. Reported powers and their
+coefficients are unchanged; this only avoids unused expression copies.
+
 Sparse/chordal SDP representations, fixed SOC relaxations, LNCs, shared network
 reduction, and original-network reconstruction are implemented. Formulation,
 reduction, strengthening, numerical settings and recovery remain separate layers.

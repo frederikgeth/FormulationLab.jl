@@ -1,5 +1,72 @@
 # Verification
 
+## Avoiding unused real/reactive power copies — 5 October 2026
+
+The default Julia 1.12.6 suite again passes **28,855/28,855** assertions
+(2m15.5s). Exact IVR still builds and retains every complex power polynomial
+``S_k=V_k\overline{I_k}``. Separate real and imaginary copies are now made only
+for the load, generator, source and inverter families that consume them in the
+device loop. Previously the compiler also made unused copies for line ends,
+switches, capacitors and transformer terminal/coil observations. Their stored
+complex powers, result extraction and all voltage/current/apparent-power bounds
+are unchanged. No coordinate, constraint, objective or update API changes.
+
+A separate build-only audit compares the frozen `ed5d249` builder and candidate
+on all seven fixed transformer families (including multiwinding) and three
+mixed static-device fixtures with two, three and four conductors. It covers
+all three objectives and all three specialization settings: **90 comparisons**.
+After mapping variables by index, every constraint function and set, objective,
+start value and stored power coefficient matches at zero tolerance. The mixed
+fixtures include bounded generators, source apparent-power limits, rated closed
+switches, capacitors and filtered IBRs with availability, DC-link bounds and
+internal-voltage setpoints. This establishes unchanged model construction;
+the audit does not assert feasibility or successful solves for these fixtures.
+
+A controlled same-process ablation uses three external feeders, full and
+regional modes, one excluded warm-up per variant and six balanced
+alternating-order pairs with single-thread BLAS. The explicit objective is
+feasibility; input electrical data are unchanged. All **72 measured solves**
+pass independent physical, own-model and both cross-model checks. Every pair
+also passes the zero-tolerance comparison of all constraint functions/sets,
+objective, starts and reported power coefficients, together with exact equality
+of electrical records and matching variable/constraint/derivative counts.
+Validation is outside the timers. No tests, profiling or documentation builds
+run concurrently with the timed experiment.
+
+| Input / mode | Build allocation MB: old / new | Median paired build-time ratio | Median paired total-time ratio |
+|:--|--:|--:|--:|
+| DSuite 265 buses, full | 54.56 / 49.80 | 0.682 | 0.802 |
+| DSuite 265 buses, regional | 57.06 / 51.90 | 0.957 | 0.982 |
+| DSuite 2,854 buses, full | 555.44 / 503.93 | 0.959 | 0.978 |
+| DSuite 2,854 buses, regional | 576.01 / 523.17 | 0.921 | 0.955 |
+| Reduced ENWL 538 buses, full | 177.63 / 165.12 | 0.948 | 0.986 |
+| Reduced ENWL 538 buses, regional | 186.73 / 170.31 | 0.942 | 0.987 |
+
+Allocation values are separate medians in decimal MB; ratios are new/old within
+pairs. Total includes build and solve/extraction. The experiment times cloned
+internal build entry points; the public wrapper and its error translation are
+unchanged and excluded from these timers. Complete-build allocation falls
+approximately **7–10%** on this panel. Both variants include the preceding
+neutral-index, affine-emission and exact-zero passivity changes. This measures
+one additional preparation change, not a cumulative speedup estimate.
+
+Median paired total times improve in all six sampled case/mode combinations,
+but individual build ratios range from 0.116 to 2.839 with GC enabled. Solve
+medians range from 0.940 to 1.008 of baseline despite identical models. Six pairs
+on three selected inputs do not establish a general runtime or statistical
+significance claim. Allocated bytes exclude native solver memory and peak
+resident memory. These separate feasibility experiments do not repair earlier
+source-import failures or add element, bound or update coverage.
+
+The retained baseline profile samples full builds at probability 0.005; it
+identified power splitting and constraint expression construction among the
+allocation sites. Sampling attributions are diagnostic observations, not total
+allocation estimates. The earlier build-only prototype is retained separately;
+the table uses the complete paired build/solve experiment. Scripts, frozen
+baseline, input hashes, versions, raw trials, coefficient audits and logs remain
+outside Git. The known OpenDSSDirect precompilation error falls back to successful
+loading and passing reference tests.
+
 ## Exact-zero line-passivity preparation — 5 October 2026
 
 The default Julia 1.12.6 suite passes **28,855/28,855** assertions (2m01.1s),
