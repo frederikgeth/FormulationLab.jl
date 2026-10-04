@@ -131,6 +131,23 @@ exact auxiliary magnitude binding and retained limits in full/reduced forms.
 Missing positive coil-voltage domains cause a refusal rather than an invented
 voltage floor. Deenergized behavior would require another explicit contract.
 
+## G. An earth path need not prevent every local reduction
+
+In a four-wire feeder, place a 2 mS phase-earth shunt at the first downstream
+bus. The upstream line now carries current that returns through earth, so its
+conductor sum is nonzero. A pendant tree beyond that bus can nevertheless have
+only phase-neutral devices and no further earth path. Summed KCL still proves
+zero-sum current on its own lines.
+
+**Question.** Can a compiler retain the nonconforming boundary and specialize
+only the eligible interior? The tutorial keeps the upstream line, boundary
+voltages, shunt and every boundary KCL equation, and reduces only the two
+remaining lines. It checks physical states in both model directions and loses
+four real current variables. This local proof also applies to eligible trees
+attached to retained transformer/switch buses or mesh cores; it does not prove
+an identity through those components. Smaller local interiors extend coverage,
+but modest variable savings may not improve runtime.
+
 ## Interpreting benefit and evidence
 
 There are three distinct potential benefits: a native exact reference for

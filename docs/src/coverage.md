@@ -11,20 +11,22 @@ does not grant it every SDP or LinIVR device law. See the
 
 | Element or operation | Exact IVR | Conductor specialization |
 |:--|:--|:--|
-| Coupled lines, endpoint shunts, explicit terminals | Supported, both-end current/apparent limits | Complete uniform radial 2/3/4-wire sections; nonzero line shunts cause fallback |
-| Fixed sources, ideal/finite grounds and shunts | Supported, subject to voltage-reference/current-observability conditions | Single source; root equations retained; downstream earth paths cause fallback |
+| Coupled lines, endpoint shunts, explicit terminals | Supported, both-end current/apparent limits | Whole uniform radial 2/3/4-wire sections, or certified pendant regions; shunted lines remain physical in regional mode |
+| Fixed sources, ideal/finite grounds and shunts | Supported, subject to voltage-reference/current-observability conditions | Whole-section mode requires one source and no downstream earth paths; regional mode retains these buses as boundaries |
 | Single-phase, wye and delta constant-power/impedance loads | Supported with physical connection channels | Requires downstream zero-sum connection identities |
 | Generators | P/Q/S/I capability and linear prices; delta uses coil quantities | Device currents remain explicit |
-| Fixed capacitors | Scalar bank and explicit per-coil rating contracts | Zero-sum connections may qualify; phase-earth banks cause fallback |
-| Fixed open/closed switches | Supported, explicit through current and both-end limits | `:switch_boundary` fallback |
-| Fixed isolated-winding transformers | Single-phase, center-tap, delta–wye, wye–delta, general multiwinding | `:transformer_boundary` fallback |
-| Fixed autotransformers/regulators | Single-phase and all three open-delta connections; explicit conductive bonds and both-side current limits | `:transformer_boundary` fallback |
+| Fixed capacitors | Scalar bank and explicit per-coil rating contracts | Zero-sum connections may qualify; phase-earth banks trigger whole-section fallback or a retained regional boundary |
+| Fixed open/closed switches | Supported, explicit through current and both-end limits | Whole-section fallback; regional interiors may attach to retained switch buses |
+| Fixed isolated-winding transformers | Single-phase, center-tap, delta–wye, wye–delta, general multiwinding | Whole-section fallback; regional interiors may attach to retained winding buses |
+| Fixed autotransformers/regulators | Single-phase and all three open-delta connections; explicit conductive bonds and both-side current limits | Whole-section fallback; regional interiors may attach to retained winding buses |
 | Static IBRs | Single-phase, explicit-neutral four-leg, three-leg; filters and internal budgets/setpoints | Zero-sum connections may qualify; THREE_LEG PCC ratings use conductor quantities |
 | Constant-current/ZIP/exponential loads | Exact powers on a declared positive coil-voltage domain; pure impedance cases retain their linear current law | Same downstream zero-sum connection identities; voltage-law auxiliaries retained |
 | Control profiles, optimized taps, external DC and time-series laws | Refused | Not applicable |
 | Constant-power demand and generator P/Q/price updates | Supported through dedicated APIs | Existing certificate/maps reused |
 | Equipment, source and IBR capability updates | Require a new build | Reassess applicability on the new build |
 
+Regional mode retains source, earth-path and device-boundary buses and certifies
+only eligible leaf regions. See [regional scope](ivr_nlp.md#Pendant-regions-inside-a-larger-network).
 A supported full-IVR network may fail the narrower specialization certificate;
 this triggers a diagnostic fallback, not deletion of the offending component.
 Unknown electrical fields are refused. Native dictionary extensions are not

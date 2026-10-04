@@ -1,5 +1,75 @@
 # Verification
 
+## Exact IVR pendant-region specialization — 5 October 2026
+
+The default Julia 1.12.6 suite passes **27,933/27,933** assertions (test summary
+2m35.5s), including 2,398 new regional checks. The old whole-section option
+retains its scope and regression behavior. `:conductor_regions` is a separate
+opt-in certificate for disjoint pendant interiors behind retained boundary
+buses. It does not reduce through transformers, switches, earth paths or mixed
+conductor junctions. See the [proof](ivr_theory.md#Pendant-region-certificate)
+and [public contract](ivr_nlp.md#Pendant-regions-inside-a-larger-network).
+
+Independent SI witnesses deliberately give the upstream retained line a nonzero
+conductor-current sum. Full and regional models accept the same states in both
+directions. Tests cover two/three/four-wire regions, mixed boundary subsets,
+cycles and parallel edges, multiple sources, every fixed transformer family,
+open/closed switches, voltage-dependent demand, capacitors, generators and
+static IBRs. Fixed-state probes cover boundary/interior voltage and sequence
+limits, neutral magnitudes, both ends of selected and retained line ratings,
+and delta-generator limits. Current perturbations cannot be repaired by
+projection. Demand reuse retains model variables and the certificate.
+
+This exercise found a shared initialization defect: a finite phase-earth shunt
+could seed zero voltage before propagation reached it from a fixed source.
+Fixed-source/ideal-ground references now propagate first; finite grounds seed
+only conductor components still unreached. The changed starts affect neither
+physical admittance nor KCL. Regression cases that failed strict solver
+acceptance from the old starts now pass. One ideal winding comparison had a
+separate full-model restoration failure; the composition fixture now explicitly
+uses finite leakage. Ideal winding behavior remains covered elsewhere, and no
+unique bond/ground current allocation is assumed.
+
+A bounded repeat of the earlier 83-entry local panel assessed 41 networks,
+refused 31 unsupported/invalid inputs and left 11 above the 3,000-bus cap
+unassessed. Regional certificates select lines in 15 entries, including 10
+where the whole-section certificate declined. Several entries are related
+variants; this is not a count of independent feeder designs.
+
+Three original DSuite inputs also pass strict full/regional solves, independent
+physics, model checks, both cross-model directions and objective agreement:
+
+| Buses | Selected lines | Regions | Real JuMP variables: full → regional |
+|--:|--:|--:|--:|
+| 66 | 4 | 4 | 882 → 874 |
+| 265 | 42 | 29 | 3,430 → 3,346 |
+| 2,854 | 237 | 152 | 36,716 → 36,242 |
+
+These experiments preserve electrical inputs and explicitly use source-import
+minimization. The 66-bus case is effectively unloaded; the two larger cases
+have nonzero demand. Already-present input reductions are inherited. The
+single-run timings include compilation/order effects and do not establish a
+speed benefit.
+
+A separate run excludes one warm-up per mode and feeder, then measures five
+alternating-order full/regional pairs. All 20 measured solves pass physical,
+model, cross-model and objective-agreement gates. Validation runs outside the
+timed intervals. Median times in seconds are:
+
+| Buses | Build: full / regional | Solve: full / regional | Total: full / regional |
+|--:|--:|--:|--:|
+| 265 | 0.03893 / 0.02507 | 0.03360 / 0.03707 | 0.07253 / 0.06235 |
+| 2,854 | 0.40725 / 0.38413 | 0.65755 / 0.68316 | 1.09439 / 1.07209 |
+
+Total medians need not equal sums of component medians. Both solve medians
+increase; total medians decrease by approximately 14% and 2%, respectively.
+Five pairs on two feeders provide no general speed guarantee or statistical
+significance claim. The demonstrated result is broader applicability with
+fewer variables and preserved physical states. Raw cases, digests, diagnostics
+and timings remain in the user's local evidence directory outside Git. The
+known OpenDSSDirect method-overwrite precompilation error still falls back to
+successful loading in the complete regression suite.
+
 ## Exact IVR voltage-dependent demand — 5 October 2026
 
 The voltage-law extension adds **2,461 assertions**: 2,335 manufactured-state,

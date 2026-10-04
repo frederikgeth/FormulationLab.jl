@@ -8,7 +8,9 @@ setpoints; control profiles are unsupported. Costs are linear, in the
 same currency/kWh convention as LinIVR. An optimizer is supplied by the caller.
 `specialization=:conductor_difference` attempts a certified radial zero-sum
 current reduction and retains reference-conductor voltages. Ineligible networks
-fall back to full IVR with a reason in the build diagnostics; the default is :off.
+fall back to full IVR with a reason in the build diagnostics.
+`:conductor_regions` instead certifies pendant radial regions behind retained
+boundary buses, leaving other circuits physical. The default is :off.
 """
 Base.@kwdef struct IVRNLPOptions
     s_base::Float64 = 1e4
@@ -150,20 +152,29 @@ function _ivrn_start(net,e)
         k==0 ? (known[key]=0im) : haskey(e.fixed_source_coordinates,k) &&
             (known[key]=e.fixed_source_coordinates[k])
     end
-    # A finite one-terminal ground supplies a no-load starting reference, not
-    # a fixed voltage. Its actual admittance and terminal KCL stay in the NLP.
+    # Propagate actual source/ideal-ground references first. Seeding a finite
+    # shunt at zero before this traversal can otherwise erase the source-fed
+    # phase start of an entire downstream region.
+    queue=sort!(collect(keys(known)));cursor=1
+    function propagate!()
+        while cursor<=length(queue)
+            f=queue[cursor];cursor+=1
+            for t in adjacency[f]
+                haskey(known,t) && continue
+                known[t]=known[f];push!(queue,t)
+            end
+        end
+    end
+    propagate!()
+    # Only an as-yet unreferenced conductor component uses a finite ground as
+    # a zero starting reference. Its admittance and KCL remain physical.
     for s in values(get(net,"shunt",Dict()))
         length(s["terminal_map"])==1 || continue
         y=only(_l3f_shunt_matrix(s,1))
         isfinite(y) && !iszero(y) || continue
-        get!(known,(s["bus"],only(s["terminal_map"])),0im)
-    end
-    queue=sort!(collect(keys(known)));cursor=1
-    while cursor<=length(queue)
-        f=queue[cursor];cursor+=1
-        for t in adjacency[f]
-            haskey(known,t) && continue
-            known[t]=known[f];push!(queue,t)
+        key=(s["bus"],only(s["terminal_map"]))
+        if !haskey(known,key)
+            known[key]=0im;push!(queue,key);propagate!()
         end
     end
     length(known)==length(e.voltage) ||
@@ -244,13 +255,14 @@ end
 function _build_ivr_nlp_opf(input,optimizer,options)
     isfinite(options.s_base) && options.s_base>0 || throw(ArgumentError("s_base must be positive and finite"))
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown IVRNLP objective"))
-    options.specialization in (:off,:conductor_difference) || throw(ArgumentError("unknown IVRNLP specialization"))
+    options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
     net=_l3f_input(input);_ivrn_check(net)
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
                            delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
                            record_transformer_bonds=true)
     z0=_ivrn_start(net,e)
-    report,plan=options.specialization==:off ? ((;status=:disabled,code=:disabled,components=String[]),nothing) : _ivrn_structure(net,e)
+    report,plan=options.specialization==:off ? ((;status=:disabled,code=:disabled,components=String[]),nothing) :
+        options.specialization==:conductor_regions ? _ivrn_regions(net,e) : _ivrn_structure(net,e)
     maps=_ivrn_coordinates(e,plan)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
     n=length(maps.projection)
@@ -381,7 +393,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     unavailable=[(id,t) for (id,d) in net["voltage_source"] for t in d["terminal_map"]
                  if e.voltage[(d["bus"],t)]==0]
     diagnostics=Dict{Symbol,Any}(:power_model=>:exact,:delta_dispatch=>:coil,:ibr_delta_dispatch=>:conductor,
-        :specialization=>plan===nothing ? :off : :conductor_difference,
+        :specialization=>plan===nothing ? :off : options.specialization,
         :specialization_report=>report,:structure_analysis_count=>options.specialization==:off ? 0 : 1,
         :network_reduction=>:off,:assembly_count=>1,
         :update_count=>0,:generator_update_count=>0,

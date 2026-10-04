@@ -12,7 +12,8 @@ Implemented:
   capacitors, fixed transformers/regulators, static IBRs, constant-power/impedance
   loads and voltage-dependent current/ZIP/exponential laws on certified positive
   coil-voltage domains. Optional certified radial
-  conductor-difference specialization retains ground-dependent limits; local
+  whole-section or pendant-region conductor specialization retains physical
+  limits and boundary equations; local
   solves carry no global optimality guarantee. See [exact IVR](docs/src/ivr_nlp.md), its [equations](docs/src/ivr_theory.md)
   and the [build–verify–reuse tutorial](docs/src/tutorial_exact_ivr.md).
 - **LinIVR (experimental)**: no-load current–voltage approximation retaining

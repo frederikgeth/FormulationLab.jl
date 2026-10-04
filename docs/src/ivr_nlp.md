@@ -76,7 +76,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 |:--|:--|:--|
 | `s_base` | `1e4` | Positive finite internal power base in VA; SI inputs/results unchanged |
 | `objective` | `:cost` | `:cost`, `:source_import` or `:feasibility` |
-| `specialization` | `:off` | `:conductor_difference` attempts the documented certificate and falls back when inapplicable |
+| `specialization` | `:off` | `:conductor_difference` certifies one complete section; `:conductor_regions` certifies pendant regions behind retained boundaries |
 
 `IVRNLPResult.voltage_candidate` maps `(bus, terminal)` to complex volts;
 `current_candidate` and `powers` map `(family::Symbol, id::String)` to channel
@@ -270,7 +270,8 @@ Supported objectives are `:cost` (linear currency/kWh coefficients),
 `s_base` controls internal scaling. Inputs are copied rather than modified.
 Without transformers, switches, capacitors or IBRs, each voltage conductor must have a line path to a fixed source, ideal ground,
 or finite one-terminal ground. A finite ground supplies only an initial voltage
-guess; its voltage is not fixed and its actual admittance/KCL remain enforced.
+guess in conductor components unreached by the fixed-source/ideal-ground
+traversal; source-propagated phase starts take precedence. Its voltage is not fixed and its actual admittance/KCL remain enforced.
 With transformers, switches, capacitors or IBRs, a sparse linear circuit solve provides starts using every
 fixed source phasor. Non-impedance load, generator and IBR PCC currents are zero only
 in this initialization; impedance loads, capacitors, excitation, grounds and closed switches remain active.
@@ -335,15 +336,20 @@ or operating-mode coverage: controls, tap optimization, DC and time-series
 semantics require additional contracts. Element support also does not establish
 conductor-specialization eligibility.
 
-A transformer anywhere in the input causes requested conductor-difference
+For `:conductor_difference`, a transformer anywhere in the input causes
 specialization to fall back to full IVR with `:transformer_boundary`. The
 existing line-only proof has not been extended across winding boundaries.
 Switches similarly cause `:switch_boundary` fallback, including open switches.
 If both are present, the transformer-boundary diagnostic takes precedence.
+The separate `:conductor_regions` option can specialize eligible line trees
+attached to their buses while retaining the entire transformer/switch circuit
+and all boundary-bus equations. It does not reduce through either device.
 Capacitors participate in the existing downstream zero-sum connection check.
 Delta, explicit-neutral wye and terminal-pair banks may retain eligibility;
 a downstream phase-earth bank causes `:earth_return_device` fallback even
-when its rating is zero. Root capacitor connections do not eliminate root KCL.
+when its rating is zero. Root capacitor connections do not eliminate root KCL. In regional mode, an
+earth-return device makes its bus a retained boundary; other pendant regions
+can still qualify.
 Capacitor regressions include full/reduced supplied states, nominal and
 off-nominal rating checks, line limits with charging current, and OpenDSS banks.
 IBRs also participate in the zero-sum connection proof; implicit earth-return
@@ -411,6 +417,52 @@ downstream grounds, multiple sources, incomplete conductor sections, and cycles,
 including parallel edges. No tolerance treats a small shunt as zero. Supported
 networks that fail certification use full IVR and report a stable reason code in
 `build.numerical_diagnostics[:specialization_report]`.
+
+### Pendant regions inside a larger network
+
+`IVRNLP(specialization=:conductor_regions)` is a separate opt-in mode. It can
+certify several disjoint interiors, including two-, three- and four-conductor
+regions sharing a retained boundary bus. A boundary port may use only a subset
+of that bus's conductors. Inside each region, every line carries the complete
+consistent conductor set and has exactly zero endpoint shunts; every device
+connection has a structural zero-sum terminal-current identity.
+
+The detector repeatedly removes eligible leaf buses from an undirected
+multigraph. Sources, ideal grounds, nonzero bus shunts, transformer ports,
+switch ports, earth-return devices, partial conductor ports and invalid
+conductor-role transitions stop removal at their buses. Nonzero shunted lines
+are retained and stop removal at both endpoints. Parallel edges and cycles
+remain in the graph core, but pendant trees attached to them may qualify.
+No tolerance turns a small admittance or zero-demand earth-return connection
+into an eligible identity. Every removed bus has exactly one remaining parent
+edge when certified. Each resulting tree ends at a retained boundary bus.
+
+The entire boundary bus stays in physical coordinates, with every original KCL,
+voltage equation, device and operating limit. Its voltage need not be fixed, and
+its upstream current need not sum to zero. Transformers and switches are never
+transformed; their connected buses can anchor independent regions. The method
+also admits multiple sources outside the interiors and mixed conductor counts
+at retained ports. It does not certify through a mixed-port bus or a cycle.
+
+A successful report has `code=:pendant_zero_sum`; `regions` records each root,
+rule, boundary terminal subset, interior buses, selected lines and omitted KCL.
+`components` lists all selected lines, while `retained_lines`, `retained_buses`,
+`boundary_buses` and `barriers` expose what stays physical. Barriers identify
+explicit stopping conditions; unpeeled cycle/core buses can remain without an
+explicit device barrier. With no eligible tree, `code=:no_certified_regions`
+returns the full model. Detection depends on topology and connections, not a
+solved point or today's demand. Supported demand/price updates reuse the maps.
+
+The [theory chapter](ivr_theory.md#Pendant-region-certificate) gives the subtree
+argument with a free boundary. `test/compiler_region_tests.jl` checks independent
+nonzero-sum boundary witnesses, mixed ports, cycles and parallel edges, multiple
+sources, all fixed transformer families, switches, voltage-dependent loads,
+capacitors, generators and static IBRs. Negative tests hold supplied points
+fixed while violating boundary/interior voltages, sequence limits, both line-end
+ratings and delta-generator limits. A region removes one complex line-current
+coordinate and one implied complex KCL equation per interior bus.
+
+### Coordinate emission and physical-point checks
 
 The certificate uses downstream subtree KCL to establish zero-sum line current.
 For the local difference matrix `P`, currents become `I = transpose(P)*j`.
@@ -500,9 +552,10 @@ flag changes supply accounting as described above; it is never applied implicitl
 
 The ablation compares full/reduced and fresh/reused construction at mapped
 physical starts. It reports failures and physical checks as well as timings.
-It does not establish performance on arbitrary networks. Mixed conductor-count
-sections, pendant-region specialization, full common-mode substitution, general
-family persistence and equipment/source updates remain future work.
+It does not establish performance on arbitrary networks. Transformation through mixed conductor-count
+junctions or device boundaries, full common-mode substitution, general family
+persistence and equipment/source updates remain future work. Regional mode
+retains such junctions and device ports rather than transforming through them.
 
 Preparation can be profiled separately with a local external input:
 

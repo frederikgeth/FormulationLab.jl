@@ -253,7 +253,7 @@ No balanced loading or phase-permutation symmetry is assumed.
 ### Why the network certificate is necessary
 
 The algebra alone does not establish ``\mathbf1^T I_\ell=0``. The implemented
-certificate requires one connected, source-rooted tree of complete, consistently
+whole-section certificate requires one connected, source-rooted tree of complete, consistently
 mapped two-, three- or four-conductor lines; no nonzero line shunts; no downstream
 bus shunts or grounds; and downstream device connection rows summing to zero.
 It also checks source boundary and neutral-role compatibility. Transformers and
@@ -296,6 +296,45 @@ algebraic equivalence statement within the declared domain; finite-precision
 solves are checked separately. It is distinct from neutral Kron reduction and
 from topology simplification.
 
+### Pendant-region certificate
+
+For ``R`` a tree interior with one retained boundary bus ``b``, let each
+interior bus have a complete, consistently mapped conductor set, no ideal or
+finite earth path, and only device connections whose terminal currents sum to
+zero. Region lines have no endpoint shunts. No restriction is imposed on the
+circuit outside ``R`` or on devices connected at ``b``.
+
+**Leaf induction.** Sum conductor KCL at an interior leaf. Its devices contribute
+zero to this sum, hence its parent-line current sums to zero. Remove that leaf
+from the proof graph. At the next interior bus, already certified child-line
+currents and local device currents all sum to zero, so its parent-line current
+also sums to zero. Continue until reaching ``b``. The argument never sums or
+removes boundary-bus KCL and does not assert zero-sum upstream current.
+
+The implementation realizes this induction by removing unblocked degree-one
+vertices from a multigraph. A removed vertex has only its certified descendants
+and its one remaining parent edge. Cycles, parallel-edge cores and connections
+between retained boundaries cannot be removed this way. Sources, earth paths,
+transformer/switch ports, partial conductor ports and incompatible line maps
+are explicitly retained. Thus no unobserved external connection can enter an
+interior omitted-KCL equation. Trees sharing a boundary have disjoint interiors
+and current coordinates; their transformations compose independently.
+
+The same reconstruction ``I=P^T j`` and invertible retained-reference voltage
+map apply within each region. All boundary voltages remain physical. The
+remaining ``m-1`` conductor KCL equations, the device identities and zero-sum
+incident line currents imply the omitted conductor equation at each interior
+bus. Keeping every original KVL and operating expression under reconstruction
+therefore gives the same conditional feasible-set and objective equivalence as
+for the complete section. With ``L_R`` selected tree edges, the implementation
+removes ``2L_R`` real current variables and ``2L_R`` real KCL equations.
+
+The eligibility conditions are sufficient, not necessary. In particular, the
+current pass does not combine proofs through a retained mixed-port junction,
+transformer, switch or earth-connected bus, even when a broader identity might
+exist. Arbitrary meshed-region reductions and full common-mode voltage
+elimination require separate proofs.
+
 ## 4. Implementation and evidence map
 
 | Responsibility | Implementation | Validation |
@@ -303,7 +342,7 @@ from topology simplification.
 | Exact circuit, maps and endpoint quantities | `src/formulations/ivr_electrical.jl` | manufactured SI states; component/OpenDSS tests |
 | Power products, operating bounds, objectives and updates | `src/formulations/ivr_nlp.jl`, `src/formulations/ivr_loads.jl` | fixed-state negative-bound tests; fresh/reused comparisons |
 | Local difference identities | `src/compilation/conductor_difference.jl` | `test/compiler_algebra_tests.jl` |
-| Applicability, projection and reconstruction | `src/compilation/ivr_structure.jl` | `test/compiler_network_tests.jl` |
+| Applicability, projection and reconstruction | `src/compilation/ivr_structure.jl`, `src/compilation/ivr_regions.jl` | `test/compiler_network_tests.jl`, `test/compiler_region_tests.jl` |
 | Supplied-point evaluation of the actual NLP | `src/validation/ivr_nlp.jl` | both mapping directions; deliberately perturbed states |
 | Independent SI equations and assessed limits | `src/validation/physical.jl` | separate decoding and residual evaluation |
 

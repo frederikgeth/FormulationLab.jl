@@ -95,7 +95,9 @@ function _ivrn_coordinates(e,plan)
     n=e.coordinate_count[]
     reconstruction=[_SDPRow() for _ in 1:n];projection=_SDPRow[];used=BitSet()
     add_coordinate(row)=(push!(projection,row);length(projection))
-    if plan!==nothing
+    plans=plan===nothing ? _IVRDifferencePlan[] : plan isa _IVRDifferencePlan ? [plan] : plan.regions
+    lines=isempty(plans) ? nothing : Dict(l.id=>l for l in e.lnc_lines)
+    for plan in plans
         map=_conductor_difference(plan.rule);P=map.voltage;m=size(P,2)
         # The last conductor voltage remains explicit, preserving local
         # neutral/phase-ground limits and avoiding long path substitutions.
@@ -109,7 +111,8 @@ function _ivrn_coordinates(e,plan)
             end
             union!(used,cols)
         end
-        for l in e.lnc_lines
+        for id in plan.line_ids
+            l=lines[id]
             cols=[only(keys(l.current[findfirst(==(t),l.tmf)])) for t in plan.terminals[l.from]]
             new=[add_coordinate(_SDPRow(cols[j]=>ComplexF64(map.current_projection[k,j]) for j in 1:m
                                         if !iszero(map.current_projection[k,j]))) for k in 1:m-1]

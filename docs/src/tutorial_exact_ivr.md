@@ -285,7 +285,31 @@ comparison or evidence of algorithmic improvement. Voltage-law coefficients and
 nominal powers require a fresh build when changed; the existing demand-update
 API applies only to declared constant-power loads.
 
-## 10. Extend the experiment without changing its meaning
+## 10. Keep a physical boundary and reduce its pendant region
+
+Add a 2 mS phase-earth shunt at bus `b1` of a three-line four-wire feeder.
+The upstream line carries an earth-return contribution, so the whole-network
+zero-sum certificate correctly declines. Lines `l2` and `l3`, downstream of
+`b1`, still feed only zero-sum connections.
+
+```@example exactivr
+region = T.region_example(); nothing
+```
+
+The helper requests `specialization=:conductor_regions`, checks the selected
+lines and retained boundary, and evaluates each solved point in the opposite
+model. It explicitly verifies a nonzero upstream conductor-current sum while
+the selected downstream line has zero sum. The model loses four real current
+variables, retaining all voltages, original KVL, boundary KCL, shunt physics
+and physical limits. `b1` is not fixed or grounded by the transformation.
+
+This example demonstrates a larger applicability domain, not a timing benefit.
+Inspect `region.report.regions`, `.retained_lines` and `.barriers` to see the
+certificate. Transformers, switches, mesh cores and mixed conductor ports can
+similarly remain physical while eligible attached trees are specialized; see
+the [regional contract](ivr_nlp.md#Pendant-regions-inside-a-larger-network).
+
+## 11. Extend the experiment without changing its meaning
 
 For a larger study, record the input digest and every deliberate data change;
 retain failed solves and explicit fallback reasons; compare accepted objectives

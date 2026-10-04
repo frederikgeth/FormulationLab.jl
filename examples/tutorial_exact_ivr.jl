@@ -203,6 +203,29 @@ function load_law_example()
     rows
 end
 
+"""Reduce a pendant region while retaining a phase-earth boundary and its KCL."""
+function region_example()
+    net=ivr_compiler_case(conductors=4,segments=3)
+    net["shunt"]=Dict("earth"=>Dict("bus"=>"b1","terminal_map"=>["a"],"G_1_1"=>.002))
+    full=solve_checked(net)
+    regional=solve_checked(net;specialization=:conductor_regions)
+    legacy=build_opf(net,IVRNLP(specialization=:conductor_difference))
+    @assert legacy.numerical_diagnostics[:specialization_report].code==:bus_shunt
+    report=regional.build.numerical_diagnostics[:specialization_report]
+    @assert report.components==["l2","l3"] && report.boundary_buses==["b1"]
+    @assert ivr_nlp_point_report(full.build,point(regional.result)).passed
+    @assert ivr_nlp_point_report(regional.build,point(full.result)).passed
+    @assert isapprox(full.result.objective,regional.result.objective;atol=1e-5,rtol=1e-7)
+    upstream=sum(regional.result.current_candidate[(:line_from,"l1")])
+    @assert abs(upstream)>.1
+    @assert abs(sum(regional.result.current_candidate[(:line_from,"l2")] ))<1e-7
+    nf,nr=num_variables(full.build.model),num_variables(regional.build.model)
+    @assert nf-nr==4
+    println("Retained boundary: b1; reduced lines: l2, l3; retained line: l1")
+    @printf("JuMP variables: %d full, %d regional; upstream current sum magnitude: %.6f A\n",nf,nr,abs(upstream))
+    (;net,full,regional,report)
+end
+
 function refusal_examples()
     baseline = analytical_example()
     tight = deepcopy(baseline.net)
@@ -232,6 +255,7 @@ function run_all()
     inverter_example()
     regulator_example()
     load_law_example()
+    region_example()
     refusal_examples()
     println("All tutorial checks passed.")
 end

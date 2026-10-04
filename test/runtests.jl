@@ -6,6 +6,7 @@ using OpenDSSDirect
     include("compiler_algebra_tests.jl")
     include("ivr_nlp_tests.jl")
     include("compiler_network_tests.jl")
+    include("compiler_region_tests.jl")
     include("ivr_generator_updates_tests.jl")
     include("ivr_transformer_tests.jl")
     include("ivr_regulator_tests.jl")
