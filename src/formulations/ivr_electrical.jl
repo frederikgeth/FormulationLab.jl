@@ -2,8 +2,10 @@
 # are per unit; ideal grounds are fixed at zero, finite grounds remain shunts.
 # No Kron reduction, power approximation, lifting, or operational-bound tightening.
 function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
-                              line_records=false, delta_dispatch=:conductor)
+                              line_records=false, delta_dispatch=:conductor,
+                              source_mode=:homogeneous)
     delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown delta dispatch convention"))
+    source_mode in (:homogeneous,:affine) || throw(ArgumentError("unknown source mode"))
     candidates=[d for (_,d) in sort!(collect(net["voltage_source"]);by=first) if any(!iszero,d["v_magnitude"])]
     isempty(candidates) && _sdp_refuse("at least one nonzero reference phasor is required")
     source = first(candidates)
@@ -16,6 +18,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
     coordinate_count = Ref(0)
     newvar() = (coordinate_count[] += 1)
     voltage = Dict{Tuple{String,String},Int}()
+    neutral_map = _kr_neutral_map(net)
     for (b,d) in sort!(collect(net["bus"]);by=first), t in d["terminal_names"]
         voltage[(b,t)] = t in get(d,"perfectly_grounded_terminals",[]) ? 0 : newvar()
     end
@@ -48,6 +51,19 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
     devices = []
     limits = []
     lnc_lines = []
+    # Decode shared physical linecodes once per arity within this assembly.
+    # Length and per-unit scaling are applied separately to every branch.
+    line_matrices_cache = Dict{Tuple{String,Int},NTuple{3,Matrix{ComplexF64}}}()
+    function line_matrices(code,n,id)
+        function matrix(prefix)
+            M=_kr_matrix(code,prefix;label="line/$id")
+            M===nothing && return zeros(n,n)
+            size(M,1)<=n || _sdp_refuse("line/$id matrix exceeds terminal arity")
+            out=zeros(n,n);out[1:size(M,1),1:size(M,2)].=M;out
+        end
+        (matrix("R_series_")+im*matrix("X_series_"),
+         matrix("G_from_")+im*matrix("B_from_"),matrix("G_to_")+im*matrix("B_to_"))
+    end
     for (id,l) in sort!(collect(get(net,"line",Dict()));by=first)
         tmf=l["terminal_map_from"]; tmt=l["terminal_map_to"]; n=length(tmf)
         n==length(tmt) || _sdp_refuse("line/$id endpoint arity mismatch")
@@ -55,15 +71,14 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         code=haskey(l,"linecode") ? net["linecode"][l["linecode"]] : l
         len=haskey(l,"linecode") ? Float64(get(l,"length",1.0)) : 1.0
         isfinite(len) && len>0 || _sdp_refuse("line/$id length must be positive")
-        function matrix(prefix)
-            M=_kr_matrix(code,prefix;label="line/$id")
-            M===nothing && return zeros(n,n)
-            size(M,1)<=n || _sdp_refuse("line/$id matrix exceeds terminal arity")
-            out=zeros(n,n);out[1:size(M,1),1:size(M,2)].=M;out
+        physical = if haskey(l,"linecode")
+            get!(line_matrices_cache,(String(l["linecode"]),n)) do
+                line_matrices(code,n,id)
+            end
+        else
+            line_matrices(code,n,id)
         end
-        Z=(matrix("R_series_")+im*matrix("X_series_"))*len/zb
-        Yf=(matrix("G_from_")+im*matrix("B_from_"))*len*zb
-        Yt=(matrix("G_to_")+im*matrix("B_to_"))*len*zb
+        Z=physical[1]*len/zb;Yf=physical[2]*len*zb;Yt=physical[3]*len*zb
         current=[_sdp_e(newvar()) for _ in 1:n]
         drop=matrows(Z,current)
         for k in 1:n
@@ -76,7 +91,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         current_ratings=Dict(k=>ratings[k] for k in ("i_max",) if haskey(ratings,k))
         push!(limits,(vf,cf,current_ratings));push!(limits,(vt,ct,current_ratings))
         if haskey(ratings,"s_max")
-            neutral=get(_kr_neutral_map(net),l["bus_from"],nothing)
+            neutral=get(neutral_map,l["bus_from"],nothing)
             phases=findall(!=(neutral),tmf)
             push!(limits,(vf[phases],cf[phases],Dict("s_max"=>ratings["s_max"])))
             push!(limits,(vt[phases],ct[phases],Dict("s_max"=>ratings["s_max"])))
@@ -121,11 +136,11 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
             n=length(d["s_max"])
         else
             cfg=uppercase(d["configuration"])
-            nt=get(_kr_neutral_map(net),d["bus"],nothing)
+            nt=get(neutral_map,d["bus"],nothing)
             n=family=="load" ? length(d["p_nom"]) : cfg=="SINGLE_PHASE" ? 1 :
                 cfg=="DELTA" ? (length(tm)==2 ? 1 : 3) : count(!=(nt),tm)
         end
-        D=_sdp_connection(net,d["bus"],tm,cfg,n)
+        D=_sdp_connection(net,d["bus"],tm,cfg,n;neutral=get(neutral_map,d["bus"],nothing))
         vc=matrows(D,vr); ic=[_sdp_e(newvar()) for _ in 1:n]
         terminal_current=matrows(transpose(D),ic)
         if family=="ibr"
@@ -183,7 +198,15 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         length(rows)==length(dvolts) && all(isfinite,dvolts) || _sdp_refuse("source/$source_id invalid phasors")
         for k in eachindex(rows)
             idx=voltage[(d["bus"],d["terminal_map"][k])]
+            if source_mode==:affine
+                idx==0 && !iszero(dvolts[k]) && _sdp_refuse("nonzero source voltage on a grounded terminal")
+                if haskey(fixed_source_coordinates,idx) && fixed_source_coordinates[idx]!=dvolts[k]/vb
+                    _sdp_refuse("inconsistent prescribed source voltages")
+                end
+            end
             idx!=0 && (fixed_source_coordinates[idx]=dvolts[k]/vb)
+            # Exact NLP consumers fix each prescribed coordinate directly.
+            source_mode==:affine && continue
             # The first anchor equation is an algebraic tautology.
             d===source && k==anchor_k && continue
             push!(equations,_sdp_add!(copy(rows[k]),vs[anchor_k],-dvolts[k]/source_v[anchor_k]))
@@ -194,7 +217,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         is=[isempty(v) ? _SDPRow() : _sdp_e(newvar()) for v in rows]
         inject(d["bus"],d["terminal_map"],is,-1)
         # Power boxes are per phase; current limits, where supported, are per conductor.
-        neutral=get(_kr_neutral_map(net),d["bus"],nothing)
+        neutral=get(neutral_map,d["bus"],nothing)
         phases=findall(!=(neutral),d["terminal_map"])
         powerdata=copy(d)
         for key in ("p_min","p_max","q_min","q_max")
@@ -212,6 +235,6 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         push!(devices,(:voltage_source,source_id,rows,is,powerdata));push!(limits,(rows,is,Dict(k=>d[k] for k in ("i_max",) if haskey(d,k))))
     end
     (; voltage, equations, kcl, devices, limits, lnc_lines, terminal_rows,
-       values_for, coordinate_count, newvar, fixed_source_coordinates,
+       values_for, coordinate_count, newvar, fixed_source_coordinates, neutral_map,
        vs, anchor_k, anchor, source_v, vb, sb, ib, zb)
 end

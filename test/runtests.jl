@@ -3,6 +3,11 @@ using OpenDSSDirect
 @testset "FormulationLab" begin
     include("boundary_tests.jl")
     include("linivr_tests.jl")
+    include("compiler_algebra_tests.jl")
+    include("ivr_nlp_tests.jl")
+    include("compiler_network_tests.jl")
+    include("ivr_generator_updates_tests.jl")
+    include("ivr_transformer_tests.jl")
     include("sdp_tests.jl")
     include("branch_flow_sdp_tests.jl")
     include("branch_flow_sdp_extended_tests.jl")

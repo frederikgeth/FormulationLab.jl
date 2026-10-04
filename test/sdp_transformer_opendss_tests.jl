@@ -63,6 +63,12 @@ using OpenDSSDirect
             options=BranchFlowSDPOptions(objective=:source_import),
             solver_options=(verbose=false,tol_feas=1e-6,
                 tol_gap_abs=1e-6,tol_gap_rel=1e-6))
+        exact_build=build_opf(bfm_net,IVRNLP(objective=:source_import);optimizer=Ipopt.Optimizer)
+        exact=solve_ivr_nlp_opf(exact_build;solver_options=(print_level=0,tol=1e-10,constr_viol_tol=1e-10))
+        @test exact.solve.optimal
+        exact_point=ACPoint(voltage=exact.voltage_candidate,currents=exact.current_candidate)
+        @test physical_residuals(bfm_net,exact_point;delta_dispatch=:coil).passed
+        @test ivr_nlp_point_report(exact_build,exact_point).passed
         @test r.solve.optimal
         @test bfm.solve.optimal
         terminalmap=kind=="center_tap" ? Dict("x1"=>1,"x2"=>2,"n"=>0) :
@@ -73,6 +79,7 @@ using OpenDSSDirect
             expected=get(dv,"t.$(terminalmap[tm[1]])",0im)-get(dv,"t.$(terminalmap[tm[2]])",0im)
             @test actual ≈ expected rtol=2e-4 atol=0.005
             @test actual_bfm ≈ expected rtol=2e-4 atol=0.005
+            @test exact.voltage_candidate[("t",tm[1])]-exact.voltage_candidate[("t",tm[2])] ≈ expected rtol=2e-4 atol=0.005
         end
         # Compare source complex power, including winding losses.
         OpenDSSDirect.Circuit.SetActiveElement("transformer.tx")
@@ -80,5 +87,6 @@ using OpenDSSDirect
         expected=sum(powers[1:OpenDSSDirect.CktElement.NumConductors()])*1000
         @test sum(r.relaxed_powers[(:transformer_from,"$kind/tx")]) ≈ expected rtol=2e-4 atol=0.02
         @test sum(bfm.relaxed_powers[(:transformer_from,"$kind/tx")]) ≈ expected rtol=2e-4 atol=0.02
+        @test sum(exact.powers[(:transformer_from,"$kind/tx")]) ≈ expected rtol=2e-4 atol=0.02
     end
 end

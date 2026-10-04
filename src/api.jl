@@ -1,6 +1,17 @@
 """An electrical formulation, independent of the optimizer used to solve it."""
 abstract type AbstractFormulation end
 
+"""Exact static current-voltage model; nonlinear solves may be only local."""
+struct IVRNLP <: AbstractFormulation
+    options::IVRNLPOptions
+end
+IVRNLP(;kwargs...)=IVRNLP(IVRNLPOptions(;kwargs...))
+formulation_kind(::IVRNLP)=:exact
+build_opf(input,f::IVRNLP;optimizer=nothing,kwargs...)=
+    build_ivr_nlp_opf(input,optimizer;options=f.options,kwargs...)
+solve_opf(input,f::IVRNLP;optimizer,kwargs...)=
+    solve_ivr_nlp_opf(input,optimizer;options=f.options,kwargs...)
+
 """No-load current–voltage approximation with explicit neutrals and power variables."""
 struct LinIVR <: AbstractFormulation
     options::LinIVROptions

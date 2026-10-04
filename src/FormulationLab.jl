@@ -60,9 +60,13 @@ include("cuts/lnc_lines.jl")
 include("formulations/soc.jl")
 include("cuts/soc_fixed.jl")
 include("formulations/linivr.jl")
+include("compilation/conductor_difference.jl")
+include("compilation/ivr_structure.jl")
+include("formulations/ivr_nlp.jl")
 include("api.jl")
 include("validation/containment.jl")
 include("validation/physical.jl")
+include("validation/ivr_nlp.jl")
 include("validation/relaxation.jl")
 include("io/bmopf_simplify.jl")
 include("io/network_reduction.jl")
@@ -82,6 +86,8 @@ export AbstractFormulation, LinDist3Flow, IVRSDP, BranchFlowSDP,
        formulation_kind, build_opf, solve_opf
 export LinIVR, LinIVROptions, LinIVRBuild, LinIVRResult, LinIVRInapplicableError,
        build_linivr_opf, solve_linivr_opf
+export IVRNLP, IVRNLPOptions, IVRNLPBuild, IVRNLPResult, IVRNLPInapplicableError,
+       build_ivr_nlp_opf, solve_ivr_nlp_opf, update_ivr_loads!, update_ivr_generators!, ivr_nlp_point_report
 export SDPOptions, SDPBuild, SDPResult, SDPInapplicableError, build_sdp_opf, solve_sdp_opf
 export BMOPFInput, read_bmopf, SolveStatus, solve_status, solve_diagnostics
 export kron_reduce_bmopf, reduce_bmopf_neutrals, kron_reduce_neutrals

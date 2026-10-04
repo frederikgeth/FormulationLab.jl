@@ -49,15 +49,18 @@ end
 # All conductor voltages must be unique. Current-only freedom is retained in
 # the optimization; minimum-norm reference currents merely choose its expansion
 # point. Never add a zero-circulation constraint to the operating circuit.
-function _linivr_reference(e)
+function _linivr_reference(e; fixed_coordinates=Dict(e.anchor=>e.source_v[e.anchor_k]/e.vb))
     rows = vcat(e.equations, collect(values(e.kcl)))
     for (family,_,_,i,d) in e.devices
         (family in (:generator,:ibr) || (family==:load && !_sdp_is_impedance_load(d))) && append!(rows,i)
     end
-    push!(rows,_sdp_e(e.anchor))
+    boundary=sort!(collect(fixed_coordinates);by=first)
+    offset=length(rows)
+    append!(rows,[_sdp_e(k) for (k,_) in boundary])
     n=e.coordinate_count[]
     ri=Int[];ci=Int[];av=ComplexF64[]
-    rhs=zeros(ComplexF64,length(rows));rhs[end]=e.source_v[e.anchor_k]/e.vb
+    rhs=zeros(ComplexF64,length(rows))
+    for (j,(_,v)) in enumerate(boundary);rhs[offset+j]=v;end
     for (r,row) in enumerate(rows)
         scale=norm(collect(values(row)))
         iszero(scale) && continue

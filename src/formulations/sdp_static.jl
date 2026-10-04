@@ -37,8 +37,7 @@ function _sdp_vector(d,k,n;default=nothing)
     v
 end
 
-function _sdp_connection(net,bus,tm,cfg,n;roll=1)
-    neutral=get(_kr_neutral_map(net),bus,nothing)
+function _sdp_connection(net,bus,tm,cfg,n;roll=1,neutral=get(_kr_neutral_map(net),bus,nothing))
     if cfg=="WYE"
         phases=findall(t->t!=neutral,tm)
         length(phases)==n || _sdp_refuse("$bus wye phase/neutral map mismatch")
@@ -98,9 +97,9 @@ function _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,de
 end
 
 # All magnitude constraints are affine in the same global moment matrix.
-function _sdp_voltage_maps(net,b,terminal_rows)
+function _sdp_voltage_maps(net,b,terminal_rows;neutral=get(_kr_neutral_map(net),b,nothing))
     d=net["bus"][b];tm=d["terminal_names"];v=terminal_rows(b,tm)
-    nt=get(_kr_neutral_map(net),b,nothing);ni=findfirst(==(nt),tm)
+    nt=neutral;ni=findfirst(==(nt),tm)
     ph=findall(t->t!=nt,tm);vp=v[ph]
     pn=[ni===nothing ? copy(r) : _sdp_add!(copy(r),v[ni],-1) for r in vp]
     pairs=length(vp)==3 ? [(1,2),(2,3),(3,1)] : [(i,j) for i in eachindex(vp) for j in i+1:length(vp)]

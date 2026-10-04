@@ -7,7 +7,7 @@ The [formulation guide](formulations.md) defines the mathematical layers; the
 [notation chapter](notation.md) defines symbols, units and ordering. This page
 describes how those layers are separated in software.
 
-`LinDist3Flow`, `IVRSDP`, `IVRSOC`, experimental `LinIVR` and
+`LinDist3Flow`, `IVRSDP`, `IVRSOC`, experimental `IVRNLP`, `LinIVR` and
 `BranchFlowSDP` select mathematical formulations. `build_opf` and
 `solve_opf` separately accept optimizer factories. `formulation_kind` distinguishes
 an approximation from a relaxation; LP/SOCP/SDP cone types alone do not do so.
@@ -37,9 +37,12 @@ The [formulation decision record](formulation_choices.md) identifies retained
 configurations, measured limitations and next experiments. Published origins
 are collected separately in the [literature map](literature.md).
 
-The next performance work targets Clarabel solve time. An exact nonlinear
-formulation and optional ExaModels backend remain future work; physical residual
-evaluation already exists, while AC-feasible recovery is not guaranteed. DC and
+The next conic performance work targets Clarabel solve time. Experimental
+`IVRNLP` adds exact static equations and reusable load, generator-bound and price updates,
+using affine source prescriptions in the shared assembler. Optional conductor
+specialization certifies complete radial sections and retains common-mode voltage
+coordinates; mixed sections and an optional ExaModels backend remain future work. Physical residual
+evaluation exists, while AC-feasible recovery from relaxations is not guaranteed. DC and
 time-series semantics remain separately scoped. Geometry compilation belongs
 upstream of the electrical coefficient boundary.
 

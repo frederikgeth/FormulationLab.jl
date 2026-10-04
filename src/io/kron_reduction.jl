@@ -34,8 +34,9 @@ end
 
 function _kr_matrix(d::AbstractDict, prefix::String; label="matrix")
     vals = Dict{Tuple{Int,Int},Float64}()
+    pattern = Regex("^" * prefix * "(\\d+)_(\\d+)" * raw"$")
     for k in keys(d)
-        m = match(Regex("^" * prefix * "(\\d+)_(\\d+)" * raw"$"), string(k))
+        m = match(pattern, string(k))
         m === nothing && continue
         ij = (parse(Int, m.captures[1]), parse(Int, m.captures[2])); v = d[k]
         v isa Real && !(v isa Bool) && isfinite(Float64(v)) ||

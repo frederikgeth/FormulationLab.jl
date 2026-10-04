@@ -6,6 +6,12 @@ Unbalanced power-flow formulations with explicit mathematical scope and solver-o
 
 Implemented:
 
+- **IVRNLP (experimental)**: exact static current–voltage equations, physical
+  magnitude limits, reusable load demands, and generator boxes/prices. Requires an
+  explicit nonlinear optimizer and currently supports lines, sources, shunts, fixed isolated-winding transformers,
+  constant-power/impedance loads and generator boxes. Optional certified radial
+  conductor-difference specialization retains ground-dependent limits; local
+  solves carry no global optimality guarantee. See [exact IVR](docs/src/ivr_nlp.md).
 - **LinIVR (experimental)**: no-load current–voltage approximation retaining
   explicit neutrals and power decision variables, without Kron reduction or a
   loaded starting point. Includes SOC physical limits, optional quadratic
@@ -89,7 +95,9 @@ The default test environment includes Clarabel, Ipopt (for migrated affine-model
 - [LinDist3Flow usage](docs/src/lindist3flow.md) and [component equations](docs/src/lindist3flow_components.md)
 - [Migration provenance](docs/src/migration.md) and [verification results](docs/src/verification.md)
 
-ExaModels is deferred until a nonconvex model is implemented. The current focus is fixed SOC solve performance and validated state recovery; DC and time-series semantics remain separately scoped.
+ExaModels is deferred while the experimental exact IVR baseline is evaluated.
+Fixed SOC solve performance and validated state recovery remain active work;
+DC and time-series semantics remain separately scoped.
 
 ## Documentation
 

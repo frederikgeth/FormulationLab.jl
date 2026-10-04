@@ -1,5 +1,15 @@
 # Optional BMOPFTools / Ipopt reference
 
+The experimental native exact IVR comparison uses the same optional environment:
+
+```sh
+julia --project=test/integration test/integration/ivr_nlp_reference.jl /tmp/ivr-reference.json
+```
+
+It checks two-wire, three-wire delta, and four-wire wye/delta circuits against
+BMOPFTools, including independent SI residual checks. This small panel contains
+no controllable dispatch and makes no speedup claim.
+
 BMOPFTools, Ipopt, and MosekTools are isolated here; none is a runtime or
 default-test requirement. This environment uses the sibling BMOPFTools checkout
 directly, without depending on PowerOptLab. Mosek experiments require a local
