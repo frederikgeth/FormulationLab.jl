@@ -62,3 +62,48 @@ end
         @test_throws ArgumentError IVRProfileStudy.benchmark(net,output;candidates=[first(candidates),(name="cost",options=IVRNLPOptions(objective=:cost))])
     end
 end
+
+
+@testset "Explicit ordering profiles preserve shared controls and diagnostic provenance" begin
+    base=IVRProfileStudy.profiles()[[1,10]]
+    candidates=IVRProfileStudy.ordering_profiles(;candidates=base,orders=(7,0,2))
+    @test length(candidates)==6
+    @test allunique(p.name for p in candidates)
+    @test all(p.options===base[1].options for p in candidates[1:3])
+    shared=Dict("tol"=>1e-10,"mumps_pivot_order"=>7,"print_level"=>0)
+    before=copy(shared)
+    settings=IVRProfileStudy.profile_solver_options(candidates[2],shared)
+    @test settings["mumps_pivot_order"]==0 && settings["linear_solver"]=="mumps"
+    @test settings["tol"]==shared["tol"] && settings["print_level"]==0
+    @test shared==before
+    @test IVRProfileStudy.profile_solver_options(first(base),[:tol=>1e-10])["tol"]==1e-10
+    @test_throws ArgumentError IVRProfileStudy.ordering_profiles(orders=(1,))
+    @test_throws ArgumentError IVRProfileStudy.ordering_profiles(orders=(7,7))
+    log="""
+    MUMPS used permuting_scaling 0 and pivot_order 2.
+    MUMPS used permuting_scaling 0 and pivot_order 2.
+    Number of doubles for MUMPS to hold factorization (INFO(9)) = 1234
+    Number of integers for MUMPS to hold factorization (INFO(10)) = -2
+    OverallAlgorithm....................: 0.120 (sys: 0.003 wall: 0.150)
+    LinearSystemFactorization..........: 0.000 (sys: 0.000 wall: 0.000)
+    """
+    diag=IVRProfileStudy.mumps_diagnostics(log)
+    @test diag.observed_pivot_orders==[2] && length(diag.ordering)==2
+    @test diag.factor_double_counts==[1234] && diag.factor_integer_counts==[-2]
+    @test diag.native_wall_s["OverallAlgorithm"]==.150
+    @test diag.native_wall_s["LinearSystemFactorization"]==0.
+    @test !haskey(diag.native_wall_s,"PDSystemSolverTotal")
+    @test isempty(IVRProfileStudy.mumps_diagnostics("").ordering)
+    net=IVRProfileStudy.ivr_compiler_case(conductors=2,segments=3)
+    mktempdir() do directory
+        report=IVRProfileStudy.benchmark(net,joinpath(directory,"ordering.json");
+            candidates=candidates[[1,2,4,5]],repetitions=2)
+        @test length(report["ranking"]["eligible"])==4
+        @test report["ranking"]["fastest_ipopt"]!==nothing
+        for (r,p) in zip(report["profiles"],candidates[[1,2,4,5]])
+            @test r["solver_options"]["mumps_pivot_order"]==p.solver_options["mumps_pivot_order"]
+            @test r["solver_options"]["tol"]==IVRProfileStudy.STRICT.tol
+            @test r["formulation_name"]==p.formulation_name
+        end
+    end
+end

@@ -29,7 +29,160 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
-## Current Ipopt evidence and recommended starting profile
+## Best-evidence starting configuration: regional IVR with AMD
+
+The current measured starting configuration adds **MUMPS AMD ordering** to
+regional conductor coordinates, passive elimination and finite-ground scaling:
+
+```julia
+formulation = IVRNLP(objective=:feasibility,
+    specialization=:conductor_regions, linear_elimination=:passive,
+    series_selection=:all, ground_scaling=:voltage)
+solver_options = merge(IVRProfileStudy.STRICT,
+    (linear_solver="mumps", mumps_pivot_order=0))
+```
+
+Here `IVRProfileStudy` comes from `examples/benchmark_ivr_profiles.jl` and its
+strict settings define the measured experiment, not a new package default.
+Use the required objective for the intended workload; the feasibility evidence
+does not replace an economic objective. All transformations and ordering
+alternatives remain available. This recommendation concerns solver wall time;
+construction cost does not enter it.
+
+### Selection and transfer evidence
+
+A prospective screen crosses three formulations (full, scaled regional passive,
+and bound-support selected regional passive) with five order requests. Four
+exploratory sweeps on DSuite 2,854 and ENWL 538 give **120/120 admitted solves**
+and 30 admitted excluded warm-ups. Regional/passive with AMD is fastest on both
+inputs. Its sum of per-input Ipopt medians is 0.324344 s, versus 0.521555 s for
+the same formulation with automatic ordering and 1.159862 s for full/automatic.
+These are selection-set observations, not independent performance estimates.
+
+Freeze that choice before testing two other feeders and two delta dispatch
+price regimes. Compare full/automatic, the previous regional/automatic profile,
+selected-regional/automatic and the frozen winner. Eight balanced sweeps per
+case give **128/128 admitted solves** and 16 admitted excluded warm-ups.
+
+| Validation case | Full / automatic (ms) | Regional / automatic (ms) | Regional / AMD (ms) | AMD / regional automatic |
+|:--|--:|--:|--:|--:|
+| DSuite 1,220 | 88.986 | 80.935 | 61.416 | 0.759 |
+| ENWL 435 | 200.969 | 163.216 | 131.608 | 0.806 |
+| Delta, cheap DER | 14.868 | 5.522 | 5.858 | 1.061 |
+| Delta, expensive DER | 6.197 | 9.841 | 5.327 | 0.541 |
+
+The last column is a ratio of medians. The new profile wins the two feeder
+cases and the expensive-DER case among these four candidates. Selected regional
+with automatic ordering remains fastest for cheap DER (5.227 ms). In the
+expensive-DER case, regional iterations fall from 17 to 10 when requesting AMD;
+the earlier regression against full/automatic reverses. Its individual paired
+ratios against full/automatic range from 0.807 to 3.692, including a timing
+outlier, so the lower median is not a claim that every run is faster.
+
+Ordering can change the nonlinear trajectory as well as factorization cost.
+All objective comparisons and independent physical/model checks pass. These
+are fresh solves, not parameter-update or warm-start results. Validation inputs
+were excluded from this ordering screen but had appeared in earlier project
+experiments; this is transfer evidence, not blind population sampling.
+
+### Isolate reduction after fixing the ordering
+
+Full IVR also benefits substantially from AMD. A separate comparison, declared
+after the screen and before examining validation results, therefore fixes AMD
+on **both** full and regional/passive models. Six new balanced pairs per case
+give **48/48 admitted solves** and eight admitted excluded warm-ups.
+
+| Matched-AMD case | Full median (ms) | Regional median (ms) | Regional/full | Individual paired ratio range |
+|:--|--:|--:|--:|:--|
+| DSuite 1,220 | 64.297 | 66.383 | 1.032 | 1.013–1.213 |
+| ENWL 435 | 169.372 | 142.035 | 0.839 | 0.822–0.860 |
+| Delta, cheap DER | 5.430 | 6.122 | 1.127 | 1.058–1.201 |
+| Delta, expensive DER | 5.908 | 5.831 | 0.987 | 0.892–1.047 |
+
+These are a separate batch; do not mix its absolute timings with the previous
+table to form unmatched ratios. With ordering controlled, reduction is useful
+on ENWL 435, slower on DSuite 1,220 and cheap-DER delta, and near tied on
+expensive-DER delta. The common regional/AMD profile is a measured starting
+point, not a universal winner over well-configured full IVR. **Full IVR + AMD
+is a strong explicit alternative**. Construction remains excluded throughout.
+
+The bound-support policy also interacts with ordering: on screening ENWL 538,
+selected-regional/AMD takes 17 iterations and 0.335763 s median, versus eight
+iterations and 0.181045 s for unconditional regional/AMD. All pass physical
+checks. A conservative expression-support rule is not a runtime guarantee.
+
+### What the detailed solver logs establish
+
+Thirty separate verbose solves and 30 excluded warm-ups pass. On these inputs,
+automatic request 7 always reports actual order 2 (AMF); explicit requests
+0/2/5/6 report those same requested orders. Thus the measured METIS requests
+were not silently falling back in this installed build. The logs use Ipopt
+3.14.19 with MUMPS 5.9.0; different builds may choose differently.
+
+| Diagnostic case / profile | Native algorithm wall (s) | Symbolic wall (s) | Maximum reported factor doubles | Maximum reported factor integers |
+|:--|--:|--:|--:|--:|
+| DSuite 2,854 full / automatic | 0.484 | 0.359 | 2,845,020 | 553,724 |
+| DSuite 2,854 full / AMD | 0.161 | 0.037 | 2,769,162 | 525,598 |
+| DSuite 2,854 regional / automatic | 0.311 | 0.198 | 2,707,370 | 492,598 |
+| DSuite 2,854 regional / AMD | 0.143 | 0.033 | 2,685,997 | 475,792 |
+| ENWL 538 full / automatic | 0.761 | 0.019 | 1,785,190 | 234,368 |
+| ENWL 538 full / AMD | 0.209 | 0.017 | 1,422,083 | 198,766 |
+| ENWL 538 regional / automatic | 0.237 | 0.016 | 1,126,838 | 190,126 |
+| ENWL 538 regional / AMD | 0.196 | 0.014 | 1,132,999 | 171,982 |
+
+These instrumented observations are excluded from rankings. Counts are maxima
+over reported factorization calls in each diagnostic, not process peak memory
+or a factor-fill ratio. DSuite's symbolic-time reduction is much larger than
+its reduction in factor storage; ENWL's full-model iteration count also changes
+from 14 to 8. Fewer stored entries alone cannot explain the timing effects.
+The earlier zero numerical-factorization timing field remains an attribution
+limitation, not evidence that numerical factorization costs nothing.
+
+### Reproduce the ordering comparison
+
+A representation and its linear-solver ordering form a joint numerical choice.
+The new `IVRProfileStudy.ordering_profiles` helper crosses explicit formulations
+with ordering requests while retaining every original formulation option:
+
+```julia
+include("examples/benchmark_ivr_profiles.jl")
+candidates = IVRProfileStudy.ordering_profiles(
+    candidates=IVRProfileStudy.profiles()[[1,10,12]],
+    orders=(7,0,2,5,6))
+report = IVRProfileStudy.benchmark(network, "/tmp/ivr-ordering.json";
+    candidates, repetitions=4)
+name = report["ranking"]["fastest_ipopt"]
+name === nothing && error("No comparable admitted ordering winner")
+chosen = only(filter(p -> p.name == name, candidates))
+formulation = IVRNLP(chosen.options)
+settings = IVRProfileStudy.profile_solver_options(chosen, IVRProfileStudy.STRICT)
+```
+
+Apply `settings` as `solver_options` when solving this explicit formulation.
+The report saves the shared settings and each candidate's **effective** settings.
+Per-candidate overrides are copied and merged into the shared settings without
+mutating them. For an ordering-only experiment, vary only `mumps_pivot_order`
+and explicitly use `linear_solver="mumps"`; keep convergence, scaling, pivot
+thresholds, starts and physical acceptance fixed.
+
+[Ipopt documents](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_mumps_pivot_order)
+this option as MUMPS `ICNTL(7)`. The
+[MUMPS guide](https://mumps-solver.org/doc/userguide_5.8.2.pdf) identifies requests
+7/0/2/5/6 as automatic/AMD/AMF/METIS/QAMD. Optional ordering packages can fall
+back, so a requested policy is not proof of the actual ordering. The helper
+also accepts requests 3 and 4; request 1 requires a supplied permutation that
+this helper does not provide. Custom solver settings remain available.
+
+Use a **separate**, verbose diagnostic solve to inspect actual choices and
+storage. `mumps_diagnostics(log)` reads the ordering reported by Ipopt, raw
+signed `INFO(9)` and `INFO(10)` storage counts, and selected native wall timers.
+The [Ipopt MUMPS interface](https://github.com/coin-or/Ipopt/blob/stable/3.14/src/Algorithm/LinearSolvers/IpMumpsSolverInterface.cpp)
+emits these fields. Missing fields remain missing, signed counts are preserved,
+and nested timers are not added together. These are solver-reported factor
+storage counts, not process peak memory or a measured fill ratio. Verbose
+instrumented runs do not enter the timing ranking.
+
+## Earlier Ipopt evidence with automatic ordering
 
 The new Ipopt-only screen selects the same common starting profile, now under
 an independent timing criterion:

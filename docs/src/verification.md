@@ -1,5 +1,81 @@
 # Verification
 
+## Formulation–ordering interaction and factor-storage diagnostics — 5 October 2026
+
+The empirical runner now accepts explicit per-candidate solver settings and
+records their effective values after merging with shared controls. The new
+`ordering_profiles` helper crosses existing formulations with MUMPS ordering
+requests; `mumps_diagnostics` reads actual-order and factor-storage fields from
+separate verbose logs. Core formulations, bounds, numerical defaults and all
+alternatives remain unchanged. Ipopt wall time is the primary metric throughout;
+construction and extraction do not enter the ranking.
+
+The full suite passes **31,874/31,874** assertions, including 29 new checks of
+solver-option propagation, unchanged formulation options, ordering requests,
+diagnostic parsing and physically admitted solves. Documentation adds an
+executable ordering example, bringing the tutorial to 20 blocks.
+
+A prospective screen crosses full IVR, scaled regional passive and selected
+regional passive with automatic/AMD/AMF/METIS/QAMD requests. DSuite 2,854 and
+ENWL 538 retain their electrical data and use feasibility objectives. Four
+exploratory reversed/rotated sweeps yield **120/120 admitted measured solves**
+and **30/30 excluded warm-ups**. Among combinations admitted on both inputs,
+regional/passive AMD minimizes the sum of per-input median Ipopt times:
+0.324344 s versus 0.521555 s for regional/automatic and 1.159862 s for full/
+automatic. These are selection-set measurements, not independent speed estimates.
+
+Freeze this choice before comparing it against full/automatic, regional/automatic
+and selected-regional/automatic on DSuite 1,220, ENWL 435 and two delta dispatch
+price regimes. Eight balanced sweeps per case give **128/128 admitted solves**
+and **16/16 excluded warm-ups**. With the same regional formulation, AMD median
+ratios to automatic are 0.759, 0.806, 1.061 and 0.541 respectively. The expensive-
+DER delta case changes from 17 to 10 iterations and reverses its earlier median
+regression against full/automatic. A timing outlier gives individual AMD/full-
+automatic ratios as high as 3.692 in that small case; this is not an every-run
+speedup or a statistical-significance claim.
+
+Full IVR benefits from AMD too. A separate matched-order comparison, declared
+after the screen but before inspecting validation outcomes, fixes AMD on both
+full and regional/passive models. Six fresh balanced pairs per case give
+**48/48 admitted solves** and **8/8 excluded warm-ups**. Regional/full median
+ratios are **1.032** (DSuite 1,220), **0.839** (ENWL 435), **1.127** (cheap-DER
+delta) and **0.987** (expensive-DER delta). This isolates the representation's
+contribution under the shared ordering: reduction helps some workloads and
+hurts others. The [performance guide](ivr_performance.md) gives paired ranges
+and keeps the two validation batches separate. No ratios combine unmatched
+absolute times from different experiments.
+
+Thirty separate native diagnostics and 30 excluded warm-ups all pass. Ipopt
+3.14.19/MUMPS 5.9.0 reports actual order 2 for every automatic request on these
+screening inputs; explicit 0/2/5/6 requests report the requested orders. Thus
+METIS did not silently fall back here. On DSuite 2,854, full-model symbolic
+wall time falls from 0.359 s to 0.037 s in the diagnostic when changing automatic
+to AMD; reported maximum factor-double storage only falls from 2,845,020 to
+2,769,162. For the regional model those values are 0.198→0.033 s and
+2,707,370→2,685,997 doubles. The large timing change is not explained solely by
+smaller factor storage. On ENWL, ordering also changes nonlinear iterations.
+
+The parser preserves signed `INFO(9/10)` values and missing fields; reported
+storage counts are not process peak memory or measured fill ratios. Native
+timers are nested and rounded. The zero numerical-factorization field remains
+an instrumentation limitation. These verbose runs are excluded from rankings.
+
+The source/input digests, prospective protocol, raw trials and every diagnostic
+log remain outside Git with the handover/roadmap. Shared controls retain
+`tol=constr_viol_tol=1e-10`, `acceptable_iter=0`, `bound_relax_factor=0`,
+`max_iter=500`, `max_cpu_time=30`; BLAS and Julia use one thread and GC stays
+enabled. Only ordering requests vary within a fixed formulation. Dispatch
+uses the previous explicitly manufactured circuit/price scenarios and shared
+solver objective scaling 1000. All accepted objectives and physical/model
+checks agree. No tests or documentation builds overlap numerical timings.
+
+The refined starting profile is regional/passive with voltage ground scaling
+and explicit MUMPS AMD. Full IVR + AMD is a strong alternative. Bound-support
+selection remains optional: on ENWL 538 with AMD it takes 17 iterations versus
+eight for unconditional regional elimination. No formulation or option is
+removed. Parameter-update/warm-start comparisons, broader mixed-port
+certificates and the earlier strict 844-bus/source-import issues remain open.
+
 ## Ipopt wall-time priority and held-out validation — 5 October 2026
 
 The primary metric is now `ipopt_wall_s` / `fastest_ipopt`, measured by

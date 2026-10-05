@@ -431,3 +431,32 @@ and confirm them with fresh runs. Keep unsuccessful and slower profiles in the
 study: a different grounding pattern, operating point or bound set can change
 the ranking. The measured common profile is an explicit starting configuration,
 not an automatic replacement for this tutorial's reference formulation.
+
+
+## 16. Change solver ordering without changing the circuit
+
+Sparse-solver ordering is a numerical policy separate from conductor or passive
+elimination. This example retains the tutorial's electrical input and asks
+MUMPS for AMD ordering through Ipopt's `mumps_pivot_order=0` option:
+
+```@example exactivr
+ordered = build_opf(T.two_wire_case(),
+    IVRNLP(objective=:source_import, specialization=:conductor_difference);
+    optimizer=Ipopt.Optimizer)
+ordered_result = solve_ivr_nlp_opf(ordered;
+    solver_options=merge(T.SOLVER_OPTIONS,
+        (linear_solver="mumps", mumps_pivot_order=0)))
+@assert ordered_result.solve.optimal
+@assert physical_residuals(ordered.network, ordered_result).passed
+ordered_point = ACPoint(voltage=ordered_result.voltage_candidate,
+                        currents=ordered_result.current_candidate)
+@assert ivr_nlp_point_report(ordered, ordered_point).passed
+(source_import_W=ordered_result.objective,
+ ipopt_wall_seconds=JuMP.solve_time(ordered.model))
+```
+
+This checks the result, not a speed claim from one small solve. The
+[ordering study](ivr_performance.md) compares repeated admitted solves with
+shared tolerances and starts. Its separate verbose diagnostics distinguish the
+requested ordering from the one actually selected by the installed solver.
+All formulation and solver alternatives remain available for future evidence.

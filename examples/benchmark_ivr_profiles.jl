@@ -27,6 +27,46 @@ function profiles(;objective=:feasibility)
 end
 option_record(x)=(; (k=>getfield(x,k) for k in fieldnames(typeof(x)))...)
 
+# Overrides are explicit experimental inputs; resolve and record them before
+# solving. Copy dictionaries so shared settings cannot be mutated by a profile.
+solver_option_dict(x)=Dict{String,Any}(string(k)=>v for (k,v) in (x isa NamedTuple ? pairs(x) : x))
+profile_solver_options(profile,shared)=merge(solver_option_dict(shared),
+    solver_option_dict(get(profile,:solver_options,(;))))
+
+"""Cross formulation candidates with explicit MUMPS ordering requests.
+
+Only ordering and linear-solver selection are changed. Optional ordering
+libraries may fall back; inspect a separate verbose diagnostic for actual order.
+Order 1 requires a user permutation not supplied by this helper.
+"""
+function ordering_profiles(;candidates=profiles()[[1,10,12]],orders=(7,0,2,5,6))
+    !isempty(orders) && allunique(orders) && all(o->o in (0,2,3,4,5,6,7),orders) ||
+        throw(ArgumentError("distinct MUMPS order requests from 0,2,3,4,5,6,7 required"))
+    [(;name="$(p.name)__mumps_$order",options=p.options,formulation_name=p.name,
+      solver_options=merge(solver_option_dict(get(p,:solver_options,(;))),
+          Dict("linear_solver"=>"mumps","mumps_pivot_order"=>order))) for p in candidates for order in orders]
+end
+
+"""Read diagnostic log fields without treating them as benchmark timings.
+
+Missing fields remain missing; signed INFO(9/10) values are preserved verbatim.
+Storage counters are not a measurement of process peak memory or factor fill.
+"""
+function mumps_diagnostics(log::AbstractString)
+    ordering=[(;permuting_scaling=parse(Int,m.captures[1]),pivot_order=parse(Int,m.captures[2]))
+        for m in eachmatch(r"MUMPS used permuting_scaling (\d+) and pivot_order (\d+)",log)]
+    counts(i)=[parse(Int,m.captures[1]) for m in eachmatch(Regex("INFO\\($i\\)\\) = (-?\\d+)"),log)]
+    wall=Dict{String,Float64}()
+    for key in ("OverallAlgorithm","PDSystemSolverTotal","LinearSystemSymbolicFactorization",
+                "LinearSystemFactorization","LinearSystemBackSolve")
+        found=match(Regex(key*"\\.+:.*?wall:\\s*([0-9.]+)"),log)
+        found===nothing || (wall[key]=parse(Float64,found.captures[1]))
+    end
+    (;ordering,observed_pivot_orders=sort!(unique(x.pivot_order for x in ordering)),
+      factor_double_counts=counts(9),factor_integer_counts=counts(10),native_wall_s=wall,
+      note="Verbose diagnostic only. Raw signed storage counters; no peak-memory/fill claim. Native timers are nested and rounded; do not sum them.")
+end
+
 # Separate admission from timing. A fast failed trial must never win; a profile
 # with missing/rejected repeats or warm-up is ineligible. Nonconvex objective
 # differences are not silently traded against runtime.
@@ -54,9 +94,10 @@ function rank_profiles(rows,repetitions;objective_atol=1e-6,objective_rtol=1e-8)
 end
 
 function trial(net,profile,reference,anchor;solver_options=STRICT)
+    settings=profile_solver_options(profile,solver_options)
     try
         t=@timed build_opf(net,IVRNLP(profile.options);optimizer=Ipopt.Optimizer);b=t.value
-        s=@timed solve_ivr_nlp_opf(b;solver_options);r=s.value
+        s=@timed solve_ivr_nlp_opf(b;solver_options=settings);r=s.value
         p=r.solve.optimal ? ACPoint(voltage=r.voltage_candidate,currents=r.current_candidate) : nothing
         physical=p===nothing ? nothing : physical_residuals(net,r)
         own=p===nothing ? nothing : ivr_nlp_point_report(b,p)
@@ -101,7 +142,9 @@ function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options
     objective=first(candidates).options.objective
     all(p.options.objective==objective for p in candidates) || throw(ArgumentError("profiles must share an objective"))
     reference=build_opf(net,IVRNLP(objective=objective))
-    rows=[Dict{String,Any}("name"=>p.name,"options"=>option_record(p.options),"warmup"=>nothing,"trials"=>[]) for p in candidates]
+    rows=[Dict{String,Any}("name"=>p.name,"formulation_name"=>get(p,:formulation_name,p.name),
+        "options"=>option_record(p.options),"solver_options"=>profile_solver_options(p,solver_options),
+        "warmup"=>nothing,"trials"=>[]) for p in candidates]
     report=Dict{String,Any}("profiles"=>rows,"repetitions"=>repetitions,"objective"=>objective,
         "source_sha256"=>source_sha256,"network_sha256"=>bytes2hex(sha256(JSON3.write(net))),
         "julia"=>string(VERSION),"jump"=>string(pkgversion(JuMP)),"ipopt"=>string(pkgversion(Ipopt)),
