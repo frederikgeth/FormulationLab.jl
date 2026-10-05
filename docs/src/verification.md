@@ -1,5 +1,34 @@
 # Verification
 
+## Exact lifting and charged-section blocks — 5 October 2026
+
+The additive `lifting=:powers` and `:bounded_observations` policies preserve a
+unique physical-to-auxiliary extension. `linear_elimination=:passive_blocks`
+extends local chain elimination to charged π sections using conditioned linear
+block solves. Existing policies and defaults are unchanged. The
+[equivalence argument](ivr_theory.md) states the nonsingularity condition and
+distinguishes mathematical equivalence from floating-point acceptance checks.
+
+The full suite passes **45,693/45,693 assertions**, adding 4,967 checks. Tests
+exercise arbitrary-coordinate inverse maps and omitted KCL/KVL equations for
+two-, three- and four-wire circuits, both charged and uncharged, with reversed
+lines and terminal/ID permutations. Independent SI audits and full/reduced
+supplied-point checks accompany solved objective/output parity. Negative
+witnesses cover every interior voltage family and both-end I/S limits. Direct
+perturbations of auxiliary values expose their defining equalities. Tests also
+cover singular resonant blocks, ill-conditioned/incomplete blocks, support-rule
+rollback, generator boxes/prices and CP load updates.
+
+The experiment harness checks equal reconstructed physical starts, including all
+auxiliaries. Its active midpoint-voltage fixture has an independent uncharged
+resistive solution: 4 A source current and **920 W source import**. Charged and
+transformer-rich variants have independent physical admission checks. Capability
+and midpoint-voltage slacks are recorded instead of assuming limits bind.
+All **27 executable tutorial blocks** pass; three updated rendered pages pass
+326 local link/anchor checks. Known OpenDSSDirect precompile fallback and
+Documenter search-index warnings remain nonfatal. Timings are collected separately
+from verification; see the [performance guide](ivr_performance.md).
+
 ## Common physical result contract — 5 October 2026
 
 The new `result_dict`, `write_result` and `read_result` API follows the static-AC

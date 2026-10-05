@@ -29,6 +29,105 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+## Exact lifting and charged-section blocks — 5 October 2026
+
+Two additional exact choices are implemented: `linear_elimination=:passive_blocks`
+uses conditioned local block substitutions, including charged π sections;
+`lifting=:powers` introduces exact P/Q definitions for apparent-power limits,
+and `:bounded_observations` additionally materializes compound bounded affine
+voltage/current expressions. The [contract](ivr_nlp.md) and
+[proof](ivr_theory.md) specify eligibility, reconstruction and numerical gates.
+All earlier policies and defaults remain available.
+
+**Protocol.** Twelve synthetic 48-segment networks cross single-phase/delta,
+charging off/on and absent/binding-capability DER, plus two active-midpoint-voltage
+networks and two networks containing 12 fixed 1:1 transformers. Chain length and
+total demand are fixed. Transformer networks replace every fourth line with
+declared leakage and a grounded secondary; they are separate inputs, not
+impedance-equivalent versions of the plain chain. All original interior voltage
+and endpoint current/power limits remain. Capability cases have 400 VA per
+coil; the uncharged midpoint case has an independent 920 W analytical optimum.
+The measured slacks verify activity; names alone do not establish it.
+
+Each input has six candidates, the source-import objective, identical strict
+Ipopt settings and MUMPS AMD. All receive the same unloaded physical circuit
+point, including consistent auxiliary definitions. This matters because flat
+zero-current starts generally violate charged-section KCL and cannot be encoded
+by its elimination. The common start is not a solved OPF incumbent. Twelve
+rotated/reversed sweeps put each profile in each position twice. One warm-up per
+profile is excluded. Compilation, start encoding, extraction and audits do not
+enter the sole primary score, Ipopt wall time. Tests/docs did not overlap timing.
+
+**Exploration:** 864/864 measured solves and 72/72 warm-ups pass solver, physical,
+own/full-model, reverse-map and objective-comparability gates. Median Ipopt
+milliseconds are below. `Existing` requests regional/chains on uncharged inputs
+and regional/off on charged inputs. Blocks request regional coordinates, although
+earth-connected charging can independently prevent the conductor certificate.
+`P` means power lifting and `O` means power plus bounded-observation lifting.
+
+| Input | Full | Existing | Blocks | Blocks + P | Blocks + O | Full + P |
+|:--|--:|--:|--:|--:|--:|--:|
+| Single-phase, uncharged, no DER | 2.909 | 2.017 | 2.063 | 1.696 | 1.908 | 2.612 |
+| Single-phase, uncharged, active capability | 8.163 | 5.228 | 5.217 | 4.854 | 5.572 | 8.372 |
+| Single-phase, charged, no DER | 3.276 | 3.287 | 3.928 | 2.588 | 2.901 | 2.971 |
+| Single-phase, charged, active capability | 9.350 | 9.349 | 10.419 | 8.083 | 9.590 | 9.388 |
+| Delta, uncharged, no DER | 7.831 | 8.843 | 8.577 | 5.742 | 5.928 | 6.290 |
+| Delta, uncharged, active capability | 18.963 | 19.180 | 18.866 | 13.515 | 13.760 | 15.708 |
+| Delta, charged, no DER | 8.775 | 9.012 | 40.176 | 12.700 | 6.624 | 7.452 |
+| Delta, charged, active capability | 20.735 | 20.887 | 94.812 | 30.568 | 16.447 | 17.782 |
+| Active midpoint, uncharged | 6.910 | 4.367 | 4.361 | 4.048 | 4.722 | 6.895 |
+| Active midpoint, charged | 7.681 | 7.708 | 5.661 | 4.757 | 6.043 | 7.378 |
+| Twelve transformers, charged, no DER | 3.483 | 3.527 | 4.959 | 4.031 | 3.817 | 3.261 |
+| Twelve transformers, charged, active capability | 7.353 | 7.444 | 10.487 | 9.198 | 8.709 | 7.276 |
+
+**Fresh-process confirmation:** four cases were selected after exploration and
+repeated unchanged with all six profiles. This is replication, not held-out
+validation; batches are not pooled. All 288 measured solves and 24 warm-ups pass.
+Input bytes, profile settings, position balance and source digests are audited.
+
+| Confirmation input | Full | Existing | Blocks | Blocks + P | Blocks + O | Full + P |
+|:--|--:|--:|--:|--:|--:|--:|
+| Delta, uncharged, active capability | 19.327 | 19.306 | 19.264 | 13.779 | 14.006 | 15.949 |
+| Delta, charged, active capability | 19.976 | 20.036 | 90.929 | 29.475 | 16.186 | 17.543 |
+| Active midpoint, charged | 7.536 | 7.563 | 5.561 | 4.665 | 5.952 | 7.179 |
+| Twelve transformers, charged, active capability | 6.974 | 6.994 | 9.921 | 8.723 | 8.403 | 7.002 |
+
+The best tested choices reduce the median relative to full IVR by approximately
+29%, 19% and 38% on the first three confirmation cases. Full wins the transformer
+repeat; full and full/P differ by only 0.4% there, reversing their roughly 1%
+exploratory ordering. All outliers remain. The paired winner/full ratios range
+0.487–1.985 for uncharged delta, 0.789–0.825 for charged delta, and 0.600–3.363
+for the active midpoint case. Median gains are not a claim of improvement on
+every run or of statistical significance.
+
+**Mechanism evidence.** Charged delta with active capability has 606 variables
+in full IVR and only 42 after blocks, yet blocks alone are 4.6 times slower in
+the confirmation median. Adding bounded-observation lifting creates 1770
+variables and is faster than full. The supplied Hessian-entry count falls from
+63,255 for blocks to 2,952 with observation lifting; unique entries instead rise
+from 246 to 2,664. These are derivative structures before Ipopt preprocessing,
+not factorization fill or memory measurements. They implicate expression and
+derivative representation as an important investigation target, without proving
+a complete runtime attribution. Lifting also changes delta capability iterations
+from 12 to 11; the active-midpoint variants all take ten iterations.
+
+**Updated experimental shortlist.** For these uncharged chains and single-phase
+charged chains, regional/blocks with `lifting=:powers` is the leading candidate.
+For these charged delta chains, use `lifting=:bounded_observations` as the
+leading candidate. Keep full IVR/AMD and full/P as comparators; they are preferable
+on the transformer panel. No general automatic selector or default change is
+justified. Wider real-feeder, stiff-ground and nonlinear-load evidence remains
+necessary. Raw inputs, protocols, source snapshots, times, starts, slacks and
+independent audits are retained outside Git in `LIFTING_BLOCKS_STUDY_20261005`.
+
+```julia
+include("examples/benchmark_ivr_lifting_blocks.jl")
+using LinearAlgebra
+BLAS.set_num_threads(1)
+report = IVRLiftingBlockStudy.benchmark("charged-delta.json";
+    conductors=3, segments=48, charged=true, tight=true, repetitions=12)
+```
+
 ## Adjacent-chain elimination with retained interior limits — 5 October 2026
 
 `linear_elimination=:passive_chains` is an additional exact coordinate policy.

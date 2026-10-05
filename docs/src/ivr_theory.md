@@ -523,6 +523,8 @@ This point is used only for initialization, not as an additional operating law.
 | Exact circuit, maps and endpoint quantities | `src/formulations/ivr_electrical.jl` | manufactured SI states; component/OpenDSS tests |
 | Power products, operating bounds, objectives and updates | `src/formulations/ivr_nlp.jl`, `src/formulations/ivr_loads.jl` | fixed-state negative-bound tests; fresh/reused comparisons |
 | Local impedance/series elimination | `src/compilation/ivr_elimination.jl` | `test/ivr_elimination_tests.jl`: bidirectional physical points, retained bounds, modes, meshes, zero impedance and boundary refusals |
+| Charged blocks and exact lifting | `src/compilation/ivr_elimination.jl`, `src/formulations/ivr_nlp.jl` | `test/ivr_lifting_blocks_tests.jl`: inverse maps, omitted equations, lifted definitions, bound witnesses, refusal/rollback and reuse |
+| Matched structural experiments | `examples/benchmark_ivr_lifting_blocks.jl` | `test/ivr_lifting_study_tests.jl`: complete shared starts, analytical 920 W midpoint case, active limits and transformer fixtures |
 | Optional series selection | `src/compilation/ivr_elimination.jl`, shared `_ivrn_each_bus_limit` visitor | `test/ivr_series_selection_tests.jl`: all voltage-bound families, apparent-power rows, rollback, reconstruction, ground scaling and updates |
 | Finite-ground coordinate/row scaling | `src/compilation/ivr_scaling.jl` | `test/ivr_ground_scaling_tests.jl`: analytical finite-ground states, current-error witnesses, retained bounds, scope and reuse |
 | Local difference identities | `src/compilation/conductor_difference.jl` | `test/compiler_algebra_tests.jl` |

@@ -16,6 +16,9 @@ Implemented:
   limits and boundary equations; local
   solves carry no global optimality guarantee. See [exact IVR](docs/src/ivr_nlp.md), its [equations](docs/src/ivr_theory.md)
   and the [build–verify–reuse tutorial](docs/src/tutorial_exact_ivr.md).
+  Optional exact P/Q/observation lifting and charged π-section block elimination
+  preserve original physical limits and result observations; their performance
+  remains workload dependent.
 - **LinIVR (experimental)**: no-load current–voltage approximation retaining
   explicit neutrals and power decision variables, without Kron reduction or a
   loaded starting point. Includes SOC physical limits, optional quadratic

@@ -194,8 +194,9 @@ the [performance guide](ivr_performance.md) reports measured outcomes.
 ### Series selection by bound support
 
 `series_selection=:bound_support` adds a conservative selection rule to
-either `linear_elimination=:passive` or `:passive_chains`. Structural eligibility and exact unit-pivot
-substitution are unchanged. For each affected operating bound, count the union
+`linear_elimination=:passive`, `:passive_chains` or `:passive_blocks`. Structural
+eligibility and the selected unit-pivot/block substitution are unchanged.
+For each affected operating bound, count the union
 of nonzero **complex solver-coordinate** indices in its transformed voltage/
 current rows. A voltage or current magnitude uses one row; an apparent-power
 bound uses the union from both rows. A zero factor gives support width zero.
