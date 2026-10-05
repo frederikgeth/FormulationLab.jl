@@ -104,6 +104,13 @@ about 2–4%. Keep the prior alternatives: the same combination loses on the
 voltage-constrained tracking case. See the linked interaction study for complete
 conditional effects and unchanged physical-result checks.
 
+The [bounded hybrid study](ivr_hybrid.md) adds opt-in component caps without
+changing defaults. Caps regress on the manufactured terminal chains; cap four
+gains only about 1% over blocks on unscaled urban cost. Cap eight is identical
+to unrestricted block maps on both external feeders, so its narrow timing
+variations are not cap benefits. Keep unrestricted blocks as the general starting
+candidate and cap four as an additional urban-cost experiment.
+
 ## Unbalanced transformer-leakage transfer — 5 October 2026
 
 The fixed power-base candidates transfer successfully to a manufactured coupled

@@ -141,15 +141,25 @@ function _ivrn_block_substitution(rows,targets)
     (;substitutions,condition,relative_residual=residual,dimension=n),"accepted"
 end
 
-function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:all)
+function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:all,component_limit=4)
     substitutions=Dict{Int,_SDPRow}();omitted_equations=Set{Int}()
     loads=String[];buses=String[];retained=Dict{String,String}()
     selected_lines=Dict{String,String}()
     block_diagnostics=Dict{String,Any}()
     support_rejections=Dict{String,Vector{NamedTuple}}()
+    hybrid=mode==:passive_hybrid
+    # Every accepted member points to its sorted component. Update only after
+    # the entire local substitution and optional support check have committed.
+    components=Dict{String,Vector{String}}()
+    component_rejections=Dict{String,Int}()
+    component_groups()=[components[b] for b in sort!(collect(keys(components))) if first(components[b])==b]
     report()=(;impedance_loads=loads,series_buses=buses,retained_series_buses=retained,
                series_selection,selected_series_lines=selected_lines,bound_support_rejections=support_rejections,
-               block_diagnostics,eliminated_complex_coordinates=length(substitutions))
+               block_diagnostics,eliminated_complex_coordinates=length(substitutions),
+               component_limit=hybrid ? component_limit : nothing,
+               eliminated_components=component_groups(),
+               max_component_buses=maximum(length,values(components);init=0),
+               component_limit_rejections=component_rejections)
     mode==:off && return maps,omitted_equations,omitted_kcl,report()
     compose(row)=_ivrn_compose_row(row,maps.reconstruction)
     active(row)=_ivrn_resolve_row(compose(row),substitutions)
@@ -175,8 +185,8 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
         end
         push!(loads,load.id)
     end
-    if mode in (:passive,:passive_chains,:passive_blocks)
-        chains=mode in (:passive_chains,:passive_blocks);blocks=mode==:passive_blocks
+    if mode in (:passive,:passive_chains,:passive_blocks,:passive_hybrid)
+        chains=mode in (:passive_chains,:passive_blocks,:passive_hybrid);blocks=mode in (:passive_blocks,:passive_hybrid)
         bound_index=nothing # Build only when a structurally eligible bus exists.
         blocked=Set{String}()
         for (b,d) in net["bus"]
@@ -211,6 +221,17 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
             terminals=net["bus"][b]["terminal_names"]
             if !all(l->Set(l.from==b ? l.tmf : l.tmt)==Set(terminals),lines)
                 retained[b]="partial_terminal_map";continue
+            end
+            merged=String[]
+            if hybrid
+                members=Set([b])
+                for neighbour in neighbours;union!(members,get(components,neighbour,String[]));end
+                if length(members)>component_limit
+                    retained[b]="eliminated_component_limit"
+                    component_rejections[b]=length(members)
+                    continue
+                end
+                merged=sort!(collect(members))
             end
             candidates=chains ? filter(l->all(i->i ∉ omitted_equations,l.equation_indices),lines) : lines[1:1]
             isempty(candidates) && (retained[b]="no_surviving_line_equations")
@@ -271,6 +292,9 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
                 union!(omitted_kcl,kcl_keys);union!(omitted_equations,line.equation_indices)
                 chains || union!(protected,neighbours)
                 push!(buses,b);selected_lines[b]=line.id
+                if hybrid
+                    for member in merged;components[member]=merged;end
+                end
                 blocks && (block_diagnostics[b]=(;condition=block.condition,relative_residual=block.relative_residual,dimension=block.dimension))
                 delete!(retained,b);delete!(support_rejections,b)
                 break

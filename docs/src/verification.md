@@ -1,5 +1,43 @@
 # Verification
 
+## Bounded hybrid condensation — 6 October 2026
+
+The full suite passes **75,764/75,764 assertions**, including **5337 new checks**
+in `test/ivr_hybrid_tests.jl`. The optional `:passive_hybrid` policy caps connected
+groups of eliminated original buses while retaining the existing block
+certificate, reconstruction and bound-support gates. No default or previous
+transformation is removed. Independent graph traversal verifies the cap;
+arbitrary-coordinate tests verify projection/reconstruction and eliminated
+rows. Single-phase, delta and four-wire cases include charging, reversed and
+permuted ports, singular blocks, support rollback and reusable updates.
+Tightened original interior voltage and both line-end current/apparent-power
+limits reject in physical and encoded checks. Additional endpoint witnesses
+isolate the intended apparent-power violation.
+
+All **1372 measured solves, 196 warm-ups and 98 preflight SI exports** pass.
+Physical quantity fields agree across policies; recovered-power objective
+agreement is below 9.01e-14 and within-cell objective spread below 7.11e-15.
+The audit independently checks component graphs, source hashes, complete shared
+starts, full/reverse membership, cyclic order and 280 conditional contrasts.
+Only Ipopt wall time ranks candidates; timings do not overlap tests, docs or
+native solver diagnostics. Both batches and all tails remain.
+
+Caps regress on the manufactured terminal chains. Urban cost favours cap four
+by about 1% in both batches, under unscaled Ipopt only. Cap eight has identical
+projection/reconstruction maps to unrestricted blocks on both external feeders;
+its narrow timing differences are not cap benefits. Every candidate has the same
+iteration count within each case/batch/workload cell. These results justify an
+additional urban-cost candidate, not a general default or a factorization claim.
+
+The initial focused run was blocked by Julia-cache permissions. A subsequent
+test compared whole coordinate containers, including model-specific JuMP
+variables; it was corrected to compare the projection/reconstruction maps.
+Original logs remain. The existing OpenDSS precompile fallback is nonfatal.
+No solver tolerance or physical acceptance gate was relaxed.
+
+See the [methods and complete results](ivr_hybrid.md), [API](ivr_nlp.md),
+[component invariant](ivr_theory.md) and [tutorial section 41](tutorial_exact_ivr.md).
+
 ## Controlled power-unit interactions — 6 October 2026
 
 The full suite passes **70,427/70,427 assertions**, adding **317 checks** in

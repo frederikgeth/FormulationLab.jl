@@ -24,6 +24,7 @@ using OpenDSSDirect
     include("ivr_series_selection_tests.jl")
     include("ivr_chain_tests.jl")
     include("ivr_lifting_blocks_tests.jl")
+    include("ivr_hybrid_tests.jl")
     include("ivr_observation_policy_tests.jl")
     include("ivr_observation_study_tests.jl")
     include("ivr_chain_study_tests.jl")

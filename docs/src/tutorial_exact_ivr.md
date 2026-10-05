@@ -1460,3 +1460,46 @@ an explicit `exchange_target_W`; run both solver-scaling policies separately.
 The [interaction study](ivr_power_interactions.md) defines the conditional
 contrasts, admission rules and limits of the evidence. The result schema and
 physical SI quantities remain the same for every profile.
+
+
+## 41. Retain boundaries with a bounded hybrid policy
+
+A long unloaded run can be condensed exactly, yet its reconstructed bound
+expressions may be costly. The hybrid mode retains additional boundaries by
+limiting connected groups of eliminated original buses. This cap does not bound
+expression support or guarantee faster solves. This example compares a charged
+single-phase chain with unrestricted blocks while retaining every original limit.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_hybrid.jl"))
+HY = IVRHybridStudy
+hybrid_demo = HY.case(conductors=2,segments=8,charged=true)
+hybrid_profiles = filter(p -> p.name in ("full","blocks","hybrid_1","hybrid_2"),
+    HY.profiles(hybrid_demo,:quadratic_cost))
+hybrid_reference = build_opf(hybrid_demo,IVRNLP(objective=:power,
+    power_terms=first(hybrid_profiles).options.power_terms))
+hybrid_anchor = Ref{Any}(nothing)
+hybrid_rows = map(hybrid_profiles) do profile
+    row,p = HY.P.trial(hybrid_demo,profile,hybrid_reference,hybrid_anchor[];
+        initial_point=HY.E.S.U.G.H.S.L.start_point(hybrid_demo))
+    @assert row["accepted"]
+    hybrid_anchor[]===nothing && (hybrid_anchor[]=p)
+    rep=row["elimination"]
+    if profile.options.linear_elimination==:passive_hybrid
+        @assert rep.max_component_buses<=profile.options.passive_component_limit
+    end
+    (profile=profile.name,variables=row["variables"],eliminated=rep.series_buses,
+        components=rep.eliminated_components)
+end
+hybrid_rows
+```
+
+Use `IVRNLP(linear_elimination=:passive_hybrid, passive_component_limit=2)` to
+select the policy directly. Inspect `numerical_diagnostics[:linear_elimination_report]`
+for accepted groups and retained candidates. Add `series_selection=:bound_support`
+to decline expansions of original bound support as well. The two selection tests
+are independent of algebraic correctness and both can reduce condensation.
+`HY.benchmark(input_path, output_path; workload=:quadratic_cost)` compares full,
+unrestricted blocks, nonadjacent elimination and caps 1/2/4/8. For tracking supply
+an explicit `exchange_target_W`. The [scientific study](ivr_hybrid.md) reports
+which comparisons were actually timed and which transfers remain untested.

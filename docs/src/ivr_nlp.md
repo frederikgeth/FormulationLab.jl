@@ -78,7 +78,8 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `objective` | `:cost` | `:cost`, `:source_import`, `:feasibility` or `:power` |
 | `power_terms` | Empty | Explicit `IVRPowerTerm` vector for `:power`; physical W/var targets and coefficients |
 | `specialization` | `:off` | `:conductor_difference` certifies one complete section; `:conductor_regions` certifies pendant regions behind retained boundaries |
-| `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates nonadjacent eligible degree-two buses; `:passive_chains` permits adjacent candidates; `:passive_blocks` also admits charged π sections through conditioned local block solves |
+| `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates nonadjacent eligible degree-two buses; `:passive_chains` permits adjacent candidates; `:passive_blocks` also admits charged π sections through conditioned local block solves; `:passive_hybrid` caps connected groups of eliminated buses |
+| `passive_component_limit` | `4` | Positive maximum number of original buses per eliminated connected component in `:passive_hybrid`; ignored by other modes |
 | `series_selection` | `:all` | With any passive policy, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
 | `transformer_scaling` | `:off` | `:nominal` composes local voltage/current units inferred from nominal transformer ratios and source magnitudes; uncertain assignments retain global units |
 | `row_scaling` | `:legacy` | `:composed` normalizes linear circuit rows after all coordinate transformations, independently of local voltage/current scaling |
@@ -186,6 +187,32 @@ is reconstructed. `series_selection=:bound_support` checks all original bounds
 after each tentative composition and rolls back a rejected block completely.
 Earth-connected charging can prevent conductor specialization even when local
 block elimination remains eligible; the two policies have separate certificates.
+
+### Bounded hybrid condensation
+
+`linear_elimination=:passive_hybrid, passive_component_limit=K` uses the same
+local block certificate and original-bound reconstruction as `:passive_blocks`.
+It additionally retains a candidate if adding it would make a connected component
+of eliminated **original buses** contain more than `K` members. The cap is a
+positive integer (default four); other modes ignore it. Buses and incident line
+candidates retain the existing sorted traversal. This deterministic greedy policy
+is not invariant to renaming bus IDs and does not maximize the number eliminated.
+
+Component membership commits only after the numerical block and optional
+`series_selection=:bound_support` checks accept. Rejected attempts leave the
+original equations and component bookkeeping unchanged. Source/device and
+perfect-ground boundaries, terminal compatibility and degree-two restrictions
+remain. A cap of one still admits charged local blocks, unlike `:passive`.
+A sufficiently large cap reproduces unrestricted block maps.
+
+For this mode the elimination report adds `component_limit`, sorted
+`eliminated_components`, `max_component_buses`, and `component_limit_rejections`
+(mapping a rejected bus to its proposed component size at the time of the attempt).
+Such retained candidates have reason `eliminated_component_limit`. In other modes
+`component_limit` is `nothing` and these component records are empty, not a claim
+that unrestricted elimination has zero-sized components. The cap bounds graph
+cardinality, not reconstruction support, matrix fill or runtime. See the
+[hybrid study](ivr_hybrid.md) for the proof, controls and measured limitations.
 
 ### Exact transformer coil-current substitution
 
@@ -400,7 +427,7 @@ demonstrates both controls.
 ### Series selection by bound support
 
 `series_selection=:bound_support` adds a conservative selection rule to
-`linear_elimination=:passive`, `:passive_chains` or `:passive_blocks`. Structural
+`linear_elimination=:passive`, `:passive_chains`, `:passive_blocks` or `:passive_hybrid`. Structural
 eligibility and the selected unit-pivot/block substitution are unchanged.
 For each affected operating bound, count the union
 of nonzero **complex solver-coordinate** indices in its transformed voltage/

@@ -568,6 +568,28 @@ currents enter KCL. Matched timing experiments therefore encode one shared
 unloaded linear-circuit point in all models, including every lifted definition.
 This point is used only for initialization, not as an additional operating law.
 
+### A bounded component selection policy
+
+Let ``E`` be the set of original buses accepted for series elimination and let
+``G[E]`` be the induced subgraph of original line connections. Before accepting a
+new bus ``b``, form the union of ``\{b\}`` and the already accepted components
+containing its neighbours. Accept only if this union has at most ``K`` members
+and the preceding block certificate and bound-support checks accept. Commit the
+component union after the substitution succeeds. All other components remain
+unchanged, so induction proves that every component of ``G[E]`` has at most
+``K`` vertices. Set union counts a component touched by both neighbours once.
+A declined step changes neither ``E`` nor its coordinate map.
+
+At each step the cap can decline a candidate, but every accepted step must still
+pass the block certificate in the current coordinates. Different decisions can
+alter later pivot choices, so accepted bus sets need not be nested as the cap
+changes. The same nonsingularity and complete-composition argument establishes
+conditional OPF equivalence; graph cardinality is not the algebraic certificate.
+No interior voltage, endpoint current/apparent-power limit, objective or physical
+output is dropped. Conductor-region maps and subsequent device substitutions can
+couple more distant coordinates, so the graph cap does not prove a corresponding
+support-width or factorization-fill bound. See [bounded hybrid condensation](ivr_hybrid.md).
+
 ## 7. Transformer coil-current graph substitution
 
 For the implemented fixed two-sided winding stamps, let ``j_f`` and ``j_t``

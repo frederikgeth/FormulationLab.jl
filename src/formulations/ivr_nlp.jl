@@ -26,7 +26,10 @@ boundary buses, leaving other circuits physical. The default is :off.
 `:passive` also eliminates certified nonadjacent device-free degree-two buses
 between unshunted lines. `:passive_chains` additionally permits adjacent buses
 using surviving unit-pivot equations. `:passive_blocks` additionally allows
-charged pi sections using conditioned local block solves. All preserve physical observations and
+charged pi sections using conditioned local block solves. `:passive_hybrid` uses
+the same block certificate but caps connected groups of eliminated original buses
+at `passive_component_limit` (default 4). This is not a bound on expression support
+or factorization fill. All preserve physical observations and
 operating bounds and compose with conductor specialization. The default is :off.
 `series_selection=:bound_support` retains a candidate series bus if any affected
 operating bound would depend on more solver coordinates. Default :all.
@@ -68,6 +71,7 @@ Base.@kwdef struct IVRNLPOptions
     power_terms::Vector{IVRPowerTerm} = IVRPowerTerm[]
     specialization::Symbol = :off
     linear_elimination::Symbol = :off
+    passive_component_limit::Int = 4
     series_selection::Symbol = :all
     ground_scaling::Symbol = :off
     transformer_scaling::Symbol = :off
@@ -398,7 +402,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.objective in (:cost,:source_import,:feasibility,:power) || throw(ArgumentError("unknown IVRNLP objective"))
     _ivrn_check_power_terms(options)
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
-    options.linear_elimination in (:off,:impedance_loads,:passive,:passive_chains,:passive_blocks) || throw(ArgumentError("unknown IVRNLP linear elimination"))
+    options.linear_elimination in (:off,:impedance_loads,:passive,:passive_chains,:passive_blocks,:passive_hybrid) || throw(ArgumentError("unknown IVRNLP linear elimination"))
+    options.passive_component_limit>0 || throw(ArgumentError("passive_component_limit must be positive"))
     options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
     options.ground_scaling in (:off,:voltage,:regional_voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
     options.transformer_scaling in (:off,:nominal) || throw(ArgumentError("unknown IVRNLP transformer scaling"))
@@ -423,7 +428,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     maps=_ivrn_coordinates(e,plan)
     omitted=plan===nothing ? Set{Tuple{String,String}}() : Set(plan.omitted_kcl)
     maps,omitted_equations,omitted,elimination=_ivrn_linear_coordinates(net,e,maps,omitted,options.linear_elimination;
-                                                                    series_selection=options.series_selection)
+                                                                    series_selection=options.series_selection,component_limit=options.passive_component_limit)
     maps,omitted_equations,device_elimination=_ivrn_device_coordinates(net,e,maps,omitted_equations,options.device_elimination)
     maps,scaling=_ivrn_ground_coordinates(net,e,maps,options.ground_scaling)
     maps,transformer_scaling=_ivrn_transformer_coordinates(net,e,maps,options.transformer_scaling,options.current_power_bases)
