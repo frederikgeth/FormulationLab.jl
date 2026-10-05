@@ -137,6 +137,7 @@ function trial(net,profile,reference,anchor;solver_options=STRICT,initial_point=
             "variables"=>num_variables(b.model),"derivatives"=>feeder_derivative_structure(b.model),
             "shared_start"=>start_report,"lifted_real_variables"=>b.numerical_diagnostics[:lifted_real_variables],
             "shared_observation_count"=>b.numerical_diagnostics[:shared_observation_count],
+            "observation_sharing_report"=>b.numerical_diagnostics[:observation_sharing_report],
             "generator_s_max_slack_VA"=>(p===nothing ? nothing : Dict(id=>d["s_max"].-abs.(r.powers[(:generator,id)])
                 for (id,d) in get(net,"generator",Dict()) if haskey(d,"s_max"))),
             "vpn_max_slack_V"=>(p===nothing ? nothing : Dict(bus=>d["vpn_max"].-abs.([p.voltage[(bus,t)]-p.voltage[(bus,b.electrical.neutral_map[bus])]

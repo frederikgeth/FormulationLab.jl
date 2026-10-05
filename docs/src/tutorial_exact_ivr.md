@@ -1538,3 +1538,48 @@ The runner preserves the input and records objective terms and effective solver
 settings. A tracking target is a physical scenario choice and must be stated
 explicitly. The [transfer study](ivr_hybrid_transfer.md) reports matched feeder
 results, active-limit checks and the limits of the evidence.
+
+## 43. Share signed or proportional observations
+
+Suppose two original current observations become `u` and `-u` after exact
+elimination. They can use one auxiliary while retaining both original current
+ratings and the opposite sign in their native complex powers. If they become
+`u` and `2u`, proportional sharing similarly retains the factor two in every
+original expression. This differs from discarding a duplicate constraint: the
+bounds may have different ratings and both remain.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_affine_sharing.jl"))
+AffineDemo = IVRAffineSharingStudy
+sharing_demo = AffineDemo.H.case(conductors=3,segments=6)
+sharing_profiles = filter(p -> p.name in
+    ("observations_exact","observations_signed","observations_proportional"),
+    AffineDemo.profiles(sharing_demo,:quadratic_cost))
+sharing_reference = build_opf(sharing_demo,IVRNLP(objective=:power,
+    power_terms=first(sharing_profiles).options.power_terms))
+sharing_anchor = Ref{Any}(nothing)
+sharing_rows = map(sharing_profiles) do profile
+    row,p = AffineDemo.P.trial(sharing_demo,profile,sharing_reference,sharing_anchor[];
+        initial_point=AffineDemo.E.S.U.G.H.S.L.start_point(sharing_demo))
+    @assert row["accepted"]
+    sharing_anchor[]===nothing && (sharing_anchor[]=p)
+    @assert length(row["observation_sharing_report"])==row["shared_observation_count"]
+    (profile=profile.name,variables=row["variables"],
+        shared=row["shared_observation_count"],
+        factors=unique(r.factor for r in row["observation_sharing_report"]))
+end
+sharing_rows
+```
+
+The direct API is `IVRNLP(lifting=:bounded_observations,
+observation_sharing=:signed)` or `:proportional`. The usual support threshold
+still determines which rows are lifted. Sharing requires exact identities among
+the stored coefficients **and constants**, not just closeness at a solved point.
+A required ratio such as `1/3` that cannot be represented exactly in `Float64`
+keeps a separate definition. Real proportionality does not include an arbitrary
+constant shift, phase rotation or conjugation.
+
+Use `AffineDemo.benchmark(input_path, output_path; workload=:quadratic_cost)`
+for the full six-profile comparison, including power-only controls. For tracking,
+specify `workload=:exchange_tracking` and `exchange_target_W`. Smaller auxiliary
+counts do not guarantee faster Ipopt solves; see the [scientific study](ivr_affine_sharing.md).

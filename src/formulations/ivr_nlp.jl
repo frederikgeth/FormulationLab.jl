@@ -53,6 +53,9 @@ The default :off preserves direct expressions; physical outputs are unchanged.
 `observation_support_threshold=2` lifts only rows with strictly more distinct
 real solver variables. `observation_sharing=:exact` reuses identical composed
 affine observations, including constants; default :off retains separate rows.
+`:signed` also shares opposite rows; `:proportional` shares real scalar multiples
+only when all coefficients and constants have an exact binary-rational
+certificate and the reconstruction factor is a finite nonzero Float64.
 Neither control changes power lifting or removes operating bounds.
 `power_sharing=:generators` reuses existing generator dispatch definitions for
 exactly matching voltage/current row pairs when lifting is enabled. Default :off.
@@ -257,10 +260,15 @@ _ivrn_power(v,i,z)=_linivr_eval(v,z)*conj(_linivr_eval(i,z))
 function _ivrn_lift!(model,u,key,kind)
     policy=model.ext[:ivr_lifting]
     get!(policy.cache,key) do
-        shared_key=kind==:observation && policy.sharing==:exact ? _ivrn_affine_key(u) : nothing
-        if shared_key!==nothing && haskey(policy.observations,shared_key)
-            policy.shared_count[]+=1
-            return policy.observations[shared_key]
+        signature=kind==:observation ? _ivrn_observation_signature(u,policy.sharing) : nothing
+        if signature!==nothing && haskey(policy.observations,signature.key)
+            for entry in policy.observations[signature.key]
+                factor=_ivrn_observation_factor(signature.pivot,entry.pivot)
+                factor===nothing && continue
+                policy.shared_count[]+=1
+                push!(policy.sharing_report,(;representative_record=entry.record,factor))
+                return factor*entry.lifted
+            end
         end
         k=length(policy.records)+1
         scale=kind==:power ? policy.power_ratio : 1.0
@@ -271,24 +279,51 @@ function _ivrn_lift!(model,u,key,kind)
         @constraint(model,scale*a==real(u));@constraint(model,scale*b==imag(u))
         push!(policy.records,(;real=a,imag=b,expression,kind,scale))
         lifted=scale*(a+im*b)
-        shared_key===nothing || (policy.observations[shared_key]=lifted)
+        if signature!==nothing
+            entries=get!(()->NamedTuple[],policy.observations,signature.key)
+            push!(entries,(;pivot=signature.pivot,lifted,record=k))
+        end
         lifted
     end
 end
 _ivrn_row_key(row)=Tuple(sort!(collect(row);by=first))
-# Exact coefficient identity in this model, after coordinate composition. Do not
-# round coefficients or identify opposite signs: those require different graphs.
+# Exact coefficient identity in this model, after coordinate composition.
 function _ivrn_affine_key(u)
     key(x)=(iszero(x.constant) ? 0.0 : x.constant,
         Tuple(sort!([(JuMP.index(v).value,c) for (v,c) in x.terms if !iszero(c)];by=first)))
     (key(real(u)),key(imag(u)))
+end
+function _ivrn_observation_signature(u,sharing)
+    sharing==:off && return nothing
+    raw=_ivrn_affine_key(u)
+    sharing==:exact && return (;key=raw,pivot=1.0)
+    coefficients=[c for part in raw for c in (part[1],last.(part[2])...)]
+    all(isfinite,coefficients) || return nothing
+    k=findfirst(!iszero,coefficients)
+    k===nothing && return nothing
+    pivot=coefficients[k]
+    if sharing==:signed
+        factor=sign(pivot)
+        return (;key=factor>0 ? raw : _ivrn_affine_key(-u),pivot=factor)
+    end
+    # Interpret stored floating coefficients exactly as binary rationals. Rounded
+    # normalized floating keys could falsely identify nearly proportional rows.
+    q=Rational{BigInt}(pivot)
+    normalize(part)=(Rational{BigInt}(part[1])/q,
+        Tuple((v,Rational{BigInt}(c)/q) for (v,c) in part[2]))
+    (;key=(normalize(raw[1]),normalize(raw[2])),pivot)
+end
+function _ivrn_observation_factor(pivot,representative)
+    factor=pivot/representative
+    isfinite(factor) && !iszero(factor) || return nothing
+    Rational{BigInt}(factor)*Rational{BigInt}(representative)==Rational{BigInt}(pivot) ? factor : nothing
 end
 _ivrn_lifting_policy(options)=(;mode=options.lifting,threshold=options.observation_support_threshold,
     power_ratio=something(options.lifted_power_base,options.s_base)/options.s_base,
     sharing=options.observation_sharing,power_sharing=options.power_sharing,
     generator_powers=Dict{Any,Any}(),reused_generator_count=Ref(0),
     cache=Dict{Any,Any}(),observations=Dict{Any,Any}(),
-    shared_count=Ref(0),records=NamedTuple[])
+    shared_count=Ref(0),sharing_report=NamedTuple[],records=NamedTuple[])
 function _ivrn_bound_observation(model,row,z)
     u=_linivr_eval(row,z);policy=model.ext[:ivr_lifting]
     # The default threshold leaves physical coordinates direct. No threshold
@@ -411,7 +446,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.power_sharing in (:off,:generators) || throw(ArgumentError("unknown IVRNLP power sharing"))
     options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))
     options.observation_support_threshold>=0 || throw(ArgumentError("observation support threshold must be nonnegative"))
-    options.observation_sharing in (:off,:exact) || throw(ArgumentError("unknown IVRNLP observation sharing"))
+    options.observation_sharing in (:off,:exact,:signed,:proportional) || throw(ArgumentError("unknown IVRNLP observation sharing"))
     options.device_elimination in (:off,:transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
     net=_l3f_input(input);_ivrn_check(net)
     for (id,base) in options.generator_power_bases
@@ -596,6 +631,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :observation_support_threshold=>options.observation_support_threshold,
         :observation_sharing=>options.observation_sharing,
         :shared_observation_count=>model.ext[:ivr_lifting].shared_count[],
+        :observation_sharing_report=>copy(model.ext[:ivr_lifting].sharing_report),
         :update_count=>0,:generator_update_count=>0,
         :dispatch_variable_count=>sum(length(g.p)+length(g.q) for g in values(generators);init=0),
         :load_voltage_variable_count=>sum(length,values(load_voltages);init=0),

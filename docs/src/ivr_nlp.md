@@ -90,7 +90,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `lifted_power_base` | `nothing` | VA unit for power auxiliaries; defaults to `s_base`, without enabling lifting |
 | `power_sharing` | `:off` | `:generators` reuses exactly matching generator P/Q definitions when lifting is enabled |
 | `observation_support_threshold` | `2` | Lift affine observations only when their distinct real-variable support is strictly larger; nonnegative integer |
-| `observation_sharing` | `:off` | `:exact` shares identical composed affine observations, including constants |
+| `observation_sharing` | `:off` | `:exact` shares identical composed affine observations; `:signed` also shares opposite rows; `:proportional` admits certified real multiples, including constants |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
 | `device_elimination` | `:off` | `:transformer_currents` removes from-side coil currents through fixed-transformer current balance; multiwinding devices remain explicit |
 
@@ -368,6 +368,31 @@ Opposite signs, conjugates and nearly equal coefficients remain separate. No
 tolerance, coefficient truncation or fixed-variable substitution is used in this
 comparison. This option does not additionally merge power definitions or generator dispatch
 variables.
+With `:signed`, an observation may instead reuse the negative of an existing
+definition. `:proportional` permits a finite nonzero real multiplier. It interprets
+all stored real/imaginary coefficients and constants as exact binary rationals,
+normalizes by the first nonzero entry in deterministic coefficient order, and
+matches the entire normalized tuple. The candidate-to-representative ratio must
+itself be exactly representable as a finite nonzero `Float64`. Otherwise the
+candidate keeps a separate definition, even in the same proportional class.
+There is no tolerance or rounding in this certificate.
+
+The first encountered representative retains its original definition and units;
+each shared observation returns `factor * representative`. Thus all original
+limits and native power expressions retain their sign and scale. Constants must
+scale too: `2u` may share with `u`, whereas `2u + 1` generally cannot. Additive
+translations, complex rotations, conjugation and equality that holds only on
+circuit solutions are outside these new certificates. Fixed variables are not
+substituted during matching. Different floating-point construction histories may
+miss reuse; such misses preserve separate definitions.
+
+`observation_sharing_report` has one entry per newly shared original observation,
+in traversal order, giving `representative_record` (the index in the model's
+internal lifting records) and its reconstruction `factor`. Repeated visits to
+the same original row do not add entries. This is build diagnostic information,
+not a persistent physical-variable identifier. [The affine-sharing study](ivr_affine_sharing.md)
+explains the equivalence proof, numerical evidence and remaining scope.
+
 The threshold and sharing controls have no effect for `lifting=:off` or `:powers`.
 Original physical power outputs remain expressions of the state.
 

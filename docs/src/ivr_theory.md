@@ -524,7 +524,7 @@ one auxiliary definition serves both. Each original constraint remains attached
 to that expression, including distinct lower/upper limits. This quotient of
 identical definitions retains the unique extension of physical points. Merely
 similar coefficients, opposite signs, equality only on circuit solutions or a
-similar sparsity pattern do not satisfy this implementation's identity test.
+similar sparsity pattern do not satisfy the `:exact` identity test.
 The policy uses exact floating-point coefficient equality and can miss
 mathematically equivalent rows with different rounding histories. Such misses
 retain additional exact definitions; they do not justify approximate merging.
@@ -536,9 +536,39 @@ exactly and exceed the lifting threshold, one definition ``w=j_1=j_2`` can serve
 both original ratings ``|w|\leq\bar i_1`` and ``|w|\leq\bar i_2``. Both
 inequalities remain, even when their limits differ. A shunt changes the identity
 to ``j_1-j_2=j_{\mathrm{sh}}`` and generally prevents this reuse. Orientation
-may instead give ``j_1=-j_2``; the present sharing option deliberately retains
-separate definitions in that case. These examples explain why network topology
+may instead give ``j_1=-j_2``; `:exact` retains separate definitions, whereas
+`:signed` can reconstruct the second observation as the negative of the first. These examples explain why network topology
 alone is insufficient to predict the number of reusable observations.
+
+### Certified real proportional observation sharing
+
+Let ``u_j(y)=c_j+A_jy`` be complex affine observations of the same real solver
+coordinates. If a finite nonzero real scalar ``\alpha_j`` satisfies
+``c_j=\alpha_j c_r`` and ``A_j=\alpha_j A_r`` coefficient by coefficient, define
+only ``w=c_r+A_ry`` and replace every use of ``u_j`` by ``\alpha_j w``.
+For each original feasible ``y`` there is exactly one ``w``; conversely the
+representative defining equality reconstructs every original observation.
+This is a unique graph extension, with no added physical freedom.
+
+Each original bound remains on its reconstructed expression. For example,
+``|u_j|^2\leq L_j^2`` becomes ``\alpha_j^2|w|^2\leq L_j^2`` without deleting
+other ratings. A native complex power ``v\overline{u_j}`` becomes
+``\alpha_j v\overline{w}``; its sign must not be discarded merely because a
+current-magnitude bound is sign invariant. The point encoder assigns the
+representative before any dependent power auxiliary, preserving starts and
+physical SI outputs. CP/dispatch updates do not alter the certified affine rows.
+
+The implementation normalizes the complete ordered real coefficient tuple,
+including both constants, using exact `Rational{BigInt}` values of the stored
+floating coefficients. Equal normalized tuples identify a real proportional
+class. A second exact check requires that the reconstruction ratio be represented
+without rounding by a finite nonzero `Float64`. For example, a row ``u`` does
+not reuse the first representative ``3u`` through a rounded factor ``1/3``;
+it keeps a new definition. A later ``2u`` can reuse that new representative.
+The `:signed` subcase restricts multipliers to ``\pm1``. First-representative
+selection can affect auxiliary counts and conditioning; no optimal grouping
+or speed improvement is guaranteed. Constants are not freely translated,
+and complex rotations/conjugation are not included. See [methods and tests](ivr_affine_sharing.md).
 
 For charged-section elimination, partition a selected set of surviving linear
 equations into targeted coordinates ``x`` and retained coordinates ``y``:
@@ -723,6 +753,7 @@ controlled timing and original-unit feasibility checks.
 | Local impedance/series elimination | `src/compilation/ivr_elimination.jl` | `test/ivr_elimination_tests.jl`: bidirectional physical points, retained bounds, modes, meshes, zero impedance and boundary refusals |
 | Charged blocks and exact lifting | `src/compilation/ivr_elimination.jl`, `src/formulations/ivr_nlp.jl` | `test/ivr_lifting_blocks_tests.jl`: inverse maps, omitted equations, lifted definitions, bound witnesses, refusal/rollback and reuse |
 | Composed affine sharing and support thresholds | `src/formulations/ivr_nlp.jl` | `test/ivr_observation_policy_tests.jl`: offsets, exact coefficient identity, signs, sequential starts, physical equivalence and updates; extended negative-bound tests |
+| Certified signed/proportional sharing | `src/formulations/ivr_nlp.jl` | `test/ivr_affine_sharing_tests.jl`: exact rational certificates, arbitrary-coordinate graphs, real-factor refusals, native powers, transformer and interior-bound witnesses, updates and SI exports |
 | Matched structural experiments | `examples/benchmark_ivr_lifting_blocks.jl` | `test/ivr_lifting_study_tests.jl`: complete shared starts, analytical 920 W midpoint case, active limits and transformer fixtures |
 | Optional series selection | `src/compilation/ivr_elimination.jl`, shared `_ivrn_each_bus_limit` visitor | `test/ivr_series_selection_tests.jl`: all voltage-bound families, apparent-power rows, rollback, reconstruction, ground scaling and updates |
 | Transformer-local coordinate/row scaling | `src/compilation/ivr_scaling.jl` | `test/ivr_transformer_scaling_tests.jl`: independent SI states, large ratios, fixed sources, original bounds, map composition and fallback |

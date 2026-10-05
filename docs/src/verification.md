@@ -1,5 +1,39 @@
 # Verification
 
+## Signed/proportional affine sharing — 6 October 2026
+
+The full suite passes **77,736/77,736 assertions**, including **1972 new checks**
+in `test/ivr_affine_sharing_tests.jl`. The opt-in `:signed` and `:proportional`
+modes retain all previous options and defaults. Their coefficient certificates
+include constants, preserve native power signs and require exactly representable
+real reconstruction factors. Direct tests cover non-unit factors, changed rows,
+nonrepresentable ratios, overflow/underflow refusal and arbitrary-coordinate
+reconstruction. Physical tests cover single-phase/delta/four-wire circuits,
+charging, reversed/permuted ports, transformer units and both winding limits,
+interior voltage families, line ratings, live updates and SI JSON round trips.
+
+All **576 measured solves, 96 warm-ups and 48 preflight SI exports** pass.
+An independent audit verifies sources/additions, physical export fields, complete
+starts, own/full/reverse membership and 96 paired contrasts. All **6544 cached
+observations** pass the additional arbitrary-coordinate preflight checks.
+Recovered-power objective discrepancy is below 2.86e-14 and within-cell spread
+below 7.11e-15. Shared representative/factor reports match preflight throughout.
+No timing overlaps tests, docs or other solver work; all tails and both batches
+remain, ranked only by Ipopt wall time.
+
+Signed sharing improves the tested delta chain about 6–8% against power-only
+lifting and gives a small repeated BASE265 cost gain. Urban power-only lifting
+still leads despite signed sharing saving 496 real auxiliaries versus exact
+sharing. Every profile has identical iteration counts within each cell.
+Proportional sharing adds no non-unit reuse in this timing panel, so its broader
+matching rule has no demonstrated extra performance benefit here.
+
+The first focused candidate-comparison test used object identity for copied
+objective terms; serialized value comparison corrected it. Original logs remain;
+no physical gate was relaxed. The existing OpenDSS precompile fallback is nonfatal.
+See the [complete study](ivr_affine_sharing.md), [proof](ivr_theory.md),
+[API](ivr_nlp.md) and [tutorial section 43](tutorial_exact_ivr.md).
+
 ## Hybrid transfer across objectives and scaling — 6 October 2026
 
 Production code, tests and benchmark candidates are unchanged from the

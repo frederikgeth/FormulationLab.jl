@@ -110,6 +110,12 @@ cost gain under both scaling policies, but tracking and active suburban voltage
 limits show no consistent benefit. Cap eight has identical block maps on these
 feeders, so its timing differences are not cap benefits.
 
+[Signed affine sharing](ivr_affine_sharing.md) saves observation auxiliaries and
+helps the tested delta chain by roughly 6–8% against power-only lifting. BASE265
+cost gains about 1%; urban power-only lifting still leads. Real proportional
+matching adds no further reuse in that panel. Keep these as workload-specific
+candidates, with all older profiles retained.
+
 ## Unbalanced transformer-leakage transfer — 5 October 2026
 
 The fixed power-base candidates transfer successfully to a manufactured coupled
