@@ -6,6 +6,57 @@ function _ivrn_compose_row(row,maps)
     out
 end
 
+# Independent of line elimination: remove only recorded from-side coil-current
+# coordinates through surviving unit pivots. No inverse of leakage, incidence,
+# or the possibly rectangular winding ratio is required. Each device is atomic.
+function _ivrn_device_coordinates(net,e,maps,omitted_equations,mode)
+    selected=String[];retained=Dict{String,String}();consumed=Int[]
+    substitutions=Dict{Int,_SDPRow}()
+    report()=(;transformers=selected,retained_transformers=retained,
+        equation_indices=consumed,eliminated_complex_coordinates=length(substitutions))
+    mode==:off && return maps,omitted_equations,report()
+    for id in keys(get(get(net,"transformer",Dict()),"n_winding",Dict()))
+        retained["n_winding/$id"]="separate_certificate_required"
+    end
+    active(row)=_ivrn_resolve_row(_ivrn_compose_row(row,maps.reconstruction),substitutions)
+    for device in e.transformer_current_balances
+        if isempty(device.current) || length(device.current)!=length(device.equation_indices) || !allunique(device.equation_indices)
+            retained[device.id]="incomplete_balance_record";continue
+        end
+        added=Int[];reason=nothing
+        for (current,index) in zip(device.current,device.equation_indices)
+            if index in omitted_equations
+                reason="balance_equation_already_consumed";break
+            end
+            target=active(current)
+            if length(target)!=1 || only(values(target)) ∉ (-1,1)
+                reason="from_current_not_a_retained_coordinate";break
+            end
+            k=only(keys(target));row=active(e.equations[index]);a=get(row,k,0)
+            if a ∉ (-1,1)
+                reason="no_surviving_unit_pivot";break
+            end
+            replacement=_SDPRow(j=>-v/a for (j,v) in row if j!=k)
+            if !all(isfinite,values(replacement))
+                reason="nonfinite_substitution";break
+            end
+            substitutions[k]=replacement;push!(added,k)
+        end
+        if reason!==nothing
+            for k in added;delete!(substitutions,k);end
+            retained[device.id]=reason;continue
+        end
+        push!(selected,device.id);append!(consumed,device.equation_indices)
+        union!(omitted_equations,device.equation_indices)
+    end
+    isempty(substitutions) && return maps,omitted_equations,report()
+    kept=[k for k in eachindex(maps.projection) if !haskey(substitutions,k)]
+    numbering=Dict(k=>j for (j,k) in enumerate(kept));cache=Dict{Int,_SDPRow}()
+    reconstruction=[_SDPRow(numbering[k]=>a for (k,a) in _ivrn_resolve_row(row,substitutions,cache))
+                    for row in maps.reconstruction]
+    ((;projection=maps.projection[kept],reconstruction),omitted_equations,report())
+end
+
 function _ivrn_resolve_row(row,substitutions,cache=Dict{Int,_SDPRow}())
     out=_SDPRow()
     for (k,a) in row

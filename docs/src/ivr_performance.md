@@ -146,7 +146,8 @@ coil-current substitution: the existing stamp imposes ``j_f+R^Hj_t=0``, so
 ``j_f=-R^Hj_t`` can eliminate from-side coil currents through unit pivots without
 inverting leakage or terminal-incidence matrices. Remaining coil circulation,
 bonds, grounds, all bounds and physical exports must be preserved and verified.
-This device-elimination option is **not yet implemented**. Generic IBR filter
+The subsequently implemented `device_elimination=:transformer_currents` option
+applies this substitution; the feeder study above predates it. Generic IBR filter
 condensation is not a new opportunity here: filter current and internal voltage
 are already affine expressions in the implemented electrical assembler.
 

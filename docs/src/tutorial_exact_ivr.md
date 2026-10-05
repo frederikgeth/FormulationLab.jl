@@ -760,3 +760,38 @@ provenance paths and preflight checks. Inspect `lifted_real_variables`: a liftin
 option can be a no-op when its targeted bounds are absent. Retain such profiles
 as controls, but do not describe their timing differences as a lifting benefit.
 Run performance measurements separately from tests and documentation builds.
+
+## 26. Eliminate winding currents while retaining physical outputs
+
+Replace the tutorial's two-wire line by a fixed 1:1 transformer. The option
+removes its from-side coil current, while both winding/terminal currents and all
+declared current limits remain available.
+
+```@example exactivr
+tx_case = T.two_wire_case()
+delete!(tx_case, "line")
+tx_case["transformer"] = Dict("single_phase" => Dict("service" => Dict(
+    "bus_from"=>"source", "bus_to"=>"demand",
+    "terminal_map_from"=>["a","n"], "terminal_map_to"=>["a","n"],
+    "v_nom_from"=>230., "v_nom_to"=>230., "r_series_from"=>0.2,
+    "r_series_to"=>0.3, "r_neutral_to"=>0.,
+    "i_max_from"=>[40.,40.], "i_max_to"=>[40.,40.])))
+tx_build = build_opf(tx_case, IVRNLP(device_elimination=:transformer_currents);
+    optimizer=Ipopt.Optimizer)
+tx_result = solve_ivr_nlp_opf(tx_build; solver_options=T.SOLVER_OPTIONS)
+@assert tx_result.solve.optimal
+@assert physical_residuals(tx_case, tx_result).passed
+@assert ivr_nlp_point_report(tx_build, ACPoint(voltage=tx_result.voltage_candidate,
+    currents=tx_result.current_candidate)).passed
+@assert tx_build.numerical_diagnostics[:device_elimination_report].eliminated_complex_coordinates == 1
+(tx_build.numerical_diagnostics[:device_elimination_report],
+ result_dict(tx_build, tx_result)["transformer"]["service"])
+```
+
+For matched performance measurements, include
+`examples/benchmark_ivr_transformer_currents.jl` and call
+`IVRTransformerCurrentStudy.benchmark(network, "study.json")`. The four candidates
+cross full/block coordinates with device elimination off/on. They share an
+unloaded physical start, ground scaling, AMD ordering and eight balanced sweeps.
+Use `objective=:feasibility` when preserving an external feasibility workload.
+This tutorial demonstrates recovery, not a speedup.

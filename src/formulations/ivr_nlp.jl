@@ -25,6 +25,9 @@ This invertible numerical policy preserves the finite ground; default :off.
 `lifting=:powers` introduces exact P/Q definitions for apparent-power limits.
 `:bounded_observations` also materializes compound bounded voltage/current rows.
 The default :off preserves direct expressions; physical outputs are unchanged.
+`device_elimination=:transformer_currents` substitutes from-side coil currents
+using fixed-transformer current balance. Retains circulation, bonds and grounds;
+multiwinding devices remain explicit. Default :off.
 """
 Base.@kwdef struct IVRNLPOptions
     s_base::Float64 = 1e4
@@ -34,6 +37,7 @@ Base.@kwdef struct IVRNLPOptions
     series_selection::Symbol = :all
     ground_scaling::Symbol = :off
     lifting::Symbol = :off
+    device_elimination::Symbol = :off
 end
 
 """An exact-IVR scope refusal, carrying a stable `code` and explanatory `message`.
@@ -319,10 +323,11 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
     options.ground_scaling in (:off,:voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
     options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))
+    options.device_elimination in (:off,:transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
     net=_l3f_input(input);_ivrn_check(net)
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
                            delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
-                           record_transformer_bonds=true)
+                           record_transformer_bonds=true,record_transformer_currents=true)
     z0=_ivrn_start(net,e)
     report,plan=options.specialization==:off ? ((;status=:disabled,code=:disabled,components=String[]),nothing) :
         options.specialization==:conductor_regions ? _ivrn_regions(net,e) : _ivrn_structure(net,e)
@@ -330,6 +335,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     omitted=plan===nothing ? Set{Tuple{String,String}}() : Set(plan.omitted_kcl)
     maps,omitted_equations,omitted,elimination=_ivrn_linear_coordinates(net,e,maps,omitted,options.linear_elimination;
                                                                     series_selection=options.series_selection)
+    maps,omitted_equations,device_elimination=_ivrn_device_coordinates(net,e,maps,omitted_equations,options.device_elimination)
     maps,scaling=_ivrn_ground_coordinates(net,e,maps,options.ground_scaling)
     scaled_rows=!isempty(scaling.scaled_terminals)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
@@ -470,6 +476,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :specialization_report=>report,:structure_analysis_count=>options.specialization==:off ? 0 : 1,
         :network_reduction=>:off,:assembly_count=>1,
         :linear_elimination=>options.linear_elimination,:linear_elimination_report=>elimination,
+        :device_elimination=>options.device_elimination,:device_elimination_report=>device_elimination,
         :ground_scaling=>options.ground_scaling,:ground_scaling_report=>scaling,
         :lifting=>options.lifting,:lifted_real_variables=>2length(model.ext[:ivr_lifting].records),
         :update_count=>0,:generator_update_count=>0,

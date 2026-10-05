@@ -516,7 +516,42 @@ currents enter KCL. Matched timing experiments therefore encode one shared
 unloaded linear-circuit point in all models, including every lifted definition.
 This point is used only for initialization, not as an additional operating law.
 
-## 7. Implementation and evidence map
+## 7. Transformer coil-current graph substitution
+
+For the implemented fixed two-sided winding stamps, let ``j_f`` and ``j_t``
+denote currents into the from/to coils. Current balance is
+
+```math
+j_f+R^Hj_t=0.
+```
+
+The coefficient of ``j_f`` is the identity. Thus ``j_f=-R^Hj_t`` defines a
+unique extension of every retained ``j_t``, even when ``R`` is rectangular or
+leakage is zero. Substitute this expression into the retained voltage equations,
+bus KCL, terminal and coil observations, operating bounds and objective. Every
+original feasible point projects to a reduced feasible point; conversely, each
+reduced feasible point extends uniquely in the eliminated currents and satisfies
+the removed current-balance equations. These maps preserve feasible objective
+values. This is a graph substitution, not an assertion that an OPF solution is
+unique or globally optimal.
+
+The implementation composes with earlier coordinate maps and accepts only
+surviving unit pivots on recorded from-side current coordinates, without dividing
+by leakage or a singular incidence matrix. A failed device substitution rolls
+back all its tentative changes. Remaining to-side currents retain any delta
+circulation; regulator bond and ground currents are separate states/observations.
+In particular, equal delta-coil current increments can leave terminal currents
+unchanged while changing individual coil limits. Those limits must still be
+evaluated. The independent circulation test exercises exactly this distinction.
+
+`device_elimination=:transformer_currents` currently covers the ordinary fixed
+transformer/regulator stamp, not the separate multiwinding stamp. Reconstruction
+and supplied-point checks audit removed equations and original channels. Exact
+algebra does not guarantee smaller expression support, better conditioning or
+faster Ipopt solves; the [performance guide](ivr_performance.md) separates these
+questions from equivalence.
+
+## 8. Implementation and evidence map
 
 | Responsibility | Implementation | Validation |
 |:--|:--|:--|

@@ -81,6 +81,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `series_selection` | `:all` | With any passive policy, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
 | `ground_scaling` | `:off` | `:voltage` rescales eligible free finite-ground voltages and normalizes circuit rows in solver coordinates |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
+| `device_elimination` | `:off` | `:transformer_currents` removes from-side coil currents through fixed-transformer current balance; multiwinding devices remain explicit |
 
 `IVRNLPResult.voltage_candidate` maps `(bus, terminal)` to complex volts;
 `current_candidate` and `powers` map `(family::Symbol, id::String)` to channel
@@ -173,6 +174,28 @@ is reconstructed. `series_selection=:bound_support` checks all original bounds
 after each tentative composition and rolls back a rejected block completely.
 Earth-connected charging can prevent conductor specialization even when local
 block elimination remains eligible; the two policies have separate certificates.
+
+### Exact transformer coil-current substitution
+
+`device_elimination=:transformer_currents` applies after line elimination and
+before finite-ground scaling. The supported fixed two-sided transformer and
+regulator stamps impose ``j_f+R^Hj_t=0``. A surviving unit pivot substitutes
+``j_f=-R^Hj_t``; the pass does not invert leakage, terminal incidence or the
+possibly rectangular ratio matrix. Zero leakage and center-tap connections
+therefore require no special regularization. Voltage-coupling equations, to-side
+coil currents, bonds and grounding reactions remain. Delta circulation is not
+inferred from terminal currents or fixed to zero.
+
+The pass is atomic per transformer. Missing/consumed balance equations,
+nonunit pivots or nonfinite substitutions retain that device with a diagnostic
+reason. `n_winding` has a separate stamp and remains explicit pending a separate
+certificate. Inspect `numerical_diagnostics[:device_elimination_report]` for
+selected/retained transformer IDs, removed equation indices and complex-coordinate
+counts. All original terminal/coil limits, powers and JSON observations are
+evaluated through the composed reconstruction. `series_selection=:bound_support`
+still selects line eliminations only; it does not reject device substitutions
+whose bound expressions grow. This option is independent of all line modes,
+conductor specialization, lifting and supported load/generator updates.
 
 ### Exact selective lifting
 

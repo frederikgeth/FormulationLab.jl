@@ -136,7 +136,8 @@ function _sdp_transformer_plan(subtype, d, label)
 end
 
 function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
-                                 equations, devices, limits, zb; record_bonds=false,neutral_map=nothing)
+                                 equations, devices, limits, zb; record_bonds=false,neutral_map=nothing,
+                                 current_balances=nothing)
     for (subtype,table) in sort!(collect(get(net,"transformer",Dict()));by=first),
         (id,d) in sort!(collect(table);by=first)
         subtype=="n_winding" && continue
@@ -151,7 +152,10 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
         coupled=matrows(p.R,ef)
         for k in eachindex(et);push!(equations,_sdp_add!(et[k],coupled[k],-1));end
         current=matrows(adjoint(p.R),jt)
+        balance_start=length(equations)+1
         for k in eachindex(jf);push!(equations,_sdp_add!(copy(jf[k]),current[k]));end
+        current_balances===nothing || push!(current_balances,
+            (;id="$subtype/$id",current=jf,equation_indices=collect(balance_start:length(equations))))
         cf=[_sdp_add!(copy(jf[k]),uf[k],p.Yf[k]*zb) for k in eachindex(jf)]
         ct=[_sdp_add!(copy(jt[k]),ut[k],p.Yt[k]*zb) for k in eachindex(jt)]
         tf=matrows(transpose(p.Df),cf);tt=matrows(transpose(p.Dt),ct)

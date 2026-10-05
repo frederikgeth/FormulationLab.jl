@@ -26,6 +26,8 @@ using OpenDSSDirect
     include("ivr_generator_updates_tests.jl")
     include("ivr_transformer_tests.jl")
     include("ivr_regulator_tests.jl")
+    include("ivr_device_elimination_tests.jl")
+    include("ivr_transformer_study_tests.jl")
     include("ivr_regulator_opendss_tests.jl")
     include("ivr_load_law_tests.jl")
     include("ivr_load_law_opendss_tests.jl")
