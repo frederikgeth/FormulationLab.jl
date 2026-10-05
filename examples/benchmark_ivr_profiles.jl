@@ -143,6 +143,7 @@ function trial(net,profile,reference,anchor;solver_options=STRICT,initial_point=
             "row_scaling"=>b.numerical_diagnostics[:row_scaling],
             "composed_row_normalization"=>b.numerical_diagnostics[:composed_row_normalization],
             "per_unit_bases"=>b.numerical_diagnostics[:per_unit_bases],
+            "objective_scale"=>b.numerical_diagnostics[:objective_scale],
             "iterations"=>(try JuMP.MOI.get(JuMP.backend(b.model),JuMP.MOI.BarrierIterations()) catch; nothing end),
             "bad_physical_records"=>(p===nothing ? [] : [(;label=x.label,residual=x.residual,unit=x.unit)
                 for x in physical.records if x.residual>getproperty(physical.tolerances,x.unit)]))

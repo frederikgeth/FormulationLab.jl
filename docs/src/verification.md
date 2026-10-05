@@ -1,5 +1,38 @@
 # Verification
 
+## Controlled power bases and objective normalization — 5 October 2026
+
+The full suite passes **67,313/67,313 assertions**, adding 464 checks.
+`test/ivr_power_base_tests.jl` crosses four common power bases with optional
+regional current bases on three independently solved active-limit circuits.
+It verifies physical objectives, currents, dispatch, complete starts, original
+bound violations, full-model containment, SI JSON round-trips and load/generator
+updates while composing conductor/line/device reductions and lifted observations.
+Explicit objective normalization is checked in both solve extraction and supplied
+physical-point evaluation. Separate price-update tests verify physical cost
+accounting and dispatch reversal after a price change.
+
+Region tests check propagation through lines, open/closed switch boundaries,
+unseeded defaults, unknown/conflicting/invalid declarations and ownership of the
+build's option snapshot. The aggregate MV/LV harness verifies independent branch
+accounting, upstream-rating guards, fixed objective divisors, balanced positions
+and analytical admission. The initial bank helper's overly narrow dictionary type
+was corrected before the study; its failure log is retained.
+
+A cost-update test initially missed its 1 mW dispatch-accuracy target with a very
+small normalized currency objective at solver tolerance 1e-10. The separate cost
+test now uniformly uses 1e-12; its physical cost identities still hold at all
+tested bases. This does not change the performance protocol: every source-import
+timing retains strict 1e-10 settings and the same explicit objective divisor.
+The initial test and failure log are preserved outside Git.
+
+All **33 executable tutorial blocks** pass. Rendered links and six confirmation
+timing rows are checked against raw JSON/HTML. Both timing batches finish before
+full regression and documentation work; instrumented diagnostics finish before
+timing starts. No default, physical bound or earlier transformation is removed.
+See the [power-base evidence](ivr_performance.md) for confirmed gains and retained
+counterexamples.
+
 ## Regional finite-ground scaling — 5 October 2026
 
 The full suite passes **66,849/66,849 assertions**, adding 327 checks.

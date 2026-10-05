@@ -6,6 +6,12 @@ and generator boxes with coil-based delta dispatch. Static IBRs use conductor-ra
 THREE_LEG dispatch, fixed filters, capability bounds and optional internal-voltage
 setpoints; control profiles are unsupported. Costs are linear, in the
 same currency/kWh convention as LinIVR. An optimizer is supplied by the caller.
+`objective_scale=nothing` divides the physical objective by `s_base` as before;
+a positive explicit divisor separates objective normalization from electrical units.
+`current_power_bases=Dict(bus=>VA, ...)` seeds current-unit power bases through
+lines and closed switches, stopping at transformers. It requires nominal transformer
+coordinates. Unseeded regions retain `s_base`; conflicts are refused. Dispatch,
+lifted-power and ground units remain on the assembly power base.
 `specialization=:conductor_difference` attempts a certified radial zero-sum
 current reduction and retains reference-conductor voltages. Ineligible networks
 fall back to full IVR with a reason in the build diagnostics.
@@ -43,6 +49,8 @@ multiwinding devices remain explicit. Default :off.
 """
 Base.@kwdef struct IVRNLPOptions
     s_base::Float64 = 1e4
+    objective_scale::Union{Nothing,Float64} = nothing
+    current_power_bases::Dict{String,Float64} = Dict{String,Float64}()
     objective::Symbol = :cost
     specialization::Symbol = :off
     linear_elimination::Symbol = :off
@@ -55,6 +63,8 @@ Base.@kwdef struct IVRNLPOptions
     observation_sharing::Symbol = :off
     device_elimination::Symbol = :off
 end
+
+_ivrn_objective_scale(options)=something(options.objective_scale,options.s_base)
 
 """An exact-IVR scope refusal, carrying a stable `code` and explanatory `message`.
 
@@ -350,6 +360,10 @@ end
 
 function _build_ivr_nlp_opf(input,optimizer,options)
     isfinite(options.s_base) && options.s_base>0 || throw(ArgumentError("s_base must be positive and finite"))
+    isfinite(_ivrn_objective_scale(options)) && _ivrn_objective_scale(options)>0 || throw(ArgumentError("objective_scale must be positive and finite"))
+    isempty(options.current_power_bases) || options.transformer_scaling==:nominal || throw(ArgumentError("current_power_bases requires nominal transformer coordinates"))
+    # Own mutable base declarations just as the build owns its physical input.
+    options=IVRNLPOptions(; (k=>(k==:current_power_bases ? copy(options.current_power_bases) : getfield(options,k)) for k in fieldnames(IVRNLPOptions))...)
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown IVRNLP objective"))
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
     options.linear_elimination in (:off,:impedance_loads,:passive,:passive_chains,:passive_blocks) || throw(ArgumentError("unknown IVRNLP linear elimination"))
@@ -374,7 +388,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
                                                                     series_selection=options.series_selection)
     maps,omitted_equations,device_elimination=_ivrn_device_coordinates(net,e,maps,omitted_equations,options.device_elimination)
     maps,scaling=_ivrn_ground_coordinates(net,e,maps,options.ground_scaling)
-    maps,transformer_scaling=_ivrn_transformer_coordinates(net,e,maps,options.transformer_scaling)
+    maps,transformer_scaling=_ivrn_transformer_coordinates(net,e,maps,options.transformer_scaling,options.current_power_bases)
     scaled_rows=options.row_scaling==:composed || !isempty(scaling.scaled_terminals)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
     model.ext[:ivr_lifting]=_ivrn_lifting_policy(options)
@@ -507,7 +521,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         end
     end
     _ivrn_bus_limits!(model,net,e,z)
-    @objective(model,Min,objective/e.sb)
+    @objective(model,Min,objective/_ivrn_objective_scale(options))
     unavailable=[(id,t) for (id,d) in net["voltage_source"] for t in d["terminal_map"]
                  if e.voltage[(d["bus"],t)]==0]
     diagnostics=Dict{Symbol,Any}(:power_model=>:exact,:delta_dispatch=>:coil,:ibr_delta_dispatch=>:conductor,
@@ -520,6 +534,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :transformer_scaling=>options.transformer_scaling,:transformer_scaling_report=>transformer_scaling,
         :row_scaling=>options.row_scaling,:composed_row_normalization=>scaled_rows,
         :per_unit_bases=>(voltage_V=e.vb,current_A=e.ib,power_VA=e.sb),
+        :objective_scale=>_ivrn_objective_scale(options),
         :lifting=>options.lifting,:lifted_real_variables=>2length(model.ext[:ivr_lifting].records),
         :observation_support_threshold=>options.observation_support_threshold,
         :observation_sharing=>options.observation_sharing,
@@ -616,7 +631,7 @@ function update_ivr_generators!(build::IVRNLPBuild,updates::AbstractDict)
         end
         if haskey(values,:cost) && build.options.objective==:cost
             for (x,c) in zip(refs.p,values[:cost])
-                JuMP.set_objective_coefficient(build.model,x,c/1000)
+                JuMP.set_objective_coefficient(build.model,x,(c/1000)*(build.electrical.sb/_ivrn_objective_scale(build.options)))
             end
         end
         for (field,v) in values
@@ -678,7 +693,7 @@ function solve_ivr_nlp_opf(build::IVRNLPBuild;solver_options=())
             currents[(f,id)]=ComplexF64[_linivr_eval(row,z)*e.ib for row in i]
             powers[(f,id)]=ComplexF64[_ivrn_power(v[k],i[k],z)*e.sb for k in eachindex(v)]
         end
-        objective=JuMP.objective_value(build.model)*e.sb
+        objective=JuMP.objective_value(build.model)*_ivrn_objective_scale(build.options)
     end
     IVRNLPResult(objective,voltage,currents,powers,SolveStatus(outcome),copy(build.numerical_diagnostics))
 end

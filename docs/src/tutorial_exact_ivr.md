@@ -953,3 +953,51 @@ and the explicit gradient-based Ipopt policy in separate blocks. Run diagnostic
 instrumentation, tests and documentation outside the timing process. The smaller
 multiplier is a units choice; assess its value using physical admission and
 Ipopt wall time, not its magnitude alone.
+
+## 31. Test power bases where MV aggregates LV branches
+
+Power bases are numerical units, not equipment ratings. A shared MV supply may
+carry several branches' power while each LV branch carries only its own load.
+The manufactured panel below has four independent 2 kW LV branches behind one
+ideal MV supply. Its analytical source-import optimum is the sum of the branch
+optima; the builder refuses branch counts that would invalidate the assumed
+slack upstream current rating.
+
+Compare common assembly bases separately from explicitly regional current bases.
+Hold `objective_scale` fixed so the electrical-base change does not also change
+the numerical objective divisor. The regional current option keeps dispatch,
+lifted observations/powers and ground multipliers on their assembly conventions;
+it is deliberately not a complete rebase of all NLP variables.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_power_bases.jl"))
+PB = IVRPowerBaseStudy
+bank = PB.case(limit=:current, branches=4, segments=4)
+bank_expected = 4C.expected(:current).source_W
+power_base_rows = map(PB.profiles(bank)[[1,2,5]]) do profile
+    b = build_opf(bank, IVRNLP(profile.options); optimizer=Ipopt.Optimizer)
+    r = solve_ivr_nlp_opf(b; solver_options=merge(T.SOLVER_OPTIONS,
+        (nlp_scaling_method="none", bound_relax_factor=0.)))
+    @assert r.solve.optimal && physical_residuals(bank, r).passed
+    @assert isapprox(r.objective, bank_expected; atol=1e-4)
+    @assert isapprox(objective_value(b.model)*1e4, r.objective)
+    @assert isapprox(ivr_nlp_point_report(b, T.point(r)).objective, r.objective)
+    (profile=profile.name, source_W=r.objective, assembly_VA=b.electrical.sb,
+     objective_divisor=b.numerical_diagnostics[:objective_scale],
+     current_unit_power_VA=b.numerical_diagnostics[:transformer_scaling_report].power_bases)
+end
+power_base_rows
+```
+
+`current_power_bases` accepts bus-to-VA seeds. The example runner declares
+1 MVA at `hv`, 100 kVA at `mv`, and either 1 or 10 kVA at each `lvN_b0` bus.
+Seeds propagate along lines and closed switches, stopping at transformers.
+Conflicting seeds in one region are refused. These are declared experimental
+choices, not capacity estimates inferred automatically from voltage levels.
+
+Call `PB.benchmark("power_bases.json"; limit=:current)` in an otherwise idle
+process to run all six arms: common 1/10/100 kVA and 1 MVA bases plus the two
+regional-current choices. The numerical objective divisor remains 10,000 in
+every arm. Repeat the capability and voltage limits and explicit gradient-based
+Ipopt policy. Keep instrumented diagnostics separate, retain rejected trials,
+and compare physical optima and Ipopt wall time before choosing a profile.

@@ -118,22 +118,53 @@ function _ivrn_region_bases(net,e)
     (;bases,retained_buses=retained,skipped_transformers=skipped)
 end
 
-function _ivrn_transformer_coordinates(net,e,maps,mode)
+"""Explicit power-base seeds propagate through lines and closed switches only.
+
+Transformer boundaries retain independent choices. Unseeded regions use the
+assembly power base; conflicting declarations are input errors, not guesses.
+"""
+function _ivrn_current_power_bases(net,e,seeds)
+    all(b->haskey(net["bus"],b),keys(seeds)) || throw(ArgumentError("unknown bus in current_power_bases"))
+    all(s->isfinite(s) && s>0,values(seeds)) || throw(ArgumentError("current power bases must be positive and finite"))
+    adjacency=Dict(b=>String[] for b in keys(net["bus"]))
+    for family in ("line","switch"),d in values(get(net,family,Dict()))
+        family=="switch" && get(d,"open_switch",false) && continue
+        f=d["bus_from"];t=d["bus_to"];push!(adjacency[f],t);push!(adjacency[t],f)
+    end
+    bases=Dict{String,Float64}();seen=Set{String}()
+    for root in sort!(collect(keys(adjacency)))
+        root in seen && continue
+        queue=[root];push!(seen,root)
+        for b in queue,t in adjacency[b]
+            t in seen && continue
+            push!(seen,t);push!(queue,t)
+        end
+        assigned=unique([seeds[b] for b in queue if haskey(seeds,b)])
+        length(assigned)<=1 || throw(ArgumentError("conflicting current power bases in one line/switch region"))
+        sb=isempty(assigned) ? e.sb : only(assigned)
+        for b in queue;bases[b]=sb;end
+    end
+    bases
+end
+
+function _ivrn_transformer_coordinates(net,e,maps,mode,power_seeds=Dict{String,Float64}())
     mode==:off && return maps,(;status=:disabled,bases=Dict{String,Float64}(),
         retained_buses=Dict{String,String}(),skipped_transformers=Dict{String,String}(),
         scaled_coordinates=NamedTuple[],retained_coordinates=Dict{Int,String}())
     region=_ivrn_region_bases(net,e)
+    power_bases=_ivrn_current_power_bases(net,e,power_seeds)
     voltage_bases=Dict(k=>region.bases[b] for ((b,_),k) in e.voltage if k!=0)
+    current_factors=Dict(k=>(region.bases[b]/e.vb)*(e.sb/power_bases[b]) for ((b,_),k) in e.voltage if k!=0)
     candidates=[Set{Float64}() for _ in 1:e.coordinate_count[]]
     for (k,base) in voltage_bases;push!(candidates[k],e.vb/base);end
     # Device observation rows include all winding/terminal currents. Voltage
     # terms from charging/filter admittances are excluded from current tagging.
     # A bond spanning different bases remains unscaled rather than choosing a side.
     for (_,_,volts,currents,_) in e.devices
-        bases=Set(voltage_bases[k] for row in volts for (k,a) in row if !iszero(a) && haskey(voltage_bases,k))
+        factors=Set(current_factors[k] for row in volts for (k,a) in row if !iszero(a) && haskey(current_factors,k))
         for row in currents, (k,a) in row
             if !iszero(a) && !haskey(voltage_bases,k)
-                union!(candidates[k],(base/e.vb for base in bases))
+                union!(candidates[k],factors)
             end
         end
     end
@@ -160,7 +191,7 @@ function _ivrn_transformer_coordinates(net,e,maps,mode)
     # be represented. Never regularize or delete overflowing/underflowing terms.
     valid(new,old)=all(length(a)==length(b) && all(k->isfinite(a[k]) && (iszero(b[k]) || !iszero(a[k])),keys(b)) for (a,b) in zip(new,old))
     if !valid(projection,maps.projection) || !valid(reconstruction,maps.reconstruction)
-        return maps,(;status=:retained_nonfinite_map,region...,scaled_coordinates=NamedTuple[],retained_coordinates=retained)
+        return maps,(;status=:retained_nonfinite_map,region...,power_bases,scaled_coordinates=NamedTuple[],retained_coordinates=retained)
     end
-    (;projection,reconstruction),(;status=:applied,region...,scaled_coordinates=scaled,retained_coordinates=retained)
+    (;projection,reconstruction),(;status=:applied,region...,power_bases,scaled_coordinates=scaled,retained_coordinates=retained)
 end

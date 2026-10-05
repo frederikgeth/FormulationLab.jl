@@ -637,6 +637,49 @@ feasibility but do not guarantee improved condition numbers, reduced factor fill
 or lower Ipopt time. Different regional power bases would require additional
 current-balance and objective/dual scaling contracts and are outside this policy.
 
+### Explicit regional current bases and independent objective scaling
+
+Let ``S_b,V_b`` denote assembly bases and let ``S_r,V_r`` denote the declared
+regional current-unit power base and nominal voltage base. For physical voltage
+``V`` and current ``I``, define
+
+```math
+y_V=V/V_r=(V_b/V_r)V_{pu},\qquad
+y_I=I/(S_r/V_r)=(V_r/V_b)(S_b/S_r)I_{pu}.
+```
+
+With finite positive factors, this is an invertible diagonal transformation.
+Current factors are classified from device observation rows; coordinates with
+mixed or unclassified factors retain their earlier units with a reason. No
+transformer current equation is rewritten by assuming a new turns ratio. The
+existing physical stamp is composed with the full inverse map, automatically
+retaining every needed power-base ratio.
+
+For a voltage/current pair sharing those local bases,
+
+```math
+V_{pu}\overline{I_{pu}}=(S_r/S_b)y_V\overline{y_I}.
+```
+
+The existing reconstruction implements this identity. Generator P/Q variables
+and lifted powers remain in assembly units; their definitions are not replaced
+by an unweighted local product. Ground multipliers also retain their separately
+declared policy and common ``S_b``. Thus `current_power_bases` isolates one
+coordinate intervention instead of claiming that every NLP variable is in a
+regional power unit. Explicit seeds propagate only over lines and closed
+switches; transformers separate these current-base regions.
+
+For a physical objective ``f``, the solver receives ``f/\sigma``, with
+``\sigma=S_b`` under the legacy default. An explicit `objective_scale` sets
+``\sigma`` independently. Supplied-point reports and solve results recover
+``f=\sigma f_{solver}``; generator price updates multiply their coefficients by
+``S_b/\sigma`` relative to the legacy convention. A positive divisor preserves
+mathematical minimizers, but changes numerical stopping behavior. A common-power
+base experiment should therefore hold ``\sigma`` fixed or explicitly report its
+change. Neither a voltage level nor this algebra establishes an optimal power
+base; physical loading/rating differences motivate candidates that still require
+controlled timing and original-unit feasibility checks.
+
 ## 9. Implementation and evidence map
 
 | Responsibility | Implementation | Validation |

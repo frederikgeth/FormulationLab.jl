@@ -82,6 +82,8 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `transformer_scaling` | `:off` | `:nominal` composes local voltage/current units inferred from nominal transformer ratios and source magnitudes; uncertain assignments retain global units |
 | `row_scaling` | `:legacy` | `:composed` normalizes linear circuit rows after all coordinate transformations, independently of local voltage/current scaling |
 | `ground_scaling` | `:off` | `:voltage` uses global-base shunt multipliers; `:regional_voltage` uses nominal regional-base multipliers; both preserve finite grounds |
+| `objective_scale` | `nothing` | Divide the physical objective by this positive scalar; `nothing` preserves division by `s_base` |
+| `current_power_bases` | empty dictionary | Explicit bus-to-VA seeds for regional current coordinates; requires `transformer_scaling=:nominal` |
 | `observation_support_threshold` | `2` | Lift affine observations only when their distinct real-variable support is strictly larger; nonnegative integer |
 | `observation_sharing` | `:off` | `:exact` shares identical composed affine observations, including constants |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
@@ -236,6 +238,41 @@ circuit-row norms are refused rather than turning equations into zero rows.
 Diagnostics report `transformer_scaling_report` (bus bases, scaled and retained
 coordinates, and fallback reasons), `row_scaling`, `composed_row_normalization`
 and `per_unit_bases`. Separate Ipopt scaling options are controlled by the caller.
+
+### Electrical power bases and objective normalization
+
+`s_base` remains the assembly power base: it determines global current and
+impedance units, P/Q variables, load equations and bound normalizations. It is
+not a physical equipment rating. `objective_scale=nothing` preserves the legacy
+objective divisor `s_base`. A positive explicit `objective_scale` holds that
+divisor fixed while electrical bases change. The solver minimizes the physical
+objective divided by this scalar; result extraction and supplied-point evaluation
+multiply it back. Generator cost updates use the same divisor. The diagnostic
+`objective_scale` records the effective value. Physical objective units remain
+watts, currency/h or zero for source import, cost or feasibility, respectively.
+
+`current_power_bases=Dict("mv_bus"=>1e5, "lv_bus"=>1e3)` declares **current-unit**
+power bases. Seeds propagate through lines and closed switches, stopping at
+transformers and open switches. Conflicting values in one such region, unknown
+bus names and nonpositive/nonfinite bases are refused. Unseeded regions use
+`s_base`. Nominal transformer coordinates must be enabled; their voltage-base
+fallback remains in effect. The build copies the declarations to own its snapshot.
+
+At a bus with assigned voltage and power bases ``V_r,S_r``, the intended current
+base is ``S_r/V_r``. Current-coordinate classification uses the factor
+``(V_r/V_b)(S_b/S_r)``; singleton/mixed-support safeguards and inverse-map recovery
+remain unchanged. `transformer_scaling_report.power_bases` records the propagated
+assignments, and retained-coordinate reasons show where a factor could not be
+applied safely. All physical current, voltage and power observations still use
+the original reconstruction. Changing declarations requires rebuilding.
+
+This option deliberately **does not** rebase generator P/Q variables, lifted
+observations/powers, voltage-law auxiliaries or ground multipliers. They retain
+their assembly-unit conventions. In particular, `ground_scaling=:regional_voltage`
+still uses the common assembly power base, not these current-unit declarations.
+The option isolates regional current coordinates; it is not a complete regional
+power normalization of every NLP variable. See the [theory](ivr_theory.md) and
+[controlled experiment](ivr_performance.md) before selecting numerical settings.
 
 ### Exact selective lifting
 

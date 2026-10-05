@@ -111,7 +111,7 @@ function ivr_nlp_point_report(build::IVRNLPBuild,point::ACPoint;atol=1e-7)
         if domain
             residuals=JuMP.primal_feasibility_report(build.model,supplied;atol=0.0)
             violation=maximum(values(residuals);init=0.0)
-            objective=JuMP.value(v->supplied[v],JuMP.objective_function(build.model))*e.sb
+            objective=JuMP.value(v->supplied[v],JuMP.objective_function(build.model))*_ivrn_objective_scale(build.options)
         end
     end
     volts=Dict(key=>(k==0 ? 0im : reconstructed[k]*e.vb) for (key,k) in e.voltage)

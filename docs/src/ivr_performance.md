@@ -29,6 +29,98 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+## Common power bases and regional current units — 5 October 2026
+
+Power-base changes deliver reproducible benefits on a manufactured aggregation
+panel, but the best choice depends on the active constraints. A shared ideal
+11 kV/2.3 kV supply feeds four independent 2.3 kV/230 V LV branches. Each branch
+has twelve resistive sections, 2 kW demand, finite neutral grounding and controlled
+generation. Separate cases bind per-branch capability, reverse-current or voltage
+limits. MV therefore aggregates four branches' power. Independent scalar branch
+optima add; the builder requires slack shared upstream current ratings. This is
+an analytical single-phase control panel, not a realistic unbalanced feeder.
+
+The six profiles comprise common assembly bases of 1, 10, 100 kVA and 1 MVA,
+and two regional **current-coordinate** policies with assembly base 10 kVA and
+source/MV/LV declarations of 1 MVA/100 kVA/1 kVA or 1 MVA/100 kVA/10 kVA.
+All use nominal voltage coordinates, the existing global-ground policy, composed
+circuit rows, full IVR with **442 real variables**, MUMPS AMD and identical SI
+inputs/unloaded starts. `objective_scale=1e4` holds the numerical objective divisor
+fixed in every arm. Changing `s_base` otherwise changes objective normalization
+as well as electrical units under the legacy default.
+
+Common-base changes affect electrical coefficients, P/Q and ground normalization.
+The regional option deliberately changes current coordinates only: dispatch,
+lifted observations/powers and ground multipliers retain assembly conventions.
+Thus the two regional arms isolate LV current scaling while holding upstream
+bases and other units fixed. See the [contract](ivr_nlp.md),
+[dimensional derivation](ivr_theory.md) and [tutorial section 31](tutorial_exact_ivr.md).
+
+Exploration and fresh-process confirmation each admit **432/432 measured solves
+and 36/36 warm-ups**, using twelve balanced sweeps per case/policy block. The
+maximum measured error against the independent physical optimum is below
+7.28e-7 W, with a predeclared 1e-4 W admission threshold. All solver, independent
+SI, own/full-model and reverse-map checks pass. Confirmation repeats all six
+arms under explicit Ipopt `none` and `gradient-based` scaling; the voltage case
+is retained as a regression control. Batches are not pooled. No diagnostics,
+tests or documentation builds overlap timings. Compilation, starts, extraction
+and audits are excluded from the Ipopt wall-time ranking.
+
+Confirmation median wall times in milliseconds. The first four numeric columns
+are common assembly power bases; the final two are regional current-base arms.
+
+| Active limit | Ipopt scaling | Common 10 kVA | Common 1 kVA | Common 100 kVA | Common 1 MVA | Regional LV 1 kVA | Regional LV 10 kVA |
+|:--|:--|--:|--:|--:|--:|--:|--:|
+| Capability | none | 7.132 | 6.302 | 8.523 | 9.302 | 6.494 | 6.984 |
+| Capability | gradient-based | 7.029 | 6.361 | 8.533 | 9.403 | 6.510 | 6.930 |
+| Current | none | 7.890 | 7.184 | 6.745 | 7.559 | 6.969 | 7.849 |
+| Current | gradient-based | 7.952 | 7.198 | 6.817 | 7.701 | 6.958 | 7.923 |
+| Voltage | none | 5.600 | 6.382 | 5.500 | 6.353 | 5.489 | 5.525 |
+| Voltage | gradient-based | 5.559 | 6.379 | 5.517 | 6.299 | 5.447 | 5.581 |
+
+Relative to the common 10 kVA control, common 1 kVA improves capability timings
+by **11.6% / 9.5%**, while common 100 kVA improves current timings by
+**14.5% / 14.3%** under none / gradient-based solver scaling. Common 1 kVA is
+**14.0% / 14.7% slower** on the voltage case. Common 1 MVA is also slower on
+capability and voltage. A smaller electrical base is therefore not a uniform
+speed improvement.
+
+The matched regional comparison is more directly relevant to lower LV power
+levels. With source and MV bases held fixed, regional LV 1 kVA versus LV 10 kVA
+improves capability medians by **7.0% / 6.1%** and current medians by
+**11.2% / 12.2%**. Every paired capability ratio is below 0.957 and every paired
+current ratio below 0.922. Voltage differences are small, 0.6% / 2.4%, with some
+paired ratios above one. All outliers remain: regional LV 10 kVA reference
+trials produce paired ratios as low as 0.310 in current/gradient-based and 0.303
+in voltage/none, without different iteration counts. No cause is assigned and
+these minima are not reported as representative speed gains.
+
+Separate diagnostics retain **36 native traces and 72 Jacobian evaluations** at
+shared unloaded and full-model endpoint physical states. All instrumented
+endpoints pass physical and analytical checks. Capability iterations are
+12/11/15/16/11/12 in table order; current iterations are 14/13/12/14/11/14;
+voltage iterations are 9/11/9/11/9/9 under both solver policies. On the current
+case, regional LV 1 kVA takes fewer iterations than common 100 kVA yet is slower
+in median wall time. Its disabled-solver-scaling trace has two regularization
+records versus zero for common 100 kVA. This is telemetry, not a proven causal
+mechanism. Norm spreads and iteration counts remain insufficient ranking rules;
+no KKT fill or condition-number claim is made.
+
+The new knobs are additive and defaults remain unchanged. Regional dispatch,
+lifted-power and ground normalization are separate future interventions. Next
+transfer the promising candidates to unbalanced MV/LV networks with transformer
+leakage and mixed active limits, then retest reduction interactions. The current
+panel's ideal, separable branches do not establish portability or an automatic
+rating-based power-base selection rule.
+
+Reproduction: `examples/benchmark_ivr_power_bases.jl`. Raw inputs, complete code
+and dependency snapshots, protocols, JSON trials, diagnostics/traces, analyses
+and separate confirmation remain outside Git in `POWER_BASE_STUDY_20261005`.
+A separate cost-update regression test uses tighter 1e-12 solver accuracy because
+currency/h divided by 1e4 can leave a dispatch bound insufficiently resolved at
+1e-10; the initial test result is retained. All performance runs retain the
+original strict 1e-10 settings and fixed source-import objective divisor.
+
 ## Regional finite-ground scaling — 5 October 2026
 
 The additional `ground_scaling=:regional_voltage` policy uses the nominal
