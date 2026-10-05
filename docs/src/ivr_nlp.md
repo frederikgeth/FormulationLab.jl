@@ -80,6 +80,8 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates nonadjacent eligible degree-two buses; `:passive_chains` permits adjacent candidates; `:passive_blocks` also admits charged π sections through conditioned local block solves |
 | `series_selection` | `:all` | With any passive policy, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
 | `ground_scaling` | `:off` | `:voltage` rescales eligible free finite-ground voltages and normalizes circuit rows in solver coordinates |
+| `observation_support_threshold` | `2` | Lift affine observations only when their distinct real-variable support is strictly larger; nonnegative integer |
+| `observation_sharing` | `:off` | `:exact` shares identical composed affine observations, including constants |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
 | `device_elimination` | `:off` | `:transformer_currents` removes from-side coil currents through fixed-transformer current balance; multiwinding devices remain explicit |
 
@@ -202,15 +204,30 @@ conductor specialization, lifting and supported load/generator updates.
 `lifting=:powers` replaces each bounded complex power expression with auxiliary
 P/Q variables and exact defining equalities, then applies the same rating to
 those variables. `:bounded_observations` additionally lifts affine bounded
-voltage/current expressions involving more than two nonzero real solver
-variables. Singleton complex coordinates and identically zero channels are not
-duplicated. Identical original observation rows and power-factor pairs share
-definitions. Original physical power outputs remain expressions of the state.
+voltage/current expressions whose number of distinct real solver variables exceeds
+`observation_support_threshold` (default 2). Support is counted after coordinate
+composition using exact nonzero coefficients. A threshold of 8 therefore retains
+rows with at most eight variables as direct expressions; it does not remove their
+bounds. At the default threshold, singleton complex coordinates are not duplicated.
+Identically zero channels are never lifted. Identical original observation rows
+and power-factor pairs already share definitions.
+
+With `observation_sharing=:exact`, distinct original rows also share one affine
+definition when their composed real and imaginary constants and coefficients are
+exactly identical. Variable order and exact zero terms do not affect identity.
+Opposite signs, conjugates and nearly equal coefficients remain separate. No
+tolerance, coefficient truncation or fixed-variable substitution is used in this
+comparison. Power definitions and generator dispatch variables are not merged.
+The threshold and sharing controls have no effect for `lifting=:off` or `:powers`.
+Original physical power outputs remain expressions of the state.
 
 Definitions have consistent initial values and are reconstructed uniquely when
 encoding a supplied physical point. They do not create additional device
 freedoms, change any rating or alter CP/generator update semantics. Diagnostics
-record `lifting` and `lifted_real_variables`. More variables can make a nonlinear
+record `lifting`, `lifted_real_variables`, `observation_support_threshold`,
+`observation_sharing` and `shared_observation_count`. The last count is the number
+of distinct original rows reusing an existing composed definition, not repeated
+visits to the same original row. More variables can make a nonlinear
 constraint simpler, but may also make Ipopt's linear systems more expensive;
 the [performance guide](ivr_performance.md) reports measured outcomes.
 

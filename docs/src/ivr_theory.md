@@ -488,6 +488,20 @@ A further affine definition ``w=ay`` can localize a repeatedly bounded
 observation. This is an exact extended formulation, not a convex relaxation.
 It can increase linear-system size despite simplifying nonlinear expressions.
 
+For an affine observation ``u(y)=c+Ay``, the support policy counts the union of
+nonzero real-variable coefficients in its real and imaginary parts. Lifting only
+when this count exceeds a chosen threshold changes the representation of bounds,
+not the feasible set. If two observations have exactly equal ``c`` and ``A``,
+one auxiliary definition serves both. Each original constraint remains attached
+to that expression, including distinct lower/upper limits. This quotient of
+identical definitions retains the unique extension of physical points. Merely
+similar coefficients, opposite signs, equality only on circuit solutions or a
+similar sparsity pattern do not satisfy this implementation's identity test.
+The policy uses exact floating-point coefficient equality and can miss
+mathematically equivalent rows with different rounding histories. Such misses
+retain additional exact definitions; they do not justify approximate merging.
+Neither support nor derivative-entry counts measure numerical KKT factor fill.
+
 For charged-section elimination, partition a selected set of surviving linear
 equations into targeted coordinates ``x`` and retained coordinates ``y``:
 
@@ -559,6 +573,7 @@ questions from equivalence.
 | Power products, operating bounds, objectives and updates | `src/formulations/ivr_nlp.jl`, `src/formulations/ivr_loads.jl` | fixed-state negative-bound tests; fresh/reused comparisons |
 | Local impedance/series elimination | `src/compilation/ivr_elimination.jl` | `test/ivr_elimination_tests.jl`: bidirectional physical points, retained bounds, modes, meshes, zero impedance and boundary refusals |
 | Charged blocks and exact lifting | `src/compilation/ivr_elimination.jl`, `src/formulations/ivr_nlp.jl` | `test/ivr_lifting_blocks_tests.jl`: inverse maps, omitted equations, lifted definitions, bound witnesses, refusal/rollback and reuse |
+| Composed affine sharing and support thresholds | `src/formulations/ivr_nlp.jl` | `test/ivr_observation_policy_tests.jl`: offsets, exact coefficient identity, signs, sequential starts, physical equivalence and updates; extended negative-bound tests |
 | Matched structural experiments | `examples/benchmark_ivr_lifting_blocks.jl` | `test/ivr_lifting_study_tests.jl`: complete shared starts, analytical 920 W midpoint case, active limits and transformer fixtures |
 | Optional series selection | `src/compilation/ivr_elimination.jl`, shared `_ivrn_each_bus_limit` visitor | `test/ivr_series_selection_tests.jl`: all voltage-bound families, apparent-power rows, rollback, reconstruction, ground scaling and updates |
 | Finite-ground coordinate/row scaling | `src/compilation/ivr_scaling.jl` | `test/ivr_ground_scaling_tests.jl`: analytical finite-ground states, current-error witnesses, retained bounds, scope and reuse |

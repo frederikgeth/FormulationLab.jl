@@ -25,6 +25,10 @@ This invertible numerical policy preserves the finite ground; default :off.
 `lifting=:powers` introduces exact P/Q definitions for apparent-power limits.
 `:bounded_observations` also materializes compound bounded voltage/current rows.
 The default :off preserves direct expressions; physical outputs are unchanged.
+`observation_support_threshold=2` lifts only rows with strictly more distinct
+real solver variables. `observation_sharing=:exact` reuses identical composed
+affine observations, including constants; default :off retains separate rows.
+Neither control changes power lifting or removes operating bounds.
 `device_elimination=:transformer_currents` substitutes from-side coil currents
 using fixed-transformer current balance. Retains circulation, bonds and grounds;
 multiwinding devices remain explicit. Default :off.
@@ -37,6 +41,8 @@ Base.@kwdef struct IVRNLPOptions
     series_selection::Symbol = :all
     ground_scaling::Symbol = :off
     lifting::Symbol = :off
+    observation_support_threshold::Int = 2
+    observation_sharing::Symbol = :off
     device_elimination::Symbol = :off
 end
 
@@ -213,22 +219,39 @@ _ivrn_power(v,i,z)=_linivr_eval(v,z)*conj(_linivr_eval(i,z))
 function _ivrn_lift!(model,u,key,kind)
     policy=model.ext[:ivr_lifting]
     get!(policy.cache,key) do
+        shared_key=kind==:observation && policy.sharing==:exact ? _ivrn_affine_key(u) : nothing
+        if shared_key!==nothing && haskey(policy.observations,shared_key)
+            policy.shared_count[]+=1
+            return policy.observations[shared_key]
+        end
         k=length(policy.records)+1
         value=JuMP.value(v->JuMP.is_fixed(v) ? JuMP.fix_value(v) : JuMP.start_value(v),u)
         a=@variable(model,base_name="lift_$(kind)_$(k)_real",start=real(value))
         b=@variable(model,base_name="lift_$(kind)_$(k)_imag",start=imag(value))
         @constraint(model,a==real(u));@constraint(model,b==imag(u))
         push!(policy.records,(;real=a,imag=b,expression=u,kind))
-        a+im*b
+        lifted=a+im*b
+        shared_key===nothing || (policy.observations[shared_key]=lifted)
+        lifted
     end
 end
 _ivrn_row_key(row)=Tuple(sort!(collect(row);by=first))
+# Exact coefficient identity in this model, after coordinate composition. Do not
+# round coefficients or identify opposite signs: those require different graphs.
+function _ivrn_affine_key(u)
+    key(x)=(iszero(x.constant) ? 0.0 : x.constant,
+        Tuple(sort!([(JuMP.index(v).value,c) for (v,c) in x.terms if !iszero(c)];by=first)))
+    (key(real(u)),key(imag(u)))
+end
+_ivrn_lifting_policy(options)=(;mode=options.lifting,threshold=options.observation_support_threshold,
+    sharing=options.observation_sharing,cache=Dict{Any,Any}(),observations=Dict{Any,Any}(),
+    shared_count=Ref(0),records=NamedTuple[])
 function _ivrn_bound_observation(model,row,z)
     u=_linivr_eval(row,z);policy=model.ext[:ivr_lifting]
-    # Only compound observations are lifted. A physical coordinate or an
-    # identically zero channel needs no duplicate variable.
+    # The default threshold leaves physical coordinates direct. No threshold
+    # lifts an identically zero channel or changes the original operating bound.
     if policy.mode==:bounded_observations &&
-       length(Set(v for x in (real(u),imag(u)) for (v,c) in x.terms if !iszero(c)))>2
+       length(Set(v for x in (real(u),imag(u)) for (v,c) in x.terms if !iszero(c)))>policy.threshold
         return _ivrn_lift!(model,u,(:observation,_ivrn_row_key(row)),:observation)
     end
     u
@@ -323,6 +346,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
     options.ground_scaling in (:off,:voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
     options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))
+    options.observation_support_threshold>=0 || throw(ArgumentError("observation support threshold must be nonnegative"))
+    options.observation_sharing in (:off,:exact) || throw(ArgumentError("unknown IVRNLP observation sharing"))
     options.device_elimination in (:off,:transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
     net=_l3f_input(input);_ivrn_check(net)
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
@@ -339,7 +364,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     maps,scaling=_ivrn_ground_coordinates(net,e,maps,options.ground_scaling)
     scaled_rows=!isempty(scaling.scaled_terminals)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
-    model.ext[:ivr_lifting]=(;mode=options.lifting,cache=Dict{Any,Any}(),records=NamedTuple[])
+    model.ext[:ivr_lifting]=_ivrn_lifting_policy(options)
     n=length(maps.projection)
     xr=@variable(model,[1:n],base_name="state_real")
     xi=@variable(model,[1:n],base_name="state_imag")
@@ -479,6 +504,9 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :device_elimination=>options.device_elimination,:device_elimination_report=>device_elimination,
         :ground_scaling=>options.ground_scaling,:ground_scaling_report=>scaling,
         :lifting=>options.lifting,:lifted_real_variables=>2length(model.ext[:ivr_lifting].records),
+        :observation_support_threshold=>options.observation_support_threshold,
+        :observation_sharing=>options.observation_sharing,
+        :shared_observation_count=>model.ext[:ivr_lifting].shared_count[],
         :update_count=>0,:generator_update_count=>0,
         :dispatch_variable_count=>sum(length(g.p)+length(g.q) for g in values(generators);init=0),
         :load_voltage_variable_count=>sum(length,values(load_voltages);init=0),

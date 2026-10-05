@@ -87,23 +87,27 @@ end
                     "vpos_min"=>[abs(sum([1,a,a^2].*u)/3)],"vpos_max"=>[abs(sum([1,a,a^2].*u)/3)],
                     "vneg_max"=>[abs(sum([1,a^2,a].*u)/3)],"vzero_max"=>[abs(sum(u)/3)]))
             end
-            for (field,x) in bounds,k in eachindex(x),lifting in (:powers,:bounded_observations)
+            for (field,x) in bounds,k in eachindex(x),lifting in (:powers,:bounded_observations),
+                (threshold,sharing) in ((2,:off),(8,:exact))
                 x[k]>1e-5 || continue
                 tight=deepcopy(net);lower=endswith(field,"min")
                 tight["bus"][bus][field]=lower ? .5x : 2x
                 tight["bus"][bus][field][k]=lower ? 1.5x[k] : .5x[k]
-                b=build_opf(tight,IVRNLP(;lifting,linear_elimination=:passive_blocks))
+                b=build_opf(tight,IVRNLP(;lifting,linear_elimination=:passive_blocks,
+                    observation_support_threshold=threshold,observation_sharing=sharing))
                 @test !ivr_nlp_point_report(b,p).passed
                 audit=physical_residuals(tight,p;delta_dispatch=:coil)
                 @test any(x->x.label=="bus/$bus/$field" && x.residual>getproperty(audit.tolerances,x.unit),audit.records)
             end
         end
-        for id in keys(net["line"]),side in (:line_from,:line_to),field in ("i_max","s_max"),lifting in (:off,:powers,:bounded_observations)
+        for id in keys(net["line"]),side in (:line_from,:line_to),field in ("i_max","s_max"),lifting in (:off,:powers,:bounded_observations),
+            (threshold,sharing) in ((2,:off),(8,:exact))
             x=abs.(field=="i_max" ? p.currents[(side,id)] : r.powers[(side,id)][1:(m==2 ? 1 : 3)])
             for k in eachindex(x)
                 x[k]>1e-5 || continue
                 tight=deepcopy(net);tight["line"][id][field]=fill(1e9,length(x));tight["line"][id][field][k]=.5x[k]
-                b=build_opf(tight,IVRNLP(;lifting,linear_elimination=:passive_blocks))
+                b=build_opf(tight,IVRNLP(;lifting,linear_elimination=:passive_blocks,
+                    observation_support_threshold=threshold,observation_sharing=sharing))
                 @test !ivr_nlp_point_report(b,p).passed
                 audit=physical_residuals(tight,p;delta_dispatch=:coil)
                 label="line/$id/$(side==:line_from ? "from" : "to")/$field"

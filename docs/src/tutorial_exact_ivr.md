@@ -795,3 +795,37 @@ cross full/block coordinates with device elimination off/on. They share an
 unloaded physical start, ground scaling, AMD ordering and eight balanced sweeps.
 Use `objective=:feasibility` when preserving an external feasibility workload.
 This tutorial demonstrates recovery, not a speedup.
+
+
+## 27. Control observation lifting without changing physical results
+
+Use a higher explicit support threshold to retain short affine rows directly.
+Enable exact sharing independently, then inspect whether any duplicates actually
+occur. Zero shared observations means that option is a structural no-op on this
+input, regardless of small timing differences.
+
+```@example exactivr
+selective_build = build_opf(pi_case, IVRNLP(linear_elimination=:passive_blocks,
+    lifting=:bounded_observations, observation_support_threshold=8,
+    observation_sharing=:exact); optimizer=Ipopt.Optimizer)
+selective_result = solve_ivr_nlp_opf(selective_build; solver_options=T.SOLVER_OPTIONS)
+@assert selective_result.solve.optimal
+@assert physical_residuals(pi_case, selective_result).passed
+@assert ivr_nlp_point_report(pi_build, ACPoint(
+    voltage=selective_result.voltage_candidate,
+    currents=selective_result.current_candidate)).passed
+selective_output = result_dict(selective_build, selective_result)
+@assert keys(selective_output["bus"]) == keys(pi_output["bus"])
+(selective_build.numerical_diagnostics[:lifted_real_variables],
+ selective_build.numerical_diagnostics[:shared_observation_count])
+```
+
+For independent threshold/sharing ablations, include
+`examples/benchmark_ivr_observations.jl` and call
+`IVRObservationStudy.benchmark(network, "study.json")`. The six profiles contain
+full and direct-block controls plus thresholds 2/8 crossed with sharing off/exact.
+They use the same unloaded physical start, voltage ground scaling and AMD ordering,
+with twelve balanced sweeps and one excluded warm-up per profile. Set
+`objective=:feasibility` for external feasibility workloads. All profiles retain
+original bounds and physical JSON fields. Run this outside tests and documentation
+builds and compare `ipopt_wall_s`; compilation is excluded from the assessment.
