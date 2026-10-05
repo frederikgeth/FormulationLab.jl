@@ -470,6 +470,117 @@ endpoint. Mixed single-phase/wye/delta tests include fixed-zero native channels.
 See [tutorial section 36](tutorial_exact_ivr.md) for scenario creation and its
 provenance contract. No existing transformation or default is removed.
 
+## Matched full and reduced power bases
+
+The preceding six-candidate study omitted full IVR at 1 kVA. To close that control
+gap, `examples/benchmark_ivr_base_formulations.jl` crosses common assembly bases
+1, 10 and 100 kVA, full/reduced representation, and power lifting off/on. These
+12 profiles use the exact same derived 265-bus physical input, economic terms and
+37 kW/zero-kvar tracking terms as the preceding study. Source, scenario and
+addition-manifest hashes are retained; no generator, load or equipment bound changes.
+
+The reduction switch jointly enables conductor regions, passive blocks and
+transformer-current substitution. It remains a bundle; its internal contributions
+are not separated. Exact observation sharing is fixed in every arm. Nominal
+transformer voltage coordinates, voltage-ground scaling and composed linear rows
+are also fixed policies; their numerical multipliers are recomputed at each base.
+There are no regional-current seeds or bounded-observation lifts in this panel.
+Changing the common base affects current and power-variable units together. The
+physical objective divisor remains 1, so it does not change with electrical units.
+
+The protocol crosses both objectives with explicit `none` and `gradient-based`
+Ipopt scaling, using MUMPS AMD, tolerance 1e-10 and one Julia/BLAS thread. Each cell
+excludes twelve warm-ups and measures twelve sweeps. A seeded random permutation
+of candidate labels is cyclically rotated through all twelve offsets, and sweep
+order is randomized. Every candidate occupies each position once. This is position
+balance, not balance of every predecessor pair. Realized orders are saved; seeded
+RNG behavior need not be identical across Julia versions. Repeated solves are
+not independent network samples.
+
+For matched comparisons, form same-sweep time ratios with one factor changed:
+1/10 or 100/10 kVA at fixed reduction/lifting; reduced/full at fixed base/lifting;
+and powers/off at fixed base/reduction. The primary score remains Ipopt wall time,
+excluding compilation, extraction and audits. Fresh-process confirmation is kept
+separate from exploration. Neither batch overlaps tests, documentation builds or
+diagnostics; slow observations and failures remain part of the evidence.
+
+All **1152 measured solves and 96 warm-ups** pass admission across exploration
+and confirmation. Maximum physical objective discrepancy is below 5.33e-15 and
+within-cell spread below 3.57e-13. All 48 separate preflight solves have matching
+physical SI export keys and passing JSON round trips; original/scenario hashes
+and the earlier 74-addition manifest remain unchanged. Two stricter-circle
+witnesses reject cost endpoints in both independent SI and encoded-model checks.
+These tests establish physical/representation agreement, not global AC optimality.
+
+Confirmation median **Ipopt milliseconds**:
+
+| Profile | Cost, none | Cost, gradient | Tracking, none | Tracking, gradient |
+|:--|--:|--:|--:|--:|
+| `full_1k_off` | 42.696 | 42.611 | 27.905 | 28.033 |
+| `full_1k_powers` | 43.123 | 42.971 | 28.032 | 28.178 |
+| `reduced_1k_off` | 39.775 | 39.970 | 26.088 | 26.076 |
+| `reduced_1k_powers` | 40.038 | 40.419 | 26.051 | 26.214 |
+| `full_10k_off` | 49.338 | 49.371 | 25.047 | 25.147 |
+| `full_10k_powers` | 47.099 | 47.209 | 25.064 | 25.175 |
+| `reduced_10k_off` | 46.103 | 46.297 | 23.509 | 23.719 |
+| `reduced_10k_powers` | 44.160 | 44.313 | 23.578 | 23.584 |
+| `full_100k_off` | 57.357 | 57.661 | 24.905 | 33.924 |
+| `full_100k_powers` | 57.841 | 58.056 | 24.878 | 33.781 |
+| `reduced_100k_off` | 54.242 | 54.297 | 23.497 | 31.734 |
+| `reduced_100k_powers` | 54.618 | 54.879 | 23.557 | 31.772 |
+
+The full-base gap is now closed within this candidate set. Full unlifted 1 kVA
+improves cost by **13.5%/13.7%** relative to full unlifted 10 kVA (`none`/`gradient`),
+with 14 rather than 16 iterations. Reduced unlifted 1 kVA improves on that same
+10 kVA full control by **19.4%/19.0%**, while taking the same 14 iterations as its
+matched full 1 kVA counterpart. Thus part of the earlier bundled gain transfers
+to full IVR, and reduction contributes a further benefit at matched units.
+These percentages have different denominators and should not be added.
+
+The matched reduced/full same-sweep median ratios range from **0.929 to 0.949**
+across all six base/lifting contexts and all four workload/policy cells in
+confirmation. Every context improves in both batches. This is evidence for a
+roughly 5–7% reduction-bundle benefit on this scenario, not a statement that
+reductions always help: the earlier seven-bus case remains a counterexample.
+At fixed base/lifting, full and reduced models have equal iteration counts.
+Their unlifted real variable counts are 3726 and 2922; no KKT fill/memory or
+factorization-time mechanism is inferred from those counts.
+
+The matched 1/10 kVA median ratios are 0.862–0.915 for cost but 1.102–1.118 for
+tracking. Tracking takes eight iterations at 1 kVA and seven at 10 kVA. At
+100 kVA it takes seven without automatic scaling but ten with gradient-based
+scaling. Corresponding 100/10 kVA tracking median ratios are 0.990–1.002 without
+scaling and **1.339–1.352** with gradient scaling. The automatic-scaling policy
+therefore belongs in the declared numerical profile. This experiment does not
+identify which native solver scaling or regularization step causes the change.
+
+Power lifting benefits cost at 10 kVA by about 4–5% at matched representation,
+reducing 16 iterations to 15 in full and reduced models. At 1 kVA both lifting
+choices take 14 iterations and differ by about 1%; at 100 kVA both take 20.
+Tracking lifting contrasts are near a tie. The smallest cost medians use reduced
+1 kVA without lifting, but the adjacent power-lifted candidate remains in the
+shortlist. For tracking, reduced 10 kVA with lifting off or powers is the supported
+shortlist across both policies. The marginal 100 kVA/no-scaling differences are
+not a reason to promote a configuration that regresses under gradient scaling.
+All previous options and package defaults remain available and unchanged.
+
+Every outlier is retained. For example, tracking/no-scaling reduced-100k-off versus
+full-100k-off has a paired ratio as high as 4.113, despite its median below 1;
+its ratio to the full-10k control reaches 6.138. Cost/gradient matched reduction
+ratios include a 0.248 tail caused by a slow full-power-lifted observation. These
+extremes are not representative gains or grounds for selectively rerunning trials.
+The confirmation table is not pooled with exploration, and no significance or
+population-generalization claim is made.
+
+This closes the full-base control gap on one declared DER scenario. The next
+unit experiment should hold circuit-current units fixed while varying generator
+P/Q and lifted-power units separately, with the same physical objective divisor,
+bounds, starts, updates and recovery checks. Common-base results alone cannot
+assign the benefit to one variable family. Larger multi-transformer and explicitly
+voltage-constrained cases remain open. See [tutorial section 37](tutorial_exact_ivr.md)
+for the matched-base and ordering contract.
+
+
 ## Independent economic-dispatch oracle
 
 A fixed-voltage, two-generator circuit supplies 3000 W and 600 var, with source

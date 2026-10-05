@@ -1283,3 +1283,61 @@ adds no bus-voltage limits where none were supplied. It therefore tests a specif
 DER capability regime; further voltage-constrained operating cases need separately
 declared scenarios. Source-target tracking remains a soft objective, not an exact
 exchange constraint.
+
+## 37. Compare bases without confounding power lifting
+
+The preceding cost winner changed both the formulation and its power base.
+`IVRBaseFormulationStudy` crosses three bases (1, 10, 100 kVA), full/reduced
+representations and power lifting off/on. Its reduction switch controls the
+existing conductor-region/passive-block/transformer-current bundle; it does not
+separate those three reductions. Other options and physical objective terms are
+fixed. Every candidate has exact observation sharing, which is distinct from
+introducing bounded-observation lifts.
+
+Here two full models differ only in assembly base. The executable example uses
+the existing manufactured network, not external performance data.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_base_formulations.jl"))
+BF = IVRBaseFormulationStudy
+base_demo = EO.S.case(:quadratic_cost;segments=2)
+base_controls = filter(BF.profiles(base_demo,:quadratic_cost)) do p
+    !p.factors.reduced && p.factors.lifting==:off && p.factors.s_base in (1e3,1e4)
+end
+@assert length(base_controls)==2
+base_changes = [key for key in fieldnames(IVRNLPOptions)
+    if JSON3.write(getfield(base_controls[1].options,key)) !=
+       JSON3.write(getfield(base_controls[2].options,key))]
+@assert base_changes==[:s_base]
+base_reference = build_opf(base_demo,IVRNLP(objective=:power,
+    power_terms=first(base_controls).options.power_terms))
+base_start = EO.S.U.G.H.S.L.start_point(base_demo)
+base_anchor = Ref{Any}(nothing)
+base_rows = map(base_controls) do profile
+    row,point = BF.P.trial(base_demo,profile,base_reference,base_anchor[];
+        initial_point=base_start)
+    @assert row["accepted"]
+    base_anchor[]===nothing && (base_anchor[]=point)
+    (profile=profile.name,objective=row["objective"])
+end
+@assert isapprox(base_rows[1].objective,base_rows[2].objective;atol=1e-6)
+base_orders = BF.orders(12)
+@assert all(count(o->o[position]==candidate,base_orders)==1
+    for position in 1:12 for candidate in 1:12)
+base_rows
+```
+
+Use `BF.benchmark(input_path, output_path; workload=:quadratic_cost)` for the
+external panel, or provide an explicit `exchange_target_W` with
+`workload=:exchange_tracking`. Repeat under `nlp_scaling_method="gradient-based"`
+and in a fresh process. Preserve any derived-input addition manifest beside the
+report. The default cyclic block measures twelve sweeps, excluding twelve
+warm-ups; every profile occupies each position once. Candidate labels and sweep
+order are randomized with a saved seed and realized orders. This does not balance
+all predecessor pairs or turn repeated solves into independent feeder samples.
+
+Analyze base changes at fixed representation/lifting, reduction at fixed
+base/lifting, and lifting at fixed base/reduction. Keep the physical objective
+divisor independent of the base. [Matched-base evidence](ivr_objectives.md)
+reports all contexts and retains the counterexamples; construction time does not
+enter the Ipopt ranking.

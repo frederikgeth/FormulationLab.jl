@@ -1,5 +1,37 @@
 # Verification
 
+## Matched full/reduced power bases — 6 October 2026
+
+The full suite passes **69,214/69,214 assertions**, adding **170 checks** in
+`test/ivr_base_formulation_tests.jl`. These cover the 12 distinct base/reduction/
+lifting combinations, owned objective declarations, unchanged normalization,
+randomized cyclic blocks and refusal paths, complete shared starts, physical
+objective equality, full/reverse representability and a source-safe report smoke
+test. Every profile occupies each position once per block; predecessor pairs are
+not balanced, and realized orders are saved.
+
+The frozen 265-bus derived-DER input is unchanged. Exploration and fresh-process
+confirmation admit **1152 measured solves and 96 warm-ups** across quadratic
+cost/tracking and both Ipopt scaling policies. Maximum recovered-power objective
+discrepancy is below 5.33e-15 and within-cell spread below 3.57e-13. Actual options,
+all source/scenario hashes, original fields, added devices and trial orders pass
+the evidence audit. All 48 separate preflight solves pass SI JSON round trips
+and matching physical quantity keys across formulations. Two tighter-capability
+witnesses reject a cost endpoint independently and in encoded constraints.
+
+Full 1 kVA itself improves cost by 13.5–13.7% against full 10 kVA. At fixed base
+and lifting, the reduction bundle improves every context in both batches, with
+confirmation median paired ratios 0.929–0.949. Lowering the base to 1 kVA hurts
+tracking, and 100 kVA tracking regresses by about 34% under gradient scaling while
+remaining near 10 kVA with no automatic scaling. No global AC certificate or
+native factorization explanation follows. All tails, options and defaults remain;
+timings exclude construction/extraction/audits and precede tests/docs.
+
+All **39 executable tutorial blocks** pass. Twelve new confirmation timing rows,
+earlier objective tables and local links are checked against raw JSON and rendered
+HTML. No production equation or physical bound changed. See the
+[matched-base evidence](ivr_objectives.md) and [tutorial section 37](tutorial_exact_ivr.md).
+
 ## Derived DER dispatch on 265 buses — 6 October 2026
 
 The full suite passes **69,044/69,044 assertions**, adding **112 checks** in

@@ -42,8 +42,16 @@ The subsequent [265-bus derived-DER panel](ivr_objectives.md#Derived-DER-transfe
 finds a conditional benefit: reduced 1 kVA power lifting improves economic cost
 by 18.3–18.4% against full 10 kVA, but that lower base hurts exchange tracking.
 The best 10 kVA reduced tracking candidates gain about 6%. This explicitly added
-DER scenario preserves original equipment limits; full 1 kVA and larger
-multi-transformer/voltage-constrained controls remain open.
+DER scenario preserves original equipment limits. That shortlist omitted full
+1 kVA; larger multi-transformer/voltage-constrained controls also remain open.
+
+The [matched full/reduced base study](ivr_objectives.md#Matched-full-and-reduced-power-bases)
+subsequently closes the full 1 kVA gap on that scenario. Full 1 kVA itself gains
+13.5–13.7% on cost versus full 10 kVA; matched reduction contributes roughly 5–7%.
+Reduced 1 kVA with lifting off/powers is the cost shortlist, while reduced 10 kVA
+off/powers is the tracking shortlist across both tested solver policies. A 100 kVA
+tracking base is near 10 kVA without automatic scaling but about 34% slower with
+gradient scaling. These are scenario-specific profiles; all alternatives remain.
 
 ## Unbalanced transformer-leakage transfer — 5 October 2026
 
