@@ -1,5 +1,25 @@
 # Verification
 
+## Active transformer-cascade limits — 5 October 2026
+
+The full suite passes **66,522/66,522 assertions**, adding 224 checks.
+`test/ivr_transformer_stress_tests.jl` compares source import, dispatch, voltage
+and current with independent scalar optima for capability-, current- and
+voltage-limited cascades. It crosses global/local coordinates with full IVR,
+passive-block reduction and transformer-current elimination. Shared starts,
+complete variable encoding and independent SI/full-model checks pass. Tightening
+the intended active limit rejects the original solution in both independent SI
+and encoded-model assessments. The runner tests analytical admission, balanced
+orders and exported inputs/witnesses.
+
+All **31 executable tutorial blocks** pass. Five rendered documentation pages,
+their local links/anchors and six timing-table rows pass JSON/HTML checks. Both
+timing batches finish before full regression/documentation work; separate
+instrumented diagnostics finish before timing starts. The known OpenDSSDirect
+precompile fallback and Documenter size warnings remain nonfatal. No production
+equation, option or default changes in this extension. See the
+[performance evidence](ivr_performance.md) for gains and retained regressions.
+
 ## Transformer-local coordinates and row scaling — 5 October 2026
 
 The full suite passes **66,298/66,298 assertions**, adding 2,335 checks.

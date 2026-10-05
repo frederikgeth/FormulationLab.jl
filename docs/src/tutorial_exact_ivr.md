@@ -866,3 +866,50 @@ uses full IVR and eight balanced sweeps, and records every effective scale.
 This separates model variable scaling, model row scaling and solver scaling.
 No callback instrumentation enters the timing ranking. The example above proves
 physical agreement on this fixture; it does not establish a performance benefit.
+
+## 29. Check an active limit against an independent transformer-cascade optimum
+
+A manufactured single-phase cascade supplies a resistive feeder through ideal
+11 kV/2.3 kV and 2.3 kV/230 V transformers. The feeder has total phase resistance
+0.2 Ω, neutral resistance 0.3 Ω, a 2 Ω terminal neutral ground, a 2 kW load and
+unity-power-factor generation. The neutral conductor and finite ground form a
+parallel return path. Consequently,
+
+```math
+R=0.2+(0.3^{-1}+2^{-1})^{-1},\quad
+U=230-RI,\quad P_g=2000-UI,\quad P_{\mathrm{grid}}=230I.
+```
+
+Here positive ``I`` denotes import. The current-limited case permits 5 A reverse
+flow, so its optimum has ``I=-5`` A. The voltage-limited case has ``U=232`` V and
+``I=-2/R`` A. The capability-limited case fixes maximum generation at 250 VA
+with zero reactive power, giving ``UI=1750`` W. The 180 V lower voltage limit
+excludes the other constant-power root. On the admitted branch, increasing
+generation decreases source import. These scalar relations give independent
+optima without solving a second OPF.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "ivr_transformer_stress_cases.jl"))
+C = IVRTransformerStressCases
+stress = C.case(limit=:current, segments=12)
+witness = C.expected(:current)
+stress_build = build_opf(stress, IVRNLP(objective=:source_import,
+    transformer_scaling=:nominal, row_scaling=:composed,
+    ground_scaling=:voltage); optimizer=Ipopt.Optimizer)
+stress_result = solve_ivr_nlp_opf(stress_build; solver_options=T.SOLVER_OPTIONS)
+@assert stress_result.solve.optimal && physical_residuals(stress, stress_result).passed
+@assert isapprox(stress_result.objective, witness.source_W; atol=1e-4)
+@assert isapprox(real(only(stress_result.powers[(:generator,"der")])), witness.generator_W; atol=1e-4)
+(witness, result_dict(stress_build, stress_result)["generator"]["der"])
+```
+
+The reusable cases and benchmark are in
+`examples/ivr_transformer_stress_cases.jl` and
+`examples/benchmark_ivr_transformer_stress.jl`. Call
+`IVRTransformerStressStudy.benchmark("current.json"; limit=:current,
+    nlp_scaling_method="none")` in a separate process with no concurrent work.
+The runner applies the independent objective admission rule to warm-ups and
+measured trials in addition to the common physical checks. Repeat with
+`:capability`, `:voltage` and the explicit `"gradient-based"` solver policy.
+These cases isolate active limits; ideal transformers and resistive single-phase
+lines do not substitute for an unbalanced feeder study with transformer leakage.

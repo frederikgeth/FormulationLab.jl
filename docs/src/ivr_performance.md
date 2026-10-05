@@ -29,6 +29,86 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+## Active transformer-cascade limits — 5 October 2026
+
+A second panel replaces the feasibility-only workloads with three manufactured
+OPFs whose optima follow from independent scalar circuit equations. Two ideal
+transformer stages, 11 kV/2.3 kV/230 V, supply a 48-section resistive two-wire
+feeder, a 2 kW load, finite neutral grounding and dispatchable unity-power-factor
+generation. Separate cases bind a 250 VA generator capability, a 5 A reverse
+phase-current limit, or a 232 V terminal phase-neutral limit. See
+[tutorial section 29](tutorial_exact_ivr.md) for the derivation and runnable cases.
+All four profiles retain **406 real variables**; this experiment removes no
+variables or equations.
+
+The four-arm protocol and strict physical admission below are retained, with a
+source-import objective and an additional independent optimum check within
+1e-4 W for every trial and warm-up. Eight balanced sweeps run under each explicit
+Ipopt scaling policy. Exploration and fresh-process confirmation each admit
+**192/192 measured solves and 24/24 warm-ups**. The maximum measured objective
+error is below 1.82e-7 W. Compilation, extraction, diagnostics and test work are
+excluded from the primary timings and do not overlap either batch.
+
+Confirmation medians in milliseconds (batches are not pooled):
+
+| Active limit | Ipopt scaling | Global / legacy | Global / composed | Local / legacy | Local / composed |
+|:--|:--|--:|--:|--:|--:|
+| Generator capability | none | 9.471 | 9.489 | 6.395 | 6.426 |
+| Generator capability | gradient-based | 10.120 | 10.064 | 6.392 | 6.324 |
+| Reverse current | none | 6.758 | 6.700 | 6.467 | 6.384 |
+| Reverse current | gradient-based | 6.842 | 6.908 | 6.496 | 6.535 |
+| Voltage rise | none | 5.097 | 5.082 | 5.390 | 5.388 |
+| Voltage rise | gradient-based | 5.965 | 5.946 | 5.489 | 5.374 |
+
+Local/composed versus global/legacy improves capability-case medians by
+**32.2% / 37.5%** and current-case medians by **5.5% / 4.5%** for none /
+gradient-based solver scaling. The voltage case is **5.7% slower** with solver
+scaling disabled and **9.9% faster** with gradient-based scaling. The same signs
+occur in exploration. Every paired confirmation capability ratio is below
+0.688; every voltage/none ratio exceeds 1.009. All observations are retained.
+
+The finite-ground coordinate change activates composed row normalization under
+both row policies. Thus legacy/composed arms at a fixed coordinate policy are
+**no-op controls on this panel**, not independent row-scaling interventions.
+The local-coordinate intervention includes the corresponding recomputed circuit
+row norms. The evidence does not isolate a pure column-scaling effect.
+
+Separate NLPDiagnostics runs retain 24 native callback traces and 48 sparse
+Jacobian evaluations at shared unloaded and accepted full-model physical points.
+All instrumented endpoints pass the physical and independent-optimum checks.
+Capability iterations decrease from 18/20 to 12, current from 13 to 12, and
+voltage changes from 9/11 to 10 under none/gradient-based policies, respectively.
+With solver scaling disabled, the capability trace's summed line-search trials
+decrease from 114 to 12. This is consistent with an improved search path, but
+does not establish a factorization, rank or conditioning mechanism.
+
+At the shared capability endpoint, positive equality-row infinity norms range
+from 0.5 to 9.716 globally and 0.577 to 1 locally. However, full Jacobian
+column-norm spread increases from about 312 to 312,034. The unloaded point has
+249 zero-gradient inactive inequalities in either representation. Row records
+retain source identity, function type, set, value, encoded slack, derivative
+method and norm. Activity uses a declared encoded-set tolerance; it is not an SI
+feasibility certificate. No inactive tiny-gradient normalization is applied.
+Norm spread is not a condition number, and native trace metrics are not SI
+residuals. The shared unloaded point is a start, not a feasible OPF solution.
+
+This establishes a reproducible, workload-specific benefit for nominal local
+units in an active dispatch problem. It does **not** establish a universal best
+profile: the voltage-case regression remains, and these ideal, single-phase,
+resistive fixtures do not cover unbalanced feeder dispatch or transformer leakage.
+Defaults remain unchanged and all options remain available. Next investigate
+unbalanced mixed-voltage dispatch with leakage, then regional power/current
+bases and matched reduction interactions. The previously measured real-feeder
+scaling effect below remains inconclusive.
+
+Implementation: `examples/ivr_transformer_stress_cases.jl` and
+`examples/benchmark_ivr_transformer_stress.jl`. Raw inputs, source/dependency
+snapshots, protocols, all trials, traces, summaries and local handover notes are
+retained outside Git in `TRANSFORMER_ACTIVE_LIMITS_20261005`, with a separate
+`CONFIRMATION` subdirectory. An initial diagnostic run was interrupted after two
+completed profiles to replace an unused expensive solver-result profile with
+the direct trace-capture API; its script, partial JSON and log are retained.
+
 ## Nominal transformer-local scaling — 5 October 2026
 
 `transformer_scaling=:nominal` composes local voltage/current units with the
