@@ -1,5 +1,34 @@
 # Verification
 
+## Transformer coil-current substitution — 5 October 2026
+
+The full suite passes **61,221/61,221 assertions**, adding 15,512 checks for the
+optional `device_elimination=:transformer_currents` policy and its experiment
+harness. Independent prescribed SI states exercise single-phase, center-tap,
+delta-wye and wye-delta windings under reverse flow, bus terminal permutations,
+two power bases, conductor/line modes and lifting. Arbitrary retained coordinates
+verify projection/reconstruction and removed balance equations. Both-side current
+limits have separate negative witnesses; physical JSON values and round trips
+agree with full IVR on the determined-state fixtures.
+
+Additional witnesses retain ideal delta circulation with unchanged secondary
+terminal currents; preserve nonzero open-delta regulator bonds across all three
+connections, both regulator types, excitation sides and flow directions; and
+exercise zero leakage, finite/ideal grounding, actual charged-chain elimination,
+load/generator updates and unchanged model reuse. Incomplete records and consumed
+equations exercise atomic refusal. Multiwinding devices remain explicit with a
+recorded certificate requirement. The source fixture's terminal arrays initially
+aliased component maps; its permutation test was corrected to reassign arrays
+and permute bus-indexed bounds consistently. The failed fixture log is retained.
+
+All **28 executable tutorial blocks** pass. Performance measurements run after
+tests/documentation, with original physical and full-model audits on every trial.
+The [performance guide](ivr_performance.md) reports 192 exploratory and 64
+separate confirmation measurements, with 24 and eight excluded warm-ups; all
+are admitted. These samples support the declared domain, not general speed or
+global-optimality claims. Known OpenDSSDirect precompile fallback and Documenter
+search-index warnings remain nonfatal.
+
 ## External lifting transfer harness — 5 October 2026
 
 The full suite passes **45,709/45,709 assertions**, including 16 new checks for

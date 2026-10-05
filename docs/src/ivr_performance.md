@@ -29,6 +29,86 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+## Transformer coil-current elimination — 5 October 2026
+
+The additive `device_elimination=:transformer_currents` policy removes recorded
+from-side coil currents through unit current-balance pivots. Its
+[equivalence argument](ivr_theory.md) and [contract](ivr_nlp.md) retain to-side
+circulation, bonds, grounds, all bounds and original physical outputs. Defaults
+and earlier options remain unchanged. This experiment asks whether that exact
+substitution improves Ipopt wall time independently of line elimination.
+
+**Protocol.** Four profiles cross full/regional-block coordinates with device
+elimination off/on. All use lifting off, voltage ground scaling, AMD, the same
+strict settings and the same unloaded physical start. Eight rotated/reversed
+sweeps place each profile in each position twice; one warm-up per profile is
+excluded. Compilation, start encoding, extraction and audits do not enter the
+primary metric. No tests, docs or other experiments overlap timing.
+
+Four synthetic single-phase cases have 48/192 segments, charging off/on, a fixed
+1:1 transformer replacing every fourth line (12/48 transformers) and terminal
+generation bounded by a 400 VA capability circle. They inherit the earlier
+transformer fixture: these are not impedance-equivalent versions of its plain
+chain. The objective is source import, and every measured capability slack is
+below ``9\times10^{-8}`` VA in magnitude. Two previously studied external controls
+retain the original DSuite SPD Suburban/Urban electrical data and source accounting,
+with feasibility objective. They have only one/four delta-wye transformers.
+Their provenance and source hashes are retained; they are not unseen holdouts
+or economic-dispatch evidence.
+
+All **192/192 exploratory measurements and 24/24 warm-ups** pass solver, original
+SI physics, own/full-model, reverse-map and objective-comparability checks. The
+table gives median Ipopt milliseconds; `T` means coil-current elimination.
+
+| Input | Full | Full + T | Blocks | Blocks + T |
+|:--|--:|--:|--:|--:|
+| 12 transformers, uncharged | 6.131 | 6.074 | 6.649 | 6.794 |
+| 12 transformers, charged | 7.002 | 6.853 | 9.942 | 9.819 |
+| 48 transformers, uncharged | 22.206 | 21.652 | 25.353 | 24.369 |
+| 48 transformers, charged | 25.321 | 24.631 | 38.448 | 38.126 |
+| DSuite 265 | 13.430 | 13.416 | 12.573 | 12.584 |
+| DSuite 1,220 | 60.300 | 60.086 | 57.984 | 57.660 |
+
+**Predeclared confirmation.** The charged 48-transformer case and DSuite 1,220
+were repeated in a fresh process with all four profiles and unchanged settings,
+regardless of the initial winner. All **64/64 measurements and eight/eight
+warm-ups** pass. Batches remain separate; no outliers are deleted.
+
+| Input | Full | Full + T | Blocks | Blocks + T |
+|:--|--:|--:|--:|--:|
+| 48 transformers, charged | 25.653 | 24.821 | 38.368 | 37.712 |
+| DSuite 1,220 | 60.108 | 60.627 | 57.869 | 57.664 |
+
+On the transformer-rich confirmation, elimination improves the full-coordinate
+median by **3.2%** and the block-coordinate median by **1.7%**. Paired on/off
+ratios are 0.916–0.996 and 0.955–1.031 respectively. All profiles take eleven
+iterations. The pass removes 48 complex currents and 48 complex balance equations:
+full variables fall from 1,450 to 1,354; block variables from 682 to 586. Supplied
+Hessian entries remain 9,236 for full and 21,188 for blocks, while unique entries
+fall by 96 in each case. These are derivative structures before preprocessing,
+not measured KKT fill or factor memory. Smaller dimension alone does not predict
+the relative speed: full + T is still substantially faster than blocks + T.
+
+DSuite confirmation changes are −0.9% for full (a slowdown) and +0.4% for blocks
+(a speedup). Paired ratios span 0.982–1.023 and 0.622–1.039, including the retained
+slow baseline observation. Only 12 complex currents are removed on DSuite 1,220;
+all profiles take three iterations. These small, mixed differences do not support
+a practical feeder speedup claim. Likewise, the 12-transformer uncharged block
+profile regresses about 2.2% in exploration. No significance or every-run speedup
+claim is made.
+
+**Recommendation.** Keep this exact pass as an optional comparator. On these
+transformer-rich cases, full coordinates plus current elimination lead the tested
+shortlist, with modest gains over full alone. This does not warrant a default
+change or replacing the earlier feeder recommendations. Selective observation
+lifting and exact auxiliary reuse are the next representation experiments;
+multiwinding current elimination still requires a separate certificate.
+
+`examples/benchmark_ivr_transformer_currents.jl` reproduces the four-profile
+comparison. The [tutorial](tutorial_exact_ivr.md) includes an executable one-unit
+example. Frozen source/input hashes, protocols, raw JSON, analysis and separate
+confirmation are retained outside Git in `TRANSFORMER_CURRENT_STUDY_20261005`.
+
 ## External transfer of lifting and blocks — 5 October 2026
 
 `examples/benchmark_ivr_feeder_lifting.jl` compares six fixed candidates on four
