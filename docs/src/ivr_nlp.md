@@ -682,6 +682,16 @@ fresh models. This adds an experimental start policy, not an automatic update-AP
 behavior or a primal-dual warm-start contract. See the
 [performance guide](ivr_performance.md) for the protocol and measured domain.
 
+The separate `dual_workflows()` shortlist compares normal previous-primal
+initialization with zero-dual and reconstructed-dual warm initialization on the
+same reused model. `examples/ivr_dual_starts.jl` validates equation correspondence
+and resets both bound sides when a generator box changes. It uses JuMP's
+reconstructed bound duals; it does not recover both native Ipopt multipliers or
+retain a factorization. Callers must admit the preceding solution before capture;
+the helper checks availability and finiteness, while the benchmark checks physical,
+model, fresh-model and objective agreement. The [tutorial](tutorial_exact_ivr.md)
+shows this explicit experimental sequence. Production update behavior is unchanged.
+
 The external-feeder counterpart `examples/benchmark_ivr_feeder_reuse.jl` uses
 explicit constant-power demand sequences and a feasibility objective, preserving
 source/generator accounting. It writes a provenance manifest before solving,

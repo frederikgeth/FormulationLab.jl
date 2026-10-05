@@ -525,3 +525,53 @@ feasibility objective is deliberate: this example makes no claim about economic
 dispatch from a feeder's potentially ambiguous source/generator accounting.
 For a matched fresh/reused comparison, use the separate fixed-start candidate
 set in the [performance guide](ivr_performance.md).
+
+
+## 19. Transfer reconstructed duals on the same model
+
+The experimental helper below also caches constraint duals. It validates the
+same model and equation layout, then resets bound duals when a generator box
+changes. This example changes only constant-power demand. Cache all primal and
+dual solution data before the first model update:
+
+```@example exactivr
+include(joinpath(pkgdir(FormulationLab), "examples", "ivr_dual_starts.jl"))
+const D = IVRDualStarts
+dual_build = build_opf(T.two_wire_case(),
+    IVRNLP(objective=:source_import, specialization=:conductor_difference);
+    optimizer=Ipopt.Optimizer)
+dual_controls = merge(T.SOLVER_OPTIONS,
+    (linear_solver="mumps", mumps_pivot_order=0,
+     fixed_variable_treatment="make_parameter", warm_start_same_structure="no",
+     mu_strategy="monotone", mu_init=0.1,
+     warm_start_bound_push=0.001, warm_start_bound_frac=0.001,
+     warm_start_slack_bound_push=0.001, warm_start_slack_bound_frac=0.001,
+     warm_start_mult_bound_push=0.001, warm_start_init_point="no"))
+dual_first = solve_ivr_nlp_opf(dual_build; solver_options=dual_controls)
+T.check_result(dual_build, dual_first)
+dual_variables = JuMP.all_variables(dual_build.model)
+primal_cache = JuMP.value.(dual_variables)
+dual_cache = D.capture(dual_build)
+updated_input = T.two_wire_case()
+updated_input["load"]["house"]["p_nom"] = [1800.]
+update_ivr_loads!(dual_build, Dict("house" => (p=[1800.], q=[0.])))
+JuMP.set_start_value.(dual_variables, primal_cache)
+transfer = D.apply!(dual_build, dual_cache)
+@assert transfer.matches_policy && transfer.reset_bounds == 0
+dual_next = solve_ivr_nlp_opf(dual_build;
+    solver_options=merge(dual_controls, (warm_start_init_point="yes",)))
+T.check_result(dual_build, dual_next)
+@assert physical_residuals(updated_input, dual_next).passed
+@assert ivr_nlp_point_report(
+    build_opf(updated_input, IVRNLP(objective=:source_import)),
+    T.point(dual_next)).passed
+(carried_duals=transfer.carried, source_import_W=dual_next.objective)
+```
+
+These are reconstructed JuMP duals, not a copy of both native Ipopt bound
+multipliers. The helper intentionally refuses a cache from another model or
+changed equation functions. It is an experimental same-model policy, not an
+automatic feature of `update_ivr_loads!` or `update_ivr_generators!`. The
+[controlled study](ivr_performance.md) compares normal initialization, a zero-dual
+warm control and reconstructed duals. One small successful example does not
+establish a speed benefit, global optimality or factorization reuse.

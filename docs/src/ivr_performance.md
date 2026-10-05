@@ -57,6 +57,20 @@ regresses, and delta formulation differences can be small. See
 [model reuse and initialization](@ref Model-reuse-and-previous-primal-initialization)
 for the separate factors and measured domain.
 
+The subsequent [reconstructed-dual study](@ref Explicit-reconstructed-dual-initialization)
+refines initialization choices without changing that metric or removing options:
+
+| Measured repeated workload | Current starting shortlist |
+|:--|:--|
+| 100-segment single-phase cost dispatch | Regional/passive + AMD + explicit reconstructed duals |
+| 100-segment delta cost dispatch | Full or regional/passive + AMD + explicit reconstructed duals; medians within 1% |
+| ENWL 435 demand feasibility | Regional/passive + AMD + previous primals; reconstructed duals regress and zero duals fail strict acceptance |
+| DSuite 1,220 demand feasibility | Full + AMD + previous primals from the earlier study; reconstructed duals not yet tested |
+
+These are workload-specific experimental choices. New histories, changing
+reactive limits and other feeders still need matched measurements. The dual
+helper's validation overhead is excluded from the Ipopt score and can be large.
+
 ### Selection and transfer evidence
 
 A prospective screen crosses three formulations (full, scaled regional passive,
@@ -544,8 +558,8 @@ previous primal versus eight from the unloaded start. The longer single-phase
 case also has a regression within its sequence: lower demand takes 17 rather
 than 14 regional iterations, despite a lower total sequence time.
 
-For these longer dispatch sequences, regional/passive IVR with AMD and explicit
-previous-primal initialization is the best measured starting choice. Full IVR
+Within this primal-only comparison on longer dispatch sequences, regional/passive
+IVR with AMD and explicit previous-primal initialization is the fastest measured choice. Full IVR
 with AMD remains a strong comparator, especially for delta: its previous-primal
 median is only about 2% higher. Do not automatically carry primal values for
 all workloads, infer benefits from compilation savings, or remove fixed starts
@@ -691,7 +705,7 @@ makes no performance claim. The inspected wrapper, script and results are
 retained in `FEEDER_REUSE_SOURCE` and `DUAL_START_LAYOUT_AUDIT.*`. The JSON field
 `kept_equations` checks all non-variable-bound constraints, including inequalities.
 
-### Requirements for a separate primal-dual study
+### Design requirements for reconstructed-dual starts
 
 Carrying duals requires an explicit correspondence and reset policy. Cache all
 solution values before any model update; JuMP documents this ordering in its
@@ -717,9 +731,202 @@ Begin within one reused model: most equation constraints are anonymous, so
 fresh-model dual correspondence needs more than matching variable names or
 constraint positions. Preserve every existing fixed and primal-only treatment.
 Check supplied starts, failures, objective comparability and independent physical
-admission before any timing claim. Primal-dual performance remains an open
-experiment; enabling `warm_start_init_point="yes"` alone is not evidence that
-the preceding complete native iterate has been transferred.
+admission before any timing claim. Enabling `warm_start_init_point="yes"` alone is not evidence that the preceding
+complete native iterate has been transferred. The following experiment implements
+a restricted reconstructed-dual policy and retains these limitations.
+
+## Explicit reconstructed-dual initialization
+
+The experimental `IVRReuseStudy.dual_workflows()` shortlist adds two policies
+to the existing previous-primal treatment, for the same reused models:
+
+| Policy | Subsequent primal start | Subsequent dual start | Ipopt initializer |
+|:--|:--|:--|:--|
+| `previous_primal` | Previous accepted primal | None supplied | Normal |
+| `zero_dual` | Previous accepted primal | Zero for every current constraint | Warm |
+| `reconstructed_dual` | Previous accepted primal | Cached JuMP duals, with changed-box resets | Warm |
+
+The **zero-dual control** distinguishes the warm initializer's effect from the
+information in carried multipliers. All three start the first scenario normally,
+from the same unloaded start. Caches never cross models, workflows or repetitions.
+Fixed starts, fresh models and all previous formulations remain available through
+the original `workflows()` shortlist. No production behavior changes.
+
+`examples/ivr_dual_starts.jl` captures all dual values before updates and retains
+variable references while copying affine, quadratic and nonlinear expression
+containers. Before assigning any dual starts, it checks model identity, variable
+layout, non-variable-bound constraint identities, canonical functions, set types,
+all non-CP constraint sets, non-generator boxes and the objective after removing
+permitted generator-price coefficients. The cache is refused if those invariants
+change. Supported CP right-hand sides and generator prices/boxes may vary.
+The caller must admit the preceding solution before capture: the helper checks
+dual availability and finiteness, while the benchmark additionally requires the
+physical, own-model, independent fresh-model, reverse-anchor and objective checks.
+
+For a current bound on variable ``x_j``, use the cached JuMP dual only if its
+entire box is unchanged and the bound existed in the snapshot. If either endpoint
+changes, reset **both current bound sides** to zero, including an unchanged side.
+New sides start at zero and removed sides are discarded. This covers fixed-zero
+availability, release and removed/restored bounds. Every current dual-start
+attribute is read back and checked against its declared assignment. The report
+records changed boxes, carried/reset/zeroed counts, added/removed rows and
+source/start/solution digests. Backend errors during assignment do not have a
+rollback guarantee; the benchmark retains the failed sequence.
+
+The shared `DUAL_CONTROLS` fix AMD's surrounding initialization policy:
+`fixed_variable_treatment="make_parameter"`, `warm_start_same_structure="no"`,
+`mu_strategy="monotone"`, `mu_init=0.1`, and warm-start bound/slack pushes,
+fractions and multiplier push at `0.001`. The initial solve uses
+`warm_start_init_point="no"` in every arm. Subsequent zero/reconstructed-dual
+solves use `"yes"`, while the previous-primal control stays at `"no"`.
+Per-scenario effective settings are saved; all other controls are shared.
+The [Ipopt option reference](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_warm_start_init_point)
+defines the two initializers. This experiment does not tune the push/barrier
+parameters or claim to copy both native bound multipliers.
+
+```julia
+include("examples/benchmark_ivr_reuse.jl")
+R = IVRReuseStudy
+report = R.benchmark(net, schedule, "dual-study.json";
+    candidates=R.dual_workflows(), repetitions=12,
+    solver_options=merge(R.SETTINGS, (obj_scaling_factor=1000.,)))
+```
+
+Here `net` and `schedule` describe the intended cost-dispatch sequence. For a
+feasibility study, pass profiles with `objective=:feasibility` and omit the cost
+scaling. Twelve sweeps balance six workflows with two observations per position;
+three workflows need six sweeps for the same balance. Check the saved order table.
+Use complete admitted sequences and per-scenario objective agreement, as before.
+The Ipopt wall score excludes dual capture, correspondence checks and assignment,
+as well as construction, updates and extraction.
+
+### Declared screen and confirmation design
+
+A prospective screen uses the same manufactured single-phase two-wire and
+three-wire delta cost-dispatch fixtures as the preceding reuse experiment,
+with 20 and 100 line segments. The six steps are cheap generation, an identical
+repeat, expensive generation, lower demand, zero generator availability at the
+original demand, and restored availability. Six workflows cross full/regional
+formulations with the three initialization policies. Four exploratory sweeps
+are reversed/rotated but not fully position-balanced. All **576/576 measured
+solves** and **144/144 excluded warm-ups** pass the admission checks, and all
+six workflows have comparable objectives in every scenario. Reconstructed-dual
+initialization has the lowest median in each case; regional leads on the two
+single-phase inputs and full leads on the two delta inputs. These observations
+are a screen, not a population-level performance estimate.
+
+The protocol separately declares twelve new sweeps on each 100-segment case,
+placing every workflow in every position twice. This repeats known inputs; it
+is not unseen-network validation. A third, separate transfer study uses the
+ENWL 435 feeder, regional/passive formulation, all three start treatments and
+six balanced sweeps. All 223 CP loads follow factors `(1,1,0.9,1)`, preserving
+source/generator accounting and equipment. Its feasibility objective does not
+establish economic-dispatch performance. Batches are not pooled. The protocol,
+raw samples, driver, frozen sources and source/input hashes remain outside Git.
+
+### Balanced synthetic confirmation
+
+The separately declared confirmation admits **864/864 measured solves** and
+**72/72 excluded warm-ups**. Every workflow occupies every order position twice;
+objectives agree across eligible workflows within every scenario. The entries
+below are medians of complete six-scenario sums, in milliseconds of Ipopt wall
+time. They are not sums of scenario medians.
+
+| 100-segment case / formulation | Previous primal (ms) | Zero dual (ms) | Reconstructed dual (ms) | Reconstructed/previous | Paired ratio range |
+|:--|--:|--:|--:|--:|:--|
+| Single-phase / full | 73.893 | 77.153 | 62.902 | 0.851 | 0.841–0.864 |
+| Single-phase / regional passive | 52.556 | 56.326 | 47.202 | 0.898 | 0.889–0.915 |
+| Delta / full | 121.485 | 119.576 | 90.244 | 0.743 | 0.681–0.774 |
+| Delta / regional passive | 119.896 | 118.594 | 90.990 | 0.759 | 0.341–0.871 |
+
+Ratios use matched workflows in the same batch; the final column retains all
+twelve repetition-paired ratios, including timing outliers. Reconstructed duals
+reduce median sequence time by 10–26% against previous primals alone on these
+cases. The zero-dual initializer control regresses on single-phase and gives
+only small improvements on delta, supporting a contribution from the carried
+multiplier information. Regional/passive is fastest on single-phase; full and
+regional with reconstructed duals differ by less than 1% on delta. This is not
+a statistical-significance claim or evidence for a universally fastest formulation.
+
+Gains are transition-dependent. In the regional single-phase sequence, the
+identical repeat falls from 8 to 3 iterations and the lower-demand step from
+17 to 7, but restoring availability rises from 11 to 14. Regional delta repeat
+and lower-demand iterations fall from 14 to 3 and 9 to 4; restoration rises
+from 12 to 13. All constraints and physical checks are retained in these solves.
+
+A **post-hoc timing sensitivity**, subtracting only the identical-repeat step
+from each complete accepted sequence, gives reconstructed/previous median ratios
+of 0.906/0.965 for single-phase full/regional and 0.862/0.875 for delta
+full/regional. These smaller benefits show that the repeat contributes materially
+to the primary result. This subtraction does not simulate a sequence without
+the repeat: the original trajectory and subsequent initial points remain intact.
+It does not alter primary rankings. New histories without repeated scenarios
+are needed before extrapolating to that workload.
+
+### Feeder transfer and strict rejection
+
+The ENWL 435 transfer study retains a feasibility objective and compares only
+regional/passive formulations. Previous-primal and reconstructed-dual policies
+each complete all six measured sequences and their excluded warm-up. The
+zero-dual control returns `ALMOST_LOCALLY_SOLVED` at the identical repeat in
+all six measured sequences and its warm-up, after 40 iterations. This fails
+the declared strict solver-status gate; its physical/model point audits are
+not evaluated. It is not evidence of an independently demonstrated physical
+violation. The sequence stops there, without repaired retries or relaxed settings.
+
+Thus **54/60 attempted measured solves** and **9/10 attempted warm-up solves**
+are admitted. Twelve later measured scenarios and two later warm-up scenarios
+are unattempted after rejection. Zero-dual initialization is ineligible for
+ranking; its accepted initial steps cannot be compared as complete sequences.
+The two eligible policies have comparable objectives and pass all physical,
+own/fresh-model and reverse-anchor checks. Every workflow occupies every
+position twice, including the failed control.
+
+| Regional/passive policy | Median four-scenario Ipopt sum (ms) | Reconstructed/previous | Paired ratio range |
+|:--|--:|--:|:--|
+| Previous primal | 448.236 | — | — |
+| Reconstructed dual | 470.487 | 1.050 | 1.002–1.068 |
+| Zero dual | Ineligible: strict status rejection | — | — |
+
+Reconstructed duals **regress by about 5%** on this feeder despite reducing the
+repeat and lower-demand iteration counts from 6 to 5. The full iteration vectors
+are `(8,6,6,6)` for previous primal and `(8,5,5,6)` for reconstructed duals.
+Iteration count alone therefore does not rank Ipopt wall time. Subtracting the
+repeat's time in the same post-hoc sensitivity gives a ratio of 1.054, still a
+regression. There is no admitted feeder contrast against the zero-dual control.
+
+The experimental helper also has substantial overhead outside the primary score:
+median validation/assignment times across measured transferred starts are about
+10.16 s for zero duals and 11.83 s for reconstructed duals on this feeder. These
+include correspondence checks, assignment, read-back and start hashing, but not
+cache capture. They do not enter the requested Ipopt ranking. The helper remains
+a research implementation, and this experiment does not claim an end-to-end
+speed benefit or a production warm-start API.
+
+Across the screen, confirmation and transfer studies, **1,494/1,500 attempted
+measured solves** and **225/226 attempted excluded warm-ups** are admitted.
+There are six measured and one warm-up strict-status rejections, all retained.
+The original plan had 1,512 measured scenarios and 228 warm-up scenarios; early
+stopping accounts for the unattempted remainder. The independent audit checks
+source/input hashes, effective settings, correspondence and reset digests,
+complete-sequence sums, eligibility, objective agreement and actual position
+balance. Failed feeder attempts still undergo start/settings correspondence
+checks, without being relabelled as accepted physical points. Raw reports,
+`DUAL_PROTOCOL.md`, `DUAL_RUN.jl`, `DUAL_SOURCE`, `DUAL_HASHES.txt`,
+`DUAL_ANALYZE.py` and `DUAL_SUMMARY.json` remain outside Git.
+
+### Interpretation of the transferred multipliers
+
+No feasibility or optimality certificate is transferred. After a demand or price
+update, the previous multipliers need not satisfy the new KKT equations. They
+are initial guesses in identical equation and variable coordinates. All electrical
+and operating constraints remain in the new solve and every returned point must
+pass the independent audits. Resetting both sides of a changed box avoids
+pretending that a reconstructed signed reduced cost identifies its two native
+bound multipliers, particularly as a generator becomes fixed or is released.
+The zero-dual arm holds the warm initializer constant while removing carried
+multiplier information; its contrast with reconstructed duals is therefore more
+informative than a normal-versus-warm comparison alone.
 
 ## Why the structural selector is still optional
 

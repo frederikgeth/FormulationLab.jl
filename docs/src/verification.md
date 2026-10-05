@@ -1,5 +1,56 @@
 # Verification
 
+## Explicit reconstructed-dual initialization — 5 October 2026
+
+The example-only dual helper and `dual_workflows()` compare previous primals
+with normal initialization, a zero-dual warm control and reconstructed-dual warm
+initialization. The helper caches solution values before mutation, validates
+same-model/coordinate/equation correspondence and resets both bound sides when
+any generator box endpoint changes. New bound sides start at zero; removed
+sides are discarded. Unsupported structural, non-price objective and non-CP
+constraint changes are refused before dual assignments. No production equations,
+bounds, defaults, component coverage or prior options change.
+
+A prospectively declared screen admits 576/576 measured solves plus 144/144
+excluded warm-ups on 20/100-segment single-phase and delta dispatch. Separate
+balanced confirmation on the two 100-segment inputs admits 864/864 plus 72/72
+warm-ups. Each of six workflows occupies every position twice. Reconstructed/
+previous-primal sequence ratios are **0.851/0.898** for single-phase full/regional
+and **0.743/0.759** for delta full/regional. Zero-dual controls are slower on
+single-phase and only slightly faster on delta. Regional is fastest on
+single-phase; the two reconstructed-dual formulations are within 1% on delta.
+These repeated known inputs do not establish performance on unseen networks.
+
+A separate balanced ENWL 435 feasibility transfer admits **54/60 attempted
+measured solves** and **9/10 attempted warm-ups**. The zero-dual control fails
+the strict status gate with `ALMOST_LOCALLY_SOLVED` on scenario 2 in all six
+measured sequences and its warm-up; no physical-point audit is evaluated for
+those rejected results. Twelve later measured and two later warm-up scenarios
+are unattempted after rejection. The failed workflow is ineligible for ranking.
+Previous-primal and reconstructed-dual sequences pass every admission check,
+but reconstructed duals **regress about 5%**: 470.487 versus 448.236 ms per
+complete sequence, ratio 1.050 and paired range 1.002–1.068. Lower iteration
+counts do not guarantee lower Ipopt wall time. All failures and slower options
+remain available; there are no repaired retries or relaxed acceptance settings.
+
+The independent raw-data audit verifies source/scenario hashes, shared controls,
+primal/dual correspondence, changed-box resets, sequence completeness, eligibility,
+objective comparability and actual order balance. Across all seven reports,
+1,494/1,500 attempted measured solves and 225/226 attempted warm-ups are admitted.
+Ipopt wall time is primary; construction, updates, dual capture/assignment and
+result audits are excluded. The helper's substantial feeder-side preparation
+cost is reported separately; this is not an end-to-end performance claim.
+The [performance guide](ivr_performance.md) includes scenario regressions,
+post-hoc repeat-time sensitivity and the refined workload-specific shortlist.
+
+The full suite passes **32,253/32,253** assertions, including 234 new dual
+correspondence, changed-box, added/removed-side, refusal, zero-control and
+workflow-setting checks. The tutorial now contains 22 executable blocks,
+including a same-model reconstructed-dual example with independent physical
+and fresh-model verification. The inherited OpenDSSDirect precompile
+method-overwrite fallback remains nonfatal. Plans and raw evidence stay outside
+Git; no production equations, bounds or defaults change.
+
 ## External feeder reuse and initialization transfer — 5 October 2026
 
 The new `examples/benchmark_ivr_feeder_reuse.jl` wrapper writes source/scenario
@@ -34,8 +85,8 @@ All 12 post-initial updates mark the installed Ipopt wrapper for reconstruction
 and the next solve creates a different internal problem object. This does not
 measure reconstruction's time contribution or establish factorization reuse.
 The [performance guide](ivr_performance.md) documents the installed wrapper's
-bound-dual reconstruction and the required reset/correspondence policy before
-a future primal-dual experiment.
+bound-dual reconstruction and the reset/correspondence policy used in the
+subsequent reconstructed-dual experiment.
 
 The final suite passes **32,019/32,019** assertions, including 24 new checks of
 absolute demand scenarios, unchanged non-CP loads, invalid schedules, source-file
