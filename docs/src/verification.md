@@ -1,5 +1,46 @@
 # Verification
 
+## Controlled power-unit interactions — 6 October 2026
+
+The full suite passes **70,427/70,427 assertions**, adding **317 checks** in
+`test/ivr_power_interaction_tests.jl`. They verify all eight dispatch/lift/reuse
+combinations, every declared factor difference, independently owned options,
+complete shared starts, physical objective agreement under both solver-scaling
+policies, actual effective units/reuse counts, refusal paths and source-safe
+benchmark provenance. The existing finalist runner retains its candidate set and
+shares the same measurement protocol with the new factorial runner. Production
+equations, defaults and all transformation options are unchanged.
+
+All **2400 measured solves, 240 warm-ups and 120 separate preflight solves** pass
+on unchanged BASE265, VOLTAGE265 and URBAN1220 scenarios. SI exports round-trip
+with matching physical quantity fields. Six tighter-capability and two tighter-
+voltage witnesses reject independently and algebraically. The original sources,
+all added-device/bound manifests, actual coordinate bases, complete starts,
+full/reverse membership and cyclic order balance pass audit. Maximum recovered-
+power objective discrepancy is below 4.98e-14; within-cell spread is below
+3.59e-13. An independent audit recomputes all **288 conditional contrasts and
+144 pairwise interactions** from raw trials. No batch or slow tail is discarded.
+
+Cost retains the 10 kVA dispatch/1 kVA lift/no-reuse leader on the two smaller
+scenarios. Reuse with 100 kVA dispatch slows BASE265 cost about 25–27% and
+raises iterations from 14 to 19. Urban cost has close unreused candidates whose
+order changes between batches; urban gradient-scaled tracking supports combined
+1 kVA lifts/reuse at 10 kVA dispatch. These conditional findings do not imply a
+universal profile. Bounded-size hybrid condensation remains a recorded design,
+with implementation and original-interior-bound tests still required.
+
+An initial focused test used string indexing for NamedTuple metadata; field
+access corrected the test before measurement. The first full-suite startup was
+blocked by Julia-cache permissions and was rerun with the required access;
+the existing OpenDSS precompile fallback remains nonfatal. Original logs are
+retained. No solver timing overlaps tests, documentation execution or native
+solver diagnostics. Small JSON progress reads occurred during exploration;
+confirmation used only text-log progress reads.
+
+See the [complete interaction study](ivr_power_interactions.md), updated
+[profile shortlist](ivr_performance.md) and [tutorial section 40](tutorial_exact_ivr.md).
+
+
 
 ## Lifted units, exact generator reuse and transfer — 6 October 2026
 

@@ -1428,3 +1428,35 @@ both solver-scaling policies and confirm in a fresh process. This example proves
 representation agreement; use the [recorded study](ivr_objectives.md) for timings.
 New voltage bounds or DER additions define a new physical scenario and need their
 own manifest; they must not be presented as equivalent preprocessing.
+
+
+## 40. Test combined choices with matched controls
+
+The smaller-lift and generator-reuse choices from section 39 affect overlapping
+power definitions. Compare their combinations explicitly before using both.
+The interaction runner also crosses dispatch units and retains full/unlifted
+controls. This example verifies physical agreement on a small circuit; it does
+not estimate feeder runtime benefits.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_power_interactions.jl"))
+PI = IVRPowerInteractionStudy
+interaction_profiles = filter(p -> p.factors.reduced && p.options.lifting==:powers &&
+    p.factors.generator_base==1e4, PI.profiles(finalist_demo,:quadratic_cost))
+@assert length(interaction_profiles)==4
+interaction_rows = map(interaction_profiles) do profile
+    row,_ = PI.P.trial(finalist_demo,profile,finalist_reference,finalist_anchor[];
+        initial_point=EO.S.U.G.H.S.L.start_point(finalist_demo))
+    @assert row["accepted"]
+    (profile=profile.name,objective=row["objective"],variables=row["variables"])
+end
+@assert maximum(r.objective for r in interaction_rows)-minimum(r.objective for r in interaction_rows)<1e-6
+interaction_rows
+```
+
+Run `PI.benchmark(input_path, output_path; workload=:quadratic_cost)` for the
+complete ten-profile panel. For tracking, set `workload=:exchange_tracking` and
+an explicit `exchange_target_W`; run both solver-scaling policies separately.
+The [interaction study](ivr_power_interactions.md) defines the conditional
+contrasts, admission rules and limits of the evidence. The result schema and
+physical SI quantities remain the same for every profile.

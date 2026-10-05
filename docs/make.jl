@@ -30,6 +30,7 @@ makedocs(;
             "Build, verify and reuse: tutorial"=>"tutorial_exact_ivr.md",
             "Scope, bounds and update contract"=>"ivr_nlp.md",
             "Power objectives"=>"ivr_objectives.md",
+            "Power-unit interactions"=>"ivr_power_interactions.md",
             "Best-evidence numerical profiles"=>"ivr_performance.md",
         ],
         "Explicit-neutral LinIVR"=>"linivr.md",

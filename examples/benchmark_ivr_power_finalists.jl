@@ -38,7 +38,10 @@ function profiles(net,workload;exchange_target_W=nothing,nlp_scaling_method="non
 end
 
 
-function benchmark(path,output;workload=:quadratic_cost,exchange_target_W=nothing,
+benchmark(path,output;kwargs...) = benchmark_profiles(path,output,profiles,@__FILE__;kwargs...)
+
+# Shared source-safe protocol; the caller supplies its own candidate design and provenance.
+function benchmark_profiles(path,output,profile_builder,runner_path;workload=:quadratic_cost,exchange_target_W=nothing,
                    nlp_scaling_method="none",blocks=1,seed=20261006)
     canonical(p)=ispath(p) ? realpath(p) : abspath(p)
     any(p->canonical(p)==canonical(path),(output,output*".input.json",output*".manifest.json")) &&
@@ -46,10 +49,10 @@ function benchmark(path,output;workload=:quadratic_cost,exchange_target_W=nothin
     digest=bytes2hex(sha256(read(path)))
     net,detached=P.compiler_feeder_input(path;detach_legacy_provenance=true)
     before=bytes2hex(sha256(JSON3.write(net)))
-    candidates=profiles(net,workload;exchange_target_W,nlp_scaling_method)
+    candidates=profile_builder(net,workload;exchange_target_W,nlp_scaling_method)
     trial_orders=F.orders(length(candidates);blocks,seed)
     manifest=(;source_path=abspath(path),source_sha256=digest,network_sha256=before,
-        runner_sha256=bytes2hex(sha256(read(@__FILE__))),workload,exchange_target_W,
+        runner_sha256=bytes2hex(sha256(read(runner_path))),workload,exchange_target_W,
         detached_provenance_paths=detached,electrical_changes=Any[],legacy_prices_used=false,
         power_terms=first(candidates).options.power_terms,objective_scale=1.,
         note="Unchanged supplied physical input, declared economic/tracking objective. If input is a derived scenario, retain its original-source/addition manifest separately. Raw dictionary boundary, not schema validation.")

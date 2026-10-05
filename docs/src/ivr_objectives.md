@@ -825,8 +825,10 @@ a universal or statistically separated optimum.
 For tracking without automatic scaling, `reduced_reuse` leads all three cases.
 Under gradient scaling it leads BASE265, while `reduced_lifts_1k` leads VOLTAGE265
 and URBAN1220. Retain both in the tracking shortlist and state the solver policy.
-No package default is changed. No evidence here ranks combinations of smaller
-lift units with generator reuse or different generator dispatch units.
+No package default is changed. This panel does not rank combinations of smaller
+lift units with generator reuse or different generator dispatch units; the
+subsequent [controlled interaction study](ivr_power_interactions.md) tests those
+combinations explicitly.
 
 All outliers remain, including a BASE265/no-scaling tracking 100k/10k-lift ratio
 of 6.602, an urban cost/gradient nonadjacent/block ratio of 1.831, and an urban

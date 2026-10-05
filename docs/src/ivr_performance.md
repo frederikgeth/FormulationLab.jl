@@ -73,7 +73,7 @@ reuse and less aggressive nonadjacent condensation. It includes the unchanged
 1,220-bus/four-transformer scenario with 268 added DERs. All 2400 measured solves,
 240 warm-ups and 120 separate SI exports pass. Original source files are unchanged.
 
-The current **cost shortlist** leads with reduced blocks, nominal transformer
+The finalist-panel **cost shortlist** leads with reduced blocks, nominal transformer
 coordinates, voltage-ground/composed-row scaling, exact sharing, assembly and
 generator bases 10 kVA, power lifting with `lifted_power_base=1e3`, and
 `power_sharing=:off`. Against full-10k, confirmation median gains are 19.6–20.2%,
@@ -91,7 +91,18 @@ control, but slows larger-feeder cost by 6–7% despite removing 536 real variab
 Nonadjacent condensation is 3.6–6.8% slower than blocks in every confirmed context.
 These negative results are retained. Common-1k and dispatch-only old finalists
 are now compared in the same block; they do not beat the new cost leader here.
-No automatic default is promoted, and combined unit/reuse tuning is untested.
+No automatic default is promoted. The subsequent
+[controlled interaction study](ivr_power_interactions.md) tests combined
+unit/reuse tuning and updates the workload-specific shortlist.
+
+The controlled combinations retain the 265-bus cost leader: dispatch 10 kVA,
+lifts 1 kVA, reuse off. At 100 kVA dispatch, reuse instead slows BASE265 cost
+about 25–27%. Urban cost has several close unreused candidates whose ordering
+changes between batches. For urban gradient-scaled tracking, dispatch 10 kVA,
+lifts 1 kVA and reuse leads both batches; the incremental matched reuse gain is
+about 2–4%. Keep the prior alternatives: the same combination loses on the
+voltage-constrained tracking case. See the linked interaction study for complete
+conditional effects and unchanged physical-result checks.
 
 ## Unbalanced transformer-leakage transfer — 5 October 2026
 
