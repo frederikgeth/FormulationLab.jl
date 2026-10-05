@@ -39,8 +39,8 @@ function check_result(build, result)
     (; physical, encoded)
 end
 
-function solve_checked(network; specialization=:off, objective=:source_import,linear_elimination=:off)
-    build = build_opf(network, IVRNLP(; specialization, objective,linear_elimination); optimizer=Ipopt.Optimizer)
+function solve_checked(network; specialization=:off, objective=:source_import,linear_elimination=:off,ground_scaling=:off)
+    build = build_opf(network, IVRNLP(; specialization, objective,linear_elimination,ground_scaling); optimizer=Ipopt.Optimizer)
     result = solve_ivr_nlp_opf(build; solver_options=SOLVER_OPTIONS)
     checks = check_result(build, result)
     (; build, result, checks)
@@ -266,6 +266,29 @@ function series_elimination_example()
     (;net,full,reduced)
 end
 
+"""Resolve a finite stiff ground without treating it as an ideal earth bond."""
+function finite_ground_example()
+    net=two_wire_case();net["bus"]["source"]["perfectly_grounded_terminals"]=String[]
+    source=net["voltage_source"]["grid"]
+    source["terminal_map"]=["a"];source["v_magnitude"]=[230.];source["v_angle"]=[0.]
+    y=-1e10im
+    net["shunt"]=Dict("ground"=>Dict("bus"=>"source","terminal_map"=>["n"],"G_1_1"=>0.,"B_1_1"=>imag(y)))
+    net["load"]["house"]["model"]="constant_impedance";net["load"]["house"]["v_nom"]=[230.]
+    scaled=solve_checked(net;ground_scaling=:voltage,linear_elimination=:passive,specialization=:conductor_difference)
+    current=230/(.5+230^2/2000+inv(y));neutral=current/y
+    @assert isapprox(scaled.result.voltage_candidate[("source","n")],neutral;rtol=1e-7,atol=1e-17)
+    full=build_opf(net,IVRNLP())
+    @assert ivr_nlp_point_report(full,point(scaled.result)).passed
+    bad=copy(scaled.result.voltage_candidate);bad[("source","n")]+=1e-3/y
+    perturbed=ACPoint(voltage=bad,currents=scaled.result.current_candidate)
+    @assert ivr_nlp_point_report(full,perturbed).passed
+    @assert !ivr_nlp_point_report(scaled.build,perturbed).passed
+    @assert !physical_residuals(net,perturbed;delta_dispatch=:coil).passed
+    @printf("Finite source-neutral voltage: %.6e V; ground current: %.6f A\n",abs(neutral),abs(current))
+    println("A 1 mA KCL perturbation passes the old normalized check, but fails the scaled model and SI audit.")
+    (;net,scaled,current,neutral)
+end
+
 function refusal_examples()
     baseline = analytical_example()
     tight = deepcopy(baseline.net)
@@ -298,6 +321,7 @@ function run_all()
     region_example()
     impedance_elimination_example()
     series_elimination_example()
+    finite_ground_example()
     refusal_examples()
     println("All tutorial checks passed.")
 end

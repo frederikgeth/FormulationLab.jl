@@ -388,13 +388,44 @@ inconsistent eliminated current or voltage cannot be silently repaired.
 The same argument preserves fixed equipment constraints and supported demand/
 dispatch updates, provided their changes do not alter the defining linear laws.
 
-## 5. Implementation and evidence map
+## 5. Invertible finite-ground scaling
+
+After reduction, write the physical state as ``z=Ry`` with projection ``y=Pz``.
+For selected free physical voltage coordinates, choose a finite real scale
+``s_j\geq1`` from the largest one-terminal shunt admittance magnitude in per unit.
+Let ``D=\operatorname{diag}(s_j)`` and ``w=Dy``. Then
+
+```math
+z=RD^{-1}w,\qquad w=DPz.
+```
+
+Since ``D`` is nonsingular, this changes neither the feasible physical states
+nor objective values. Every bound and observation is composed with ``RD^{-1}``.
+For a circuit row ``a^Tz=0``, nonzero row normalization uses
+``\|a^TRD^{-1}\|_2``; identically cancelled rows use divisor one. This is a
+numerical equivalence policy, not another dimension reduction. The physical
+ground law remains ``I_g=Y_gV_g`` with its finite complex admittance.
+
+For example, in ``Y_{g,pu}V_{g,pu}+\sum_k I_{k,pu}=0``, normalizing by a large
+``|Y_{g,pu}|`` makes a finite current residual appear small. Choosing
+``w=|Y_{g,pu}|V_{g,pu}`` gives a unit-magnitude ground coefficient before row
+normalization. The corresponding current residual is no longer suppressed by
+the original admittance magnitude. Floating-point accuracy and solver acceptance
+still depend on the remaining circuit and must be checked in physical units.
+
+Only retained singleton physical voltage coordinates are eligible; prescribed
+and ideal-ground voltages are excluded. Scalar shunts select the scale even if
+other circuit contributions share the terminal, but no general multi-terminal
+shunt, transformer-ground or global equilibration policy is implied.
+
+## 6. Implementation and evidence map
 
 | Responsibility | Implementation | Validation |
 |:--|:--|:--|
 | Exact circuit, maps and endpoint quantities | `src/formulations/ivr_electrical.jl` | manufactured SI states; component/OpenDSS tests |
 | Power products, operating bounds, objectives and updates | `src/formulations/ivr_nlp.jl`, `src/formulations/ivr_loads.jl` | fixed-state negative-bound tests; fresh/reused comparisons |
 | Local impedance/series elimination | `src/compilation/ivr_elimination.jl` | `test/ivr_elimination_tests.jl`: bidirectional physical points, retained bounds, modes, meshes, zero impedance and boundary refusals |
+| Finite-ground coordinate/row scaling | `src/compilation/ivr_scaling.jl` | `test/ivr_ground_scaling_tests.jl`: analytical finite-ground states, current-error witnesses, retained bounds, scope and reuse |
 | Local difference identities | `src/compilation/conductor_difference.jl` | `test/compiler_algebra_tests.jl` |
 | Applicability, projection and reconstruction | `src/compilation/ivr_structure.jl`, `src/compilation/ivr_regions.jl` | `test/compiler_network_tests.jl`, `test/compiler_region_tests.jl` |
 | Supplied-point evaluation of the actual NLP | `src/validation/ivr_nlp.jl` | both mapping directions; deliberately perturbed states |

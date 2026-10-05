@@ -197,6 +197,22 @@ This is the central acceptance condition: reconstruction after solving alone
 would not retain the original optimization problem. No impedance inversion or
 approximate pi-line length aggregation is involved.
 
+## K. Distinguish a small ground voltage from a small current error
+
+In Example I, replace ideal source-neutral grounding with a finite admittance
+``Y_g=-\mathrm{j}10^{10}`` S. Its impedance adds ``1/Y_g`` to the loop, so
+``I=230/(0.5+230^2/2000+1/Y_g)`` and ``V_n=I/Y_g``. The ground voltage is
+about ``8.53\times10^{-10}`` V while the current is about 8.53 A.
+
+A voltage perturbation ``\Delta V_n=10^{-3}/Y_g`` V changes ground current by
+1 mA. Dividing KCL by its original large admittance coefficient can conceal this
+error from a normalized residual check. With `ground_scaling=:voltage`, the
+solver uses ``w=|Y_g|Z_bV_{n,pu}`` and circuit rows are normalized in those
+coordinates. The finite law, operating domain and SI observations are preserved.
+The [tutorial](tutorial_exact_ivr.md) checks the analytical voltage and demonstrates
+rejection of the perturbed physical state. Numerical scaling improves this
+example's residual visibility; independent physical validation remains necessary.
+
 ## Interpreting benefit and evidence
 
 There are three distinct potential benefits: a native exact reference for

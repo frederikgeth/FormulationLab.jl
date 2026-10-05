@@ -32,6 +32,12 @@ physical observation and operating bound. This expands coordinate-reduction
 choices, not element coverage. See the [contract](ivr_nlp.md#Local-linear-elimination)
 and [proof](ivr_theory.md#4.-Local-linear-elimination-with-retained-observations).
 
+`ground_scaling=:voltage` changes numerical coordinates for eligible retained
+free voltages attached to one-terminal finite shunts. It preserves equipment,
+observations and bounds and adds no element coverage. Multi-terminal grounding
+equilibration is outside this numerical policy; see the
+[contract](ivr_nlp.md#Finite-ground-numerical-scaling).
+
 Regional mode retains source, earth-path and device-boundary buses and certifies
 only eligible leaf regions. See [regional scope](ivr_nlp.md#Pendant-regions-inside-a-larger-network).
 A supported full-IVR network may fail the narrower specialization certificate;

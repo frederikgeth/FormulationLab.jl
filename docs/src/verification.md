@@ -1,5 +1,87 @@
 # Verification
 
+## Finite-ground voltage scaling — 5 October 2026
+
+`ground_scaling=:voltage` is now an opt-in numerical policy for retained free
+voltages at one-terminal finite shunts. It composes invertible diagonal scaling
+with the existing reconstruction maps and normalizes circuit rows in those
+solver coordinates. No finite ground is replaced, no equation or bound is
+removed, and the default remains `:off`. See the [contract](ivr_nlp.md#Finite-ground-numerical-scaling),
+[equivalence argument](ivr_theory.md#5.-Invertible-finite-ground-scaling) and
+[analytical tutorial](tutorial_exact_ivr.md).
+
+The Julia 1.12.6 default suite passes **31,446/31,446** assertions (2m12.6s),
+including **1,261 new checks**. Independently calculated two-wire impedance-load
+states cover weak, stiff, complex and signed grounds at two power bases, all
+three conductor settings and all three linear-elimination settings. Tests check
+unchanged physical electrical rows, dimensions, objective values, both point
+mappings, retained intermediate neutral/source-current bounds and reuse after
+CP/generator updates. Fixed and ideal voltages, weak/zero scalar shunts,
+multi-terminal shunts and multiple shunts sharing a terminal exercise the scope.
+
+A fixed-state witness adds ``10^{-3}/Y_g`` V to a source-neutral voltage with
+``Y_g=-\mathrm{j}10^{10}`` S while leaving every current observation unchanged.
+This creates a 1 mA physical KCL error. The old normalized model check accepts
+that state; the scaled model and unchanged SI auditor reject it. This is a
+numerical-accuracy regression test, not an infeasibility claim for the circuit.
+
+The original ENWL 538 regional/series failure is reproducible in a separate
+12-configuration probe. Either current-unit circuit equations or diagonal
+voltage scaling with transformed row normalization makes that configuration
+pass the unchanged physical audit. The implemented latter policy additionally
+reduces the large grounding coefficient presented to the solver. These probes
+support the scaling diagnosis; they do not establish a universal choice of
+scaling or a performance advantage over all alternative numerical policies.
+
+A separate same-version experiment fixes `linear_elimination=:passive` and
+compares ground scaling off/on on three unchanged external electrical inputs,
+in full and regional conductor modes. It uses one excluded warm-up per variant
+and six balanced alternating-order pairs, single-thread BLAS, explicit
+feasibility objective, Ipopt `tol=constr_viol_tol=1e-10`, `acceptable_iter=0`,
+`bound_relax_factor=0`, `max_iter=500`, and `max_cpu_time=30`. Independent physical,
+own-model, both cross-model, fresh-full-model and channel checks lie outside
+timers. No tests, documentation builds or profiling overlap measured trials.
+
+Of **72 measured solves**, all **36 scaling-on** solves and **30 scaling-off**
+solves pass their own-model and physical checks. The six rejected baselines
+are all ENWL 538 regional/series runs. All 36 candidate states also pass a fresh
+full model and their corresponding unscaled model. All six rejected baseline
+states fail the scaled model's normalized check as well. There are **30 accepted
+pairs** for timing comparisons; rejected baselines do not supply speed ratios.
+
+| Input / conductor mode | Scaled terminals | Accepted solves: off / on | Median paired solve ratio | Median paired total ratio | Median paired build-byte ratio |
+|:--|--:|:--:|--:|--:|--:|
+| DSuite 265, full | 0 | 6 / 6 | 0.996 | 0.789 | 1.0002 |
+| DSuite 265, regional | 0 | 6 / 6 | 1.020 | 1.015 | 1.0002 |
+| DSuite 2,854, full | 0 | 6 / 6 | 0.998 | 0.982 | 1.0002 |
+| DSuite 2,854, regional | 0 | 6 / 6 | 0.989 | 1.112 | 1.0002 |
+| ENWL 538, full | 1 | 6 / 6 | 1.464 | 1.396 | 1.044 |
+| ENWL 538, regional | 1 | 0 / 6 | — | — | — |
+
+Ratios are scaling-on/off, computed within pairs before medians. Total includes
+construction and solve/extraction. DSuite inputs have no scaling targets:
+unchanged coordinates and numerical equations make them no-target controls,
+not evidence of a scaling speed benefit. Broad GC-sensitive total ratios even
+in these controls (0.217–4.564 across pairs) illustrate timing variability.
+
+ENWL selects only source-neutral voltage, with scale ``5.768533333\times10^{10}``.
+Its regional/series maximum KCL residual is ``2.208336038\times10^{-5}`` A without
+scaling and ``2.842170943\times10^{-14}`` A with scaling, repeated across all six
+measured runs. The SI tolerance remains ``10^{-6}`` A and finite susceptance
+remains ``-10^{10}`` S. The already-accurate full-coordinate case is slower:
+solve median increases about 46%, total about 40%, and build allocations about
+4.4%. Scaling is consequently retained as an opt-in accuracy policy. No broad
+runtime advantage, optimality improvement or memory-saving claim is warranted.
+Dimensions and backend derivative sparsity are unchanged by scaling.
+
+This evidence addresses the earlier **538-bus regional/series physical failure**.
+It does not establish a resolution of the separate 844-bus strict-acceptance
+failure or of the unbounded source-import examples below. General coupled-shunt
+scaling, transformer-ground scaling and automatic policy selection remain
+outside this change. Raw probe/benchmark scripts, input digests, trials,
+failures, source snapshots and logs remain outside Git. The historical rejected
+runs below remain part of the evidence; they have not been relabelled accepted.
+
 ## Local impedance and degree-two elimination — 5 October 2026
 
 Two independent opt-in settings are implemented: `linear_elimination=:impedance_loads`

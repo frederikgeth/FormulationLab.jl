@@ -72,6 +72,13 @@ therefore continues to bind original physical currents and voltages before
 checking the coordinate mapping. These opt-in passes do not invoke network
 preparation, discard bus bounds or change equipment data.
 
+An optional finite-ground scaling pass follows coordinate elimination. It
+rescales eligible free scalar-shunt voltages through inverse projection and
+reconstruction factors, then normalizes circuit equalities in solver
+coordinates. Physical equations/observations remain unchanged, and the SI
+auditor is independent of those numerical factors. See
+[finite-ground scaling](ivr_nlp.md#Finite-ground-numerical-scaling).
+
 Sparse/chordal SDP representations, fixed SOC relaxations, LNCs, shared network
 reduction, and original-network reconstruction are implemented. Formulation,
 reduction, strengthening, numerical settings and recovery remain separate layers.

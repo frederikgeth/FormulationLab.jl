@@ -15,12 +15,16 @@ boundary buses, leaving other circuits physical. The default is :off.
 `:passive` also eliminates certified nonadjacent device-free degree-two buses
 between unshunted lines. Both preserve physical observations and operating
 bounds and compose with conductor specialization. The default is :off.
+`ground_scaling=:voltage` rescales retained free voltages attached to stiff
+one-terminal finite shunts and normalizes circuit rows in solver coordinates.
+This invertible numerical policy preserves the finite ground; default :off.
 """
 Base.@kwdef struct IVRNLPOptions
     s_base::Float64 = 1e4
     objective::Symbol = :cost
     specialization::Symbol = :off
     linear_elimination::Symbol = :off
+    ground_scaling::Symbol = :off
 end
 
 """An exact-IVR scope refusal, carrying a stable `code` and explanatory `message`.
@@ -262,6 +266,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown IVRNLP objective"))
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
     options.linear_elimination in (:off,:impedance_loads,:passive) || throw(ArgumentError("unknown IVRNLP linear elimination"))
+    options.ground_scaling in (:off,:voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
     net=_l3f_input(input);_ivrn_check(net)
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
                            delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
@@ -272,6 +277,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     maps=_ivrn_coordinates(e,plan)
     omitted=plan===nothing ? Set{Tuple{String,String}}() : Set(plan.omitted_kcl)
     maps,omitted_equations,omitted,elimination=_ivrn_linear_coordinates(net,e,maps,omitted,options.linear_elimination)
+    maps,scaling=_ivrn_ground_coordinates(net,e,maps,options.ground_scaling)
+    scaled_rows=!isempty(scaling.scaled_terminals)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
     n=length(maps.projection)
     xr=@variable(model,[1:n],base_name="state_real")
@@ -289,7 +296,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     for row in Iterators.flatten(( (row for (k,row) in enumerate(e.equations) if k ∉ omitted_equations),
                                   (row for (key,row) in e.kcl if key ∉ omitted)))
         isempty(row) && continue
-        a=_linivr_eval(row,z)/norm(collect(values(row)))
+        divisor=scaled_rows ? _ivrn_scaled_row_norm(row,maps) : norm(collect(values(row)))
+        a=_linivr_eval(row,z)/divisor
         @constraint(model,real(a)==0);@constraint(model,imag(a)==0)
     end
     powers=Dict{Tuple{Symbol,String},Vector{Any}}()
@@ -408,6 +416,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :specialization_report=>report,:structure_analysis_count=>options.specialization==:off ? 0 : 1,
         :network_reduction=>:off,:assembly_count=>1,
         :linear_elimination=>options.linear_elimination,:linear_elimination_report=>elimination,
+        :ground_scaling=>options.ground_scaling,:ground_scaling_report=>scaling,
         :update_count=>0,:generator_update_count=>0,
         :dispatch_variable_count=>sum(length(g.p)+length(g.q) for g in values(generators);init=0),
         :load_voltage_variable_count=>sum(length,values(load_voltages);init=0),

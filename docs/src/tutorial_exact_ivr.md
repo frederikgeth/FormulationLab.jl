@@ -343,7 +343,33 @@ reject the unchanged state. Merely reconstructing that voltage after solving
 would be insufficient: its bound must constrain the optimization itself.
 Charged pi sections and device/ground boundaries are outside this certificate.
 
-## 13. Extend the experiment without changing its meaning
+## 13. Resolve a stiff finite ground
+
+Replace the ideal source-neutral ground with a finite susceptance of
+``-10^{10}`` S, and use the impedance load from Section 11. The circuit has
+the analytical current
+
+```math
+I=\frac{230}{0.5+230^2/2000+1/Y_g},\qquad V_n=I/Y_g.
+```
+
+Although ``V_n`` is very small, the ground current is finite. Request
+`ground_scaling=:voltage` to express this free voltage in a numerically suitable
+coordinate. The helper composes it with conductor and impedance elimination,
+checks the analytical voltage, and then perturbs it by ``10^{-3}/Y_g`` V.
+That perturbation creates a 1 mA KCL error without changing any supplied current.
+
+```@example exactivr
+ground = T.finite_ground_example(); nothing
+```
+
+The old normalized model check accepts this perturbed state. The scaled model
+and the independent SI audit both reject it. This illustrates why solver
+termination and small normalized residuals alone cannot certify physical
+accuracy. Scaling retains the finite shunt and all original observations;
+it does not replace it with ideal grounding or loosen a tolerance.
+
+## 14. Extend the experiment without changing its meaning
 
 For a larger study, record the input digest and every deliberate data change;
 retain failed solves and explicit fallback reasons; compare accepted objectives

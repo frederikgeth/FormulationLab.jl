@@ -78,6 +78,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `objective` | `:cost` | `:cost`, `:source_import` or `:feasibility` |
 | `specialization` | `:off` | `:conductor_difference` certifies one complete section; `:conductor_regions` certifies pendant regions behind retained boundaries |
 | `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates eligible degree-two bus voltages and one incident line's current coordinates |
+| `ground_scaling` | `:off` | `:voltage` rescales eligible free finite-ground voltages and normalizes circuit rows in solver coordinates |
 
 `IVRNLPResult.voltage_candidate` maps `(bus, terminal)` to complex volts;
 `current_candidate` and `powers` map `(family::Symbol, id::String)` to channel
@@ -136,6 +137,35 @@ multi-bus elimination, junctions above degree two and device-boundary
 elimination are outside this initial certificate. The [theory](ivr_theory.md)
 states the equivalence argument; [verification](verification.md) records the
 tests and performance limitations.
+
+### Finite-ground numerical scaling
+
+`ground_scaling=:voltage` is an invertible numerical policy, independent of
+conductor specialization and linear elimination. For each retained, unfixed
+physical voltage coordinate attached to a one-terminal shunt, let
+``s=\max(1,\max_j |Y_j|Z_b)`` over eligible shunts at that terminal. The solver
+uses ``w=sV_{pu}``, and every physical expression reconstructs ``V_{pu}=w/s``.
+Multiple shunts remain separate electrical contributions; their admittances
+are not merged or approximated. Ideal/fixed voltages, multi-terminal shunts and
+coordinates already expressed through other voltages are retained unchanged.
+
+When at least one coordinate is scaled, circuit equalities are divided by the
+Euclidean norm of their coefficients **after** projection/reconstruction and
+scaling. An identically cancelled row uses divisor one. This keeps a large
+grounding admittance from dominating the KCL normalization while its current
+error is hidden. Operating bounds, objective and original SI audit retain their
+physical definitions. No new variable, omitted equation or ideal-ground
+approximation is introduced. If no target is eligible, construction uses the
+existing coordinates and normalization.
+
+Inspect `:ground_scaling_report` in `numerical_diagnostics`: `scaled_terminals`
+contains bus, terminal, solver coordinate and scale; `retained_shunts` gives
+reasons for declarations not selected. Parameters of grounding equipment still
+require rebuilding. CP and generator updates preserve the maps. Default `:off`
+retains existing numerical behaviour. This limited policy does not guarantee
+physical accuracy for arbitrary ill-conditioned circuits or replace independent
+SI validation; see [verification](verification.md) and the
+[finite-ground tutorial](tutorial_exact_ivr.md).
 
 ### Electrical elements
 
