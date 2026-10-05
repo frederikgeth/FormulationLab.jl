@@ -72,6 +72,13 @@ therefore continues to bind original physical currents and voltages before
 checking the coordinate mapping. These opt-in passes do not invoke network
 preparation, discard bus bounds or change equipment data.
 
+An optional series-selection policy checks how those substitutions change
+operating-bound support widths. A shared bus-bound row visitor and the physical
+current/power limit records supply its index; the selector does not maintain a
+second voltage-limit field inventory. Tentative substitutions can be rolled
+back without discharging their equations. This separates algebraic eligibility
+from a conservative structural preference; it is not a factorization cost model.
+
 An optional finite-ground scaling pass follows coordinate elimination. It
 rescales eligible free scalar-shunt voltages through inverse projection and
 reconstruction factors, then normalizes circuit equalities in solver

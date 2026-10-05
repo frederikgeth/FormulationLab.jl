@@ -369,7 +369,31 @@ termination and small normalized residuals alone cannot certify physical
 accuracy. Scaling retains the finite shunt and all original observations;
 it does not replace it with ideal grounding or loosen a tolerance.
 
-## 14. Extend the experiment without changing its meaning
+## 14. Retain a bus when its bounds become less sparse
+
+Consider a four-wire, three-segment service with load only at its last bus.
+Both intermediate buses retain phase-neutral and neutral-voltage limits.
+Unconditional series elimination removes the first intermediate bus, but its
+voltage-bound expressions acquire additional current-coordinate dependencies.
+`series_selection=:bound_support` retains that bus. The helper checks both
+solved physical points against both representations of this same input.
+
+```@example exactivr
+selection = T.series_selection_example(); nothing
+```
+
+The final output concerns a **separate input** whose first segment has zero
+series impedance. Intermediate voltage then equals its neighbour's voltage,
+and the policy can eliminate the bus while retaining its bounds without
+increasing their support widths. Its physical state is checked against a full
+model of that same zero-impedance input. No performance or equivalence claim
+compares the two different circuits.
+
+This is a conservative structural choice, not a guarantee of speed or global
+derivative sparsity. The [verification record](verification.md) compares its
+accepted/rejected choices with actual derivative counts and paired solve times.
+
+## 15. Extend the experiment without changing its meaning
 
 For a larger study, record the input digest and every deliberate data change;
 retain failed solves and explicit fallback reasons; compare accepted objectives

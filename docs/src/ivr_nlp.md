@@ -78,6 +78,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `objective` | `:cost` | `:cost`, `:source_import` or `:feasibility` |
 | `specialization` | `:off` | `:conductor_difference` certifies one complete section; `:conductor_regions` certifies pendant regions behind retained boundaries |
 | `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates eligible degree-two bus voltages and one incident line's current coordinates |
+| `series_selection` | `:all` | With `linear_elimination=:passive`, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
 | `ground_scaling` | `:off` | `:voltage` rescales eligible free finite-ground voltages and normalizes circuit rows in solver coordinates |
 
 `IVRNLPResult.voltage_candidate` maps `(bus, terminal)` to complex volts;
@@ -137,6 +138,44 @@ multi-bus elimination, junctions above degree two and device-boundary
 elimination are outside this initial certificate. The [theory](ivr_theory.md)
 states the equivalence argument; [verification](verification.md) records the
 tests and performance limitations.
+
+### Series selection by bound support
+
+`series_selection=:bound_support` adds a conservative selection rule to
+`linear_elimination=:passive`. Structural eligibility and exact unit-pivot
+substitution are unchanged. For each affected operating bound, count the union
+of nonzero **complex solver-coordinate** indices in its transformed voltage/
+current rows. A voltage or current magnitude uses one row; an apparent-power
+bound uses the union from both rows. A zero factor gives support width zero.
+Reject the tentative bus substitution if any affected bound's width increases.
+No coefficient threshold or weighted performance score is used.
+
+The selector indexes the compiler's shared bus-voltage bound rows and the
+assembler's physical current/apparent-power limit records. Zero lower-voltage
+bounds emit no constraint and are excluded. Zero upper ratings remain in the
+index because their real/imaginary equalities are emitted. Source, transformer,
+generator and IBR equations/objectives cannot acquire these eliminated local
+coordinates: a candidate bus has no device, and its line through-current
+coordinates are distinct from device-current coordinates.
+
+A rejected tentative substitution is rolled back before considering the next
+bus; it does not protect neighbouring buses from selection. Accepted candidates
+retain the existing nonadjacent rule. Impedance-current substitution is unchanged.
+Selection is inert for `linear_elimination=:off` and `:impedance_loads`. If no
+substitution is accepted, the incoming maps are reused. The bound index is built
+only after encountering a structurally eligible series candidate.
+
+The elimination report includes `series_selection` and `bound_support_rejections`.
+Each rejected bus records the bound label and before/after widths; the retention
+reason is `operating_bound_support_expansion`. `limit/<record>/...` labels identify
+the assembler's limit record, while `bus/<id>/<field>` identifies a bus field.
+
+This is a local expression-support heuristic. It is **not** an exact Hessian or
+KKT-fill estimator, a global sparsity guarantee, or a runtime optimizer. It
+ignores output-only power-polynomial expansion, coefficient magnitudes,
+solver preprocessing and factorization ordering. It can reject reductions that
+would solve faster. Default `:all` preserves the existing elimination choices;
+see [measured evidence](verification.md) before choosing this opt-in policy.
 
 ### Finite-ground numerical scaling
 

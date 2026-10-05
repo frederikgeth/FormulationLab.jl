@@ -17,10 +17,45 @@ function _ivrn_resolve_row(row,substitutions,cache=Dict{Int,_SDPRow}())
     out
 end
 
-function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode)
+# A series candidate touches only its bus voltages and one line's currents.
+# Device boundaries are excluded, so other device equations/objectives are
+# unchanged. Index the same bus-bound rows and physical limit records used by
+# the compiler; output-only power observations are deliberately not a score.
+function _ivrn_series_bound_index(net,e)
+    bounds=NamedTuple[];index=Dict{Int,Vector{Int}}()
+    function add!(label,rows)
+        push!(bounds,(;label,rows));id=length(bounds)
+        for k in union((Set(keys(row)) for row in rows)...)
+            push!(get!(Vector{Int},index,k),id)
+        end
+    end
+    _ivrn_each_bus_limit(net,e) do b,key,row,bound
+        endswith(key,"max") || bound>0 || return
+        add!("bus/$b/$key",(row,))
+    end
+    for (id,(v,i,d)) in enumerate(e.limits)
+        imax=e.values_for(d,"i_max",length(i));smax=e.values_for(d,"s_max",length(v))
+        for k in eachindex(v)
+            imax===nothing || add!("limit/$id/i_max/$k",(i[k],))
+            smax===nothing || add!("limit/$id/s_max/$k",(v[k],i[k]))
+        end
+    end
+    (;bounds,index)
+end
+
+function _ivrn_bound_support_width(rows,active)
+    transformed=map(active,rows)
+    # A zero factor makes the whole voltage/current magnitude or power zero.
+    any(isempty,transformed) && return 0
+    length(union((Set(keys(row)) for row in transformed)...))
+end
+
+function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:all)
     substitutions=Dict{Int,_SDPRow}();omitted_equations=Set{Int}()
     loads=String[];buses=String[];retained=Dict{String,String}()
+    support_rejections=Dict{String,Vector{NamedTuple}}()
     report()=(;impedance_loads=loads,series_buses=buses,retained_series_buses=retained,
+               series_selection,bound_support_rejections=support_rejections,
                eliminated_complex_coordinates=length(substitutions))
     mode==:off && return maps,omitted_equations,omitted_kcl,report()
     compose(row)=_ivrn_compose_row(row,maps.reconstruction)
@@ -48,6 +83,7 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode)
         push!(loads,load.id)
     end
     if mode==:passive
+        bound_index=nothing # Build only when a structurally eligible bus exists.
         blocked=Set{String}()
         for (b,d) in net["bus"]
             isempty(get(d,"perfectly_grounded_terminals",[])) || push!(blocked,b)
@@ -83,6 +119,14 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode)
                 retained[b]="partial_terminal_map";continue
             end
             line=first(lines)
+            affected=Int[];before=Int[]
+            if series_selection==:bound_support
+                bound_index===nothing && (bound_index=_ivrn_series_bound_index(net,e))
+                physical=union(Set(e.voltage[(b,t)] for t in terminals),
+                               (Set(keys(row)) for row in line.current)...)
+                affected=sort!(unique!([id for k in physical for id in get(bound_index.index,k,Int[])]))
+                before=[_ivrn_bound_support_width(bound_index.bounds[id].rows,active) for id in affected]
+            end
             current_candidates=Set(k for row in line.current for k in keys(active(row)))
             voltage_candidates=Set(k for t in terminals for k in keys(active(_sdp_e(e.voltage[(b,t)]))))
             added=Int[];kcl_keys=sort!([(b,t) for t in terminals if (b,t) ∉ omitted_kcl])
@@ -96,10 +140,23 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode)
                 for k in added;delete!(substitutions,k);end
                 retained[b]="no_local_unit_pivot";continue
             end
+            if bound_index!==nothing
+                expansions=NamedTuple[]
+                for (id,width) in zip(affected,before)
+                    bound=bound_index.bounds[id];after=_ivrn_bound_support_width(bound.rows,active)
+                    after>width && push!(expansions,(;label=bound.label,before=width,after))
+                end
+                if !isempty(expansions)
+                    for k in added;delete!(substitutions,k);end
+                    retained[b]="operating_bound_support_expansion";support_rejections[b]=expansions
+                    continue
+                end
+            end
             union!(omitted_kcl,kcl_keys);union!(omitted_equations,line.equation_indices)
             union!(protected,neighbours);push!(buses,b)
         end
     end
+    isempty(substitutions) && return maps,omitted_equations,omitted_kcl,report()
     kept=[k for k in eachindex(maps.projection) if !haskey(substitutions,k)]
     numbering=Dict(k=>j for (j,k) in enumerate(kept));cache=Dict{Int,_SDPRow}()
     reconstruction=[_SDPRow(numbering[k]=>a for (k,a) in _ivrn_resolve_row(row,substitutions,cache))

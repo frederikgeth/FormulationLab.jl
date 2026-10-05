@@ -32,6 +32,11 @@ physical observation and operating bound. This expands coordinate-reduction
 choices, not element coverage. See the [contract](ivr_nlp.md#Local-linear-elimination)
 and [proof](ivr_theory.md#4.-Local-linear-elimination-with-retained-observations).
 
+With passive elimination, `series_selection=:bound_support` optionally retains
+candidates that would increase an affected operating bound's coordinate support.
+It selects among the same exact reductions and adds no equipment capability;
+all operating bounds remain present under either selection policy.
+
 `ground_scaling=:voltage` changes numerical coordinates for eligible retained
 free voltages attached to one-terminal finite shunts. It preserves equipment,
 observations and bounds and adds no element coverage. Multi-terminal grounding

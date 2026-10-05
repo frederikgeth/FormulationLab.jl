@@ -388,6 +388,31 @@ inconsistent eliminated current or voltage cannot be silently repaired.
 The same argument preserves fixed equipment constraints and supported demand/
 dispatch updates, provided their changes do not alter the defining linear laws.
 
+### 4.1. Conservative selection by operating-bound support
+
+Let ``R`` be the current reconstruction and ``RT`` the tentative map after a
+local unit-pivot elimination. For a bound on ``|az|`` define
+``w(R)=|\operatorname{supp}(aR)|``. For a bound on
+``|(az)\overline{(bz)}|`` use the cardinality of
+``\operatorname{supp}(aR)\cup\operatorname{supp}(bR)``, or zero if either
+factor vanishes. The optional bound-support policy accepts a candidate only if
+``w(RT)\leq w(R)`` for every affected bound. These widths count complex
+coordinates before splitting into real and imaginary parts.
+
+The policy decides whether to apply an already-proved equivalence; it changes
+no bound or feasibility condition. Rejecting a candidate restores its original
+coordinates/equalities. Bus-voltage fields use the same row visitor as bound
+compilation, and component limits use the assembler's existing records.
+Only intermediate voltage coordinates and one incident line's current
+coordinates change. Because device buses are excluded, other device constraints
+and objectives are unaffected by this local candidate.
+
+Support cardinality is a deliberately limited proxy. Equal widths can connect
+different coordinates; coefficient cancellations, repeated derivative entries,
+fixed-variable removal, quartic power limits and factorization ordering prevent
+interpreting this test as a bound on global Hessian/KKT fill or runtime. Actual
+derivative structures and measured solves must be reported independently.
+
 ## 5. Invertible finite-ground scaling
 
 After reduction, write the physical state as ``z=Ry`` with projection ``y=Pz``.
@@ -425,6 +450,7 @@ shunt, transformer-ground or global equilibration policy is implied.
 | Exact circuit, maps and endpoint quantities | `src/formulations/ivr_electrical.jl` | manufactured SI states; component/OpenDSS tests |
 | Power products, operating bounds, objectives and updates | `src/formulations/ivr_nlp.jl`, `src/formulations/ivr_loads.jl` | fixed-state negative-bound tests; fresh/reused comparisons |
 | Local impedance/series elimination | `src/compilation/ivr_elimination.jl` | `test/ivr_elimination_tests.jl`: bidirectional physical points, retained bounds, modes, meshes, zero impedance and boundary refusals |
+| Optional series selection | `src/compilation/ivr_elimination.jl`, shared `_ivrn_each_bus_limit` visitor | `test/ivr_series_selection_tests.jl`: all voltage-bound families, apparent-power rows, rollback, reconstruction, ground scaling and updates |
 | Finite-ground coordinate/row scaling | `src/compilation/ivr_scaling.jl` | `test/ivr_ground_scaling_tests.jl`: analytical finite-ground states, current-error witnesses, retained bounds, scope and reuse |
 | Local difference identities | `src/compilation/conductor_difference.jl` | `test/compiler_algebra_tests.jl` |
 | Applicability, projection and reconstruction | `src/compilation/ivr_structure.jl`, `src/compilation/ivr_regions.jl` | `test/compiler_network_tests.jl`, `test/compiler_region_tests.jl` |

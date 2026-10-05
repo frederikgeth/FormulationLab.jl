@@ -15,6 +15,8 @@ boundary buses, leaving other circuits physical. The default is :off.
 `:passive` also eliminates certified nonadjacent device-free degree-two buses
 between unshunted lines. Both preserve physical observations and operating
 bounds and compose with conductor specialization. The default is :off.
+`series_selection=:bound_support` retains a candidate series bus if any affected
+operating bound would depend on more solver coordinates. Default :all.
 `ground_scaling=:voltage` rescales retained free voltages attached to stiff
 one-terminal finite shunts and normalizes circuit rows in solver coordinates.
 This invertible numerical policy preserves the finite ground; default :off.
@@ -24,6 +26,7 @@ Base.@kwdef struct IVRNLPOptions
     objective::Symbol = :cost
     specialization::Symbol = :off
     linear_elimination::Symbol = :off
+    series_selection::Symbol = :all
     ground_scaling::Symbol = :off
 end
 
@@ -228,7 +231,7 @@ function _ivrn_upper!(model,u,bound)
     end
 end
 
-function _ivrn_bus_limits!(model,net,e,z)
+function _ivrn_each_bus_limit(f,net,e)
     for (b,d) in net["bus"]
         maps=_sdp_voltage_maps(net,b,e.terminal_rows;neutral=get(e.neutral_map,b,nothing))
         for key in ("v_min","v_max","vpn_min","vpn_max","vpp_min","vpp_max",
@@ -239,14 +242,20 @@ function _ivrn_bus_limits!(model,net,e,z)
             rows=maps[prefix];bounds=_sdp_vector(d,key,length(rows))
             for (row,bound) in zip(rows,bounds)
                 bound>=0 || _ivrn_refuse("negative voltage limit")
-                u=_linivr_eval(row,z)
-                if endswith(key,"max")
-                    _ivrn_upper!(model,u,bound/e.vb)
-                elseif bound>0
-                    scale=bound/e.vb
-                    @constraint(model,(real(u)/scale)^2+(imag(u)/scale)^2>=1)
-                end
+                f(b,key,row,bound)
             end
+        end
+    end
+end
+
+function _ivrn_bus_limits!(model,net,e,z)
+    _ivrn_each_bus_limit(net,e) do b,key,row,bound
+        u=_linivr_eval(row,z)
+        if endswith(key,"max")
+            _ivrn_upper!(model,u,bound/e.vb)
+        elseif bound>0
+            scale=bound/e.vb
+            @constraint(model,(real(u)/scale)^2+(imag(u)/scale)^2>=1)
         end
     end
 end
@@ -266,6 +275,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown IVRNLP objective"))
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
     options.linear_elimination in (:off,:impedance_loads,:passive) || throw(ArgumentError("unknown IVRNLP linear elimination"))
+    options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
     options.ground_scaling in (:off,:voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
     net=_l3f_input(input);_ivrn_check(net)
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
@@ -276,7 +286,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         options.specialization==:conductor_regions ? _ivrn_regions(net,e) : _ivrn_structure(net,e)
     maps=_ivrn_coordinates(e,plan)
     omitted=plan===nothing ? Set{Tuple{String,String}}() : Set(plan.omitted_kcl)
-    maps,omitted_equations,omitted,elimination=_ivrn_linear_coordinates(net,e,maps,omitted,options.linear_elimination)
+    maps,omitted_equations,omitted,elimination=_ivrn_linear_coordinates(net,e,maps,omitted,options.linear_elimination;
+                                                                    series_selection=options.series_selection)
     maps,scaling=_ivrn_ground_coordinates(net,e,maps,options.ground_scaling)
     scaled_rows=!isempty(scaling.scaled_terminals)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)

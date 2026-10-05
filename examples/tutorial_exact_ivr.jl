@@ -39,8 +39,8 @@ function check_result(build, result)
     (; physical, encoded)
 end
 
-function solve_checked(network; specialization=:off, objective=:source_import,linear_elimination=:off,ground_scaling=:off)
-    build = build_opf(network, IVRNLP(; specialization, objective,linear_elimination,ground_scaling); optimizer=Ipopt.Optimizer)
+function solve_checked(network; specialization=:off, objective=:source_import,linear_elimination=:off,ground_scaling=:off,series_selection=:all)
+    build = build_opf(network, IVRNLP(; specialization, objective,linear_elimination,ground_scaling,series_selection); optimizer=Ipopt.Optimizer)
     result = solve_ivr_nlp_opf(build; solver_options=SOLVER_OPTIONS)
     checks = check_result(build, result)
     (; build, result, checks)
@@ -289,6 +289,32 @@ function finite_ground_example()
     (;net,scaled,current,neutral)
 end
 
+"""Retain a series bus when its operating bounds would become less sparse."""
+function series_selection_example()
+    net=ivr_compiler_case(conductors=4,segments=3)
+    delete!(net["load"],"d1");delete!(net["load"],"d2")
+    all=solve_checked(net;linear_elimination=:passive)
+    selected=solve_checked(net;linear_elimination=:passive,series_selection=:bound_support)
+    report=selected.build.numerical_diagnostics[:linear_elimination_report]
+    @assert isempty(report.series_buses)
+    @assert haskey(report.bound_support_rejections,"b1")
+    @assert ivr_nlp_point_report(all.build,point(selected.result)).passed
+    @assert ivr_nlp_point_report(selected.build,point(all.result)).passed
+    @assert isapprox(all.result.objective,selected.result.objective;atol=1e-5)
+    println("Unconditional selection: ",all.build.numerical_diagnostics[:linear_elimination_report].series_buses)
+    println("Bound-support selection: ",report.series_buses)
+    println("First expansion: ",first(report.bound_support_rejections["b1"]))
+    # A separate zero-impedance input illustrates a bounded eligible section.
+    zero=deepcopy(net)
+    zero["linecode"]["zero"]=Dict(k=>startswith(k,"R_series_")||startswith(k,"X_series_") ? 0. : v for (k,v) in zero["linecode"]["wire"])
+    zero["line"]["l1"]["linecode"]="zero"
+    sparse=solve_checked(zero;linear_elimination=:passive,series_selection=:bound_support)
+    @assert sparse.build.numerical_diagnostics[:linear_elimination_report].series_buses==["b1"]
+    @assert ivr_nlp_point_report(build_opf(zero,IVRNLP()),point(sparse.result)).passed
+    println("Separate zero-impedance input, bounds retained: ",sparse.build.numerical_diagnostics[:linear_elimination_report].series_buses)
+    (;net,all,selected,zero,sparse)
+end
+
 function refusal_examples()
     baseline = analytical_example()
     tight = deepcopy(baseline.net)
@@ -322,6 +348,7 @@ function run_all()
     impedance_elimination_example()
     series_elimination_example()
     finite_ground_example()
+    series_selection_example()
     refusal_examples()
     println("All tutorial checks passed.")
 end

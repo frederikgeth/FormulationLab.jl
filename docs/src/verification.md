@@ -1,5 +1,94 @@
 # Verification
 
+## Conservative series selection by operating-bound support — 5 October 2026
+
+`series_selection=:bound_support` optionally retains a structurally eligible
+series bus when its tentative elimination increases the coordinate support
+width of any affected operating-bound expression. It uses the compiler's
+shared bus-voltage bound visitor and the assembler's current/apparent-power
+limit records. Impedance substitution is unchanged; default `:all` retains
+existing choices. The [contract](ivr_nlp.md#Series-selection-by-bound-support)
+and [theory](ivr_theory.md#4.1.-Conservative-selection-by-operating-bound-support)
+distinguish this local proxy from actual derivative/factorization sparsity.
+
+The default suite passes **31,806/31,806** assertions, including **360 new checks**.
+These cover all 11 voltage-bound field families, apparent-power bounds at both
+line orientations, two/three/four conductors, terminal permutations, all conductor
+settings, rejection rollback followed by neighbour selection, accepted sparse
+sections, exact supplied-point reconstruction and mixed CP/generator reuse with
+active finite-ground scaling. A zero lower-voltage rating correctly contributes
+no constraint to the selector. Both selection choices retain every original
+operating bound; a rejected reduction changes no physical constraint.
+
+A separate build-only audit freezes the previous `328f3b8` builder and its
+bus-bound compiler. Across all seven fixed transformer families and three mixed
+static-device fixtures, all three objectives and conductor settings give
+**90 exact comparisons**: every constraint function/set, objective, start and
+stored power coefficient agrees at zero tolerance after aligning variable indices.
+This checks unchanged default construction after introducing the shared bound
+visitor; it is not a feasibility claim for those mixed fixtures.
+
+A matched experiment compares `series_selection=:all` and `:bound_support`
+within the same implementation. Both use `linear_elimination=:passive`,
+`ground_scaling=:voltage` and an explicit feasibility objective. Three external
+inputs retain their electrical data; two synthetic 40-line four-wire cases
+have impedance loads at every bus or at alternating buses. For each full/regional
+combination, one excluded warm-up per variant precedes six balanced
+alternating-order pairs. Ipopt uses `tol=constr_viol_tol=1e-10`,
+`acceptable_iter=0`, `bound_relax_factor=0`, `max_iter=500`, `max_cpu_time=30`,
+and single-thread BLAS. Physical, own-model, both cross-model, fresh-full-model
+and observation-channel checks lie outside timers. No tests, documentation
+builds or profiling overlap timed trials.
+
+All **120 measured solves** and **60 paired comparisons** pass those gates;
+all 20 excluded warm-up solves pass their own physical/model and fresh-full
+checks. ENWL's unchanged finite grounding is scaled in both variants, so these
+results do not relabel the previously rejected unscaled runs below.
+
+| Input / conductor mode | Selected buses: all → support | Real variables: all → support | Median paired solve ratio | Median paired total ratio | Median paired build-byte ratio |
+|:--|--:|--:|--:|--:|--:|
+| DSuite 265, full | 42 → 42 | 2,926 → 2,926 | 1.007 | 1.072 | 1.136 |
+| DSuite 265, regional | 42 → 42 | 2,854 → 2,854 | 0.998 | 1.069 | 1.131 |
+| DSuite 2,854, full | 496 → 496 | 30,764 → 30,764 | 0.995 | 1.217 | 1.149 |
+| DSuite 2,854, regional | 496 → 496 | 30,364 → 30,364 | 0.997 | 0.818 | 1.142 |
+| ENWL 538, full | 19 → 0 | 9,226 → 9,530 | 0.727 | 0.777 | 1.046 |
+| ENWL 538, regional | 19 → 0 | 8,190 → 8,456 | 1.005 | 1.021 | 1.057 |
+| Synthetic impedance, full | 0 → 0 | 652 → 652 | 1.014 | 1.016 | 1.000 |
+| Synthetic impedance, regional | 0 → 0 | 572 → 572 | 0.999 | 0.992 | 1.000 |
+| Synthetic series + impedance, full | 20 → 0 | 332 → 652 | 0.988 | 0.973 | 0.995 |
+| Synthetic series + impedance, regional | 20 → 0 | 292 → 572 | 1.010 | 1.063 | 1.156 |
+
+Ratios are bound-support/all, computed within pairs before medians. Total
+includes build and solve/extraction. Forty/twenty impedance-load substitutions
+remain selected in the respective synthetic inputs; external inputs select no
+impedance loads. The rule preserves the same DSuite series reductions but adds
+about 13–15% construction allocations there. The no-series-candidate synthetic
+control allocates identically under both policies because the bound index is
+never built.
+
+Rejecting the ENWL series reductions decreases unique Hessian entries from
+16,124 to 14,878 in full coordinates and 11,678 to 11,210 regionally, while unique
+Jacobian entries increase from 78,358 to 79,326 and 67,404 to 68,222 respectively.
+For the synthetic alternating-load case, full-coordinate Hessian entries fall
+from 2,440 to 880 (regional: 1,474 to 800), while Jacobian entries rise from
+5,508 to 6,322 (regional: 4,356 to 5,278). These are backend structures before
+solver preprocessing, not factorization fill or native memory measurements.
+
+The full-coordinate ENWL solve/total medians improve about 27%/22%, but regional
+ENWL and regional synthetic total medians regress about 2% and 6%. Thus the rule
+reduces some measured Hessian structures without establishing general runtime
+benefit. Construction cost matters even when selections are identical. With GC
+enabled, individual total ratios range from 0.066 to 5.536 across accepted pairs;
+six pairs, three selected feeders and two related synthetic cases do not support
+statistical significance or population claims. This is an explicit structural
+comparison policy, not a calibrated automatic cost model. It does not establish
+that prior regressions against elimination-off have all been removed.
+
+Raw runners, input digests, default construction audit, every warm-up/trial,
+source snapshots and logs remain outside Git. Default selection stays `:all`.
+Future selection needs to account for preparation, Jacobian/Hessian interactions
+and actual factorization cost, rather than relying on bound support alone.
+
 ## Finite-ground voltage scaling — 5 October 2026
 
 `ground_scaling=:voltage` is now an opt-in numerical policy for retained free

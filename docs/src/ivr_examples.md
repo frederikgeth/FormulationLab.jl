@@ -213,6 +213,21 @@ The [tutorial](tutorial_exact_ivr.md) checks the analytical voltage and demonstr
 rejection of the perturbed physical state. Numerical scaling improves this
 example's residual visibility; independent physical validation remains necessary.
 
+## L. Trade fewer variables against more dependent bound expressions
+
+Eliminating an intermediate four-wire voltage expresses it through neighbouring
+voltages and through currents. A phase-neutral magnitude bound that originally
+used two physical voltage coordinates may then depend on several current
+coordinates too. Its nonlinear derivative structure can grow even while the
+number of variables decreases.
+
+`series_selection=:bound_support` retains a candidate if any affected voltage,
+current or apparent-power bound gains complex-coordinate dependencies. This
+does not weaken the bound. The tutorial compares both choices on one bounded
+service and separately demonstrates acceptance with a zero-impedance segment.
+The rule predicts local expression support only: actual Hessian sparsity,
+construction cost and runtime still require measurement.
+
 ## Interpreting benefit and evidence
 
 There are three distinct potential benefits: a native exact reference for
