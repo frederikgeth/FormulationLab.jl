@@ -1,5 +1,34 @@
 # Verification
 
+## Hybrid transfer across objectives and scaling — 6 October 2026
+
+Production code, tests and benchmark candidates are unchanged from the
+75,764-assertion hybrid baseline. This stage adds numerical transfer evidence
+and an executable tutorial comparison, without changing defaults or deleting
+any formulation option. All **1176 measured solves, 168 warm-ups and 84
+preflight SI exports** pass across BASE265, VOLTAGE265 and URBAN1220, both
+power objectives and both Ipopt scaling policies. Every constrained cost
+preflight has one active upper-voltage limit. All 42 tightened-capability and
+14 tightened-voltage witnesses reject independently and algebraically.
+
+An independent audit verifies unchanged inputs/addition manifests, physical
+quantity fields, complete shared starts, own/full/reverse membership, graph
+caps and 240 paired timing contrasts. Maximum recovered-power objective
+discrepancy is below 1.07e-14; within-cell spread below 7.11e-15. A separate
+untimed map audit confirms blocks equal cap eight and nonadjacent equals cap
+one on all three scenarios. All profiles have the same iteration count within
+each cell. Timings do not overlap tests, documentation or native diagnostics;
+no slow trial or batch is removed.
+
+Cap four repeats its urban cost ordering under both scaling policies, with
+small magnitude: confirmation profile medians improve 1.65% without automatic
+scaling and 0.17% with gradient scaling. Paired ratios are reported separately
+and should not be confused with quotients of profile medians. Tracking and
+the active-voltage scenario show no consistent benefit. These are selected
+related scenarios, not independent feeder or active-urban-voltage validation.
+See the [complete transfer results](ivr_hybrid_transfer.md) and
+[tutorial section 42](tutorial_exact_ivr.md).
+
 ## Bounded hybrid condensation — 6 October 2026
 
 The full suite passes **75,764/75,764 assertions**, including **5337 new checks**

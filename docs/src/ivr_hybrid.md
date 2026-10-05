@@ -220,9 +220,10 @@ Seven cyclic sweeps balance positions, not predecessors, and these are selected
 cases, not a held-out population sample. No global AC optimality, statistical
 significance or universal best cap is certified.
 
-The next hybrid-specific check is whether the small urban cap-four benefit
-survives other solver-scaling policies, active voltage limits, objectives and
-feeders. Those transfers are not measured here. The API and diagnostics support
+The [follow-up transfer study](ivr_hybrid_transfer.md) tests gradient scaling,
+tracking and the existing constrained suburban scenario. Those comparisons are
+separate from this initial panel; active urban limits and independent feeders
+remain untested. The API and diagnostics support
 later evidence without deleting any previous option. Broader mixed IBR/nonlinear-
 load cases and signed/proportional affine sharing remain separate priorities.
 For reproducibility, `examples/benchmark_ivr_hybrid.jl` contains the fixtures and

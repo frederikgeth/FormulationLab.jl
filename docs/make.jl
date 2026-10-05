@@ -32,6 +32,7 @@ makedocs(;
             "Power objectives"=>"ivr_objectives.md",
             "Power-unit interactions"=>"ivr_power_interactions.md",
             "Bounded hybrid condensation"=>"ivr_hybrid.md",
+        "Hybrid transfer"=>"ivr_hybrid_transfer.md",
             "Best-evidence numerical profiles"=>"ivr_performance.md",
         ],
         "Explicit-neutral LinIVR"=>"linivr.md",

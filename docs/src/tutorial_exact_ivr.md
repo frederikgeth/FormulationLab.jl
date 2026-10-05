@@ -1503,3 +1503,38 @@ are independent of algebraic correctness and both can reduce condensation.
 unrestricted blocks, nonadjacent elimination and caps 1/2/4/8. For tracking supply
 an explicit `exchange_target_W`. The [scientific study](ivr_hybrid.md) reports
 which comparisons were actually timed and which transfers remain untested.
+
+
+## 42. Separate solver-scaling transfer from a cap comparison
+
+Changing Ipopt's automatic scaling policy does not change the supplied physical
+network or objective. Compare caps within each policy, preserving the common
+start and physical acceptance checks. This small example exercises both policies
+on the same charged single-phase cost problem; its runtime is not a feeder-level
+performance claim.
+
+```@example exactivr
+hybrid_policy_rows = map(("none","gradient-based")) do policy
+    profiles = filter(p -> p.name in ("blocks","hybrid_4"),
+        HY.profiles(hybrid_demo,:quadratic_cost;nlp_scaling_method=policy))
+    anchor = nothing
+    rows = map(profiles) do profile
+        row,p = HY.P.trial(hybrid_demo,profile,hybrid_reference,anchor;
+            initial_point=HY.E.S.U.G.H.S.L.start_point(hybrid_demo))
+        @assert row["accepted"]
+        anchor===nothing && (anchor=p)
+        (profile=profile.name,policy,objective=row["physical_power_objective"],
+            variables=row["variables"])
+    end
+    rows
+end
+hybrid_policy_rows
+```
+
+For a saved feeder use `HY.benchmark(input_path, output_path;
+nlp_scaling_method="gradient-based", workload=:exchange_tracking,
+exchange_target_W=target_W)`, choosing a distinct output path for each policy.
+The runner preserves the input and records objective terms and effective solver
+settings. A tracking target is a physical scenario choice and must be stated
+explicitly. The [transfer study](ivr_hybrid_transfer.md) reports matched feeder
+results, active-limit checks and the limits of the evidence.
