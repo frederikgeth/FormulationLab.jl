@@ -734,3 +734,29 @@ Neither demonstration establishes a speedup. Run
 `examples/benchmark_ivr_lifting_blocks.jl` separately from tests and documentation
 to compare the six declared profiles with matched physical starts and balanced
 ordering. The primary score is Ipopt wall time, excluding compilation and export.
+
+## 25. Transfer the structural comparison to an external feeder
+
+The external runner reads one existing BMOPF JSON file and compares six frozen
+profiles, with voltage ground scaling and MUMPS AMD held fixed. From the repository
+root, supply your own input path and a separate output path:
+
+```sh
+julia --project=test examples/benchmark_ivr_feeder_lifting.jl input.json study.json
+```
+
+It preserves electrical fields and source/generator accounting. Known legacy
+provenance moves into metadata on an owned copy; the source file is unchanged.
+The objective is feasibility, so the experiment does not measure economic
+dispatch. Every profile receives the same unloaded physical circuit start,
+including consistent lifted auxiliaries. A failed encoding preflight is retained
+in the report and prevents timing that case; it does not trigger an input edit
+or relaxed retry.
+
+`study.json` retains all warm-ups and twelve balanced sweeps, audits, options,
+iterations, derivative counts and the Ipopt-wall ranking. The `.input.json`
+sidecar stores the owned input; `.manifest.json` stores source hashes, relocated
+provenance paths and preflight checks. Inspect `lifted_real_variables`: a lifting
+option can be a no-op when its targeted bounds are absent. Retain such profiles
+as controls, but do not describe their timing differences as a lifting benefit.
+Run performance measurements separately from tests and documentation builds.

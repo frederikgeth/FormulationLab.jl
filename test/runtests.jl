@@ -12,6 +12,7 @@ using OpenDSSDirect
     include("ivr_lifting_blocks_tests.jl")
     include("ivr_chain_study_tests.jl")
     include("ivr_lifting_study_tests.jl")
+    include("ivr_feeder_lifting_tests.jl")
     include("ivr_profile_study_tests.jl")
     include("ivr_reuse_study_tests.jl")
     include("ivr_feeder_reuse_tests.jl")
