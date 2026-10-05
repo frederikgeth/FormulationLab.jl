@@ -661,9 +661,14 @@ For a voltage/current pair sharing those local bases,
 V_{pu}\overline{I_{pu}}=(S_r/S_b)y_V\overline{y_I}.
 ```
 
-The existing reconstruction implements this identity. Generator P/Q variables
-and lifted powers remain in assembly units; their definitions are not replaced
-by an unweighted local product. Ground multipliers also retain their separately
+The existing reconstruction implements this identity. Regional current seeds
+do not change generator P/Q or lifted-power units; their definitions are not
+replaced by an unweighted local product. The separate `generator_power_bases`
+option uses dispatch coordinates ``P_g/S_g,Q_g/S_g`` with exact defining
+equalities ``\operatorname{Re}(V_{pu}\overline{I_{pu}})=(S_g/S_b)\widehat P_g``
+and the corresponding reactive equality. It changes dispatch columns while
+retaining assembly-unit rows; physical boxes divide by ``S_g``. Lifted powers
+continue to use ``S_b``. Ground multipliers also retain their separately
 declared policy and common ``S_b``. Thus `current_power_bases` isolates one
 coordinate intervention instead of claiming that every NLP variable is in a
 regional power unit. Explicit seeds propagate only over lines and closed
@@ -673,7 +678,8 @@ For a physical objective ``f``, the solver receives ``f/\sigma``, with
 ``\sigma=S_b`` under the legacy default. An explicit `objective_scale` sets
 ``\sigma`` independently. Supplied-point reports and solve results recover
 ``f=\sigma f_{solver}``; generator price updates multiply their coefficients by
-``S_b/\sigma`` relative to the legacy convention. A positive divisor preserves
+``S_g/\sigma`` (where ``S_g=S_b`` by default), in addition to the W-to-kW
+conversion. Explicit power objectives likewise recover SI before evaluating terms. A positive divisor preserves
 mathematical minimizers, but changes numerical stopping behavior. A common-power
 base experiment should therefore hold ``\sigma`` fixed or explicitly report its
 change. Neither a voltage level nor this algebra establishes an optimal power

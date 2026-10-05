@@ -95,7 +95,8 @@ function ivr_nlp_point_report(build::IVRNLPBuild,point::ACPoint;atol=1e-7)
             power=build.powers[(:generator,id)]
             for k in eachindex(power)
                 s=JuMP.value(v->supplied[v],power[k])
-                supplied[refs.p[k]]=real(s);supplied[refs.q[k]]=imag(s)
+                supplied[refs.p[k]]=real(s)*(e.sb/refs.power_base)
+                supplied[refs.q[k]]=imag(s)*(e.sb/refs.power_base)
             end
         end
         # Voltage-law auxiliaries are physical magnitudes, never fitted values.

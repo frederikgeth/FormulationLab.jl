@@ -572,13 +572,100 @@ extremes are not representative gains or grounds for selectively rerunning trial
 The confirmation table is not pooled with exploration, and no significance or
 population-generalization claim is made.
 
-This closes the full-base control gap on one declared DER scenario. The next
-unit experiment should hold circuit-current units fixed while varying generator
-P/Q and lifted-power units separately, with the same physical objective divisor,
-bounds, starts, updates and recovery checks. Common-base results alone cannot
+This closes the full-base control gap on one declared DER scenario. The following experiment holds circuit-current units fixed while varying
+generator P/Q units. Lifted-power units remain a separate next intervention,
+with the same physical objective divisor, bounds, starts, updates and recovery
+checks. Common-base results alone cannot
 assign the benefit to one variable family. Larger multi-transformer and explicitly
 voltage-constrained cases remain open. See [tutorial section 37](tutorial_exact_ivr.md)
 for the matched-base and ordering contract.
+
+
+## Independent generator dispatch units — 6 October 2026
+
+`generator_power_bases` separates explicit generator P/Q coordinates from the
+assembly power base. Each declared generator uses ``P_g/S_g,Q_g/S_g`` on all
+native channels; unspecified generators use ``S_b``. Circuit coordinates remain
+fixed. Its defining equations retain assembly-power units with coefficient
+``S_g/S_b`` on the dispatch variables. Boxes, objectives, price/bound updates and
+SI point encoding use the corresponding inverse factors. Physical result powers
+still come from voltage/current products. The [API contract](ivr_nlp.md) gives
+the equations, guards and effective-base diagnostics. This experiment introduces
+no generator auxiliary reuse, power lifting or row renormalization.
+
+`examples/benchmark_ivr_generator_units.jl` holds the assembly base at 10 kVA,
+nominal transformer voltage coordinates, composed linear rows, voltage-ground
+scaling, exact sharing and physical objective divisor 1. Regional-current seeds
+are empty and lifting is off. It crosses dispatch bases 1/10/100 kVA on all
+74 generators with full/reduced representations. The reduction bundle is the
+same as above. Thus within each representation, the only option that changes is
+`generator_power_bases`. Both objectives, the 37 kW/0 kvar soft source target,
+physical input, DER addition manifest and all original limits are unchanged.
+
+Each of four objective/solver-policy cells excludes six warm-ups and measures
+twelve sweeps: two randomized cyclic blocks, each placing every profile in each
+position once. Realized orders and seed are saved. Position balance does not
+balance every predecessor pair. One Julia/BLAS thread, MUMPS AMD, strict 1e-10
+settings, explicit `none`/`gradient-based` policies, and a fresh-process complete
+confirmation match the earlier protocol. No timing overlaps tests, documentation
+builds or diagnostics. The score is Ipopt wall time; construction/extraction and
+audits are excluded. Batches are not pooled and tails are retained.
+
+All **576 measured solves and 48 warm-ups** pass physical, own-model,
+full-model and reverse-anchor admission across both batches. Maximum discrepancy
+between recovered-power and model objectives is below 4.45e-15; within-cell
+objective spread is below 5.33e-15. All 24 separate preflight solves pass SI JSON
+round trips with matching physical quantity keys. The original/scenario hashes,
+74 DER additions and all physical fields are unchanged. Cost binds all 74
+capability circles, while tracking leaves them slack. Two tightened-circle
+witnesses reject independently and in encoded constraints.
+
+Confirmation median **Ipopt milliseconds**:
+
+| Profile | Cost, none | Cost, gradient | Tracking, none | Tracking, gradient |
+|:--|--:|--:|--:|--:|
+| `full_dispatch_1k` | 44.528 | 44.358 | 27.453 | 30.180 |
+| `reduced_dispatch_1k` | 41.345 | 41.273 | 25.705 | 28.151 |
+| `full_dispatch_10k` | 49.577 | 49.700 | 25.317 | 25.284 |
+| `reduced_dispatch_10k` | 46.730 | 46.671 | 23.782 | 23.931 |
+| `full_dispatch_100k` | 43.499 | 43.655 | 25.365 | 27.994 |
+| `reduced_dispatch_100k` | 40.598 | 40.478 | 23.762 | 26.265 |
+
+Changing only dispatch units provides a cost benefit: matched same-sweep 1/10 kVA
+median ratios are **0.887–0.893** across full/reduced and both scaling policies;
+100/10 kVA ratios are **0.865–0.878**. Iteration counts change from 16 at 10 kVA
+to 15 at 1 kVA and 14 at 100 kVA. Both directions improve in exploration too.
+The response is therefore nonmonotonic over these three bases: it does not
+support choosing a smaller base merely because LV power ratings are smaller.
+The smallest cost medians in this panel are reduced 100 kVA dispatch at
+40.598/40.478 ms, with the assembly base still 10 kVA.
+
+Tracking differs. The 1/10 kVA ratios are **1.078–1.094** with no automatic
+scaling and **1.176–1.199** with gradient scaling. Iterations increase from seven
+to eight/nine, respectively. At 100 kVA, ratios are **1.001–1.004** without
+automatic scaling (seven iterations) and **1.095–1.108** with gradient scaling
+(eight iterations). The no-scaling 100 kVA contrast is practically a tie, with
+sub-percent changes in both directions between batches. Keep 10 kVA dispatch
+for the tracking shortlist across both policies. No native factorization,
+regularization or automatic-scaling mechanism is identified by these data.
+
+At matched dispatch units, the reduction bundle improves all three context
+medians in all four cells in both batches; confirmation ratios span
+**0.927–0.951**. No assertion is made that every trial improves. Retained tails
+include reduced-100k cost/no-scaling versus full-10k at 1.102 and reduced-10k
+tracking/gradient versus full-10k at 1.603, despite median improvements. The new
+candidate belongs alongside the earlier common-1k cost candidates; it has not
+been compared with them in the same timing block.
+
+
+This is evidence on one declared 265-bus DER scenario, not a population estimate
+or global optimality certificate. Common-base and dispatch-only experiments alter
+different coordinate families. Cross-batch absolute timings cannot establish a
+winner between the earlier common-1k profile and a new dispatch-only profile;
+that comparison needs a shared randomized panel. Lifted-power units, the
+1220-bus/multi-transformer transfer and voltage-constrained DER scenarios remain
+open. All previous transformations and defaults remain available. See
+[tutorial section 38](tutorial_exact_ivr.md) for the executable matched control.
 
 
 ## Independent economic-dispatch oracle

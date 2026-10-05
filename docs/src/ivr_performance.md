@@ -53,6 +53,16 @@ off/powers is the tracking shortlist across both tested solver policies. A 100 k
 tracking base is near 10 kVA without automatic scaling but about 34% slower with
 gradient scaling. These are scenario-specific profiles; all alternatives remain.
 
+The [independent dispatch-unit study](ivr_objectives.md#Independent-generator-dispatch-units-—-6-October-2026)
+holds the assembly base at 10 kVA and varies only generator P/Q units. Cost
+improves at both 1 and 100 kVA dispatch bases, with matched paired ratios
+0.887–0.893 and 0.865–0.878. The response is nonmonotonic; smaller LV ratings alone
+do not identify a best base. Reduced 100 kVA dispatch is an additional cost
+candidate, alongside the earlier common-1k profiles; no shared timing panel yet
+ranks those alternatives. Tracking retains 10 kVA dispatch: 1 kVA loses, and
+100 kVA is near a tie without automatic scaling but loses with gradient scaling.
+Lifted-power units remain unchanged and are the next separate intervention.
+
 ## Unbalanced transformer-leakage transfer — 5 October 2026
 
 The fixed power-base candidates transfer successfully to a manufactured coupled

@@ -85,6 +85,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `ground_scaling` | `:off` | `:voltage` uses global-base shunt multipliers; `:regional_voltage` uses nominal regional-base multipliers; both preserve finite grounds |
 | `objective_scale` | `nothing` | Divide the physical objective by this positive scalar; `nothing` preserves division by `s_base` |
 | `current_power_bases` | empty dictionary | Explicit bus-to-VA seeds for regional current coordinates; requires `transformer_scaling=:nominal` |
+| `generator_power_bases` | empty dictionary | Generator-ID-to-VA dispatch units for both P and Q; unspecified generators use `s_base` |
 | `observation_support_threshold` | `2` | Lift affine observations only when their distinct real-variable support is strictly larger; nonnegative integer |
 | `observation_sharing` | `:off` | `:exact` shares identical composed affine observations, including constants |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
@@ -270,12 +271,53 @@ applied safely. All physical current, voltage and power observations still use
 the original reconstruction. Changing declarations requires rebuilding.
 
 This option deliberately **does not** rebase generator P/Q variables, lifted
-observations/powers, voltage-law auxiliaries or ground multipliers. They retain
+observations/powers, voltage-law auxiliaries or ground multipliers. Generator
+dispatch can be rebased separately as described below; the others retain
 their assembly-unit conventions. In particular, `ground_scaling=:regional_voltage`
 still uses the common assembly power base, not these current-unit declarations.
 The option isolates regional current coordinates; it is not a complete regional
 power normalization of every NLP variable. See the [theory](ivr_theory.md) and
 [controlled experiment](ivr_performance.md) before selecting numerical settings.
+
+### Independent generator dispatch units
+
+`generator_power_bases=Dict("der"=>1e3)` assigns a positive finite VA base to
+both active and reactive dispatch coordinates of generator `der`. All its native
+channels use that base; delta dispatch remains coil-based. Unspecified generators
+use `s_base`. Unknown IDs and nonpositive/nonfinite bases or unrepresentable
+coordinate ratios are refused. The build owns a copy; changing the declarations
+requires rebuilding. This policy does not require nominal transformer scaling.
+
+Let ``S_b`` denote the assembly base and ``S_g`` the declared generator base.
+The solver coordinates are ``\widehat P_g=P_g/S_g`` and
+``\widehat Q_g=Q_g/S_g``. The generator defining equations retain assembly units:
+
+```math
+\operatorname{Re}(u_g\overline{i_g})=(S_g/S_b)\widehat P_g,\qquad
+\operatorname{Im}(u_g\overline{i_g})=(S_g/S_b)\widehat Q_g.
+```
+
+Here ``u_g,i_g`` are the physical coil observations expressed in assembly units
+after reconstruction. Thus only the dispatch columns change in these equations;
+there is no additional equality-row normalization. Boxes divide SI bounds by
+``S_g``; legacy prices multiply the active coordinate by ``S_g/1000``;
+explicit power objectives recover W/var before applying targets and coefficients.
+The objective divisor remains independent. `update_ivr_generators!` uses the
+same fixed bases through fixed/free/one-sided bound transitions and price changes.
+
+`ivr_nlp_point_report` derives the dispatch coordinates from the supplied SI
+voltage/current products using ``S_g``. Those values can initialize every dispatch
+variable. Result powers continue to be recovered from voltage/current products,
+not trusted from dispatch auxiliaries. Capability limits, current limits, voltage
+limits, circuit coordinates, and lifted-power units keep their existing maps.
+The `generator_power_bases` diagnostic reports the effective base for every
+generator, including defaults. Physical JSON keys and units are unchanged.
+
+This is a separate invertible coordinate intervention, not a new generator
+capability model or automatic base-selection rule. Hold `s_base`,
+`current_power_bases`, lifting and the objective divisor fixed when measuring its
+effect. See [the generator-unit experiment](ivr_objectives.md) and
+[tutorial section 38](tutorial_exact_ivr.md).
 
 ### Exact selective lifting
 

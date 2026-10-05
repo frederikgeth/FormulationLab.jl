@@ -1341,3 +1341,46 @@ base/lifting, and lifting at fixed base/reduction. Keep the physical objective
 divisor independent of the base. [Matched-base evidence](ivr_objectives.md)
 reports all contexts and retains the counterexamples; construction time does not
 enter the Ipopt ranking.
+
+
+## 38. Change dispatch units without changing the circuit base
+
+The assembly base also scales circuit currents, so a common-base experiment does
+not isolate dispatch scaling. Give each generator explicit units while keeping
+the assembly base and objective divisor fixed. The following uses the same
+manufactured economic case as section 37 and a shared physical start.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_generator_units.jl"))
+GU = IVRGeneratorUnitStudy
+generator_demo = EO.S.case(:quadratic_cost;segments=2)
+generator_profiles = filter(p->!p.factors.reduced,
+    GU.profiles(generator_demo,:quadratic_cost))
+generator_reference = build_opf(generator_demo,IVRNLP(objective=:power,
+    power_terms=first(generator_profiles).options.power_terms))
+generator_anchor = Ref{Any}(nothing)
+generator_rows = map(generator_profiles) do profile
+    @assert profile.options.s_base==1e4 && profile.options.objective_scale==1.
+    row,point = GU.P.trial(generator_demo,profile,generator_reference,generator_anchor[];
+        initial_point=EO.S.U.G.H.S.L.start_point(generator_demo))
+    @assert row["accepted"]
+    generator_anchor[]===nothing && (generator_anchor[]=point)
+    (profile=profile.name,objective=row["objective"])
+end
+@assert maximum(r.objective for r in generator_rows)-minimum(r.objective for r in generator_rows)<1e-6
+generator_rows
+```
+
+For one device, use `IVRNLP(generator_power_bases=Dict("generator_id"=>1e3))`.
+Other generators retain the assembly base. Both P and Q on all native channels
+use the declared units. Bounds and updates remain W/var; prices and targets retain
+their physical interpretation. SI result exports keep the same quantity fields.
+This option does not rebase IBR ports or lifted-power auxiliaries.
+
+`GU.benchmark(input_path, output_path; workload=:quadratic_cost)` compares six
+profiles: three dispatch bases crossed with full/reduced models. Its default two
+cyclic blocks measure twelve sweeps after six excluded warm-ups. For tracking,
+set `workload=:exchange_tracking` and an explicit `exchange_target_W`. Repeat
+with `nlp_scaling_method="gradient-based"` and in a fresh process. Keep all tails
+and failures. The [evidence](ivr_objectives.md) concerns one declared scenario;
+this executable example establishes consistency, not a speed recommendation.

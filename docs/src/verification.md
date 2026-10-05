@@ -1,5 +1,43 @@
 # Verification
 
+
+## Independent generator units — 6 October 2026
+
+The full suite passes **69,674/69,674 assertions**, including **460 new checks**
+in `test/ivr_generator_scaling_tests.jl`. An independent two-generator economic
+oracle checks heterogeneous dispatch bases, fixed objective normalization,
+physical P/Q and reusable bounds. Additional cases cover single-phase and delta
+channels, transformer reductions, regional-current coordinates, legacy prices,
+complete starts, SI round trips, unknown/invalid bases and fixed/free/one-sided
+updates. Tightened original capability, current and voltage limits reject in
+both physical and encoded-model checks. A six-profile runner test verifies that
+only dispatch units change within each full/reduced representation.
+
+The initial focused run exposed a test macro syntax error and then an infeasible
+manufactured update: fixing generation at 200 W with a 2 kW load exceeds its 5 A
+line limit. The update fixture now reduces demand to 1 kW first, as in the earlier
+update tests. Initial logs are retained; no limit or solver tolerance was relaxed.
+
+On the unchanged 265-bus derived-DER panel, all **576 measured solves and 48
+warm-ups** pass across exploratory/fresh-process batches, both cost/tracking
+objectives and both Ipopt scaling policies. Maximum physical objective discrepancy
+is below 4.45e-15 and within-cell spread below 5.33e-15. All 24 separate preflight
+SI exports round-trip with matching physical keys, unchanged raw/scenario hashes
+and the same 74 declared additions. Two tighter capability witnesses reject cost
+endpoints independently and algebraically. Every profile occupies each position
+twice; all tails are retained, and timing precedes tests/docs.
+
+Cost improves with either smaller or larger dispatch units at a fixed circuit
+base; tracking retains 10 kVA. The new dispatch-only cost candidate has not yet
+been compared against common-1k finalists in one shared timing block. No native
+factorization mechanism or global AC certificate is claimed. Defaults and every
+transformation remain available; lifted-power units are unchanged.
+
+All **40 executable tutorial blocks** pass. Six new timing rows, earlier tables,
+and six rendered pages' local links are checked against raw JSON and HTML.
+See the [scientific evidence](ivr_objectives.md), [coordinate contract](ivr_nlp.md)
+and [tutorial section 38](tutorial_exact_ivr.md).
+
 ## Matched full/reduced power bases — 6 October 2026
 
 The full suite passes **69,214/69,214 assertions**, adding **170 checks** in

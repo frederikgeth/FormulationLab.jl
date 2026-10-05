@@ -127,8 +127,8 @@ function sequence(net,schedule,inputs,references,anchors,workflow;solver_options
                 "effective_solver_options"=>effective,"status"=>r.solve.termination_status,
                 "objective"=>(isfinite(r.objective) ? r.objective : nothing),
                 "generator_dispatch"=>(point===nothing ? nothing : Dict(id=>Dict(
-                    "p_W"=>value.(refs.p).*build.electrical.sb,
-                    "q_var"=>value.(refs.q).*build.electrical.sb) for (id,refs) in build.generator_variables)),
+                    "p_W"=>value.(refs.p).*refs.power_base,
+                    "q_var"=>value.(refs.q).*refs.power_base) for (id,refs) in build.generator_variables)),
                 "physical_passed"=>(point!==nothing && physical.passed),
                 "own_passed"=>(point!==nothing && own.passed),"full_passed"=>(point!==nothing && full.passed),
                 "fresh_same_formulation_passed"=>(point!==nothing && mapped.passed),"anchor_passed"=>reverse,

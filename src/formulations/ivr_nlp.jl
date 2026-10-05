@@ -12,8 +12,11 @@ a positive explicit divisor separates objective normalization from electrical un
 physical W/var targets and coefficients. It does not add legacy device costs.
 `current_power_bases=Dict(bus=>VA, ...)` seeds current-unit power bases through
 lines and closed switches, stopping at transformers. It requires nominal transformer
-coordinates. Unseeded regions retain `s_base`; conflicts are refused. Dispatch,
-lifted-power and ground units remain on the assembly power base.
+coordinates. Unseeded regions retain `s_base`; conflicts are refused.
+`generator_power_bases=Dict(generator_id=>VA, ...)` independently sets both P and Q
+dispatch units per generator (all native channels). Unspecified generators retain
+`s_base`. It changes neither circuit-current nor lifted-power/ground units.
+Bounds, prices, starts and results keep their SI contracts.
 `specialization=:conductor_difference` attempts a certified radial zero-sum
 current reduction and retains reference-conductor voltages. Ineligible networks
 fall back to full IVR with a reason in the build diagnostics.
@@ -54,6 +57,7 @@ Base.@kwdef struct IVRNLPOptions
     s_base::Float64 = 1e4
     objective_scale::Union{Nothing,Float64} = nothing
     current_power_bases::Dict{String,Float64} = Dict{String,Float64}()
+    generator_power_bases::Dict{String,Float64} = Dict{String,Float64}()
     objective::Symbol = :cost
     power_terms::Vector{IVRPowerTerm} = IVRPowerTerm[]
     specialization::Symbol = :off
@@ -367,7 +371,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     isfinite(_ivrn_objective_scale(options)) && _ivrn_objective_scale(options)>0 || throw(ArgumentError("objective_scale must be positive and finite"))
     isempty(options.current_power_bases) || options.transformer_scaling==:nominal || throw(ArgumentError("current_power_bases requires nominal transformer coordinates"))
     # Own mutable base declarations just as the build owns its physical input.
-    options=IVRNLPOptions(; (k=>(k in (:current_power_bases,:power_terms) ? deepcopy(getfield(options,k)) : getfield(options,k)) for k in fieldnames(IVRNLPOptions))...)
+    options=IVRNLPOptions(; (k=>(k in (:current_power_bases,:generator_power_bases,:power_terms) ? deepcopy(getfield(options,k)) : getfield(options,k)) for k in fieldnames(IVRNLPOptions))...)
     options.objective in (:cost,:source_import,:feasibility,:power) || throw(ArgumentError("unknown IVRNLP objective"))
     _ivrn_check_power_terms(options)
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
@@ -381,6 +385,11 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.observation_sharing in (:off,:exact) || throw(ArgumentError("unknown IVRNLP observation sharing"))
     options.device_elimination in (:off,:transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
     net=_l3f_input(input);_ivrn_check(net)
+    for (id,base) in options.generator_power_bases
+        haskey(get(net,"generator",Dict()),id) || throw(ArgumentError("unknown generator in generator_power_bases: $id"))
+        isfinite(base) && base>0 && isfinite(base/options.s_base) && base/options.s_base>0 &&
+            isfinite(options.s_base/base) || throw(ArgumentError("generator power bases and coordinate ratios must be positive and finite"))
+    end
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
                            delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
                            record_transformer_bonds=true,record_transformer_currents=true)
@@ -435,9 +444,12 @@ function _build_ivr_nlp_opf(input,optimizer,options)
             # boxes change between fixed, free and one-sided dispatch.
             pg=@variable(model,[1:count],base_name="generator_$(id)_p",start=0.)
             qg=@variable(model,[1:count],base_name="generator_$(id)_q",start=0.)
-            cp=[@constraint(model,p[k]==pg[k]) for k in 1:count]
-            cq=[@constraint(model,q[k]==qg[k]) for k in 1:count]
-            generators[id]=(;p=pg,q=qg,p_equations=cp,q_equations=cq)
+            power_base=get(options.generator_power_bases,id,e.sb)
+            ratio=power_base/e.sb
+            # Preserve assembly-unit equation rows; change only dispatch columns.
+            cp=[@constraint(model,p[k]==ratio*pg[k]) for k in 1:count]
+            cq=[@constraint(model,q[k]==ratio*qg[k]) for k in 1:count]
+            generators[id]=(;p=pg,q=qg,p_equations=cp,q_equations=cq,power_base)
             p=pg;q=qg
         end
         if family==:load && !_sdp_is_impedance_load(d)
@@ -486,7 +498,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
                 low=family==:voltage_source ? get(d,lo,nothing) : e.values_for(d,lo,count)
                 high=family==:voltage_source ? get(d,hi,nothing) : e.values_for(d,hi,count)
                 if family==:generator
-                    _ivrn_generator_bounds!(x,low,high,e.sb)
+                    _ivrn_generator_bounds!(x,low,high,generators[id].power_base)
                     continue
                 end
                 for k in 1:count
@@ -505,7 +517,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
             end
             cost=e.values_for(priced,"cost",count;default=zeros(count))
             for k in 1:count
-                coefficient=options.objective==:cost ? cost[k]*e.sb/1000 :
+                coefficient=options.objective==:cost ? cost[k]*(family==:generator ? generators[id].power_base : e.sb)/1000 :
                     options.objective==:source_import && family==:voltage_source ? e.sb : 0.0
                 JuMP.add_to_expression!(objective,coefficient,p[k])
             end
@@ -541,6 +553,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :row_scaling=>options.row_scaling,:composed_row_normalization=>scaled_rows,
         :per_unit_bases=>(voltage_V=e.vb,current_A=e.ib,power_VA=e.sb),
         :objective_scale=>_ivrn_objective_scale(options),
+        :generator_power_bases=>Dict(id=>g.power_base for (id,g) in generators),
         :lifting=>options.lifting,:lifted_real_variables=>2length(model.ext[:ivr_lifting].records),
         :observation_support_threshold=>options.observation_support_threshold,
         :observation_sharing=>options.observation_sharing,
@@ -633,11 +646,11 @@ function update_ivr_generators!(build::IVRNLPBuild,updates::AbstractDict)
         for (lo,hi,x) in ((:p_min,:p_max,refs.p),(:q_min,:q_max,refs.q))
             haskey(values,lo) || haskey(values,hi) || continue
             low=get(values,lo,get(d,string(lo),nothing));high=get(values,hi,get(d,string(hi),nothing))
-            _ivrn_generator_bounds!(x,low,high,build.electrical.sb)
+            _ivrn_generator_bounds!(x,low,high,refs.power_base)
         end
         if haskey(values,:cost) && build.options.objective==:cost
             for (x,c) in zip(refs.p,values[:cost])
-                JuMP.set_objective_coefficient(build.model,x,(c/1000)*(build.electrical.sb/_ivrn_objective_scale(build.options)))
+                JuMP.set_objective_coefficient(build.model,x,(c/1000)*(refs.power_base/_ivrn_objective_scale(build.options)))
             end
         end
         for (field,v) in values

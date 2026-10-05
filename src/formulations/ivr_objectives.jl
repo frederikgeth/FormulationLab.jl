@@ -45,7 +45,7 @@ function _ivrn_power_objective(model,terms,e,z,generators)
             v,i=devices[(family,id)]
             1<=k<=length(v) || throw(ArgumentError("objective power channel index out of range: $family/$id/$k"))
             s=get!(selected,(family,id,k)) do
-                family==:generator ? generators[id].p[k]+im*generators[id].q[k] :
+                family==:generator ? (generators[id].power_base/e.sb)*(generators[id].p[k]+im*generators[id].q[k]) :
                     _ivrn_bound_power(model,v[k],i[k],z)
             end
             x += weight*e.sb*(term.quantity==:p ? real(s) : imag(s))
