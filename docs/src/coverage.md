@@ -26,7 +26,8 @@ does not grant it every SDP or LinIVR device law. See the
 | Equipment, source and IBR capability updates | Require a new build | Reassess applicability on the new build |
 
 An independent opt-in `linear_elimination` pass substitutes impedance-load
-currents, or also eliminates nonadjacent device-free degree-two buses between
+currents, or also eliminates device-free degree-two buses (nonadjacent
+`:passive`, or adjacent `:passive_chains`) between
 unshunted lines. It composes with conductor specialization and retains every
 physical observation and operating bound. This expands coordinate-reduction
 choices, not element coverage. See the [contract](ivr_nlp.md#Local-linear-elimination)

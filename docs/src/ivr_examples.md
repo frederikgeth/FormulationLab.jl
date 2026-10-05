@@ -253,6 +253,24 @@ complete-sequence time. This motivates retaining both policies and assessing
 the intended sequence rather than extrapolating from a repeated identical solve.
 The tutorial shows how to [set primal starts explicitly](tutorial_exact_ivr.md).
 
+## Many observations along an unloaded cable
+
+A cable may be divided into many segments to retain intermediate voltage limits,
+thermal ratings and reporting locations, even when demand occurs only at its end.
+Eliminating every other empty bus leaves adjacent opportunities unused. The
+additive `:passive_chains` mode composes unit-pivot substitutions while preserving
+all those observations and limits on reconstructed expressions. It supports a
+two-wire single-phase service and a three-wire delta feeder under the same local
+algebraic certificate.
+
+The benefit is a smaller solver state without discarding interior restrictions.
+The possible cost is more coupling in reconstructed voltage and apparent-power
+expressions. The experiment therefore fixes total impedance and total demand as
+segmentation changes and compares Ipopt wall time. An alternating-load control
+has no additional adjacent opportunity and should produce the same maps as the
+original passive policy. The [tutorial](tutorial_exact_ivr.md) demonstrates both
+reconstruction directions and an interior-bound violation.
+
 ## Interpreting benefit and evidence
 
 There are three distinct potential benefits: a native exact reference for

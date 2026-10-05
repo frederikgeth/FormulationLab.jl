@@ -315,6 +315,35 @@ function series_selection_example()
     (;net,all,selected,zero,sparse)
 end
 
+"""Compare nonadjacent and composed chain maps, keeping interior limits."""
+function chain_elimination_example()
+    rows=NamedTuple[]
+    for m in (2,3)
+        net=ivr_compiler_case(conductors=m,segments=3)
+        delete!(net["load"],"d1");delete!(net["load"],"d2")
+        for line in values(net["line"]);line["s_max"]=fill(1e5,m==2 ? 1 : 3);end
+        full=solve_checked(net)
+        local_model=solve_checked(net;specialization=:conductor_regions,linear_elimination=:passive)
+        chain=solve_checked(net;specialization=:conductor_regions,linear_elimination=:passive_chains)
+        report=chain.build.numerical_diagnostics[:linear_elimination_report]
+        @assert report.series_buses==["b1","b2"]
+        @assert local_model.build.numerical_diagnostics[:linear_elimination_report].series_buses==["b1"]
+        @assert ivr_nlp_point_report(chain.build,point(full.result)).passed
+        @assert ivr_nlp_point_report(full.build,point(chain.result)).passed
+        @assert isapprox(full.result.objective,chain.result.objective;atol=1e-5)
+        tight=deepcopy(net);field=m==2 ? "vpn_max" : "vpp_max"
+        delete!(tight["bus"]["b2"],replace(field,"max"=>"min"))
+        tight["bus"]["b2"][field][1]=1.
+        check=build_opf(tight,IVRNLP(specialization=:conductor_regions,linear_elimination=:passive_chains))
+        @assert !ivr_nlp_point_report(check,point(full.result)).passed
+        @assert !physical_residuals(tight,full.result).passed
+        push!(rows,(;conductors=m,full_variables=num_variables(full.build.model),
+            passive_variables=num_variables(local_model.build.model),chain_variables=num_variables(chain.build.model),
+            selected_lines=report.selected_series_lines,source_import_W=chain.result.objective))
+    end
+    rows
+end
+
 function refusal_examples()
     baseline = analytical_example()
     tight = deepcopy(baseline.net)
@@ -349,6 +378,7 @@ function run_all()
     series_elimination_example()
     finite_ground_example()
     series_selection_example()
+    chain_elimination_example()
     refusal_examples()
     println("All tutorial checks passed.")
 end

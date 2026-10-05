@@ -13,8 +13,9 @@ fall back to full IVR with a reason in the build diagnostics.
 boundary buses, leaving other circuits physical. The default is :off.
 `linear_elimination=:impedance_loads` substitutes exact impedance-load currents;
 `:passive` also eliminates certified nonadjacent device-free degree-two buses
-between unshunted lines. Both preserve physical observations and operating
-bounds and compose with conductor specialization. The default is :off.
+between unshunted lines. `:passive_chains` additionally permits adjacent buses
+using surviving unit-pivot equations. All preserve physical observations and
+operating bounds and compose with conductor specialization. The default is :off.
 `series_selection=:bound_support` retains a candidate series bus if any affected
 operating bound would depend on more solver coordinates. Default :all.
 `ground_scaling=:voltage` rescales retained free voltages attached to stiff
@@ -275,7 +276,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     isfinite(options.s_base) && options.s_base>0 || throw(ArgumentError("s_base must be positive and finite"))
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown IVRNLP objective"))
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
-    options.linear_elimination in (:off,:impedance_loads,:passive) || throw(ArgumentError("unknown IVRNLP linear elimination"))
+    options.linear_elimination in (:off,:impedance_loads,:passive,:passive_chains) || throw(ArgumentError("unknown IVRNLP linear elimination"))
     options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
     options.ground_scaling in (:off,:voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
     net=_l3f_input(input);_ivrn_check(net)

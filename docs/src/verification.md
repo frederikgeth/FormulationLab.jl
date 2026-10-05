@@ -1,5 +1,47 @@
 # Verification
 
+## Adjacent-chain certificate and benchmark — 5 October 2026
+
+The additive `:passive_chains` policy consumes surviving incident-line equations
+once, composes exact unit-pivot substitutions, and rolls back incomplete or
+support-expanding transactions. It preserves device/ground boundaries and
+all original physical observations. The original nonadjacent mode is unchanged.
+The proof uses induction on elementary inverse coordinate maps; it does not
+assume that a mesh is radial or invert a line impedance.
+
+New tests cover two-, three- and four-wire cases, all conductor specializations,
+reversed lines and terminal permutations, and IDs that force the second bus to
+use a different surviving equation. Arbitrary complex coordinate vectors verify
+projection/reconstruction inversion and every removed KCL/KVL row; independent
+solves verify both supplied-point directions and objective parity. Every
+interior phase/pair/neutral/sequence bound family and both-end line I/S records
+have negative witnesses. Forward/reverse power flow additionally isolates one
+apparent-power endpoint at a time, preventing the other endpoint from masking
+a missing constraint. Unshunted endpoint current magnitudes tie by KCL, so those
+witnesses necessarily violate both current ends together.
+
+A zero-impedance first step preserves an earlier bus bound's support, then a
+nonzero-impedance second step would expand it. The selector detects the earlier
+bound and rolls back the second step; maps match the untouched nonadjacent
+reference. Tests also cover local mesh sections, zero impedance, retained
+junctions, charging/device/ground refusals, impedance-load composition and
+CP/generator P/Q/price updates. The fixed-total-impedance benchmark fixture
+checks unchanged total demand, preserved limits, equal physical starts and
+identical passive/chain maps on alternating-load controls.
+
+Final regression: **36,561/36,561 assertions** (1,844 added), including the
+endpoint-isolating tests. Documentation executes all **24 tutorial blocks**;
+seven updated rendered pages and 733 local links/anchors pass inspection. The
+known OpenDSSDirect precompile fallback and Documenter search-index-size warning
+are nonfatal.
+
+The [performance guide](ivr_performance.md) reports the balanced timing panel
+and fresh-process confirmation: **576/576 measured solves** and **48/48 warm-ups**
+pass across the two separately retained batches. Failures and slow samples are never dropped;
+compilation has no weight in the primary Ipopt wall-time score. No device law,
+control capability, default or existing transformation was removed. The greedy
+certificate is not maximal, and charged pi sections remain outside it.
+
 ## Distinct P/Q histories and reactive-bound transitions — 5 October 2026
 
 The new `examples/benchmark_ivr_histories.jl` provides reproducible single-phase

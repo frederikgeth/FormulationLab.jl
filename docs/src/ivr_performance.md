@@ -29,9 +29,97 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+## Adjacent-chain elimination with retained interior limits — 5 October 2026
+
+`linear_elimination=:passive_chains` is an additional exact coordinate policy.
+The original `:passive`, every earlier profile and all start/ordering options
+remain available. The new pass uses surviving unit-pivot equations to compose
+adjacent eliminations; [the proof and limits](ivr_theory.md) and
+[executable tutorial](tutorial_exact_ivr.md) describe its certificate.
+
+**Protocol.** `examples/benchmark_ivr_chains.jl` constructs two-wire single-phase
+and three-wire delta chains with 12 or 48 segments and terminal demand. A
+48-segment alternating-load control has no extra adjacent opportunity. Each
+segment has length `1/n`, so total series impedance is fixed. Total P/Q demand
+is also fixed: 2000 W/500 var for single-phase; delta P is [2000, 750, 250] W,
+Q=P/4. Every interior voltage bound, 200 A conductor rating and 100 kVA phase
+apparent-power rating at both ends remains present. These are synthetic,
+unshunted, lightly loaded cases with slack operating limits, not real-feeder
+or active-limit evidence.
+
+Six candidates cross full/regional coordinates with elimination off/passive/
+passive_chains. Every candidate uses source-import minimization, the same
+strict Ipopt settings and MUMPS AMD. A preflight verifies equal reconstructed
+flat physical starts to 1e-12 pu. Twelve rotated/reversed sweeps place every
+candidate in every position twice; each has one excluded warm-up. The sole
+primary metric is Ipopt wall time. Construction, extraction and audit times
+are excluded. Tests, documentation and other Julia experiments did not overlap
+timing runs. Source/input snapshots, digests, protocols, raw rows and an
+independent balance/admission/objective audit are retained outside Git under
+`CHAIN_STUDY_20261005`.
+
+The first panel admits **432/432 measured solves** and **36/36 warm-ups**, with
+matching objectives, independent physical checks, own/full-model checks and
+reverse anchors. Median Ipopt wall time in milliseconds:
+
+| Conductors; segments; loads | Full | Full + passive | Full + chains | Regional | Regional + passive | Regional + chains |
+|:--|--:|--:|--:|--:|--:|--:|
+| 2; 12; terminal | 1.320 | 1.476 | 1.537 | 1.380 | 1.376 | 1.189 |
+| 2; 48; terminal | 2.941 | 3.524 | 2.887 | 3.098 | 3.322 | 2.064 |
+| 2; 48; alternating | 3.438 | 4.092 | 4.115 | 3.582 | 3.794 | 3.828 |
+| 3; 12; terminal | 2.431 | 3.261 | 3.634 | 2.976 | 3.338 | 3.018 |
+| 3; 48; terminal | 7.510 | 11.735 | 10.925 | 9.694 | 12.028 | 8.269 |
+| 3; 48; alternating | 6.323 | 10.350 | 10.398 | 9.272 | 10.981 | 10.685 |
+
+Regional chains improve over regional passive by 14%/38% on the 12/48-segment
+single-phase inputs and 10%/31% on the delta inputs. This does **not** make
+chains the fastest delta formulation: full IVR remains faster there. Full
+coordinates plus chains regress 4% and 11% against full plus passive on the
+short single-phase/delta cases. Alternating controls have identical passive/
+chain maps and derivative counts; their median differences, at most 2.7%, are
+a useful noise check. All raw outliers remain: the regional delta 48-segment
+paired chain/passive range is 0.261–2.435, despite its median improvement.
+
+For the 48-segment single-phase case, regional chains reduce 156 real variables
+to 12 and the supplied unique Hessian entries from 835 to 38, with two iterations
+for both policies. For the delta case they reduce 268 variables to 28 and 2227
+unique Hessian entries to 129, with three iterations for both. Yet full delta
+IVR, with 594 variables, is faster. With full coordinates, delta-chain elimination
+leaves the unique supplied Jacobian entry count unchanged at 5814 despite
+reducing variables to 30. These are backend derivative counts before Ipopt
+preprocessing, not factorization fill or memory measurements. They illustrate
+why variable counts alone cannot identify the fastest formulation.
+
+**Fresh-process confirmation.** The same two 48-segment terminal-load inputs
+were repeated unchanged, with all six candidates and twelve balanced sweeps.
+All **144 measured solves** and **12 warm-ups** passed. This batch is retained
+separately, not pooled with the first panel. Median Ipopt milliseconds:
+
+| Conductors | Full | Full + passive | Full + chains | Regional | Regional + passive | Regional + chains |
+|:--|--:|--:|--:|--:|--:|--:|
+| 2 | 3.145 | 3.716 | 2.979 | 3.245 | 3.552 | 2.268 |
+| 3 | 7.751 | 11.690 | 11.420 | 10.699 | 12.332 | 8.614 |
+
+Regional chains are 36% faster than regional passive and 28% faster than full
+IVR on the single-phase confirmation. On delta they are 30% faster than regional
+passive, but **11% slower than full IVR**. Paired regional chain/passive ranges
+are 0.080–0.717 for single-phase and 0.679–0.746 for delta; the very small
+single-phase minimum comes from a retained slow passive observation, not a
+removed outlier. Full-coordinate delta chain/passive has range 0.908–2.470 and
+only a 2.3% median improvement. No statistical-significance claim is made.
+
+**Workload-specific choice.** For the demonstrated terminal-load single-phase
+chains, regional coordinates plus `:passive_chains` and AMD are the fastest
+measured candidate. For these delta inputs and alternating-load controls, retain
+full IVR plus AMD as the leading comparator. This refines the earlier regional/
+passive starting recommendation; it does not replace package defaults or justify
+a topology-only automatic selector. Larger real feeders, active interior bounds,
+heterogeneous long chains and update histories need their own measurements.
+Compilation cost plays no role in these choices.
+
 ## Best-evidence starting configuration: regional IVR with AMD
 
-The current measured starting configuration adds **MUMPS AMD ordering** to
+The earlier feeder and dispatch evidence supports **MUMPS AMD ordering** with
 regional conductor coordinates, passive elimination and finite-ground scaling:
 
 ```julia
@@ -47,7 +135,8 @@ strict settings define the measured experiment, not a new package default.
 Use the required objective for the intended workload; the feasibility evidence
 does not replace an economic objective. All transformations and ordering
 alternatives remain available. This recommendation concerns solver wall time;
-construction cost does not enter it.
+construction cost does not enter it. The adjacent-chain experiment above supplies
+additional workload-specific choices; keep full IVR plus AMD as a comparator.
 
 For the longer manufactured dispatch sequences and the two external-feeder
 demand sequences studied below, explicitly carrying the previous primal point

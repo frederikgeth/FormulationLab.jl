@@ -77,8 +77,8 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `s_base` | `1e4` | Positive finite internal power base in VA; SI inputs/results unchanged |
 | `objective` | `:cost` | `:cost`, `:source_import` or `:feasibility` |
 | `specialization` | `:off` | `:conductor_difference` certifies one complete section; `:conductor_regions` certifies pendant regions behind retained boundaries |
-| `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates eligible degree-two bus voltages and one incident line's current coordinates |
-| `series_selection` | `:all` | With `linear_elimination=:passive`, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
+| `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates nonadjacent eligible degree-two buses; `:passive_chains` permits adjacent candidates using surviving equations |
+| `series_selection` | `:all` | With `:passive` or `:passive_chains`, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
 | `ground_scaling` | `:off` | `:voltage` rescales eligible free finite-ground voltages and normalizes circuit rows in solver coordinates |
 
 `IVRNLPResult.voltage_candidate` maps `(bus, terminal)` to complex volts;
@@ -101,7 +101,7 @@ passes compose. Both are opt-in. The original network snapshot, electrical
 rows and physical observation channels remain available. The solver variables
 and defining equalities are reduced; no network preparation or topology merge
 is applied. Use `:linear_elimination_report` in `numerical_diagnostics` to inspect
-`impedance_loads`, `series_buses`, `retained_series_buses` and
+`impedance_loads`, `series_buses`, `selected_series_lines`, `retained_series_buses` and
 `eliminated_complex_coordinates`.
 
 `:impedance_loads` substitutes each exact law `I = Y*U`, including constant
@@ -122,6 +122,18 @@ It uses unit-coefficient KCL/KVL pivots, not impedance inversion or a numerical
 rank/PSD threshold; zero series impedance is allowed. It does not certify
 positive dissipation or improve the existing line-passivity classification.
 
+`:passive_chains` keeps the same structural requirements but permits adjacent
+candidates. At each bus, it tries incident lines in sorted ID order whose defining
+rows have not already been omitted. It resolves every row through prior
+substitutions, requires a complete set of exact unit pivots, and rolls back an
+incomplete or support-rejected attempt before trying the next line. The report's
+`selected_series_lines` maps each eliminated bus to its consumed line. Retention
+reasons include `no_surviving_line_equations` and `no_local_unit_pivot`.
+This greedy single pass is not a maximal chain-reduction algorithm: ordering can
+leave a bus when both original incident equations have been consumed, even if
+a more global elimination could remove it. It also applies to eligible local
+sections inside meshes; it does not remove a cycle by assuming radial KCL.
+
 Every original removed-bus voltage limit and segment current/apparent-power
 limit is still evaluated on its reconstructed physical expression. Transformer,
 switch, generator and IBR observations/bounds are unchanged. A supplied physical
@@ -133,16 +145,16 @@ are determined by their defining laws, so the reduced starting point need not
 equal the full model's independently assigned current starts.
 
 The name `:passive` identifies this device-free series policy, not the separate
-approximate compatibility reduction pipeline. Charged pi sections, adjacent
-multi-bus elimination, junctions above degree two and device-boundary
-elimination are outside this initial certificate. The [theory](ivr_theory.md)
+approximate compatibility reduction pipeline. Charged pi sections, junctions above degree two and device-boundary
+elimination remain outside these certificates. Adjacent elimination is opt-in
+through `:passive_chains`; the original `:passive` policy is unchanged. The [theory](ivr_theory.md)
 states the equivalence argument; [verification](verification.md) records the
 tests and performance limitations.
 
 ### Series selection by bound support
 
 `series_selection=:bound_support` adds a conservative selection rule to
-`linear_elimination=:passive`. Structural eligibility and exact unit-pivot
+either `linear_elimination=:passive` or `:passive_chains`. Structural eligibility and exact unit-pivot
 substitution are unchanged. For each affected operating bound, count the union
 of nonzero **complex solver-coordinate** indices in its transformed voltage/
 current rows. A voltage or current magnitude uses one row; an apparent-power
@@ -160,7 +172,10 @@ coordinates are distinct from device-current coordinates.
 
 A rejected tentative substitution is rolled back before considering the next
 bus; it does not protect neighbouring buses from selection. Accepted candidates
-retain the existing nonadjacent rule. Impedance-current substitution is unchanged.
+retain the existing nonadjacent rule in `:passive` only. The chain mode checks
+**all original operating-bound rows** after each tentative composition. A bound
+at a previously eliminated bus may acquire a new dependency; indexing only the
+current bus would miss it. Impedance-current substitution is unchanged.
 Selection is inert for `linear_elimination=:off` and `:impedance_loads`. If no
 substitution is accepted, the incoming maps are reused. The bound index is built
 only after encountering a structurally eligible series candidate.

@@ -379,6 +379,28 @@ selected in one sorted pass, keeping substitutions local to retained boundaries.
 Charged pi sections and device/ground boundaries are retained. No assertion
 about positive dissipation is needed for these algebraic substitutions.
 
+The additive `:passive_chains` policy extends this argument by induction.
+Suppose ``z=R_k y_k`` is already exact on the previously omitted linear rows.
+Resolve a surviving equation in ``y_k`` and select an as-yet retained coordinate
+with coefficient exactly ``+1`` or ``-1``. The elementary map ``T_k`` gives
+``R_{k+1}=R_kT_k`` and an inverse retained-coordinate projection on that equation's
+zero set. Every new substitution references only coordinates retained at its
+creation. Dependencies on subsequently eliminated coordinates therefore follow
+the elimination order and cannot form a directed cycle. Induction establishes
+the composed inverse maps and feasibility/objective correspondence, regardless
+of whether the original graph has a cycle.
+
+For each bus transaction, only surviving incident-line equations are candidates;
+previously omitted rows are never used again. The implementation requires all
+local current and voltage targets to be eliminated and rolls back every newly
+introduced substitution if a pivot or optional support check fails. KCL and KVL
+rows are omitted only after the complete transaction succeeds. The original
+sorted nonadjacent policy remains available as `:passive`; `:passive_chains`
+tries the next surviving incident line after rejection. This is a sufficient,
+order-dependent certificate, not a maximality result or a graph contraction.
+Longer composed expressions can increase coefficient cancellation and derivative
+coupling; algebraic exactness does not promise better floating-point conditioning.
+
 Physical observations are not removed. Intermediate phase/neutral/sequence
 voltage bounds and every segment's endpoint current/apparent-power limits are
 compiled on ``RT\widehat y``. Reconstruction performed only after solving
@@ -403,9 +425,14 @@ The policy decides whether to apply an already-proved equivalence; it changes
 no bound or feasibility condition. Rejecting a candidate restores its original
 coordinates/equalities. Bus-voltage fields use the same row visitor as bound
 compilation, and component limits use the assembler's existing records.
-Only intermediate voltage coordinates and one incident line's current
-coordinates change. Because device buses are excluded, other device constraints
-and objectives are unaffected by this local candidate.
+For the nonadjacent policy, only intermediate voltage coordinates and one
+incident line's current coordinates change. In the chain policy, earlier
+reconstruction rows can also change through composition, so the selector scans
+all original voltage and physical current/apparent-power bound records. A
+zero-impedance first substitution can preserve an earlier bound's support, while
+a subsequent nonzero-impedance substitution expands it. The latter must be
+rejected even if the current bus has no bounds. Device boundary voltages and
+device-current coordinates remain retained.
 
 Support cardinality is a deliberately limited proxy. Equal widths can connect
 different coordinates; coefficient cancellations, repeated derivative entries,

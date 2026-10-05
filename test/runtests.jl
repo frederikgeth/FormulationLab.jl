@@ -8,6 +8,8 @@ using OpenDSSDirect
     include("ivr_elimination_tests.jl")
     include("ivr_ground_scaling_tests.jl")
     include("ivr_series_selection_tests.jl")
+    include("ivr_chain_tests.jl")
+    include("ivr_chain_study_tests.jl")
     include("ivr_profile_study_tests.jl")
     include("ivr_reuse_study_tests.jl")
     include("ivr_feeder_reuse_tests.jl")

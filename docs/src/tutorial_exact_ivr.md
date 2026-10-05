@@ -626,3 +626,41 @@ per-scenario effective settings and reset records before reading a time ranking.
 after solving; these are not per-unit solver coordinates. Preserve failures and
 unattempted later scenarios. The [performance guide](ivr_performance.md) records
 the protocol, measurements and limits of inference.
+
+
+## 21. Compose eliminations along an unloaded chain
+
+Three unshunted segments connect a source to a terminal load. Both interior
+buses retain their original voltage limits, and every segment has current and
+apparent-power limits at both ends. The old policy selects only the first bus;
+the new policy uses the next surviving line equation to eliminate the second.
+This example runs both single-phase and three-wire delta cases, checks physical
+states in both directions, and tightens the second interior bus's voltage bound
+to demonstrate rejection of the unchanged supplied point.
+
+```@example exactivr
+T.chain_elimination_example()
+```
+
+Use `linear_elimination=:passive_chains` to request this certificate. Inspect
+`selected_series_lines` as well as `series_buses`: consumed equations must be
+distinct. The original physical observations remain mandatory when supplying a
+point. A smaller coordinate count does not establish a runtime benefit.
+
+For an independently timed comparison with fixed total line impedance and total
+demand, run the following separately from documentation/tests:
+
+```julia
+include("examples/benchmark_ivr_chains.jl")
+using LinearAlgebra
+BLAS.set_num_threads(1)
+report = IVRChainStudy.benchmark("delta-chain.json";
+    conductors=3, segments=48, loads=:terminal, repetitions=12)
+```
+
+The six candidates cross full/regional coordinates with no elimination, the
+original passive pass and adjacent-chain elimination; all request MUMPS AMD.
+The manifest checks equal physical starts. Twelve sweeps balance profile position,
+and warm-ups are excluded. `loads=:alternating` is a control with no additional
+adjacent opportunity. The primary ranking uses Ipopt wall time only. See the
+[performance evidence](ivr_performance.md) before choosing between these options.
