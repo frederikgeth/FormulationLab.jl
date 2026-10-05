@@ -1,5 +1,53 @@
 # Verification
 
+## External feeder reuse and initialization transfer — 5 October 2026
+
+The new `examples/benchmark_ivr_feeder_reuse.jl` wrapper writes source/scenario
+provenance before solving and applies explicit CP demand factors `(1,1,0.9,1)`
+to owned inputs. It retains source files, equipment, all operating bounds and
+source/generator accounting. Other load laws remain fixed and are listed. The
+study requires a feasibility objective; it makes no economic-dispatch claim.
+
+Two prospectively declared contrasts use DSuite 1,220 and ENWL 435. One crosses
+full/regional reused models with fixed/previous-primal starts; the other crosses
+full/regional fresh/reused models with fixed starts. Each uses eight sweeps over
+four workflows, every workflow in each position twice. All **512/512 measured
+solves** and **64/64 excluded warm-ups** pass physical, own-model, independent
+fresh-full/fresh-same-formulation and applicable reverse-anchor checks. All
+measured scenarios have accepted reverse anchors. Source hashes, scenario
+correspondence, explicit start digests, identity checks, complete-sequence timing
+sums and actual order balance pass an independent audit. Batches are kept separate.
+
+Previous-primal/fixed median sequence ratios are **0.819/0.831** for DSuite
+full/regional and **0.846/0.840** for ENWL full/regional. Fixed-start reused/fresh
+ratios in the separate lifecycle batch are **1.002/0.998** and **0.976/1.004**.
+Initialization has the larger effect on these sequences; full is slightly faster
+on DSuite and regional is faster on ENWL. Construction cost remains excluded
+from the Ipopt wall-time assessment. All formulations and start policies remain
+available, including the earlier small-case regressions.
+
+A separate diagnostic admits **14/14 solves** while checking two-wire/delta
+generator prices, fixed/released bounds and removed/restored bound sides. All observed
+constraint types support dual-start attributes, but no dual initialization is
+applied. Non-variable-bound row references are retained while bounds change.
+All 12 post-initial updates mark the installed Ipopt wrapper for reconstruction
+and the next solve creates a different internal problem object. This does not
+measure reconstruction's time contribution or establish factorization reuse.
+The [performance guide](ivr_performance.md) documents the installed wrapper's
+bound-dual reconstruction and the required reset/correspondence policy before
+a future primal-dual experiment.
+
+The final suite passes **32,019/32,019** assertions, including 24 new checks of
+absolute demand scenarios, unchanged non-CP loads, invalid schedules, source-file
+integrity, provenance, feasibility-only scope, admitted solves and actual position
+balance. The final runner corrects an inherited cost-accounting note in metadata;
+the original timed files and the metadata-only diff are preserved. It changes
+no solve or ranking. The guide, reference and tutorial explain reproduction,
+source accounting and the boundary between model reuse and solver initialization.
+Raw evidence, protocol, source snapshots and the updated handover/roadmap remain
+outside Git. No production equations, defaults or component coverage changed.
+
+
 ## Model reuse and explicit previous-primal starts — 5 October 2026
 
 The new `examples/benchmark_ivr_reuse.jl` runner crosses full/regional-passive

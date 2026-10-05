@@ -10,6 +10,7 @@ using OpenDSSDirect
     include("ivr_series_selection_tests.jl")
     include("ivr_profile_study_tests.jl")
     include("ivr_reuse_study_tests.jl")
+    include("ivr_feeder_reuse_tests.jl")
     include("linivr_tests.jl")
     include("compiler_algebra_tests.jl")
     include("ivr_nlp_tests.jl")

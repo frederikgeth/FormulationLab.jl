@@ -682,6 +682,14 @@ fresh models. This adds an experimental start policy, not an automatic update-AP
 behavior or a primal-dual warm-start contract. See the
 [performance guide](ivr_performance.md) for the protocol and measured domain.
 
+The external-feeder counterpart `examples/benchmark_ivr_feeder_reuse.jl` uses
+explicit constant-power demand sequences and a feasibility objective, preserving
+source/generator accounting. It writes a provenance manifest before solving,
+records changed and unchanged load IDs, and leaves input files untouched. Its
+default four reused-model/start workflows use eight balanced sweeps. A separate
+four-workflow fixed-start experiment isolates fresh versus reused models. These
+add demand-sequence evidence, not a new production update contract.
+
 The ablation compares full/reduced and fresh/reused construction at mapped
 physical starts. It reports failures and physical checks as well as timings.
 It does not establish performance on arbitrary networks. Transformation through mixed conductor-count

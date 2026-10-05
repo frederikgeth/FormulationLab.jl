@@ -49,8 +49,9 @@ does not replace an economic objective. All transformations and ordering
 alternatives remain available. This recommendation concerns solver wall time;
 construction cost does not enter it.
 
-For the longer manufactured dispatch sequences studied below, explicitly
-carrying the previous primal point improves the median sequence time. Keep
+For the longer manufactured dispatch sequences and the two external-feeder
+demand sequences studied below, explicitly carrying the previous primal point
+improves the median sequence time. Keep
 fixed starts and full IVR with AMD as comparators: the small single-phase case
 regresses, and delta formulation differences can be small. See
 [model reuse and initialization](@ref Model-reuse-and-previous-primal-initialization)
@@ -550,14 +551,175 @@ median is only about 2% higher. Do not automatically carry primal values for
 all workloads, infer benefits from compilation savings, or remove fixed starts
 and alternative formulations. These are new timing measurements on selected
 existing manufactured inputs, not transfer evidence on unseen feeders or a
-primal-dual warm-start result. Larger real feeder update sequences and explicit
-dual initialization remain unmeasured here.
+primal-dual warm-start result. That manufactured panel does not assess real feeder update sequences or
+explicit dual initialization; the next section addresses feeder transfer.
 
 The untracked evidence bundle retains `REUSE_PROTOCOL.md`, all three batches,
 `REUSE_SOURCE`, `REUSE_HASHES.txt`, `REUSE_ANALYZE.py` and `REUSE_SUMMARY.json`.
 The independent audit checks actual order counts, frozen-source/input hashes,
 start digests, model identity, iteration agreement, completeness and timing
 aggregation. The preliminary design mistake and all timing outliers are retained.
+
+## Transfer to external feeder demand sequences
+
+`examples/benchmark_ivr_feeder_reuse.jl` applies the same admission and Ipopt
+wall-time metric to external feeder JSON files:
+
+```sh
+julia --project=test examples/benchmark_ivr_feeder_reuse.jl input.json output.json
+```
+
+The default experiment holds a **feasibility objective**, source phasors,
+equipment, generator/source accounting and every operating bound fixed. It
+sets constant-power P and Q to absolute factors `(1, 1, 0.9, 1)` of the original
+data: base, identical repeat, lower demand and restoration. This is an explicit
+demand-change experiment, not an equivalence-preserving input transformation.
+Other load laws remain unchanged; the manifest lists both updated and unchanged
+load IDs. Known legacy provenance is relocated on an owned copy. The input file
+is unchanged and its digest is recorded before measurement.
+
+The default four workflows cross full/regional-passive reused models with
+fixed/previous-primal starts. Eight reversed/rotated sweeps give two observations
+in each workflow position; use the actual order table to verify any custom
+candidate list. The companion `output.json.input.json` is written before solves
+so interrupted experiments retain source and scenario provenance. Completed
+reports also embed this manifest. Physical and fresh-model checks apply to each
+independently edited scenario, with incomplete sequences retained and excluded
+from the ranking. No economic-dispatch inference follows from this feasibility
+experiment, especially where generators and ideal sources share a bus.
+
+A separate matched lifecycle contrast can use all four fixed-start workflows:
+
+```julia
+include("examples/benchmark_ivr_feeder_reuse.jl")
+F = IVRFeederReuseStudy
+workflows = F.R.workflows(profiles=F.R.P.profiles(objective=:feasibility)[[1,10]])
+report = F.benchmark("input.json", "lifecycle.json";
+    candidates=filter(w -> w.start == :fixed, workflows), repetitions=8)
+```
+
+Do not combine timing ratios from separate batches: compare reused/fresh within
+the lifecycle batch, and previous/fixed within the initialization batch.
+
+### External-feeder initialization evidence — 5 October 2026
+
+The first declared contrast uses DSuite SPD Urban (1,220 buses, 325 CP loads)
+and the already-reduced ENWL network 17 feeder 6 (435 buses, 223 CP loads).
+Their stored topology is inherited. All 256 measured solves and 32 excluded
+warm-ups pass the independent physical/model checks. The eight sweeps balance
+all four workflow positions. The four-step demand sequence and candidate choices
+were declared before measurement. These are new sequence measurements on
+previously studied files, not blind held-out network samples.
+
+| Reused model / feeder | Fixed-start sequence (ms) | Previous-primal sequence (ms) | Previous/fixed median ratio | Paired ratio range |
+|:--|--:|--:|--:|:--|
+| Full / DSuite 1,220 | 256.244 | 209.818 | 0.819 | 0.772–0.832 |
+| Regional passive / DSuite 1,220 | 257.925 | 214.211 | 0.831 | 0.812–0.913 |
+| Full / ENWL 435 | 678.012 | 573.501 | 0.846 | 0.838–0.859 |
+| Regional passive / ENWL 435 | 563.220 | 472.929 | 0.840 | 0.834–0.844 |
+
+Each time is the median sum of Ipopt wall seconds over all four scenarios,
+converted to milliseconds. Construction and updates do not enter the score.
+DSuite iterations change from `[3,3,3,3]` with fixed starts to `[3,1,2,2]` with
+previous primals; ENWL changes from `[8,8,8,8]` to `[8,6,6,6]`. Both formulations
+have these iteration patterns. The previous-primal treatment improves the
+complete sequence in every paired repetition on these two feeders, but this
+is not evidence that every scenario or arbitrary demand sequence will improve.
+
+Full IVR with AMD is slightly faster on DSuite; regional/passive with AMD is
+faster on ENWL. The result supports previous-primal initialization for these
+specific demand sequences and reinforces the need to keep both formulations.
+All objective values are zero by design, so physical and cross-model admission,
+rather than objective equality alone, establishes meaningful feasibility checks.
+The separate lifecycle batch below isolates reuse without changing starts.
+
+### Matched fresh/reused feeder evidence
+
+The separately declared fixed-start lifecycle batch admits another **256/256
+measured solves** and 32 excluded warm-ups. It uses the same source/scenario
+hashes and strict settings as the initialization batch. Every workflow again
+occupies every position twice. The following estimates use only lifecycle runs.
+
+| Feeder / formulation | Fresh sequence (ms) | Reused sequence (ms) | Reused/fresh median ratio | Paired ratio range |
+|:--|--:|--:|--:|:--|
+| DSuite 1,220 / full | 254.082 | 254.677 | 1.002 | 0.989–1.219 |
+| DSuite 1,220 / regional passive | 258.823 | 258.355 | 0.998 | 0.929–1.012 |
+| ENWL 435 / full | 658.711 | 642.620 | 0.976 | 0.771–1.007 |
+| ENWL 435 / regional passive | 527.261 | 529.583 | 1.004 | 0.963–1.083 |
+
+Start digests and per-scenario iteration counts agree across each fresh/reused
+pair. Reuse alone has a small and inconsistent median effect: full ENWL improves
+about 2.4%, while two comparisons regress slightly. Timing outliers remain in
+the samples, and some paired ratios cross one. No statistical-significance or
+every-run benefit claim is made. These effects are smaller than those of
+initialization in its own matched batch; do not compute a cross-batch speed ratio.
+
+All **512 measured solves and 64 excluded warm-ups** pass. The independent audit
+checks source-file digests, scenario correspondence, admission, objective values,
+start policies, timing sums and actual order balance. `FEEDER_REUSE_PROTOCOL.md`,
+`FEEDER_REUSE_SOURCE`, all raw reports and input manifests, the analysis script
+and summary remain outside Git. The raw manifests retain an inherited nested
+accounting note referring to cost; the recorded objective is feasibility
+throughout, and the final runner corrects that prose. Timed sources and the
+metadata-only correction are both preserved. The existing transformation and
+initialization choices are all retained.
+
+### What is reused inside the installed solver wrapper?
+
+A separate 14-solve diagnostic uses two-wire and delta fixtures with demand,
+price, fixed-zero availability, release, bound removal and bound restoration.
+All solves pass physical and fresh-full checks. All observed constraint types
+support dual-start attributes and all returned duals are finite. Non-variable-
+bound constraint references remain unchanged; removing/restoring active lower
+bounds removes/adds one row for single-phase and three for delta. Changing a
+box to fixed zero and releasing it retains its lower/upper references, so
+reference identity alone cannot detect the changed bound geometry.
+
+For all 12 transitions after the initial solves, the installed Ipopt.jl wrapper
+marks `needs_new_inner` after the update and creates a different `inner` problem
+object on the next solve. Source inspection confirms that JuMP's constant-power
+RHS update reaches the wrapper's affine/quadratic `ConstraintSet` path, which
+requests this reconstruction. This is version-specific diagnostic evidence,
+not a public API contract or an attribution of how much wall time reconstruction
+costs. Its setup work lies inside the chosen MOI Ipopt timer; FormulationLab
+construction remains excluded. It explains why JuMP model retention must not
+be described as retaining the native solver problem or its factorization.
+
+The diagnostic uses normal dual initialization and explicitly records
+`fixed_variable_treatment="make_parameter"`. It transfers no dual starts and
+makes no performance claim. The inspected wrapper, script and results are
+retained in `FEEDER_REUSE_SOURCE` and `DUAL_START_LAYOUT_AUDIT.*`. The JSON field
+`kept_equations` checks all non-variable-bound constraints, including inequalities.
+
+### Requirements for a separate primal-dual study
+
+Carrying duals requires an explicit correspondence and reset policy. Cache all
+solution values before any model update; JuMP documents this ordering in its
+[primal/dual start example](https://jump.dev/JuMP.jl/stable/tutorials/conic/start_values/).
+Load updates retain their constraint references and change right-hand sides.
+Generator boxes can change value, become coincident, lose a side or regain one.
+Treat both sides of a changed box together, rather than assuming an unchanged
+lower-bound reference makes its old multiplier suitable after an upper-bound
+change. Newly introduced sides need a declared initialization policy.
+
+The installed Ipopt.jl 1.16.0 wrapper reports lower/upper variable-bound duals
+from the signed reduced cost ``r=z_L-z_U`` as ``\max(r,0)`` and ``\min(r,0)``.
+Thus reading those two JuMP duals does not in general recover both native
+multipliers, particularly when bounds coincide. A future public-API experiment
+must describe these as **reconstructed dual starts**, or separately validate
+access to native multipliers. It must also record Ipopt's
+[fixed-variable treatment](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_fixed_variable_treatment)
+and hold that policy constant across the compared starts. Changing fixed-variable
+handling or warm-start push/barrier options at the same time would confound the
+comparison.
+
+Begin within one reused model: most equation constraints are anonymous, so
+fresh-model dual correspondence needs more than matching variable names or
+constraint positions. Preserve every existing fixed and primal-only treatment.
+Check supplied starts, failures, objective comparability and independent physical
+admission before any timing claim. Primal-dual performance remains an open
+experiment; enabling `warm_start_init_point="yes"` alone is not evidence that
+the preceding complete native iterate has been transferred.
 
 ## Why the structural selector is still optional
 
@@ -587,7 +749,7 @@ A best-evidence recommendation must name its measured domain. The initial
 feeder portfolio uses selected inputs with an explicit feasibility objective;
 the subsequent dispatch studies use cost objectives. This cannot establish the
 fastest formulation for general dispatch, different optimizers, nonlinear-load
-mixtures or untested transformers. The repeated-update evidence here covers manufactured
-single-phase and delta dispatch sequences, not arbitrary operating histories.
+mixtures or untested transformers. The repeated-update evidence covers manufactured single-phase/delta dispatch
+and selected external feeder demand sequences, not arbitrary operating histories.
 Broader mixed-port certificates and factorization-aware selection remain
 separate priorities.

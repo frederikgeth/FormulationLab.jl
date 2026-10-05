@@ -499,3 +499,29 @@ carried, and the model update does not establish native factorization reuse.
 For a controlled comparison with fixed starts and freshly built models, use the
 [complete-sequence study](ivr_performance.md). A changed active bound or price
 can make a previous point less useful; retaining both start policies is essential.
+
+
+## 18. Transfer the comparison to a feeder file
+
+Use the external-feeder runner from the repository root with a separately
+licensed input JSON file and a distinct writable result path:
+
+```sh
+julia --project=test examples/benchmark_ivr_feeder_reuse.jl /path/to/feeder.json /tmp/feeder-reuse.json
+```
+
+This runs full and regional/passive reused models, each with fixed and
+previous-primal starts, through original demand, identical demand, 90% demand
+and restoration. Eight sweeps balance the four workflow positions. The input
+file is unchanged; only supported constant-power P/Q values vary in the owned
+scenario copies. Inspect the companion `.input.json` manifest for the exact load
+IDs, source digest and legacy provenance fields. Other load laws remain fixed.
+
+Read `ranking.objective_comparable` and the complete admitted workflow list
+before using `fastest_ipopt`. Inspect individual scenario iteration counts and
+start digests to explain a sequence-level improvement or regression. A warm-up
+or measured failure makes that workflow ineligible; retain its record. The
+feasibility objective is deliberate: this example makes no claim about economic
+dispatch from a feeder's potentially ambiguous source/generator accounting.
+For a matched fresh/reused comparison, use the separate fixed-start candidate
+set in the [performance guide](ivr_performance.md).
