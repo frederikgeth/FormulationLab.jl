@@ -21,15 +21,28 @@ end
 # Device boundaries are excluded, so other device equations/objectives are
 # unchanged. Index the same bus-bound rows and physical limit records used by
 # the compiler; output-only power observations are deliberately not a score.
-function _ivrn_series_bound_index(net,e)
+function _ivrn_series_bound_index(net,e,maps,adjacency,blocked)
+    # A superset of possible targets: ignoring shunts/terminal mismatches and
+    # future neighbour protection here can only retain extra index records.
+    buses=Set{String}();coordinates=Set{Int}()
+    for (b,lines) in adjacency
+        length(lines)==2 && b ∉ blocked || continue
+        push!(buses,b)
+        for t in net["bus"][b]["terminal_names"];push!(coordinates,e.voltage[(b,t)]);end
+        line=first(sort!(lines;by=l->l.id))
+        for row in line.current;union!(coordinates,keys(row));end
+    end
     bounds=NamedTuple[];index=Dict{Int,Vector{Int}}()
     function add!(label,rows)
-        push!(bounds,(;label,rows));id=length(bounds)
-        for k in union((Set(keys(row)) for row in rows)...)
+        any(row->any(in(coordinates),keys(row)),rows) || return
+        touched=Set(k for row in rows for k in keys(row) if k in coordinates)
+        transformed=map(row->_ivrn_compose_row(row,maps.reconstruction),rows)
+        push!(bounds,(;label,rows=transformed));id=length(bounds)
+        for k in touched
             push!(get!(Vector{Int},index,k),id)
         end
     end
-    _ivrn_each_bus_limit(net,e) do b,key,row,bound
+    _ivrn_each_bus_limit(net,e;buses) do b,key,row,bound
         endswith(key,"max") || bound>0 || return
         add!("bus/$b/$key",(row,))
     end
@@ -44,10 +57,13 @@ function _ivrn_series_bound_index(net,e)
 end
 
 function _ivrn_bound_support_width(rows,active)
-    transformed=map(active,rows)
-    # A zero factor makes the whole voltage/current magnitude or power zero.
-    any(isempty,transformed) && return 0
-    length(union((Set(keys(row)) for row in transformed)...))
+    a=active(first(rows))
+    length(rows)==1 && return length(a)
+    isempty(a) && return 0
+    b=active(last(rows));isempty(b) && return 0
+    # Bounds contain one magnitude row or two power-factor rows. Avoid set
+    # materialization for their union; no coefficient/rank threshold is used.
+    length(a)+count(k->!haskey(a,k),keys(b))
 end
 
 function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:all)
@@ -121,11 +137,13 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
             line=first(lines)
             affected=Int[];before=Int[]
             if series_selection==:bound_support
-                bound_index===nothing && (bound_index=_ivrn_series_bound_index(net,e))
+                bound_index===nothing && (bound_index=_ivrn_series_bound_index(net,e,maps,adjacency,blocked))
                 physical=union(Set(e.voltage[(b,t)] for t in terminals),
                                (Set(keys(row)) for row in line.current)...)
                 affected=sort!(unique!([id for k in physical for id in get(bound_index.index,k,Int[])]))
-                before=[_ivrn_bound_support_width(bound_index.bounds[id].rows,active) for id in affected]
+                cache=Dict{Int,_SDPRow}()
+                resolve(row)=_ivrn_resolve_row(row,substitutions,cache)
+                before=[_ivrn_bound_support_width(bound_index.bounds[id].rows,resolve) for id in affected]
             end
             current_candidates=Set(k for row in line.current for k in keys(active(row)))
             voltage_candidates=Set(k for t in terminals for k in keys(active(_sdp_e(e.voltage[(b,t)]))))
@@ -142,8 +160,10 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
             end
             if bound_index!==nothing
                 expansions=NamedTuple[]
+                cache=Dict{Int,_SDPRow}() # Never reuse a pre-substitution cache.
+                resolve_after(row)=_ivrn_resolve_row(row,substitutions,cache)
                 for (id,width) in zip(affected,before)
-                    bound=bound_index.bounds[id];after=_ivrn_bound_support_width(bound.rows,active)
+                    bound=bound_index.bounds[id];after=_ivrn_bound_support_width(bound.rows,resolve_after)
                     after>width && push!(expansions,(;label=bound.label,before=width,after))
                 end
                 if !isempty(expansions)

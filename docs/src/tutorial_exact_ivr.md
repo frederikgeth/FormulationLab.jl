@@ -403,3 +403,14 @@ and `examples/benchmark_ivr_dispatch.jl` for matched dispatch-reuse experiments.
 Those studies address performance; this tutorial establishes small-case
 correctness and reproducibility. The remaining scope and evidence are recorded
 in [the contract reference](ivr_nlp.md) and [verification](verification.md).
+
+
+For an empirical choice among complete configurations, use the
+[profile-comparison procedure](ivr_performance.md). First specify whether the
+workload is a fresh model or a repeated-update sequence, then declare the common
+objective and candidate options. Rank only profiles whose warm-up and every
+measured trial pass physical and model checks. Freeze the promising choices
+and confirm them with fresh runs. Keep unsuccessful and slower profiles in the
+study: a different grounding pattern, operating point or bound set can change
+the ranking. The measured common profile is an explicit starting configuration,
+not an automatic replacement for this tutorial's reference formulation.

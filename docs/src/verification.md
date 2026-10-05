@@ -1,5 +1,106 @@
 # Verification
 
+## Best-evidence profiles and selector preparation — 5 October 2026
+
+All transformation/reformulation options remain available, including alternatives
+that are slower or fail on this panel. Defaults are unchanged. The new empirical
+runner admits configurations only after strict solver, independent SI physical,
+own-model, fresh-full-model and reverse-anchor checks. It retains failures,
+requested/effective options, input and runner digests, solver/environment details,
+derivative structures, iterations, allocations, GC time and raw timings.
+Objective disagreement beyond the declared tolerance withholds a winner.
+The [performance guide](ivr_performance.md) gives the explicit recommendation,
+reproduction procedure and workload limits.
+
+The final suite passes **31,832/31,832** assertions, including 26 new checks of
+failure/incomplete-profile exclusion, objective comparability, separate workload
+rankings, balanced pair order, evidence serialization and physical/model mapping.
+Documentation executes all 18 existing tutorial blocks. This change extends
+measurement and preparation efficiency, not element or parameter-update coverage.
+
+### Unchanged selector decisions with less preparation
+
+The selector now indexes a conservative superset of possible series-elimination
+targets, composes affected bound rows once, and shares substitution-resolution
+caches only within one before/after phase. The actual bound compiler still
+visits every original bound. Against a frozen `9f0a8f0` implementation,
+**204 exact construction comparisons** preserve every constraint function/set,
+objective, start, power coefficient, coordinate map and full selection report.
+Cases cover two/three/four conductors, bounded/unbounded/rated/zero-impedance/mesh
+variants, finite grounding, all conductor settings and both selection/scaling
+choices. This build-only audit does not assert feasibility of every fixture.
+
+A separate implementation ablation uses passive elimination, bound-support
+selection and voltage ground scaling in both variants. Each of ten case/mode
+combinations has one excluded warm-up per variant and six alternating-order
+pairs. All **120 measured solves**, **60 paired comparisons** and **20 warm-ups**
+pass their physical/model gates. Every pair has identical maps, selection reports
+and derivative structures; bidirectional model and physical-channel checks are
+outside timers.
+
+| Input / coordinates | Median paired build-byte ratio | Median paired solve ratio | Median paired total ratio |
+|:--|--:|--:|--:|
+| DSuite 265, full | 0.932 | 1.003 | 0.973 |
+| DSuite 265, regional | 0.934 | 0.989 | 0.782 |
+| DSuite 2,854, full | 0.928 | 0.994 | 0.807 |
+| DSuite 2,854, regional | 0.929 | 1.002 | 0.965 |
+| ENWL 538, full | 0.925 | 0.990 | 0.975 |
+| ENWL 538, regional | 0.927 | 0.994 | 0.876 |
+| Synthetic impedance, full | 1.000 | 0.992 | 0.993 |
+| Synthetic impedance, regional | 1.000 | 0.995 | 1.027 |
+| Synthetic alternating loads, full | 0.886 | 0.985 | 0.940 |
+| Synthetic alternating loads, regional | 0.882 | 0.988 | 0.936 |
+
+Ratios are new/frozen-old within pairs, followed by medians. Build allocations
+fall about 6.5–7.5% on the external feeders and 11–12% on the alternating-load
+synthetic cases. The no-series-candidate control allocates identically. Total
+ratios over all individual pairs range from 0.138 to 17.294 with GC enabled;
+solve medians are nearly unchanged. Allocation savings are stronger evidence
+than a general timing claim. These ratios must not be multiplied by earlier
+study ratios to claim a cumulative speedup.
+
+### Screen, freeze and confirm complete profiles
+
+The 12-profile screen uses three unchanged electrical inputs from
+`BMOPFDraftData`: `output/DSuite/original/DSuite_SPD_Suburban.json`,
+`output/DSuite/original/DSuite_SPM_Suburban.json`, and
+`benchmarks/ENWLbenchmark/reduced/Network_8_Feeder_2.json`. Two synthetic
+40-segment four-wire cases place impedance loads at all downstream buses or
+only the even-numbered buses. The objective is explicitly feasibility; legacy
+reader provenance is detached without altering electrical data.
+
+Four exploratory measured sweeps per case yield **232/240 accepted solves**,
+with **58/60 accepted excluded warm-ups**. Two unscaled passive profiles fail
+ENWL's physical KCL check at about 2.2083e-5 A against 1e-6 A; their failed records
+are retained. The screen selects a common profile by minimizing the sum of
+per-case median build-plus-solve times among profiles admitted on all five
+inputs. `scaled_regional_passive` wins this declared common-workload criterion.
+
+That common choice, each case's screen winner and full IVR are frozen before
+six new balanced repeats: **90/90 measured solves** and **15/15 excluded warm-ups**
+pass. The summed confirmation medians are 0.972433 s versus 1.622977 s for full
+IVR (40.1% lower). This is a sum of per-case medians, not a timed batch, and its
+weighting is dominated by larger cases. Small synthetic cases regress under
+the common profile. Case-local rankings change in two cases between screen and
+confirmation. See the performance guide for the full table and timing spread.
+No universal optimum or statistical significance is claimed.
+
+Both experiments run on Apple M4, Julia 1.12.6, JuMP 1.31.2, Ipopt.jl 1.16.0,
+one Julia thread and one BLAS thread. Ipopt uses `tol=constr_viol_tol=1e-10`,
+`acceptable_iter=0`, `bound_relax_factor=0`, `max_iter=500`, `max_cpu_time=30`.
+Warm-ups, audits and study selection overhead are outside candidate timers;
+`total_study_s` separately records portfolio overhead. No tests, documentation
+builds or profiling overlap the final timings. This is a feasibility experiment,
+not a general dispatch, global-optimality, or updated-model reuse result.
+
+Raw screen/confirmation records, frozen baseline, 204-case audit, source
+snapshots, input hashes and logs remain outside Git with the handover and roadmap.
+An earlier instrumentation pilot is separately preserved and excluded from these
+results. The known OpenDSSDirect precompilation fallback and nonfatal Documenter
+search-index warning do not invalidate the successful checks. Broader mixed-port
+certificates, factorization-aware selection, the strict 844-bus failure and
+unbounded source-import examples remain unresolved.
+
 ## Conservative series selection by operating-bound support — 5 October 2026
 
 `series_selection=:bound_support` optionally retains a structurally eligible

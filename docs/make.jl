@@ -29,6 +29,7 @@ makedocs(;
             "Equations and equivalence domain"=>"ivr_theory.md",
             "Build, verify and reuse: tutorial"=>"tutorial_exact_ivr.md",
             "Scope, bounds and update contract"=>"ivr_nlp.md",
+            "Best-evidence numerical profiles"=>"ivr_performance.md",
         ],
         "Explicit-neutral LinIVR"=>"linivr.md",
         "LinDist3Flow"=>["Formulation and usage"=>"lindist3flow.md",

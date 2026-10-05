@@ -177,6 +177,11 @@ solver preprocessing and factorization ordering. It can reject reductions that
 would solve faster. Default `:all` preserves the existing elimination choices;
 see [measured evidence](verification.md) before choosing this opt-in policy.
 
+The [profile study](ivr_performance.md) compares complete option combinations
+without removing any alternative or changing package defaults. It separates
+construction-plus-solve ranking from solve-only ranking and excludes failed,
+incomplete or objective-incomparable results.
+
 ### Finite-ground numerical scaling
 
 `ground_scaling=:voltage` is an invertible numerical policy, independent of

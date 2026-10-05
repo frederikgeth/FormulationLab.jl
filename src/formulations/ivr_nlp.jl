@@ -231,8 +231,9 @@ function _ivrn_upper!(model,u,bound)
     end
 end
 
-function _ivrn_each_bus_limit(f,net,e)
+function _ivrn_each_bus_limit(f,net,e;buses=nothing)
     for (b,d) in net["bus"]
+        buses===nothing || b in buses || continue
         maps=_sdp_voltage_maps(net,b,e.terminal_rows;neutral=get(e.neutral_map,b,nothing))
         for key in ("v_min","v_max","vpn_min","vpn_max","vpp_min","vpp_max",
                     "vn_max","vpos_min","vpos_max","vneg_max","vzero_max")
