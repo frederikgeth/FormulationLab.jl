@@ -1,5 +1,30 @@
 # Verification
 
+## Observation support and exact affine sharing — 5 October 2026
+
+The full suite passes **63,963/63,963 assertions**, adding 2,742 checks.
+`test/ivr_observation_policy_tests.jl` verifies equality of composed affine rows
+with offsets, variable-order invariance, exact zero handling, and rejection of
+opposite signs, conjugates and one-ULP coefficient differences. Separate power
+definitions remain separate. Threshold boundary checks use 0, 2, 4 and 100;
+physical single-phase/delta cases use thresholds 2, 4 and 8 with sharing off/exact.
+Default and explicit legacy settings produce identical displayed JuMP models.
+
+Complete shared starts, sequential auxiliary encoding, perturbed defining
+equalities, bidirectional physical-point checks, independent SI residuals,
+physical JSON voltage values and unchanged model reuse after CP/generator updates
+are checked. The existing charged-block negative tests now also exercise threshold
+8 with exact sharing across every covered interior voltage-bound family and both
+line endpoints' current/apparent-power limits. None of these policies removes a
+physical bound. `test/ivr_observation_study_tests.jl` checks the six-profile
+factorial runner, admission flags and balanced order.
+
+All **29 executable tutorial blocks** pass. Initial test syntax and keyword-call
+fixture errors were corrected before the validation and timing gates; the latter
+log is retained outside Git. The known OpenDSSDirect precompile fallback and
+Documenter search-index warning remain nonfatal. Numerical timing evidence is
+reported separately in the [performance guide](ivr_performance.md).
+
 ## Transformer coil-current substitution — 5 October 2026
 
 The full suite passes **61,221/61,221 assertions**, adding 15,512 checks for the

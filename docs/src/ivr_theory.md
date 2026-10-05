@@ -502,6 +502,16 @@ mathematically equivalent rows with different rounding histories. Such misses
 retain additional exact definitions; they do not justify approximate merging.
 Neither support nor derivative-entry counts measure numerical KKT factor fill.
 
+For example, an unloaded, unshunted degree-two junction can have oriented line
+currents ``j_1=j_2`` after KCL substitution. If their composed affine rows match
+exactly and exceed the lifting threshold, one definition ``w=j_1=j_2`` can serve
+both original ratings ``|w|\leq\bar i_1`` and ``|w|\leq\bar i_2``. Both
+inequalities remain, even when their limits differ. A shunt changes the identity
+to ``j_1-j_2=j_{\mathrm{sh}}`` and generally prevents this reuse. Orientation
+may instead give ``j_1=-j_2``; the present sharing option deliberately retains
+separate definitions in that case. These examples explain why network topology
+alone is insufficient to predict the number of reusable observations.
+
 For charged-section elimination, partition a selected set of surviving linear
 equations into targeted coordinates ``x`` and retained coordinates ``y``:
 

@@ -29,6 +29,86 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+## Observation support and exact affine sharing — 5 October 2026
+
+Two additive controls separate when to lift a bounded affine observation from
+whether identical composed observations reuse a definition. The threshold is a
+strict lower bound on distinct real-variable support; T2 is the existing default,
+T8 is an explicit experimental comparator. Exact sharing includes constants and
+all nonzero coefficients, without rounding or sign normalization. The four
+observation profiles use identical power lifting. Full and direct-block controls
+remain available; device-current elimination is off throughout this experiment.
+
+The frozen panel contains a charged 96-section three-wire delta chain with
+terminal generation bounded by 400 VA per coil, and unchanged DSuite 265-bus and
+ENWL 435-bus inputs. The chain minimizes source import; external objectives remain
+feasibility, preserving source/generator accounting. All profiles use the same
+unloaded physical start, voltage ground scaling, MUMPS AMD, single-thread Julia
+and BLAS, and strict 1e-10 tolerances. Twelve alternating/rotated sweeps place
+each of six profiles twice in every position after one excluded warm-up.
+Compilation, start encoding, extraction and auditing do not enter the assessment.
+
+All **216 measured solves and 18 warm-ups** pass original SI physical, own-model,
+full-model, reverse-anchor and objective checks. Exploratory median Ipopt wall
+times in **milliseconds** are:
+
+| Case | Full | Direct blocks | T2 | T2 + sharing | T8 | T8 + sharing |
+|:--|--:|--:|--:|--:|--:|--:|
+| Delta 96 sections | 41.238 | 205.355 | 32.292 | 32.639 | 32.350 | 32.131 |
+| DSuite 265 | 14.008 | 13.156 | 13.520 | 13.328 | 13.222 | 13.218 |
+| ENWL 435 | 198.502 | 132.616 | 160.568 | 156.793 | 132.662 | 132.375 |
+
+A predeclared fresh-process confirmation repeats the delta and ENWL cases with
+all six profiles, regardless of the exploratory ranking. All **144 measured
+solves and 12 warm-ups** pass. The batches are not pooled:
+
+| Case | Full | Direct blocks | T2 | T2 + sharing | T8 | T8 + sharing |
+|:--|--:|--:|--:|--:|--:|--:|
+| Delta 96 sections | 39.745 | 198.408 | 31.747 | 31.464 | 31.613 | 31.665 |
+| ENWL 435 | 198.508 | 132.256 | 159.050 | 157.886 | 130.963 | 132.560 |
+
+The useful finding is selective avoidance of overhead, not a universally faster
+new formulation. On ENWL, T8 removes all 1,808 observation variables and recovers
+the 6,604-variable direct-block model. The confirmed T8 median is 17.7% below T2,
+but T8 and direct blocks have the same derivative structures and no lifted
+variables. Their 1.0% median difference is a no-op control difference. All ENWL
+profiles take eight iterations. DSuite likewise has no lifted variables at T8;
+its direct-block/T8 variants are structural controls, not distinct improvements.
+
+On the charged delta chain, T2 remains useful: its confirmed median is 20.1%
+below full IVR and 84.0% below direct blocks. Full/direct blocks take 12 iterations;
+all observation profiles take 11. Original capability slacks stay below
+9.1e-8 VA. Direct blocks have only 42 variables but 127,191 raw Hessian entries;
+T2 has 3,498 variables and 5,832 entries. T8 removes only 12 variables and increases
+raw Hessian entries to 5,886; its 0.4% confirmed median advantage over T2 does not
+establish a useful threshold improvement. Unique Hessian entries remain 5,256
+for both lifted policies. These are derivative structures, not KKT factor fill.
+
+Exact sharing finds 18 reusable definitions on DSuite and 24 on ENWL at T2,
+removing 36 and 48 real variables respectively. It finds none on the delta case
+or the external T8 profiles. ENWL's sharing advantage shrinks from 2.4% to 0.7%
+in confirmation; the confirmed paired sharing/off ratios span 0.888–1.047.
+That does not establish a practical speed benefit, especially when unchanged
+T8/off versus T8/sharing controls differ by 1.2% in median. The unchanged delta
+T2 sharing control also has an exploratory paired ratio as high as 1.666; that
+slow trial is retained. Confirmed delta T8/T2 ratios span 0.960–1.020, while ENWL
+T8/T2 ratios span 0.734–0.901. No significance or every-run improvement is claimed.
+
+Keep all thresholds and sharing policies available, with the defaults unchanged.
+For these external inputs, direct blocks avoid broad observation-lifting overhead;
+for the charged delta workload, retain the existing bounded-observation option.
+Earlier regional-passive comparisons remain relevant and were not remeasured
+in this six-profile panel. The next distinct experiment should test reusing
+existing generator P/Q dispatch definitions at matching capability bounds,
+separately from affine sharing and with all original bounds and physical outputs
+preserved. Broader threshold tuning requires new cases and independent validation.
+
+Implementation: `examples/benchmark_ivr_observations.jl`; local raw JSON, input
+snapshots, source hashes, protocol, confirmation and independent audit script:
+`OBSERVATION_POLICY_STUDY_20261005` beside the untracked handover. See the
+[theory](ivr_theory.md), [tutorial](tutorial_exact_ivr.md) and
+[verification record](verification.md) for equivalence and test obligations.
+
 ## Transformer coil-current elimination — 5 October 2026
 
 The additive `device_elimination=:transformer_currents` policy removes recorded

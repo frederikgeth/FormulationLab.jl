@@ -217,7 +217,8 @@ definition when their composed real and imaginary constants and coefficients are
 exactly identical. Variable order and exact zero terms do not affect identity.
 Opposite signs, conjugates and nearly equal coefficients remain separate. No
 tolerance, coefficient truncation or fixed-variable substitution is used in this
-comparison. Power definitions and generator dispatch variables are not merged.
+comparison. This option does not additionally merge power definitions or generator dispatch
+variables.
 The threshold and sharing controls have no effect for `lifting=:off` or `:powers`.
 Original physical power outputs remain expressions of the state.
 
