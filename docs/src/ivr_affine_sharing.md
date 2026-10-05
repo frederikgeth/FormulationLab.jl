@@ -232,3 +232,8 @@ A distinct physical fixture that actually activates non-unit factors is needed
 before assigning a performance benefit to proportional sharing. Broader mixed
 IBR/nonlinear-load workloads and original-network reconstruction remain separate
 roadmap work; none is implied complete by this exact graph extension.
+
+The subsequent [structural factorial study](ivr_structural_interactions.md)
+completes the sharing/cap/reuse interaction panel across both solver-scaling
+policies and the declared voltage-constrained scenario. Its conditional findings
+supplement this earlier isolated-sharing evidence.

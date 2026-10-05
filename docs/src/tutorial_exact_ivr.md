@@ -1583,3 +1583,42 @@ Use `AffineDemo.benchmark(input_path, output_path; workload=:quadratic_cost)`
 for the full six-profile comparison, including power-only controls. For tracking,
 specify `workload=:exchange_tracking` and `exchange_target_W`. Smaller auxiliary
 counts do not guarantee faster Ipopt solves; see the [scientific study](ivr_affine_sharing.md).
+
+## 44. Isolate interactions between exact transformations
+
+A combined formulation can behave differently from its individually useful
+parts. Keep a factorial set of controls so that adding signed sharing does not
+silently also enable observation lifting or change a power base. This example
+compares unrestricted blocks and cap four, exact and signed sharing, and generator
+reuse off and on, while keeping bounded-observation lifting in every factorial arm.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_structural_interactions.jl"))
+StructuralDemo = IVRStructuralInteractionStudy
+structural_demo = StructuralDemo.A.H.case(conductors=3,segments=8)
+structural_profiles = StructuralDemo.profiles(structural_demo,:quadratic_cost)
+@assert length(structural_profiles)==10
+structural_reference = build_opf(structural_demo,IVRNLP(objective=:power,
+    power_terms=first(structural_profiles).options.power_terms))
+structural_anchor = Ref{Any}(nothing)
+structural_rows = map(structural_profiles) do profile
+    row,p = StructuralDemo.P.trial(structural_demo,profile,structural_reference,structural_anchor[];
+        initial_point=StructuralDemo.E.S.U.G.H.S.L.start_point(structural_demo))
+    @assert row["accepted"]
+    structural_anchor[]===nothing && (structural_anchor[]=p)
+    (profile=profile.name,variables=row["variables"],
+        shared_observations=row["shared_observation_count"],
+        reused_power_channels=row["reused_generator_power_count"])
+end
+structural_rows
+```
+
+A delta generator can contribute three reused native power channels; the count
+is not simply the number of devices. `full_powers` and `reduced_powers` are
+additional controls outside the eight bounded-observation combinations.
+Use `StructuralDemo.benchmark(input_path, output_path;
+workload=:exchange_tracking, exchange_target_W=target_W,
+nlp_scaling_method="gradient-based")` for one feeder/objective/policy panel.
+Give each panel a distinct output path and retain both timing batches. The
+[structural interaction study](ivr_structural_interactions.md) defines the paired
+conditional effects, ratio-of-ratios interactions and evidence limitations.

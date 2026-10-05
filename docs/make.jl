@@ -34,6 +34,7 @@ makedocs(;
             "Bounded hybrid condensation"=>"ivr_hybrid.md",
             "Hybrid transfer"=>"ivr_hybrid_transfer.md",
             "Signed/proportional affine sharing"=>"ivr_affine_sharing.md",
+            "Structural interactions"=>"ivr_structural_interactions.md",
             "Best-evidence numerical profiles"=>"ivr_performance.md",
         ],
         "Explicit-neutral LinIVR"=>"linivr.md",

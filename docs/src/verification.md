@@ -1,5 +1,38 @@
 # Verification
 
+## Structural reduction interactions — 6 October 2026
+
+The full suite passes **78,764/78,764 assertions**, including **1028 new checks**
+for the eight-arm blocks/cap-four × exact/signed sharing × generator-reuse
+composition and two power-only controls. Tests verify isolated factors and
+option ownership, single-phase/delta physical membership under both power
+objectives and solver policies, complete starts, recovered objectives, actual
+cap/reuse counts and rejection of tightened original voltage/current/power limits.
+No production equation, default or previous formulation option changes.
+
+All **2400 measured solves, 240 warm-ups and 120 preflight SI exports** pass.
+All 60 capability and 20 original-voltage rejection witnesses pass; each
+VOLTAGE265 cost preflight has one active upper-voltage limit. Independent audits
+verify sources, physical export fields, common starts, own/full/reverse membership,
+component graphs, sharing reports, 288 conditional contrasts, 144 pairwise
+interactions and 240 power-only control comparisons. Maximum recovered-power
+objective discrepancy is below 1.07e-14; within-cell spread below 2.14e-14.
+Both batches and all slow tails remain. Only Ipopt wall time ranks candidates;
+timing does not overlap tests, docs, other solver work or native diagnostics.
+
+Reuse slows urban cost about 7–10% and raises iterations from 17 to 19, while
+helping urban tracking. Urban cap-four cost effects reverse with reuse enabled.
+Signed sharing plus reuse becomes an additional urban tracking candidate; its
+best cap changes between batches. Combined signed/cap cost does not reliably
+displace power-only lifting. Older power-only/reuse and power-base finalists are
+not all in this panel, so no global ranking or default promotion follows.
+
+The initial delta reuse-count expectation was corrected from one per device to
+three native power channels; physical/bound checks already passed. Original logs
+remain and no tolerance changed. The existing OpenDSS precompile fallback is
+nonfatal. See the [complete study](ivr_structural_interactions.md) and
+[tutorial section 44](tutorial_exact_ivr.md).
+
 ## Signed/proportional affine sharing — 6 October 2026
 
 The full suite passes **77,736/77,736 assertions**, including **1972 new checks**
