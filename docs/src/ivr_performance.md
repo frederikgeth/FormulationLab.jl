@@ -29,6 +29,11 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+The [power-objective comparison](ivr_objectives.md#Confirmed-workload-comparison-—-5-October-2026)
+extends the source-import evidence to linear/quadratic economic cost, P/Q tracking,
+curtailment and losses. Its fastest candidates differ by workload; use that panel
+when selecting a power-based objective profile.
+
 ## Unbalanced transformer-leakage transfer — 5 October 2026
 
 The fixed power-base candidates transfer successfully to a manufactured coupled

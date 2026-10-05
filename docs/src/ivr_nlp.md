@@ -75,7 +75,8 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | Option | Default | Meaning |
 |:--|:--|:--|
 | `s_base` | `1e4` | Positive finite internal power base in VA; SI inputs/results unchanged |
-| `objective` | `:cost` | `:cost`, `:source_import` or `:feasibility` |
+| `objective` | `:cost` | `:cost`, `:source_import`, `:feasibility` or `:power` |
+| `power_terms` | Empty | Explicit `IVRPowerTerm` vector for `:power`; physical W/var targets and coefficients |
 | `specialization` | `:off` | `:conductor_difference` certifies one complete section; `:conductor_regions` certifies pendant regions behind retained boundaries |
 | `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates nonadjacent eligible degree-two buses; `:passive_chains` permits adjacent candidates; `:passive_blocks` also admits charged π sections through conditioned local block solves |
 | `series_selection` | `:all` | With any passive policy, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
@@ -93,7 +94,9 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 `current_candidate` and `powers` map `(family::Symbol, id::String)` to channel
 vectors in A and VA. See the component paragraphs below for coil/terminal
 conventions. `objective` is W in source-import mode, currency/h in cost mode,
-and zero in feasibility mode. A snapshot objective has no time integration.
+zero in feasibility mode, and user-defined units for explicit power terms.
+See [power objectives](ivr_objectives.md) for quadratic costs, P/Q tracking,
+curtailment, aggregate exchange and loss accounting. A snapshot objective has no time integration.
 `solve` records solver status; `numerical_diagnostics` records bases,
 specialization/fallback, assembly/update counts and unobserved grounded-source
 current entries. If strict solver acceptance fails, candidate maps are empty
@@ -573,7 +576,8 @@ circuit equivalence under the stated parameter conversion, not controller
 behavior or a universal manufacturer interpretation of type A/B labels.
 
 Supported objectives are `:cost` (linear currency/kWh coefficients),
-`:source_import` (watts), and `:feasibility`. Inputs and outputs use SI units;
+`:source_import` (watts), `:feasibility`, and `:power` (explicit affine/quadratic
+terms in physical P/Q channels). Inputs and outputs use SI units;
 `s_base` controls internal scaling. Inputs are copied rather than modified.
 The present exact-IVR implementation uses **one network-wide voltage base**:
 the largest source voltage magnitude, with current base `s_base / voltage_base`.

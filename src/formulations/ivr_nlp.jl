@@ -4,10 +4,12 @@ Supports lines, fixed switches/sources/capacitors, fixed transformers/regulators
 and current/ZIP/exponential power laws on certified positive coil-voltage domains
 and generator boxes with coil-based delta dispatch. Static IBRs use conductor-rated
 THREE_LEG dispatch, fixed filters, capability bounds and optional internal-voltage
-setpoints; control profiles are unsupported. Costs are linear, in the
+setpoints; control profiles are unsupported. Legacy `:cost` prices are linear, in the
 same currency/kWh convention as LinIVR. An optimizer is supplied by the caller.
 `objective_scale=nothing` divides the physical objective by `s_base` as before;
 a positive explicit divisor separates objective normalization from electrical units.
+`objective=:power` uses explicit `IVRPowerTerm` entries in `power_terms`, with
+physical W/var targets and coefficients. It does not add legacy device costs.
 `current_power_bases=Dict(bus=>VA, ...)` seeds current-unit power bases through
 lines and closed switches, stopping at transformers. It requires nominal transformer
 coordinates. Unseeded regions retain `s_base`; conflicts are refused. Dispatch,
@@ -36,7 +38,8 @@ from source magnitudes and nominal winding ratios. Uncertain assignments retain
 the global base with diagnostics. `row_scaling=:composed` independently normalizes
 linear circuit rows after all coordinate maps; default :legacy retains the
 previous ground-dependent normalization. Neither option changes physical data.
-`lifting=:powers` introduces exact P/Q definitions for apparent-power limits.
+`lifting=:powers` introduces exact P/Q definitions for apparent-power limits
+and selected non-generator objective ports.
 `:bounded_observations` also materializes compound bounded voltage/current rows.
 The default :off preserves direct expressions; physical outputs are unchanged.
 `observation_support_threshold=2` lifts only rows with strictly more distinct
@@ -52,6 +55,7 @@ Base.@kwdef struct IVRNLPOptions
     objective_scale::Union{Nothing,Float64} = nothing
     current_power_bases::Dict{String,Float64} = Dict{String,Float64}()
     objective::Symbol = :cost
+    power_terms::Vector{IVRPowerTerm} = IVRPowerTerm[]
     specialization::Symbol = :off
     linear_elimination::Symbol = :off
     series_selection::Symbol = :all
@@ -363,8 +367,9 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     isfinite(_ivrn_objective_scale(options)) && _ivrn_objective_scale(options)>0 || throw(ArgumentError("objective_scale must be positive and finite"))
     isempty(options.current_power_bases) || options.transformer_scaling==:nominal || throw(ArgumentError("current_power_bases requires nominal transformer coordinates"))
     # Own mutable base declarations just as the build owns its physical input.
-    options=IVRNLPOptions(; (k=>(k==:current_power_bases ? copy(options.current_power_bases) : getfield(options,k)) for k in fieldnames(IVRNLPOptions))...)
-    options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown IVRNLP objective"))
+    options=IVRNLPOptions(; (k=>(k in (:current_power_bases,:power_terms) ? deepcopy(getfield(options,k)) : getfield(options,k)) for k in fieldnames(IVRNLPOptions))...)
+    options.objective in (:cost,:source_import,:feasibility,:power) || throw(ArgumentError("unknown IVRNLP objective"))
+    _ivrn_check_power_terms(options)
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
     options.linear_elimination in (:off,:impedance_loads,:passive,:passive_chains,:passive_blocks) || throw(ArgumentError("unknown IVRNLP linear elimination"))
     options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
@@ -521,6 +526,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         end
     end
     _ivrn_bus_limits!(model,net,e,z)
+    options.objective==:power && (objective=_ivrn_power_objective(model,options.power_terms,e,z,generators))
     @objective(model,Min,objective/_ivrn_objective_scale(options))
     unavailable=[(id,t) for (id,d) in net["voltage_source"] for t in d["terminal_map"]
                  if e.voltage[(d["bus"],t)]==0]
@@ -654,7 +660,8 @@ end
 
 `voltage_candidate` maps `(bus, terminal)` to complex volts. `current_candidate`
 and `powers` map `(family, id)` to channel vectors in A and VA. `objective` is
-watts for source import, currency/h for linear energy prices, or zero for
+watts for source import, currency/h for linear energy prices, user-defined units
+for `:power`, or zero for
 feasibility. Unaccepted results have empty candidate maps and a NaN objective.
 Inspect `solve` before using candidates, then independently assess them with
 `physical_residuals`. Local acceptance is not a global optimality certificate.

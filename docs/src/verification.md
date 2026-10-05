@@ -1,5 +1,41 @@
 # Verification
 
+## Physical-power objectives — 5 October 2026
+
+The complete suite passes **68,492/68,492 assertions**, adding **942 checks**.
+`test/ivr_power_objective_tests.jl` verifies a closed-form two-generator P/Q
+quadratic dispatch optimum across assembly bases, objective divisors, lifting
+modes and load/bound updates. It checks signed weighted aggregates, offsets,
+native delta coils, every reported native port family, malformed definitions,
+owned declarations, complete starts and SI JSON objective metadata.
+`test/ivr_ibr_tests.jl` adds independent terminal/internal power-target checks for
+single-phase, three-leg and four-leg IBRs, including retained internal freedoms.
+
+Six workloads cross full and reduced formulations, common/regional current units
+and optional power/observation lifting on the unbalanced leakage circuit. Each
+accepted objective is checked against recovered SI powers and full-model endpoint
+membership. Loss accounting independently includes line, transformer and finite
+neutral-ground dissipation. The first test oracle omitted finite-ground losses;
+that test was corrected, with its failure retained. The production balance-based
+loss objective already included those losses. Two test-call keyword errors were
+also corrected before the campaign; no solver tolerance was relaxed.
+
+A separate export audit found and fixed an existing normalization bug for
+unaccepted IVR diagnostic primals: JSON now multiplies by the effective explicit
+objective divisor rather than always by `s_base`. Six nonzero failed-solve
+witnesses cover custom power, legacy cost and source import at two bases. The
+strict result wrapper still rejects those solves and keeps its objective NaN;
+the exported candidate is diagnostic, not an accepted solution. Accepted-solution
+conversion was already correct. The fix follows the frozen timing batches and
+does not affect any accepted timing result.
+
+Exploration and fresh-process confirmation admit **864 measured solves and 72
+warm-ups**. All **35 executable tutorial blocks** pass. The objective page's
+six confirmation timing rows are checked against raw JSON and rendered HTML,
+and local links/anchors are verified. See [definitions and evidence](ivr_objectives.md)
+and [tutorial section 33](tutorial_exact_ivr.md). Existing objective modes,
+transformation choices and defaults remain available.
+
 ## Unbalanced leakage and power-base transfer — 5 October 2026
 
 The full suite passes **67,550/67,550 assertions**, adding 237 checks in

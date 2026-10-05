@@ -36,9 +36,15 @@ function _result_export_start(b)
         end
     end
     objective=b isa SOCBuild ? b.options.electrical.objective : b.options.objective
-    Dict{String,Any}("network_sha256"=>_result_digest(net),"initialisation"=>initial,
-        "objective_units"=>objective in (:source_import,:losses) ? "W" : objective==:cost ? "currency/h" : "dimensionless",
+    meta=Dict{String,Any}("network_sha256"=>_result_digest(net),"initialisation"=>initial,
+        "objective_units"=>objective in (:source_import,:losses) ? "W" : objective==:cost ? "currency/h" : objective==:power ? "user_defined" : "dimensionless",
         "initialisation_available"=>all(isfinite(x) for terminals in values(initial) for row in values(terminals) for x in values(row)))
+    if b isa IVRNLPBuild && objective==:power
+        meta["objective_definition"]=[Dict{String,Any}("quantity"=>string(t.quantity),
+            "channels"=>[Any[string(f),id,k] for (f,id,k) in t.channels],"weights"=>copy(t.weights),
+            "target"=>t.target,"linear"=>t.linear,"quadratic"=>t.quadratic) for t in b.options.power_terms]
+    end
+    meta
 end
 function _result_export_finish!(meta,b)
     model=b.model
@@ -53,7 +59,8 @@ function _result_export_finish!(meta,b)
         e=b.electrical;z=ComplexF64.(JuMP.value.(b.state))
         meta["diagnostic_point"]=ACPoint(voltage=Dict(k=>(j==0 ? 0im : z[j]*e.vb) for (k,j) in e.voltage),
             currents=Dict((f,id)=>ComplexF64[_linivr_eval(row,z)*e.ib for row in i] for (f,id,_,i,_) in e.devices))
-        meta["diagnostic_objective"]=JuMP.objective_value(model)*e.sb
+        divisor=b isa IVRNLPBuild ? _ivrn_objective_scale(b.options) : e.sb
+        meta["diagnostic_objective"]=JuMP.objective_value(model)*divisor
     end
     meta
 end
@@ -104,6 +111,7 @@ function result_dict(input::Union{AbstractDict,BMOPFInput,AbstractString,PowerIO
         "initialisation_available"=>get(meta,"initialisation_available",false),
         "network_sha256"=>_result_digest(net))
     out["_formulationlab"]=extras
+    haskey(meta,"objective_definition") && (extras["objective_definition"]=deepcopy(meta["objective_definition"]))
     V(b,t)=get(voltage,(b,t),_RESULT_NAN)
     function I(f,id,n)
         row=get(currents,(f,id),nothing)

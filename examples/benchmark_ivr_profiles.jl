@@ -118,14 +118,22 @@ function trial(net,profile,reference,anchor;solver_options=STRICT,initial_point=
         own=p===nothing ? nothing : ivr_nlp_point_report(b,p)
         full=p===nothing ? nothing : ivr_nlp_point_report(reference,p)
         reverse=anchor===nothing ? nothing : ivr_nlp_point_report(b,anchor).passed
+        physical_objective=p===nothing || profile.options.objective!=:power ? nothing :
+            sum(profile.options.power_terms) do term
+                residual=sum(w*(term.quantity==:p ? real(r.powers[(f,id)][k]) : imag(r.powers[(f,id)][k]))
+                    for ((f,id,k),w) in zip(term.channels,term.weights))-term.target
+                term.linear*residual+term.quadratic*residual^2
+            end
         accepted=p!==nothing && physical.passed && own.passed && full.passed && reverse!==false &&
-            isfinite(r.objective) && isapprox(own.objective,full.objective;atol=1e-6,rtol=1e-8)
+            isfinite(r.objective) && isapprox(own.objective,full.objective;atol=1e-6,rtol=1e-8) &&
+            (physical_objective===nothing || isapprox(r.objective,physical_objective;atol=1e-6,rtol=1e-8))
         row=Dict{String,Any}("build_s"=>t.time,"build_bytes"=>t.bytes,"build_gc_s"=>t.gctime,
             "ipopt_wall_s"=>JuMP.solve_time(b.model),
             "solve_s"=>s.time,"solve_bytes"=>s.bytes,"solve_gc_s"=>s.gctime,"status"=>r.solve.termination_status,
             "accepted"=>accepted,"physical_passed"=>(p!==nothing&&physical.passed),
             "own_model_passed"=>(p!==nothing&&own.passed),"full_model_passed"=>(p!==nothing&&full.passed),
             "anchor_in_profile"=>reverse,"objective"=>(isfinite(r.objective) ? r.objective : nothing),
+            "physical_power_objective"=>physical_objective,
             "variables"=>num_variables(b.model),"derivatives"=>feeder_derivative_structure(b.model),
             "shared_start"=>start_report,"lifted_real_variables"=>b.numerical_diagnostics[:lifted_real_variables],
             "shared_observation_count"=>b.numerical_diagnostics[:shared_observation_count],
@@ -169,7 +177,11 @@ function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options
     !isempty(candidates) && allunique(p.name for p in candidates) || throw(ArgumentError("unique nonempty profiles required"))
     objective=first(candidates).options.objective
     all(p.options.objective==objective for p in candidates) || throw(ArgumentError("profiles must share an objective"))
-    reference=build_opf(net,IVRNLP(objective=objective))
+    terms=first(candidates).options.power_terms
+    # Compare the complete physical definition, not just the :power mode label.
+    all(JSON3.write(p.options.power_terms)==JSON3.write(terms) for p in candidates) ||
+        throw(ArgumentError("profiles must share power objective terms"))
+    reference=build_opf(net,IVRNLP(;objective,power_terms=terms))
     rows=[Dict{String,Any}("name"=>p.name,"formulation_name"=>get(p,:formulation_name,p.name),
         "options"=>option_record(p.options),"solver_options"=>profile_solver_options(p,solver_options),
         "warmup"=>nothing,"trials"=>[]) for p in candidates]

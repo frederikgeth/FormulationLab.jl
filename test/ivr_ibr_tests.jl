@@ -29,6 +29,25 @@ end
 _ibr_audit(net,p)=physical_residuals(net,p;delta_dispatch=:coil,ibr_delta_dispatch=:conductor)
 _ibr_solve(b)=solve_ivr_nlp_opf(b;solver_options=(print_level=0,tol=1e-11,constr_viol_tol=1e-11,bound_relax_factor=0.))
 
+@testset "Power objectives retain IBR internal and PCC conventions" begin
+    for m in (2,3,4),sb in (1e3,1e5),lifting in (:off,:powers)
+        net,point,sp,si=_ibr_state(m)
+        terms=[IVRPowerTerm(channels=[(family,"g",k)];quantity,
+            target=quantity==:p ? real(s[k]) : imag(s[k]),quadratic=1e-6)
+            for (family,s) in ((:ibr,sp),(:ibr_internal,si)) for k in eachindex(s) for quantity in (:p,:q)]
+        b=build_opf(net,IVRNLP(;objective=:power,power_terms=terms,objective_scale=1.,s_base=sb,
+            specialization=:conductor_difference,linear_elimination=:passive_blocks,lifting);optimizer=Ipopt.Optimizer)
+        encoded=ivr_nlp_point_report(b,point)
+        @test encoded.passed && abs(encoded.objective)<1e-9
+        for (v,x) in encoded.variable_values;set_start_value(v,x);end
+        r=_ibr_solve(b)
+        @test r.solve.optimal && physical_residuals(net,r).passed
+        @test abs(r.objective)<1e-8
+        @test r.powers[(:ibr,"g")]≈sp atol=1e-3
+        @test r.powers[(:ibr_internal,"g")]≈si atol=1e-3
+    end
+end
+
 @testset "Exact IBR ports, filters and reduced current structure" begin
     for m in (2,3,4),reverse in (false,true)
         net,point,sp,si=_ibr_state(m;reverse);original=deepcopy(net)

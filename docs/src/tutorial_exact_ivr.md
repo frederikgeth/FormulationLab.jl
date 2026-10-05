@@ -1053,3 +1053,56 @@ The JSON records all failures and admission checks. Repeat the full panel in a
 fresh process before choosing a candidate from the [timing evidence](ivr_performance.md).
 An unchanged physical objective and smaller derivative spread do not by themselves
 establish a faster formulation.
+
+## 33. Compare economic and P/Q tracking objectives
+
+The earlier timing panels minimize signed source active power. To study economic
+dispatch or power setpoints, specify the physical objective explicitly. The
+[power-objective contract](ivr_objectives.md) defines affine/quadratic terms in
+individual or aggregated W/var channels. Generator terms use dispatch variables;
+other ports can use exact power lifting. Retain the same terms and objective
+divisor while changing electrical bases or reductions.
+
+This example compares full 10 kVA with reduced 1 kVA and lifted powers under
+quadratic economic dispatch, then aggregate source P/Q tracking. The latter also
+includes weaker individual dispatch penalties, so an aggregate target need not
+be attained exactly. Neither case has an independent global-optimum certificate.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_power_objectives.jl"))
+PO = IVRPowerObjectiveStudy
+objective_rows = map((:quadratic_cost,:exchange_tracking)) do workload
+    n = PO.case(workload;segments=2)
+    start = PO.U.G.H.S.L.start_point(n)
+    results = map(PO.profiles(n,workload)[[1,5]]) do profile
+        b = build_opf(n,IVRNLP(profile.options);optimizer=Ipopt.Optimizer)
+        enc = ivr_nlp_point_report(b,start)
+        @assert length(enc.variable_values)==num_variables(b.model)
+        for (v,x) in enc.variable_values;set_start_value(v,x);end
+        r = solve_ivr_nlp_opf(b;solver_options=merge(PO.P.STRICT,profile.solver_options))
+        @assert r.solve.optimal && physical_residuals(n,r).passed
+        physical_value = PO.physical_objective(n,workload,r.powers)
+        @assert isapprox(r.objective,physical_value;atol=1e-7)
+        exported = result_dict(b,r)
+        @assert exported["_formulationlab"]["objective_units"]=="user_defined"
+        @assert length(exported["_formulationlab"]["objective_definition"])==length(profile.options.power_terms)
+        (build=b,result=r)
+    end
+    a,b = results
+    @assert isapprox(a.result.objective,b.result.objective;atol=1e-6)
+    @assert ivr_nlp_point_report(a.build,T.point(b.result)).passed
+    @assert ivr_nlp_point_report(b.build,T.point(a.result)).passed
+    (workload=workload,objective=b.result.objective,
+     source_power_VA=sum(b.result.powers[(:voltage_source,"grid")]))
+end
+objective_rows
+```
+
+The runner also supplies linear cost, individual P/Q tracking, curtailment and
+active-loss objectives. Call `PO.benchmark("quadratic_cost.json";
+workload=:quadratic_cost)` in an otherwise idle process. Every candidate must
+share the complete physical objective definition. The benchmark separately
+recomputes custom objective values from recovered SI powers, records all failures,
+and ranks only admitted, comparable solutions by Ipopt wall time. A loss-only
+workload has an explicitly different generation-availability bound; compare
+formulations within that workload rather than pooling different objectives.
