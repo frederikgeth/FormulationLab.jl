@@ -1,5 +1,52 @@
 # Verification
 
+## Distinct P/Q histories and reactive-bound transitions — 5 October 2026
+
+The new `examples/benchmark_ivr_histories.jl` provides reproducible single-phase
+and delta dispatch paths without consecutive repeated operating points. Fixed-
+and changing-box histories share absolute P/Q demand and price paths; the latter
+fixes/releases P and Q, and removes/restores a Q lower bound. The reuse runner
+adds physical-unit generator dispatch records. Its existing reversed/rotated
+order generator is exposed and tested, and the wrapper records planned balance
+before solving. No production equation, bound, option or default changes.
+
+An initial driver typo stopped before any solve. The subsequent six-sweep first
+case passed all 216 measured and 36 warm-up solves, but its order-balance gate
+failed. The paired schedule requires twelve sweeps for six workflows. That
+entire case and original sources are archived, excluded from the corrected
+batch and not pooled. The amended design preserves inputs/settings, uses twelve
+sweeps for all four cases and places every workflow in every position twice.
+No observed solve time guided the correction; no failed solve was repaired.
+
+The balanced batch admits **1,728/1,728 measured solves** and **144/144 excluded
+warm-ups**. Every eligible scenario has matching objectives and passes independent
+physical, own/fresh-model and reverse-anchor checks. Source/network snapshots,
+shared history paths, start digests, both-side resets, added/removed sides,
+physical-unit dispatch, sequence sums and actual balance pass a separate audit.
+Reconstructed/previous-primal median sequence ratios are **0.942/0.954** for
+single-phase fixed boxes, **0.978/0.986** for single-phase changing boxes,
+**0.962/0.970** for delta fixed boxes and **0.919/0.932** for delta changing boxes
+(full/regional respectively). Six of eight paired ranges cross one; all outliers remain.
+The 1–8% median gains support a narrower recommendation than the earlier panel's
+10–26%. These different histories do not isolate the effect of deleting repeats.
+
+Regional/passive is about 24% faster than full under matched reconstructed-dual
+starts on both single-phase histories. Delta formulation medians differ by less
+than 0.2%. Zero-dual initialization nearly matches reconstruction on the changing
+single-phase history, while it accounts for part of the delta changing-box gain.
+The third delta Q channel exercises its negative lower bound under expensive
+generation, and a price/bound-activity reversal coincides with a warm-start
+iteration regression. See the [performance guide](ivr_performance.md) for all
+three treatments, paired ranges and scope limitations. Ipopt wall time remains
+primary; model preparation and helper overhead are excluded.
+
+The full suite passes **34,717/34,717** assertions, including **2,464 new checks**
+of distinct inputs, independent bounds, physical-unit dispatch, reactive-side
+removal/restoration, dual resets, planned/actual order balance and admission.
+The tutorial now contains 23 executable blocks, including construction and
+inspection of a changing-box delta history. The inherited OpenDSSDirect
+precompile fallback remains nonfatal. Plans and raw evidence stay outside Git.
+
 ## Explicit reconstructed-dual initialization — 5 October 2026
 
 The example-only dual helper and `dual_workflows()` compare previous primals

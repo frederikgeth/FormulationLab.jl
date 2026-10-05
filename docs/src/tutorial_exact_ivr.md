@@ -575,3 +575,54 @@ automatic feature of `update_ivr_loads!` or `update_ivr_generators!`. The
 [controlled study](ivr_performance.md) compares normal initialization, a zero-dual
 warm control and reconstructed duals. One small successful example does not
 establish a speed benefit, global optimality or factorization reuse.
+
+
+## 20. Construct distinct P/Q operating histories
+
+Repeated scenarios can make initialization look especially effective. The next
+example constructs a path in which both active and reactive demand change at
+every step. Generator P/Q boxes also change: Q becomes fixed and is released,
+then its lower side is removed and restored. Each demand factor refers to the
+original input, so updates do not accidentally compound.
+
+```@example exactivr
+include(joinpath(pkgdir(FormulationLab), "examples", "benchmark_ivr_histories.jl"))
+const H = IVRHistoryStudy
+history_net, changing_history = H.history_case(
+    conductors=3, segments=4, history=:changing_boxes)
+history_inputs = H.R.scenario_inputs(history_net, changing_history)
+@assert all(history_inputs[k] != history_inputs[k-1] for k in 2:6)
+@assert history_inputs[3]["generator"]["der"]["q_min"] == zeros(3)
+@assert history_inputs[3]["generator"]["der"]["q_max"] == zeros(3)
+@assert !haskey(history_inputs[5]["generator"]["der"], "q_min")
+@assert history_inputs[6]["generator"]["der"]["q_min"] == [-70., -30., -15.]
+[(label=step.label, p_max_W=state["generator"]["der"]["p_max"],
+  q_min_var=get(state["generator"]["der"], "q_min", nothing),
+  q_max_var=state["generator"]["der"]["q_max"])
+ for (step, state) in zip(changing_history, history_inputs)]
+```
+
+For `history=:fixed_boxes`, the same demand and price path retains the initial
+P/Q boxes. The two histories therefore represent different feasible sets.
+Compare initialization policies within a history; do not demand equal objectives
+between histories. The new path also differs from the preceding study in Q
+capabilities and demand/price changes, so it is not an isolated test of removing
+that study's identical repeat.
+
+Run the timed experiment separately from the documentation build and other
+Julia jobs:
+
+```julia
+report = H.benchmark("delta-history.json";
+    conductors=3, segments=100, history=:changing_boxes, repetitions=12)
+```
+
+The six default workflows compare full/regional and previous-primal/zero-dual/
+reconstructed-dual starts. Twelve sweeps put each workflow in every position twice. The manifest records
+whether the requested schedule is position-balanced before solving.
+Check `ranking.objective_comparable`, complete eligible sequences, saved order,
+per-scenario effective settings and reset records before reading a time ranking.
+`generator_dispatch[id]["p_W"]` and `["q_var"]` record physical-unit dispatch
+after solving; these are not per-unit solver coordinates. Preserve failures and
+unattempted later scenarios. The [performance guide](ivr_performance.md) records
+the protocol, measurements and limits of inference.

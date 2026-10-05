@@ -62,8 +62,10 @@ refines initialization choices without changing that metric or removing options:
 
 | Measured repeated workload | Current starting shortlist |
 |:--|:--|
-| 100-segment single-phase cost dispatch | Regional/passive + AMD + explicit reconstructed duals |
-| 100-segment delta cost dispatch | Full or regional/passive + AMD + explicit reconstructed duals; medians within 1% |
+| Earlier repeat-containing single-phase cost dispatch | Regional/passive + AMD + explicit reconstructed duals |
+| Earlier repeat-containing delta cost dispatch | Full or regional/passive + AMD + explicit reconstructed duals; medians within 1% |
+| Distinct single-phase P/Q histories, 100 segments | Regional/passive + AMD; reconstructed duals give 1–6% median gains over previous primals, with mixed paired outcomes |
+| Distinct delta P/Q histories, 100 segments | Full or regional/passive + AMD; reconstructed duals give 3–8% median gains, with near-tied formulation medians |
 | ENWL 435 demand feasibility | Regional/passive + AMD + previous primals; reconstructed duals regress and zero duals fail strict acceptance |
 | DSuite 1,220 demand feasibility | Full + AMD + previous primals from the earlier study; reconstructed duals not yet tested |
 
@@ -927,6 +929,142 @@ bound multipliers, particularly as a generator becomes fixed or is released.
 The zero-dual arm holds the warm initializer constant while removing carried
 multiplier information; its contrast with reconstructed duals is therefore more
 informative than a normal-versus-warm comparison alone.
+
+## Distinct operating histories and changing reactive limits
+
+`examples/benchmark_ivr_histories.jl` provides reproducible manufactured inputs
+without relying on a local historical driver. Both single-phase two-wire and
+three-wire delta cases use 100 chain segments, loads on even-position buses and
+one terminal generator. Source accounting, equipment, voltage/current/apparent-
+power limits and objective definition remain fixed. Two histories share the
+following absolute demand and generator-price path:
+
+| Step | P-demand factor | Q-demand factor | Generator price | P-cap fraction in changing boxes | Q lower fraction | Q upper fraction |
+|--:|--:|--:|--:|--:|:--|--:|
+| 1 | 1.00 | 1.00 | 0.20 | 1.00 | −1.00 | 1.00 |
+| 2 | 0.92 | 1.10 | 0.35 | 0.75 | −1.00 | 0.40 |
+| 3 | 1.06 | 0.85 | 1.60 | 0.50 | 0.00 | 0.00 |
+| 4 | 0.88 | 0.70 | 1.80 | 0.00 | −1.00 | 0.80 |
+| 5 | 1.12 | 1.25 | 0.25 | 0.90 | absent | 1.00 |
+| 6 | 1.02 | 0.95 | 1.20 | 1.00 | −1.00 | 1.00 |
+
+Prices use the input schema's cost units. P caps are `[600]` W for single-phase
+and `[500,150,50]` W for delta; Q caps are `[80]` var and `[70,30,15]` var.
+`fixed_boxes` keeps ``P\in[0,P_{cap}]`` and ``Q\in[-Q_{cap},Q_{cap}]`` at all
+steps. `changing_boxes` applies the final three columns, retaining a zero P
+lower bound. It fixes/releases Q, fixes/releases P and removes/restores the Q
+lower side. No consecutive operating points repeat. All updates are absolute
+relative to the original demand, not multiplicative on the preceding state.
+
+These are different feasible sets; objectives are compared across workflows
+within each history/scenario, never between histories. The new paths also change
+Q capability, demand and prices relative to the earlier experiment. They test
+broader-history transfer, not the isolated causal effect of removing its repeat.
+They are new operating histories on known manufactured topologies, not unseen
+network validation or field time-series observations.
+
+The prospective protocol crosses full/scaled-regional-passive with the same
+three initialization treatments and shared controls as the reconstructed-dual
+study. Each of four inputs has twelve reversed/rotated sweeps, placing every one of
+six workflows in every position exactly twice. If all sequences complete, this
+requests 1,728 measured and 144 excluded warm-up solves. There is no subsequent
+independent confirmation batch. Admit complete sequences using the existing
+strict solver, independent physical/model/fresh-model, reverse-anchor and
+scenario-objective checks; retain failures without tuning or fallback retries.
+
+A driver keyword typo stopped the first launch before any optimization. After
+its correction, the first case completed six sweeps, but the balance gate caught
+that six paired/reversed sweeps do not balance all six workflows. That original
+case's 216 measured and 36 warm-up solves, source snapshots and log are preserved
+in `HISTORY_ABORTED_BALANCE/` and excluded from the balanced results. The corrected
+wrapper uses twelve sweeps, exposes/tests the unchanged order generator and
+records planned balance before solving. No observed solve time guided the
+scheduling correction, and no fixture, solver setting or acceptance rule changed.
+The amended batch reruns all four inputs; batches are not pooled.
+
+The runner now records generator dispatch in W/var after solving. Together with
+independently reconstructed scenario limits, this distinguishes actual bound
+activity from a box merely changing in the input. Those records and the helper's
+correspondence/reset checks are outside the primary Ipopt wall-time score.
+The [tutorial](tutorial_exact_ivr.md) shows input construction and reproduction.
+
+### Balanced history results
+
+All **1,728/1,728 measured solves** and **144/144 excluded warm-ups** pass the
+strict solver and independent physical/model/fresh-model checks. Every measured
+scenario has an accepted reverse anchor. Objectives agree across all six
+workflows within every scenario, and every workflow occupies every position
+twice. The independent audit also verifies frozen sources, network snapshots,
+shared demand/price paths, settings, primal/dual correspondence, all changed-box
+resets, removed/restored sides, physical-unit dispatch and sequence sums. The
+archived six-sweep case is excluded from these figures and all comparisons.
+
+The table reports median complete six-scenario sums of Ipopt wall milliseconds.
+The ratio column divides medians; the final column retains all twelve paired
+sequence ratios, including timing outliers.
+
+| Circuit / boxes / formulation | Previous primal (ms) | Zero dual (ms) | Reconstructed dual (ms) | Reconstructed/previous | Paired ratio range |
+|:--|--:|--:|--:|--:|:--|
+| Single-phase / fixed / full | 94.652 | 99.264 | 89.137 | 0.942 | 0.919–1.268 |
+| Single-phase / fixed / regional | 71.577 | 76.362 | 68.263 | 0.954 | 0.885–1.178 |
+| Single-phase / changing / full | 89.910 | 88.306 | 87.936 | 0.978 | 0.895–1.142 |
+| Single-phase / changing / regional | 67.871 | 67.366 | 66.903 | 0.986 | 0.962–1.013 |
+| Delta / fixed / full | 165.959 | 165.061 | 159.711 | 0.962 | 0.523–1.857 |
+| Delta / fixed / regional | 164.626 | 165.196 | 159.630 | 0.970 | 0.955–1.827 |
+| Delta / changing / full | 163.495 | 156.520 | 150.200 | 0.919 | 0.830–0.984 |
+| Delta / changing / regional | 161.418 | 156.251 | 150.386 | 0.932 | 0.837–0.996 |
+
+Reconstructed-dual median gains are **1.4–8.1%** across these inputs and
+formulations. They are smaller than the earlier repeat-containing confirmation's
+10–26% gains, but the new paths also change Q capability, prices and demand;
+that difference cannot be attributed solely to removing repeated scenarios.
+For single-phase, fixed-box gains are about 5–6%, while changing-box gains are
+only 1–2%. The zero-dual control is within 1% of reconstructed duals in the
+changing-box case, so carried multiplier information adds little there.
+For delta, fixed-box gains are 3–4% and changing-box gains 7–8%; changing boxes
+do not uniformly reduce the benefit. In the latter case, zero-dual initialization
+already improves the median by 3–4%, with carried multipliers contributing
+approximately another 4% relative to that control.
+
+Six of eight paired ranges cross one, and several contain substantial outliers. Even
+where every paired reconstructed/previous ratio is below one, these twelve
+measurements do not establish general or statistical-significance claims.
+No samples are deleted or settings tuned after examining times. Regional/passive
+with reconstructed duals is about 24% faster than full with the same starts on
+both single-phase histories. Full and regional reconstructed-dual medians differ
+by less than 0.2% on both delta histories; retain both as practical comparators.
+Thus representation has the larger measured effect for single-phase, while the
+initialization policy remains workload-dependent.
+
+### Active limits and transition evidence
+
+An active bound is labelled diagnostically when dispatch is within ``10^{-3}``
+W or var of that bound; this does not change solver or physical admission
+tolerances. The single-phase Q upper bound is active throughout the fixed-box
+history. In the delta fixed-box history, the third Q channel moves from its
++15 var upper bound at step 2 to its −15 var lower bound at step 3. That lower
+bound is also active at steps 4 and 6 in every measured workflow; the largest
+observed distance from −15 var is below ``6.2\times10^{-6}`` var. At step 3,
+reconstructed-dual initialization takes 17 iterations versus 15 for previous
+primals alone. The bound reversal and iteration regression coincide; this does
+not isolate their causal relationship from the simultaneous price/P-dispatch
+changes. It illustrates why a previous multiplier need not be a useful guess
+at every transition.
+
+In the changing-box histories, both Q sides bind at the fixed-zero step and both
+P sides bind at the zero-availability step. Removed/restored Q-lower sides and
+both-side resets are verified against independently reconstructed scenario
+limits. These observations extend exercised bound coverage; they are not a
+proof that every possible operating history or unsupported model edit is safe.
+The helper remains restricted to its declared same-model update contract.
+
+`HISTORY_PROTOCOL.md`, `HISTORY_SOURCE/`, `HISTORY_HASHES.txt`,
+`HISTORY_RUN.jl`, raw input/report/manifest files, `HISTORY_ANALYZE.py` and
+`HISTORY_SUMMARY.json` retain the amended design and evidence outside Git.
+`HISTORY_PREFLIGHT*` and `HISTORY_ABORTED_BALANCE/` preserve both harness issues.
+The next structural priority is an additive adjacent-chain certificate, with
+surviving-equation selection and independent interior-bound witnesses; no such
+extension is included in this initialization study.
 
 ## Why the structural selector is still optional
 

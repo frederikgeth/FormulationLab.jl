@@ -692,6 +692,14 @@ the helper checks availability and finiteness, while the benchmark checks physic
 model, fresh-model and objective agreement. The [tutorial](tutorial_exact_ivr.md)
 shows this explicit experimental sequence. Production update behavior is unchanged.
 
+`examples/benchmark_ivr_histories.jl` adds deterministic six-step P/Q demand and
+price paths with fixed or changing generator boxes, including fixed/released Q
+and a removed/restored Q lower side. Every operating point differs from its
+predecessor. Physical-unit generator dispatch is saved for independent bound
+activity checks. Compare complete admitted policies within each history; the
+two histories change feasible sets and need not have equal objectives. This
+remains an explicit experiment, with no automatic fallback or production changes.
+
 The external-feeder counterpart `examples/benchmark_ivr_feeder_reuse.jl` uses
 explicit constant-power demand sequences and a feasibility objective, preserving
 source/generator accounting. It writes a provenance manifest before solving,

@@ -55,6 +55,13 @@ function scenario_inputs(net,schedule)
 end
 
 start_digest(names,values)=bytes2hex(sha256(JSON3.write((;names,values))))
+"""Alternating reversed/rotated orders; `2n` sweeps place each workflow in each position twice."""
+function workflow_orders(n,repetitions)
+    n>0 && repetitions>0 || throw(ArgumentError("positive workflow and repetition counts required"))
+    [iseven(rep) ? reverse(circshift(collect(1:n),(rep-1)÷2)) :
+        circshift(collect(1:n),(rep-1)÷2) for rep in 1:repetitions]
+end
+
 function set_starts!(variables,values)
     length(variables)==length(values) || throw(ArgumentError("start layout changed"))
     all(x->x===nothing || isfinite(x),values) || throw(ArgumentError("nonfinite start"))
@@ -119,6 +126,9 @@ function sequence(net,schedule,inputs,references,anchors,workflow;solver_options
                 "dual_start"=>dual_prep.value,"dual_solution_sha256"=>(captured===nothing ? nothing : captured.sha256),
                 "effective_solver_options"=>effective,"status"=>r.solve.termination_status,
                 "objective"=>(isfinite(r.objective) ? r.objective : nothing),
+                "generator_dispatch"=>(point===nothing ? nothing : Dict(id=>Dict(
+                    "p_W"=>value.(refs.p).*build.electrical.sb,
+                    "q_var"=>value.(refs.q).*build.electrical.sb) for (id,refs) in build.generator_variables)),
                 "physical_passed"=>(point!==nothing && physical.passed),
                 "own_passed"=>(point!==nothing && own.passed),"full_passed"=>(point!==nothing && full.passed),
                 "fresh_same_formulation_passed"=>(point!==nothing && mapped.passed),"anchor_passed"=>reverse,
@@ -197,8 +207,7 @@ function benchmark(net,schedule,output;repetitions=4,candidates=workflows(),solv
         if t["accepted"] && all(isnothing,anchors);anchors=points;report["anchor_workflow"]=w.name;end
         save()
     end
-    for rep in 1:repetitions
-        order=circshift(collect(eachindex(candidates)),(rep-1)÷2);iseven(rep) && reverse!(order)
+    for order in workflow_orders(length(candidates),repetitions)
         push!(report["orders"],[candidates[j].name for j in order])
         for j in order
             t,_=sequence(net,schedule,inputs,refs,anchors,candidates[j];solver_options)
