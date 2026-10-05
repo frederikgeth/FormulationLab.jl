@@ -29,6 +29,52 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+## Scaling conventions and transformer priority — 5 October 2026
+
+All exact-IVR electrical coordinates are per unit: `Sb=s_base`, `Vb` is the
+largest voltage-source magnitude, `Ib=Sb/Vb`, and `Zb=Vb/Ib`. An audit of 708 saved
+profile-option records across 111 JSON files finds `Sb=10,000 VA` throughout;
+these include manifest/report duplication, not 708 independent experiments.
+Inputs and physical results remain SI. The previous campaigns therefore do not
+need rerunning because per-unit conversion was absent.
+
+However, **the voltage/current bases are network-wide, not transformer-local**.
+DSuite265/1220 use `Vb≈6414.36 V` and `Ib≈1.559 A` despite 11 kV/415 V delta-wye
+transformers. A nominal 239.6 V LV phase is approximately 0.0374 on that global
+base. The synthetic transformer-current campaign used 230/230 V devices; it did
+not test the numerical challenge of large voltage-ratio transitions. Earlier
+rankings are conditional on this common-base policy.
+
+Magnitude limits already use their declared ratings for normalization. Linear
+circuit rows are normalized, with norms recomputed in composed coordinates only
+when finite-ground scaling actually changes a coordinate. The historical saved
+solver settings do not explicitly specify `nlp_scaling_method`; they inherit the
+installed solver default. Model units, row scaling, objective scaling and solver
+scaling must be distinguished in future experiments.
+
+The next priority is an additive local voltage/current coordinate policy across
+transformer boundaries, followed by independently controlled composed-row scaling
+and regional power bases. Preserve every ratio, connection, tap, bond, ground,
+operating bound and physical output. Test the new policy in matched full/block/
+transformer-current formulations before transferring previous speed rankings.
+No new scaling policy or speed advantage is established by this planning step.
+
+A baseline-only NLPDiagnostics pilot successfully evaluates full, block-reduced
+and transformer-current models at a shared unloaded point and accepted DSuite265
+endpoint. All six Jacobian evaluations use exact-symbolic rows with no evaluation
+failures. The very large global row-norm ratios arise from tiny derivatives in
+inactive quadratic limits: the smallest full-model endpoint row has function
+value about 1.60e-85 against an upper bound of 1. Such ratios are not condition
+numbers and do not justify inflating those rows. Local equation families, active
+bounds and explicit coordinate maps are required for a useful diagnosis.
+
+The untracked `TRANSFORMER_SCALING_PLANNING_20261005` folder contains the per-unit
+audit, raw pilot, source identities and staged protocol. Scaling experiments will
+explicitly compare model interventions under fixed Ipopt scaling policies, retain
+independent SI acceptance and keep instrumented traces outside wall-time rankings.
+Transformer-aware scaling now precedes the generator P/Q reuse experiment proposed
+below; all previous options and experimental evidence remain available.
+
 ## Observation support and exact affine sharing — 5 October 2026
 
 Two additive controls separate when to lift a bounded affine observation from

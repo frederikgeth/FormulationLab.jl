@@ -488,6 +488,13 @@ behavior or a universal manufacturer interpretation of type A/B labels.
 Supported objectives are `:cost` (linear currency/kWh coefficients),
 `:source_import` (watts), and `:feasibility`. Inputs and outputs use SI units;
 `s_base` controls internal scaling. Inputs are copied rather than modified.
+The present exact-IVR implementation uses **one network-wide voltage base**:
+the largest source voltage magnitude, with current base `s_base / voltage_base`.
+All electrical coordinates are per unit. This does not yet implement separate
+nominal-voltage/current bases across transformers; finite-ground scaling is a
+separate optional coordinate transformation. The
+[scaling audit](ivr_performance.md#Scaling-conventions-and-transformer-priority-—-5-October-2026)
+explains the experimental implications.
 Without transformers, switches, capacitors or IBRs, each voltage conductor must have a line path to a fixed source, ideal ground,
 or finite one-terminal ground. A finite ground supplies only an initial voltage
 guess in conductor components unreached by the fixed-source/ideal-ground
