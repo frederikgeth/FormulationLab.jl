@@ -22,6 +22,11 @@ operating bound would depend on more solver coordinates. Default :all.
 `ground_scaling=:voltage` rescales retained free voltages attached to stiff
 one-terminal finite shunts and normalizes circuit rows in solver coordinates.
 This invertible numerical policy preserves the finite ground; default :off.
+`transformer_scaling=:nominal` composes local voltage/current units inferred
+from source magnitudes and nominal winding ratios. Uncertain assignments retain
+the global base with diagnostics. `row_scaling=:composed` independently normalizes
+linear circuit rows after all coordinate maps; default :legacy retains the
+previous ground-dependent normalization. Neither option changes physical data.
 `lifting=:powers` introduces exact P/Q definitions for apparent-power limits.
 `:bounded_observations` also materializes compound bounded voltage/current rows.
 The default :off preserves direct expressions; physical outputs are unchanged.
@@ -40,6 +45,8 @@ Base.@kwdef struct IVRNLPOptions
     linear_elimination::Symbol = :off
     series_selection::Symbol = :all
     ground_scaling::Symbol = :off
+    transformer_scaling::Symbol = :off
+    row_scaling::Symbol = :legacy
     lifting::Symbol = :off
     observation_support_threshold::Int = 2
     observation_sharing::Symbol = :off
@@ -345,6 +352,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.linear_elimination in (:off,:impedance_loads,:passive,:passive_chains,:passive_blocks) || throw(ArgumentError("unknown IVRNLP linear elimination"))
     options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
     options.ground_scaling in (:off,:voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
+    options.transformer_scaling in (:off,:nominal) || throw(ArgumentError("unknown IVRNLP transformer scaling"))
+    options.row_scaling in (:legacy,:composed) || throw(ArgumentError("unknown IVRNLP row scaling"))
     options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))
     options.observation_support_threshold>=0 || throw(ArgumentError("observation support threshold must be nonnegative"))
     options.observation_sharing in (:off,:exact) || throw(ArgumentError("unknown IVRNLP observation sharing"))
@@ -362,7 +371,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
                                                                     series_selection=options.series_selection)
     maps,omitted_equations,device_elimination=_ivrn_device_coordinates(net,e,maps,omitted_equations,options.device_elimination)
     maps,scaling=_ivrn_ground_coordinates(net,e,maps,options.ground_scaling)
-    scaled_rows=!isempty(scaling.scaled_terminals)
+    maps,transformer_scaling=_ivrn_transformer_coordinates(net,e,maps,options.transformer_scaling)
+    scaled_rows=options.row_scaling==:composed || !isempty(scaling.scaled_terminals)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
     model.ext[:ivr_lifting]=_ivrn_lifting_policy(options)
     n=length(maps.projection)
@@ -375,13 +385,14 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         JuMP.set_start_value(xr[k],real(y0[k]));JuMP.set_start_value(xi[k],imag(y0[k]))
     end
     for (k,v) in e.fixed_source_coordinates
-        j=only(keys(maps.reconstruction[k])) # Source coordinates stay physical.
-        JuMP.fix(xr[j],real(v));JuMP.fix(xi[j],imag(v))
+        j,a=only(maps.reconstruction[k]) # Source coordinates remain singleton, possibly scaled.
+        JuMP.fix(xr[j],real(v/a));JuMP.fix(xi[j],imag(v/a))
     end
     for row in Iterators.flatten(( (row for (k,row) in enumerate(e.equations) if k ∉ omitted_equations),
                                   (row for (key,row) in e.kcl if key ∉ omitted)))
         isempty(row) && continue
         divisor=scaled_rows ? _ivrn_scaled_row_norm(row,maps) : norm(collect(values(row)))
+        isfinite(divisor) && divisor>0 || _ivrn_refuse("invalid circuit-row normalization")
         a=_linivr_eval(row,z)/divisor
         @constraint(model,real(a)==0);@constraint(model,imag(a)==0)
     end
@@ -503,6 +514,9 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :linear_elimination=>options.linear_elimination,:linear_elimination_report=>elimination,
         :device_elimination=>options.device_elimination,:device_elimination_report=>device_elimination,
         :ground_scaling=>options.ground_scaling,:ground_scaling_report=>scaling,
+        :transformer_scaling=>options.transformer_scaling,:transformer_scaling_report=>transformer_scaling,
+        :row_scaling=>options.row_scaling,:composed_row_normalization=>scaled_rows,
+        :per_unit_bases=>(voltage_V=e.vb,current_A=e.ib,power_VA=e.sb),
         :lifting=>options.lifting,:lifted_real_variables=>2length(model.ext[:ivr_lifting].records),
         :observation_support_threshold=>options.observation_support_threshold,
         :observation_sharing=>options.observation_sharing,

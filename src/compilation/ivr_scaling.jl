@@ -41,5 +41,116 @@ end
 # cancels identically under reconstruction needs no normalization.
 function _ivrn_scaled_row_norm(row,maps)
     value=norm(collect(values(_ivrn_compose_row(row,maps.reconstruction))))
+    isfinite(value) || _ivrn_refuse("nonfinite composed circuit-row norm")
     iszero(value) ? 1.0 : value
+end
+
+# Nominal voltage levels select units only. They never alter transformer stamps,
+# infer a missing physical reference, or impose an operating voltage.
+function _ivrn_region_bases(net,e)
+    adjacency=Dict(b=>Tuple{String,Float64}[] for b in keys(net["bus"]))
+    skipped=Dict{String,String}()
+    function edge(f,t,ratio)
+        isfinite(ratio) && ratio>0 && isfinite(inv(ratio)) || return false
+        push!(adjacency[f],(t,ratio));push!(adjacency[t],(f,inv(ratio)));true
+    end
+    for family in ("line","switch"), (id,d) in sort!(collect(get(net,family,Dict()));by=first)
+        # Open switches do not establish a voltage-level connection.
+        family=="switch" && get(d,"open_switch",false) && continue
+        edge(d["bus_from"],d["bus_to"],1.0)
+    end
+    for (kind,table) in sort!(collect(get(net,"transformer",Dict()));by=first), (id,d) in sort!(collect(table);by=first)
+        key="$kind/$id"
+        if kind in ("single_phase","center_tap","delta_wye","wye_delta")
+            ratio=Float64(d["v_nom_to"])/Float64(d["v_nom_from"])
+            edge(d["bus_from"],d["bus_to"],ratio) || (skipped[key]="invalid_nominal_ratio")
+        elseif kind in ("single_phase_autotransformer","open_delta_regulator")
+            edge(d["bus_from"],d["bus_to"],1.0) # Taps remain in the physical equations.
+        else
+            skipped[key]="unsupported_nominal_base_contract"
+        end
+    end
+    seeds=Dict(b=>Float64[] for b in keys(adjacency))
+    for (_,d) in sort!(collect(net["voltage_source"]);by=first)
+        v=maximum(abs,Float64.(d["v_magnitude"]))
+        v>0 && push!(seeds[d["bus"]],v)
+    end
+    bases=Dict{String,Float64}();retained=Dict{String,String}();seen=Set{String}()
+    for root in sort!(collect(keys(adjacency)))
+        root in seen && continue
+        relative=Dict(root=>1.0);queue=[root];consistent=true
+        for b in queue
+            push!(seen,b)
+            for (t,ratio) in sort(adjacency[b];by=first)
+                value=relative[b]*ratio
+                if !(isfinite(value) && value>0 && isfinite(inv(value)))
+                    consistent=false;value=1.0
+                end
+                if haskey(relative,t)
+                    isapprox(relative[t],value;rtol=1e-10,atol=0.) || (consistent=false)
+                else
+                    relative[t]=value;push!(queue,t)
+                end
+            end
+        end
+        anchors=[s/relative[b] for b in sort(queue) for s in seeds[b]]
+        reason=!consistent ? "inconsistent_nominal_cycle" : isempty(anchors) ? "no_nonzero_source_base" :
+            !all(a->isfinite(a) && a>0 && isapprox(a,first(anchors);rtol=1e-10,atol=0.),anchors) ? "inconsistent_source_bases" : nothing
+        if reason===nothing && !all(b->isfinite(relative[b]*first(anchors)) && relative[b]*first(anchors)>0 &&
+                isfinite(e.vb/(relative[b]*first(anchors))) && isfinite((relative[b]*first(anchors))/e.vb),queue)
+            reason="nonfinite_region_base"
+        end
+        for b in queue
+            bases[b]=reason===nothing ? relative[b]*first(anchors) : e.vb
+            reason===nothing || (retained[b]=reason)
+        end
+    end
+    (;bases,retained_buses=retained,skipped_transformers=skipped)
+end
+
+function _ivrn_transformer_coordinates(net,e,maps,mode)
+    mode==:off && return maps,(;status=:disabled,bases=Dict{String,Float64}(),
+        retained_buses=Dict{String,String}(),skipped_transformers=Dict{String,String}(),
+        scaled_coordinates=NamedTuple[],retained_coordinates=Dict{Int,String}())
+    region=_ivrn_region_bases(net,e)
+    voltage_bases=Dict(k=>region.bases[b] for ((b,_),k) in e.voltage if k!=0)
+    candidates=[Set{Float64}() for _ in 1:e.coordinate_count[]]
+    for (k,base) in voltage_bases;push!(candidates[k],e.vb/base);end
+    # Device observation rows include all winding/terminal currents. Voltage
+    # terms from charging/filter admittances are excluded from current tagging.
+    # A bond spanning different bases remains unscaled rather than choosing a side.
+    for (_,_,volts,currents,_) in e.devices
+        bases=Set(voltage_bases[k] for row in volts for (k,a) in row if !iszero(a) && haskey(voltage_bases,k))
+        for row in currents, (k,a) in row
+            if !iszero(a) && !haskey(voltage_bases,k)
+                union!(candidates[k],(base/e.vb for base in bases))
+            end
+        end
+    end
+    scales=ones(length(maps.projection));scaled=NamedTuple[];retained=Dict{Int,String}()
+    for (j,row) in enumerate(maps.projection)
+        ks=[k for (k,a) in row if !iszero(a)]
+        if isempty(ks) || any(k->isempty(candidates[k]),ks)
+            retained[j]="unclassified_coordinate";continue
+        end
+        values=union((candidates[k] for k in ks)...)
+        if length(values)!=1
+            retained[j]="mixed_coordinate_bases";continue
+        end
+        scale=only(values)
+        if !(isfinite(scale) && scale>0 && isfinite(inv(scale)))
+            retained[j]="nonfinite_coordinate_scale";continue
+        end
+        scales[j]=scale
+        scale==1 || push!(scaled,(;coordinate=j,scale))
+    end
+    projection=[_SDPRow(k=>a*scales[j] for (k,a) in row) for (j,row) in enumerate(maps.projection)]
+    reconstruction=[_SDPRow(k=>a/scales[k] for (k,a) in row) for row in maps.reconstruction]
+    # Reject the entire numerical intervention if finite coefficient maps cannot
+    # be represented. Never regularize or delete overflowing/underflowing terms.
+    valid(new,old)=all(length(a)==length(b) && all(k->isfinite(a[k]) && (iszero(b[k]) || !iszero(a[k])),keys(b)) for (a,b) in zip(new,old))
+    if !valid(projection,maps.projection) || !valid(reconstruction,maps.reconstruction)
+        return maps,(;status=:retained_nonfinite_map,region...,scaled_coordinates=NamedTuple[],retained_coordinates=retained)
+    end
+    (;projection,reconstruction),(;status=:applied,region...,scaled_coordinates=scaled,retained_coordinates=retained)
 end

@@ -79,6 +79,8 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `specialization` | `:off` | `:conductor_difference` certifies one complete section; `:conductor_regions` certifies pendant regions behind retained boundaries |
 | `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates nonadjacent eligible degree-two buses; `:passive_chains` permits adjacent candidates; `:passive_blocks` also admits charged π sections through conditioned local block solves |
 | `series_selection` | `:all` | With any passive policy, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
+| `transformer_scaling` | `:off` | `:nominal` composes local voltage/current units inferred from nominal transformer ratios and source magnitudes; uncertain assignments retain global units |
+| `row_scaling` | `:legacy` | `:composed` normalizes linear circuit rows after all coordinate transformations, independently of local voltage/current scaling |
 | `ground_scaling` | `:off` | `:voltage` rescales eligible free finite-ground voltages and normalizes circuit rows in solver coordinates |
 | `observation_support_threshold` | `2` | Lift affine observations only when their distinct real-variable support is strictly larger; nonnegative integer |
 | `observation_sharing` | `:off` | `:exact` shares identical composed affine observations, including constants |
@@ -198,6 +200,42 @@ evaluated through the composed reconstruction. `series_selection=:bound_support`
 still selects line eliminations only; it does not reject device substitutions
 whose bound expressions grow. This option is independent of all line modes,
 conductor specialization, lifting and supported load/generator updates.
+
+### Transformer-local coordinates and composed-row normalization
+
+`transformer_scaling=:nominal` propagates voltage levels from nonzero source
+magnitudes through lines, closed switches and fixed-transformer nominal ratios.
+The common power base stays fixed. For a local voltage base `Vr`, solver voltage
+coordinates are multiplied by `Vb/Vr` and current coordinates by `Vr/Vb`, relative
+to the original global per-unit coordinates. The resulting physical voltage and
+current bases are `Vr` and `s_base/Vr`. Taps, incidence matrices and leakage remain
+in the original physical equations; they are not absorbed into a different circuit.
+
+Ordinary single-phase, center-tap, delta-wye and wye-delta nominal ratios are
+supported. Fixed regulators connect the same nominal voltage level; tap deviations
+remain explicit. Open switches do not propagate a base. Multiwinding transformers
+do not yet supply a nominal-base propagation contract. Components with inconsistent
+nominal cycles or source-base assignments, or without a nonzero source seed, keep
+the global base with a recorded reason. This is a units-selection fallback, not
+a conclusion that the physical network is infeasible. Nominal cycle/source
+consistency uses a relative 1e-10 comparison; no physical coefficient is discarded.
+
+The pass follows conductor, line/device elimination and finite-ground maps.
+A retained projection coordinate is rescaled only when every original coordinate
+in its support has the same uniquely assigned factor. Mixed or unclassified
+coordinates retain their previous scale. Overflow/underflow in the coefficient
+maps rejects the entire new coordinate intervention. Fixed-source values, supplied
+points and physical recovery all use the composed map. P/Q dispatch units,
+objective scaling, original bounds and load/generator update semantics are unchanged.
+
+`row_scaling=:composed` independently normalizes linear circuit equations using
+their coefficient norms in final solver coordinates. `:legacy` preserves the old
+rule: use original norms unless finite-ground scaling actually changed a coordinate.
+It does not normalize nonlinear rows by their start-point gradients. Nonfinite
+circuit-row norms are refused rather than turning equations into zero rows.
+Diagnostics report `transformer_scaling_report` (bus bases, scaled and retained
+coordinates, and fallback reasons), `row_scaling`, `composed_row_normalization`
+and `per_unit_bases`. Separate Ipopt scaling options are controlled by the caller.
 
 ### Exact selective lifting
 
@@ -490,9 +528,9 @@ Supported objectives are `:cost` (linear currency/kWh coefficients),
 `s_base` controls internal scaling. Inputs are copied rather than modified.
 The present exact-IVR implementation uses **one network-wide voltage base**:
 the largest source voltage magnitude, with current base `s_base / voltage_base`.
-All electrical coordinates are per unit. This does not yet implement separate
-nominal-voltage/current bases across transformers; finite-ground scaling is a
-separate optional coordinate transformation. The
+All electrical assembly coordinates are per unit. Optional
+`transformer_scaling=:nominal` composes separate local voltage/current coordinates
+for the solver; finite-ground scaling is a separate optional transformation. The
 [scaling audit](ivr_performance.md#Scaling-conventions-and-transformer-priority-—-5-October-2026)
 explains the experimental implications.
 Without transformers, switches, capacitors or IBRs, each voltage conductor must have a line path to a fixed source, ideal ground,

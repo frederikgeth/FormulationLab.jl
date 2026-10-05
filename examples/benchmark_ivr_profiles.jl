@@ -139,6 +139,10 @@ function trial(net,profile,reference,anchor;solver_options=STRICT,initial_point=
             "elimination"=>b.numerical_diagnostics[:linear_elimination_report],
             "device_elimination"=>b.numerical_diagnostics[:device_elimination_report],
             "ground_scaling"=>b.numerical_diagnostics[:ground_scaling_report],
+            "transformer_scaling"=>b.numerical_diagnostics[:transformer_scaling_report],
+            "row_scaling"=>b.numerical_diagnostics[:row_scaling],
+            "composed_row_normalization"=>b.numerical_diagnostics[:composed_row_normalization],
+            "per_unit_bases"=>b.numerical_diagnostics[:per_unit_bases],
             "iterations"=>(try JuMP.MOI.get(JuMP.backend(b.model),JuMP.MOI.BarrierIterations()) catch; nothing end),
             "bad_physical_records"=>(p===nothing ? [] : [(;label=x.label,residual=x.residual,unit=x.unit)
                 for x in physical.records if x.residual>getproperty(physical.tolerances,x.unit)]))

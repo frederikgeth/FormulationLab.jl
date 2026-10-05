@@ -829,3 +829,40 @@ with twelve balanced sweeps and one excluded warm-up per profile. Set
 `objective=:feasibility` for external feasibility workloads. All profiles retain
 original bounds and physical JSON fields. Run this outside tests and documentation
 builds and compare `ipopt_wall_s`; compilation is excluded from the assessment.
+
+
+## 28. Scale a transformer transition while preserving physical outputs
+
+Change the earlier transformer example to a 2.3 kV/230 V interface. Keep the
+physical network identical between the global-base and locally scaled builds.
+The local-coordinate option also preserves the original 10 kVA power base.
+
+```@example exactivr
+scaled_tx_case = deepcopy(tx_case)
+scaled_tx_case["voltage_source"]["grid"]["v_magnitude"] .*= 10
+scaled_tx_case["transformer"]["single_phase"]["service"]["v_nom_from"] = 2300.
+scaled_tx_case["transformer"]["single_phase"]["service"]["r_series_from"] = 20.
+global_tx_build = build_opf(scaled_tx_case, IVRNLP(); optimizer=Ipopt.Optimizer)
+local_tx_build = build_opf(scaled_tx_case, IVRNLP(transformer_scaling=:nominal,
+    row_scaling=:composed); optimizer=Ipopt.Optimizer)
+global_tx_result = solve_ivr_nlp_opf(global_tx_build; solver_options=T.SOLVER_OPTIONS)
+local_tx_result = solve_ivr_nlp_opf(local_tx_build; solver_options=T.SOLVER_OPTIONS)
+@assert global_tx_result.solve.optimal && local_tx_result.solve.optimal
+@assert physical_residuals(scaled_tx_case, local_tx_result).passed
+@assert ivr_nlp_point_report(global_tx_build, T.point(local_tx_result)).passed
+@assert ivr_nlp_point_report(local_tx_build, T.point(global_tx_result)).passed
+@assert local_tx_build.numerical_diagnostics[:transformer_scaling_report].bases["demand"] ≈ 230.
+(local_tx_build.numerical_diagnostics[:per_unit_bases],
+ local_tx_build.numerical_diagnostics[:transformer_scaling_report],
+ result_dict(local_tx_build, local_tx_result)["transformer"]["service"])
+```
+
+For the four-arm scaling experiment, include
+`examples/benchmark_ivr_transformer_scaling.jl` and call
+`IVRTransformerScalingStudy.benchmark(network, "study.json";
+    nlp_scaling_method="none")`. Repeat separately with `"gradient-based"`.
+Each block crosses nominal coordinates off/on with legacy/composed row norms,
+uses full IVR and eight balanced sweeps, and records every effective scale.
+This separates model variable scaling, model row scaling and solver scaling.
+No callback instrumentation enters the timing ranking. The example above proves
+physical agreement on this fixture; it does not establish a performance benefit.

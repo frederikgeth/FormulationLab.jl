@@ -57,7 +57,9 @@ transformer boundaries, followed by independently controlled composed-row scalin
 and regional power bases. Preserve every ratio, connection, tap, bond, ground,
 operating bound and physical output. Test the new policy in matched full/block/
 transformer-current formulations before transferring previous speed rankings.
-No new scaling policy or speed advantage is established by this planning step.
+This historical planning step established no new scaling policy or speed advantage.
+The optional nominal-coordinate and composed-row controls are now implemented;
+their matched experiment is documented separately as evidence becomes available.
 
 A baseline-only NLPDiagnostics pilot successfully evaluates full, block-reduced
 and transformer-current models at a shared unloaded point and accepted DSuite265

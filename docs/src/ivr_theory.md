@@ -575,7 +575,41 @@ algebra does not guarantee smaller expression support, better conditioning or
 faster Ipopt solves; the [performance guide](ivr_performance.md) separates these
 questions from equivalence.
 
-## 8. Implementation and evidence map
+## 8. Local voltage/current coordinates and row normalization
+
+Let the retained global per-unit state be ``x`` and choose a finite positive
+factor ``d_j`` for every complex coordinate. With ``y_j=d_jx_j``, compose the
+existing projection ``P`` and reconstruction ``R`` as
+
+```math
+P_{\mathrm{new}}=DP,\qquad R_{\mathrm{new}}=RD^{-1}.
+```
+
+Thus ``P_{\mathrm{new}}R_{\mathrm{new}}=I`` whenever ``PR=I``. Every retained
+physical constraint and observation is evaluated through the same reconstruction,
+so feasible physical points and objective values are preserved. A prescribed
+source coordinate ``x_k=a y_j=v_k`` fixes ``y_j=v_k/a``; fixing it to ``v_k``
+would be incorrect when ``a\ne1``.
+
+For a local voltage base ``V_r`` and common power base ``S_b``, choose
+``d_V=V_b/V_r`` and ``d_I=V_r/V_b``. Their product is one. The product of a
+local voltage and current therefore retains the original power base. For the
+scalar ideal relation ``u_t=r u_f``, the solver relation is
+``\hat u_t=r(V_f/V_t)\hat u_f``. Choosing compatible nominal bases makes the
+nominal gain order one without deleting tap deviations or connection matrices.
+An 11 kV/415 V interface can then have phase voltages near one on both sides,
+while reconstructed quantities remain SI. This is a coordinate change, not a
+voltage constraint or network reduction.
+
+For an equality ``a^T R_{\mathrm{new}}y=0``, division by its finite positive
+coefficient norm is another exact transformation. An identically cancelled row
+uses divisor one. The independent row policy does not rescale nonlinear rows by
+near-zero gradients of inactive limits. Positive variable scales preserve
+feasibility but do not guarantee improved condition numbers, reduced factor fill
+or lower Ipopt time. Different regional power bases would require additional
+current-balance and objective/dual scaling contracts and are outside this policy.
+
+## 9. Implementation and evidence map
 
 | Responsibility | Implementation | Validation |
 |:--|:--|:--|
@@ -586,6 +620,7 @@ questions from equivalence.
 | Composed affine sharing and support thresholds | `src/formulations/ivr_nlp.jl` | `test/ivr_observation_policy_tests.jl`: offsets, exact coefficient identity, signs, sequential starts, physical equivalence and updates; extended negative-bound tests |
 | Matched structural experiments | `examples/benchmark_ivr_lifting_blocks.jl` | `test/ivr_lifting_study_tests.jl`: complete shared starts, analytical 920 W midpoint case, active limits and transformer fixtures |
 | Optional series selection | `src/compilation/ivr_elimination.jl`, shared `_ivrn_each_bus_limit` visitor | `test/ivr_series_selection_tests.jl`: all voltage-bound families, apparent-power rows, rollback, reconstruction, ground scaling and updates |
+| Transformer-local coordinate/row scaling | `src/compilation/ivr_scaling.jl` | `test/ivr_transformer_scaling_tests.jl`: independent SI states, large ratios, fixed sources, original bounds, map composition and fallback |
 | Finite-ground coordinate/row scaling | `src/compilation/ivr_scaling.jl` | `test/ivr_ground_scaling_tests.jl`: analytical finite-ground states, current-error witnesses, retained bounds, scope and reuse |
 | Local difference identities | `src/compilation/conductor_difference.jl` | `test/compiler_algebra_tests.jl` |
 | Applicability, projection and reconstruction | `src/compilation/ivr_structure.jl`, `src/compilation/ivr_regions.jl` | `test/compiler_network_tests.jl`, `test/compiler_region_tests.jl` |
