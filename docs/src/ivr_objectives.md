@@ -276,6 +276,101 @@ hashes and physical limits, and validate the declared objectives before timing.
 All earlier formulation options remain available. See
 [tutorial section 34](tutorial_exact_ivr.md) for a matched comparison.
 
+## External LV dispatch transfer
+
+The next panel uses `BMOPFDraftData/output/LV/augmented/LV1_14bus_augmented.json`
+(source SHA-256 `37b42fa0c761e2c7279ab9b4a836787051ab6582baafdab1529afebf6232f2a7`).
+Despite its filename, the supplied, previously simplified network has seven
+buses. It has two single-phase loads totaling 20 kW and 10 kvar, three generators
+with five bounded P/Q channels, one delta–wye transformer with leakage, finite
+neutral grounds, line charging and negative-sequence voltage limits. All physical
+fields and limits are retained. Known legacy provenance is relocated on an owned
+copy and saved, not erased. This tests the supplied BMOPF dictionary; it is neither
+a schema-validation nor an original pre-simplification-network certificate.
+
+`examples/benchmark_ivr_external_objectives.jl` declares two objectives independent
+of the input's legacy prices. With source aggregate powers and generator native
+channel powers in **kW/kvar**, the illustrative economic objective is
+
+```math
+F_{\mathrm{cost}}=0.25P_s+\sum_g(0.10P_g+0.02P_g^2+0.002Q_g^2).
+```
+
+Its coefficients carry the corresponding currency/h units. The tracking objective
+is \((P_s-10)^2+Q_s^2+0.01\sum_g[(P_g-m_g)^2+Q_g^2]\), with \(m_g\) the midpoint
+of each original active-power box in kW. Coefficients are converted to W/var in
+`IVRPowerTerm`; the physical objective divisor remains 1 at every electrical
+base. The targets/prices are benchmark declarations, not market estimates. The
+battery-named generator remains static bounded dispatch without energy coupling.
+
+The input yields substantial capacitive source exchange. In the full-reference
+preflight, economic dispatch gives approximately 2.056 kW and −82.807 kvar source
+exchange. Tracking gives 11.569 kW and −74.883 kvar: all five generator Q lower
+bounds are active, so Q=0 is not attained. Three P channels approach their lower
+bounds and one approaches its upper bound. These observed constraints make a
+useful stress test, but no claim of typical LV operation follows. Charging and
+bounds were not edited to improve target achievement or numerical behavior.
+
+The six profiles keep nominal transformer voltage coordinates, composed rows,
+voltage-ground scaling and an unloaded physical start fixed. Reduced bundles
+combine conductor regions, passive blocks, transformer-current elimination and
+exact sharing. The common 1 kVA candidate differs from common 10 kVA power lifting
+only in assembly base. Regional observation lifting uses assembly 10 kVA with
+explicit source/LV current-unit powers of 100/1 kVA; its common-current comparator
+uses the same observation policy. Thus the lifting and unit comparisons are
+matched interventions, while full versus reduced remains a bundle comparison.
+
+Each process crosses both workloads with `none` and `gradient-based` Ipopt
+scaling, excluding six warm-ups per cell and measuring twelve sweeps. Every
+candidate occupies each position twice. Exploration and fresh-process confirmation
+admit all **576 measured solves and 48 warm-ups**. Settings remain one Julia/BLAS
+thread, MUMPS AMD and tolerance 1e-10. No timing overlaps tests, documentation or
+diagnostics; compilation, extraction and audits are excluded. Original SI bounds,
+physical objective evaluation, full/reverse point maps, unchanged source/input
+hashes and actual order balance pass. Maximum physical objective discrepancy is
+below 2.73e-12 and within-cell spread below 1.46e-9. There is no global AC certificate.
+
+Confirmation median **Ipopt milliseconds**:
+
+| Workload | Ipopt scaling | Full 10k | Reduced 10k | Reduced 10k powers | Reduced 10k observations | Reduced 1k powers | Regional observations |
+|:--|:--|--:|--:|--:|--:|--:|--:|
+| quadratic_cost | none | 4.218 | 5.672 | 5.695 | 4.655 | 6.175 | 4.748 |
+| quadratic_cost | gradient-based | 4.116 | 5.854 | 6.120 | 4.468 | 6.627 | 4.507 |
+| exchange_tracking | none | 5.068 | 6.984 | 6.949 | 5.393 | 7.072 | 5.462 |
+| exchange_tracking | gradient-based | 5.129 | 7.374 | 7.308 | 5.465 | 7.810 | 5.471 |
+
+Full IVR wins every cell in both processes. In confirmation, the reduced unlifted
+bundle is 34–44% slower despite shrinking from 136 to 114 real variables, with
+the same iteration counts: nine for cost and thirteen for exchange. The bundle
+eliminates eight complex passive-block coordinates and three transformer currents;
+this is a real structural intervention, not a fallback/no-op. It does not isolate
+which reduction causes the regression, nor establish a native factorization
+mechanism.
+
+Observation lifting increases the reduced model to 290 variables but improves
+its matched same-sweep median ratios to 0.826/0.766 for cost and 0.774/0.743 for
+exchange (`none`/`gradient-based`). It remains 6–10% slower than full by ratios of
+profile medians. Common 1 kVA power lifting is slower than its 10 kVA counterpart
+in all four cells; regional current units offer no consistent benefit. This
+external exchange result reverses the manufactured panel's observation-versus-power
+lifting preference. Topology, charging, bound observations and operating point
+therefore remain necessary transfer dimensions.
+
+Slow trials are retained. For example, cost/no-scaling reduced/full paired ratios
+range from 0.454 to 1.387 because of a slow full trial; exchange/gradient power-lifted
+reduced/full ranges from 1.391 to 3.069. Do not replace the median comparison with
+a favorable tail, pool processes, or treat repeated solves as independent feeder
+samples. This is one small inherited external network, not validation at scale.
+
+All 24 untimed preflight solutions have BMOPFTools-style physical SI JSON exports
+with identical physical quantity keys across formulations and passing round trips.
+Exactly recovered input-network quantities are preserved; unobservable ideal
+source neutral current retains the established NaN convention. Recovering buses
+removed by earlier preprocessing remains separate work. See
+[tutorial section 35](tutorial_exact_ivr.md) for explicit external experiment setup.
+Larger MV/LV cases with declared DER dispatch, broader objective cases and regional
+generator/lifted-power units remain next; all earlier alternatives are retained.
+
 ## Independent economic-dispatch oracle
 
 A fixed-voltage, two-generator circuit supplies 3000 W and 600 var, with source

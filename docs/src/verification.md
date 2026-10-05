@@ -1,5 +1,41 @@
 # Verification
 
+## External LV power-objective transfer — 5 October 2026
+
+The full suite passes **68,932/68,932 assertions**, adding **147 checks** in
+`test/ivr_external_objective_tests.jl`. These verify explicit objective definitions,
+multi-channel generation and nonzero box midpoints, legacy-price independence,
+owned declarations, refusal of unsuitable dispatch panels, source overwrite
+guards, provenance retention, balanced reports, physical objectives, complete
+starts, full/reduced point maps and SI result round trips. The tests use a
+manufactured network; external data remain outside the repository.
+
+On the unchanged augmented LV input, exploration and fresh-process confirmation
+admit **576 measured solves and 48 warm-ups** for quadratic cost and source P/Q
+tracking under both Ipopt scaling policies. Every candidate occupies each trial
+position twice per cell. All objective/input definitions and source hashes match;
+maximum physical objective discrepancy is below 2.73e-12 and within-cell spread
+below 1.46e-9. All 24 separate preflight solves pass, with physical SI JSON round
+trips and identical exported physical quantity keys across formulations. All five
+generator Q lower bounds are active for tracking; its zero-Q target is not reached.
+
+Full IVR is fastest in every cell of both batches. The reduced unlifted bundle
+is 34–44% slower in confirmation despite fewer variables and equal iterations.
+Observation lifting helps the reduced models but remains slower than full.
+Common 1 kVA power lifting and regional observation units offer no transfer gain.
+This is one small inherited input, with large reactive export under its declared
+parameters; it does not establish large-feeder performance or a global optimum.
+All slow trials, failures and previous options are retained. Compilation is
+excluded from ranking; no timing overlaps regression or documentation builds.
+
+Initial exploratory array syntax and example keyword-constructor errors were
+corrected before freezing the experiment, with original sources/logs preserved.
+No production equation, physical input, solver tolerance or default changed.
+All **37 executable tutorial blocks** pass. Four new timing rows are checked
+against confirmation JSON and rendered HTML, with prior objective tables and
+local links also checked. See [external evidence](ivr_objectives.md) and
+[tutorial section 35](tutorial_exact_ivr.md).
+
 ## Matched power-objective factors — 5 October 2026
 
 The full suite passes **68,785/68,785 assertions**, adding **293 checks** in

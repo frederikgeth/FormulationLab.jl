@@ -32,7 +32,12 @@ remain available, including configurations that lose this particular comparison.
 The [power-objective comparison](ivr_objectives.md#Confirmed-workload-comparison-—-5-October-2026)
 extends the source-import evidence to linear/quadratic economic cost, P/Q tracking,
 curtailment and losses. Its fastest candidates differ by workload; use that panel
-when selecting a power-based objective profile.
+when selecting a power-based objective profile. Subsequent matched-factor tests
+separate reduction, scaling and lifting effects. The
+[external LV dispatch transfer](ivr_objectives.md#External-LV-dispatch-transfer)
+then finds full IVR fastest in all four cost/tracking and solver-scaling cells;
+the reduced unlifted bundle is 34–44% slower despite fewer variables. Retain full
+IVR in every shortlist: manufactured-case winners do not establish external gains.
 
 ## Unbalanced transformer-leakage transfer — 5 October 2026
 

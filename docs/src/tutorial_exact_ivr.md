@@ -1160,3 +1160,66 @@ with every candidate. The realized orders are saved. Assess matched contrasts
 with all other factors fixed and retain their variation across contexts. A
 small aggregate average does not exclude a large benefit or regression in a
 particular combination. See the [objective evidence](ivr_objectives.md).
+
+## 35. Declare an external dispatch experiment
+
+An external feeder is useful for economic testing only when it contains actual
+bounded dispatch decisions. `IVRExternalObjectiveStudy` refuses an empty or fixed
+active-generator panel, missing finite P/Q boxes, and IBRs requiring a separate
+objective design. It retains the network's electrical data and uses explicit
+experimental objective coefficients. Legacy prices are not added implicitly.
+The battery label, if present, denotes static dispatch here; it does not provide
+an energy or time-coupling model.
+
+The executable example uses a manufactured input so the documentation does not
+depend on private data. It selects full 10 kVA and reduced 1 kVA formulations,
+while keeping the same physical exchange target and objective divisor.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_external_objectives.jl"))
+EO = IVRExternalObjectiveStudy
+external_demo = EO.S.case(:quadratic_cost;segments=2)
+external_bases = Dict("hv"=>1e5,"mv"=>1e4,"lv1_b0"=>1e3,"lv2_b0"=>1e3)
+external_profiles = EO.profiles(external_demo,:exchange_tracking;
+    regional_bases=external_bases,exchange_target_W=4500.)[[1,5]]
+@assert external_profiles[1].options.s_base==1e4
+@assert external_profiles[2].options.s_base==1e3
+@assert all(p.options.objective_scale==1. for p in external_profiles)
+@assert JSON3.write(external_profiles[1].options.power_terms)==
+        JSON3.write(external_profiles[2].options.power_terms)
+external_reference = build_opf(external_demo,IVRNLP(objective=:power,
+    power_terms=first(external_profiles).options.power_terms))
+external_start = EO.S.U.G.H.S.L.start_point(external_demo)
+external_anchor = Ref{Any}(nothing)
+external_rows = map(external_profiles) do profile
+    row,point = EO.P.trial(external_demo,profile,external_reference,external_anchor[];
+        initial_point=external_start)
+    @assert row["accepted"]
+    external_anchor[]===nothing && (external_anchor[]=point)
+    (name=profile.name,objective=row["objective"])
+end
+@assert isapprox(external_rows[1].objective,external_rows[2].objective;atol=1e-6)
+external_rows
+```
+
+For a local external file, inspect its generators, supply accounting and physical
+limits first. Then supply explicit bus seeds and exchange targets, for example:
+
+```julia
+EO.S.P.BLAS.set_num_threads(1)
+report = EO.benchmark("/path/to/feeder.json", "/path/to/study.json";
+    workload=:exchange_tracking, exchange_target_W=10000.,
+    regional_bases=Dict("source_bus"=>1e5,"lv_bus"=>1e3),
+    nlp_scaling_method="none", repetitions=12)
+```
+
+Replace the illustrative bus names with actual buses separated by transformers;
+conflicting region assignments are refused by the builder. The runner writes the
+owned input and provenance manifest beside the report. It refuses to overwrite
+the source, preserves its hash, records original prices/accounting, and saves the
+custom objective definition. Twelve sweeps place each of six candidates twice in
+each position. Repeat in a fresh process, separately under `gradient-based`
+scaling; never overlap timing with tests, diagnostics or a documentation build.
+A profile is eligible only after physical/objective and cross-formulation checks.
+The [external objective evidence](ivr_objectives.md) also records target errors:
+a soft target need not be achievable within the original equipment limits.
