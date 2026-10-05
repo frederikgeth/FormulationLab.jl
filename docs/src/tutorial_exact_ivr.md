@@ -913,3 +913,43 @@ measured trials in addition to the common physical checks. Repeat with
 `:capability`, `:voltage` and the explicit `"gradient-based"` solver policy.
 These cases isolate active limits; ideal transformers and resistive single-phase
 lines do not substitute for an unbalanced feeder study with transformer leakage.
+
+## 30. Compose finite-ground and transformer-local units
+
+The cascade above has a 0.5 S terminal ground and a 10 kVA common power base.
+Its global-base admittance multiplier is 6050, whereas the 230 V regional-base
+multiplier is 2.645. The additional `ground_scaling=:regional_voltage` option
+uses the latter. It preserves the finite ground and all physical limits; the
+previous `:voltage` option remains available. With nominal transformer units,
+the resulting ground coordinate has a magnitude equal to ground current in local
+per-unit current units when the multiplier exceeds one. See the
+[derivation](ivr_theory.md) for the full inverse map and its assumptions.
+
+```@example exactivr
+regional_ground_build = build_opf(stress, IVRNLP(objective=:source_import,
+    transformer_scaling=:nominal, ground_scaling=:regional_voltage,
+    row_scaling=:composed); optimizer=Ipopt.Optimizer)
+regional_ground_result = solve_ivr_nlp_opf(regional_ground_build; solver_options=T.SOLVER_OPTIONS)
+@assert regional_ground_result.solve.optimal
+@assert physical_residuals(stress, regional_ground_result).passed
+@assert ivr_nlp_point_report(stress_build, T.point(regional_ground_result)).passed
+@assert ivr_nlp_point_report(regional_ground_build, T.point(stress_result)).passed
+@assert isapprox(regional_ground_result.objective, witness.source_W; atol=1e-4)
+global_ground = only(stress_build.numerical_diagnostics[:ground_scaling_report].scaled_terminals)
+regional_ground = only(regional_ground_build.numerical_diagnostics[:ground_scaling_report].scaled_terminals)
+@assert isapprox(global_ground.scale, 6050.)
+@assert isapprox(regional_ground.scale, 2.645)
+(global_ground_multiplier=global_ground.scale, regional_ground_multiplier=regional_ground.scale,
+ recovered_neutral_voltage=regional_ground_result.voltage_candidate[("b12","n")])
+```
+
+For a controlled timing experiment, include
+`examples/benchmark_ivr_regional_ground.jl` and call
+`IVRRegionalGroundStudy.benchmark("regional.json"; limit=:current,
+    nlp_scaling_method="none")`. It crosses transformer coordinates off/nominal
+with ground scaling off/voltage/regional_voltage in twelve balanced sweeps.
+Every arm uses composed circuit-row norms. Repeat the other active-limit cases
+and the explicit gradient-based Ipopt policy in separate blocks. Run diagnostic
+instrumentation, tests and documentation outside the timing process. The smaller
+multiplier is a units choice; assess its value using physical admission and
+Ipopt wall time, not its magnitude alone.

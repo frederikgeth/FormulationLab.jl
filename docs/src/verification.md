@@ -1,5 +1,35 @@
 # Verification
 
+## Regional finite-ground scaling — 5 October 2026
+
+The full suite passes **66,849/66,849 assertions**, adding 327 checks.
+`test/ivr_regional_ground_scaling_tests.jl` checks regional multipliers at three
+power bases, weak-ground retention, duplicate shunts, inconsistent-base fallback,
+nonfinite coefficients and underflow refusal. Complex-admittance analytical
+states and finite-current-error witnesses retain their physical meaning.
+
+Independent active-limit optima cross global/local transformer units with full,
+passive-block and transformer-current formulations, including lifted observations
+and exact sharing. Checks cover complete starts, map inverses, source import,
+dispatch, voltage/current values, physical JSON round-trips, negative original
+bound witnesses and CP/generator updates. A charged-chain test verifies actual
+passive-block elimination composed with regional grounds and transformer-current
+substitution. The six-arm benchmark harness checks admission, balanced positions,
+invalid settings and input/manifest exports.
+
+An initial fixture attempted to build deliberately contradictory voltage sources
+to test unit-selection fallback; the existing no-load circuit check correctly
+refused it. The corrected test inspects base selection separately and asserts
+the full builder's refusal. Its original script/log are retained. No physical
+benchmark inputs or solver tolerances were changed.
+
+All **32 executable tutorial blocks** pass. Rendered documentation links and eight
+timing rows are checked against raw JSON and HTML. Separate diagnostics finish
+before timing; both timing batches finish before full regression and documentation
+work. The [performance evidence](ivr_performance.md) retains the confirmed
+slowdown despite improved Jacobian norm spread. Defaults and older options are
+unchanged.
+
 ## Active transformer-cascade limits — 5 October 2026
 
 The full suite passes **66,522/66,522 assertions**, adding 224 checks.

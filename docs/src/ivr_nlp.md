@@ -81,7 +81,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `series_selection` | `:all` | With any passive policy, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
 | `transformer_scaling` | `:off` | `:nominal` composes local voltage/current units inferred from nominal transformer ratios and source magnitudes; uncertain assignments retain global units |
 | `row_scaling` | `:legacy` | `:composed` normalizes linear circuit rows after all coordinate transformations, independently of local voltage/current scaling |
-| `ground_scaling` | `:off` | `:voltage` rescales eligible free finite-ground voltages and normalizes circuit rows in solver coordinates |
+| `ground_scaling` | `:off` | `:voltage` uses global-base shunt multipliers; `:regional_voltage` uses nominal regional-base multipliers; both preserve finite grounds |
 | `observation_support_threshold` | `2` | Lift affine observations only when their distinct real-variable support is strictly larger; nonnegative integer |
 | `observation_sharing` | `:off` | `:exact` shares identical composed affine observations, including constants |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
@@ -329,6 +329,16 @@ Multiple shunts remain separate electrical contributions; their admittances
 are not merged or approximated. Ideal/fixed voltages, multi-terminal shunts and
 coordinates already expressed through other voltages are retained unchanged.
 
+`ground_scaling=:regional_voltage` applies the same eligibility and inverse
+maps, but uses ``Z_r=V_r^2/S_b`` instead of ``Z_b`` when selecting the multiplier.
+The nominal base graph and conservative global fallback are the same as for
+`transformer_scaling=:nominal`. Regional base selection is independent of that
+option: with transformer scaling off, the regional multiplier acts on the
+global voltage coordinate; with it enabled, it acts on the corresponding local
+voltage coordinate. No regional power base is introduced. The new policy refuses
+nonfinite multipliers or coefficient overflow/underflow instead of discarding
+nonzero terms. The existing `:voltage` policy and default remain unchanged.
+
 When at least one coordinate is scaled, circuit equalities are divided by the
 Euclidean norm of their coefficients **after** projection/reconstruction and
 scaling. An identically cancelled row uses divisor one. This keeps a large
@@ -340,7 +350,9 @@ existing coordinates and normalization.
 
 Inspect `:ground_scaling_report` in `numerical_diagnostics`: `scaled_terminals`
 contains bus, terminal, solver coordinate and scale; `retained_shunts` gives
-reasons for declarations not selected. Parameters of grounding equipment still
+reasons for declarations not selected. `region_assignment` records the selected
+bases and fallback reasons for `:regional_voltage` and is `nothing` for the other
+modes. Parameters of grounding equipment still
 require rebuilding. CP and generator updates preserve the maps. Default `:off`
 retains existing numerical behaviour. This limited policy does not guarantee
 physical accuracy for arbitrary ill-conditioned circuits or replace independent

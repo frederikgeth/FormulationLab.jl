@@ -2,7 +2,8 @@
 # Physical assembly, observation channels and bounds remain unchanged.
 function _ivrn_ground_coordinates(net,e,maps,mode)
     scaled=NamedTuple[];retained=Dict{String,String}()
-    report()=(;scaled_terminals=scaled,retained_shunts=retained)
+    region=mode==:regional_voltage ? _ivrn_region_bases(net,e) : nothing
+    report()=(;scaled_terminals=scaled,retained_shunts=retained,region_assignment=region)
     mode==:off && return maps,report()
     scales=ones(length(maps.projection));terminals=Dict{Int,Tuple{String,String}}()
     for (id,s) in sort!(collect(get(net,"shunt",Dict()));by=first)
@@ -21,7 +22,11 @@ function _ivrn_ground_coordinates(net,e,maps,mode)
         if maps.projection[j]!=_sdp_e(k)
             retained[id]="nonphysical_coordinate";continue
         end
-        scale=abs(only(_l3f_shunt_matrix(s,1)))*e.zb
+        # Independent of whether nominal transformer coordinates are enabled.
+        # With them enabled, this makes the ground coordinate current-like in
+        # the same local units, rather than retaining the global admittance.
+        zb=region===nothing ? e.zb : (region.bases[s["bus"]]/e.sb)*region.bases[s["bus"]]
+        scale=abs(only(_l3f_shunt_matrix(s,1)))*zb
         isfinite(scale) || _ivrn_refuse("shunt/$id has nonfinite per-unit grounding scale")
         if scale<=1
             retained[id]="unit_or_smaller_admittance";continue
@@ -34,6 +39,11 @@ function _ivrn_ground_coordinates(net,e,maps,mode)
     end
     projection=[_SDPRow(k=>a*scales[j] for (k,a) in row) for (j,row) in enumerate(maps.projection)]
     reconstruction=[_SDPRow(k=>a/scales[k] for (k,a) in row) for row in maps.reconstruction]
+    if mode==:regional_voltage
+        valid(new,old)=all(length(a)==length(b) && all(k->isfinite(a[k]) && (iszero(b[k]) || !iszero(a[k])),keys(b)) for (a,b) in zip(new,old))
+        valid(projection,maps.projection) && valid(reconstruction,maps.reconstruction) ||
+            _ivrn_refuse("regional ground scaling has unrepresentable coordinate coefficients")
+    end
     (;projection,reconstruction),report()
 end
 

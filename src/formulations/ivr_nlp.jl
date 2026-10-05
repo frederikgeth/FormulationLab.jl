@@ -22,6 +22,9 @@ operating bound would depend on more solver coordinates. Default :all.
 `ground_scaling=:voltage` rescales retained free voltages attached to stiff
 one-terminal finite shunts and normalizes circuit rows in solver coordinates.
 This invertible numerical policy preserves the finite ground; default :off.
+`:regional_voltage` instead selects the shunt multiplier using nominal regional
+voltage bases and the common power base, independently of transformer scaling.
+Uncertain regional assignments retain the global base with diagnostics.
 `transformer_scaling=:nominal` composes local voltage/current units inferred
 from source magnitudes and nominal winding ratios. Uncertain assignments retain
 the global base with diagnostics. `row_scaling=:composed` independently normalizes
@@ -351,7 +354,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
     options.linear_elimination in (:off,:impedance_loads,:passive,:passive_chains,:passive_blocks) || throw(ArgumentError("unknown IVRNLP linear elimination"))
     options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
-    options.ground_scaling in (:off,:voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
+    options.ground_scaling in (:off,:voltage,:regional_voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
     options.transformer_scaling in (:off,:nominal) || throw(ArgumentError("unknown IVRNLP transformer scaling"))
     options.row_scaling in (:legacy,:composed) || throw(ArgumentError("unknown IVRNLP row scaling"))
     options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))

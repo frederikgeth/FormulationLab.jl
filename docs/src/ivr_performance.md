@@ -29,6 +29,87 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+## Regional finite-ground scaling — 5 October 2026
+
+The additional `ground_scaling=:regional_voltage` policy uses the nominal
+regional shunt admittance ``|Y|V_r^2/S_b`` to choose its invertible voltage
+multiplier. The existing `:voltage` policy retains the global-base multiplier;
+`:off` and every prior option remain available. See the
+[contract](ivr_nlp.md), [derivation](ivr_theory.md) and
+[tutorial section 30](tutorial_exact_ivr.md). Physical equations, bounds, source
+values, output units and update semantics are unchanged. Default settings are
+unchanged.
+
+The six-arm study crosses global/nominal transformer coordinates with
+no/global/regional ground scaling. Every arm uses composed circuit-row norms,
+full IVR with 406 real variables, the common 10 kVA power base and MUMPS AMD.
+The three analytical active-limit inputs below are unchanged: 48 resistive
+segments, two ideal transformer stages, finite neutral ground and the same
+unloaded physical start. Each explicit Ipopt scaling block uses twelve balanced
+sweeps and six excluded warm-ups. Admission includes the independent optimum
+within 1e-4 W and all original solver, physical and representation checks.
+
+Exploration admits **432/432 measured solves and 36/36 warm-ups**. No regional
+policy achieves the predeclared 5% gain under both solver policies. A supplemental
+fresh-process confirmation was instead declared after exploration to test the
+current-case regression, retaining all six arms and both solver policies. It
+admits **144/144 measured solves and 12/12 warm-ups**. This is a confirmation of a
+selected negative result, not a held-out network generalization experiment.
+The batches are not pooled. Diagnostics and tests do not overlap the timing runs;
+compilation, extraction and audits do not enter the primary metric.
+
+Median Ipopt wall times in milliseconds. In the column headings, G/L denotes
+global/local transformer coordinates; off/global/regional denotes the ground
+multiplier policy.
+
+| Case / batch | Ipopt scaling | G/off | G/global | G/regional | L/off | L/global | L/regional |
+|:--|:--|--:|--:|--:|--:|--:|--:|
+| Capability (exploration) | none | 9.647 | 9.704 | 9.637 | 6.528 | 6.559 | 6.648 |
+| Capability (exploration) | gradient-based | 10.402 | 10.339 | 10.360 | 6.569 | 6.611 | 6.609 |
+| Current (exploration) | none | 6.846 | 6.816 | 6.835 | 8.042 | 6.535 | 8.024 |
+| Current (exploration) | gradient-based | 7.007 | 6.912 | 6.982 | 8.128 | 6.560 | 8.049 |
+| Voltage (exploration) | none | 5.154 | 5.260 | 5.156 | 5.668 | 5.589 | 5.663 |
+| Voltage (exploration) | gradient-based | 6.039 | 6.040 | 6.086 | 5.574 | 5.618 | 5.666 |
+| Current (confirmation) | none | 7.056 | 7.045 | 7.049 | 8.294 | 6.724 | 8.400 |
+| Current (confirmation) | gradient-based | 7.133 | 7.120 | 7.087 | 8.217 | 6.743 | 8.083 |
+
+With local transformer coordinates, regional versus global ground scaling makes
+the current-limited case **24.9% slower with solver scaling disabled** and
+**19.9% slower with gradient-based scaling** in confirmation. Every paired
+regional/global ratio exceeds 1.20 and 1.11, respectively. Iterations increase
+from 12 to 15 under both policies. Ground scaling off also takes 15 iterations.
+The capability and voltage cases show no meaningful new-policy gain in
+exploration and were not repeated in the supplemental confirmation. The existing
+nominal/global-ground profile remains the fastest tested current-case profile
+in each confirmation block. No option is promoted or removed.
+
+Separate NLPDiagnostics work retains **36 native traces and 72 sparse Jacobian
+evaluations** at shared unloaded and accepted full-model physical points.
+All instrumented endpoints pass the independent physical and analytical checks.
+At the current-case endpoint, column-norm spread falls from approximately
+68,901 with local/global-ground scaling to 34.8 with local/regional-ground
+scaling; ground scaling off gives 24.6. Yet the latter two solve more slowly.
+All three traces report one regularization record, with 12 versus 15 summed
+line-search trials. In the capability case, regional ground scaling reduces
+column spread from about 312,034 to 157.5 without reducing the 12 iterations.
+
+This rejects the claim that more balanced raw Jacobian column norms alone imply
+faster solves on these cases. It does not identify a general conditioning,
+barrier or factorization mechanism: native trace metrics are in solver/model
+units, norm spreads are not condition numbers, and no KKT fill is measured.
+The regional coordinate remains mathematically useful and available for future
+experiments, but has no demonstrated speed advantage here. These ideal
+single-phase cases do not establish outcomes for unbalanced feeders with
+transformer leakage or alternative regional power bases.
+
+Implementation and reproduction: `examples/benchmark_ivr_regional_ground.jl`.
+Frozen inputs, source/dependency snapshots, protocols, all raw JSON trials,
+shared-point diagnostics, traces, analyses and separate confirmation results
+remain outside Git in `REGIONAL_GROUND_SCALING_20261005`. Next extend the panel
+to unbalanced mixed-voltage dispatch with leakage before selecting regional
+power/current bases or retuning reductions. Preserve the active-limit examples
+as analytical controls.
+
 ## Active transformer-cascade limits — 5 October 2026
 
 A second panel replaces the feasibility-only workloads with three manufactured

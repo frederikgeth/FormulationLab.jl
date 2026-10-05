@@ -470,6 +470,34 @@ and ideal-ground voltages are excluded. Scalar shunts select the scale even if
 other circuit contributions share the terminal, but no general multi-terminal
 shunt, transformer-ground or global equilibration policy is implied.
 
+### Regional admittance units
+
+The original `ground_scaling=:voltage` chooses ``s_g`` from global admittance
+units ``|Y|V_b^2/S_b``. The additional `:regional_voltage` policy uses
+``|Y|V_r^2/S_b``, where ``V_r`` follows the same nominal-base graph and fallback
+rules as transformer scaling. It uses the same eligibility checks and maximum
+over separate shunts, with a lower multiplier of one. This base selection also
+operates when transformer coordinate scaling is off.
+
+When nominal coordinates are enabled, let ``d_v=V_b/V_r``. The final ground
+coordinate is ``w=s_g d_v V_{pu}=s_g V/V_r``. If a single shunt supplies the
+regional multiplier and it exceeds one, then
+
+```math
+w=\frac{|Y|V_r^2}{S_b}\frac{V}{V_r}
+ =\frac{|Y|V}{S_b/V_r}.
+```
+
+Thus its magnitude is the ground-current magnitude in local current units.
+The complex admittance phase remains in the physical ground law. In contrast,
+the old global multiplier followed by nominal voltage scaling differs by
+``(V_b/V_r)^2`` when both multipliers exceed one. Both mappings are invertible;
+this ratio describes coordinates, not a physical circuit error. For 0.5 S at
+230 V behind an 11 kV source with ``S_b=10`` kVA, the multipliers are 2.645 and
+6050. Fixed-source values, bounds, outputs and model updates continue through
+the complete inverse map. No solver improvement follows from this identity
+alone; retain matched numerical controls and independent SI checks.
+
 ## 6. Exact lifted definitions and local block substitutions
 
 For a physical complex power ``s(y)=u(y)\overline{j(y)}``, introduce real
