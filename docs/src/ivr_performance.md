@@ -61,7 +61,37 @@ do not identify a best base. Reduced 100 kVA dispatch is an additional cost
 candidate, alongside the earlier common-1k profiles; no shared timing panel yet
 ranks those alternatives. Tracking retains 10 kVA dispatch: 1 kVA loses, and
 100 kVA is near a tie without automatic scaling but loses with gradient scaling.
-Lifted-power units remain unchanged and are the next separate intervention.
+That panel held lifted-power units fixed; the following study isolates them and
+compares previous finalists in a shared block.
+
+## Matched cost and tracking finalists — 6 October 2026
+
+The [three-scenario finalist study](ivr_objectives.md#Matched-finalists-and-external-transfer-—-6-October-2026)
+compares prior winners, isolated lifted-power units, exact generator-definition
+reuse and less aggressive nonadjacent condensation. It includes the unchanged
+265-bus DER scenario, a separately declared voltage-constrained variant, and a
+1,220-bus/four-transformer scenario with 268 added DERs. All 2400 measured solves,
+240 warm-ups and 120 separate SI exports pass. Original source files are unchanged.
+
+The current **cost shortlist** leads with reduced blocks, nominal transformer
+coordinates, voltage-ground/composed-row scaling, exact sharing, assembly and
+generator bases 10 kVA, power lifting with `lifted_power_base=1e3`, and
+`power_sharing=:off`. Against full-10k, confirmation median gains are 19.6–20.2%,
+17.1–17.5% and 8.6–9.3%, respectively. These are bundle gains: the isolated lift
+unit benefit on the larger feeder is only 1–2%. Retain the nearby alternatives.
+
+For **tracking**, keep the same reduced structure with either generator reuse
+(`lifting=:powers, power_sharing=:generators`, assembly/dispatch/lifts 10 kVA)
+or 1 kVA lifts without reuse. Reuse leads all three scenarios with automatic
+scaling off. Under gradient scaling, it leads the unchanged 265-bus case, while
+1 kVA lifts lead the constrained and larger cases. Both must stay in the shortlist.
+
+Generator reuse improves tracking about 3% relative to its matched power-lift
+control, but slows larger-feeder cost by 6–7% despite removing 536 real variables.
+Nonadjacent condensation is 3.6–6.8% slower than blocks in every confirmed context.
+These negative results are retained. Common-1k and dispatch-only old finalists
+are now compared in the same block; they do not beat the new cost leader here.
+No automatic default is promoted, and combined unit/reuse tuning is untested.
 
 ## Unbalanced transformer-leakage transfer — 5 October 2026
 

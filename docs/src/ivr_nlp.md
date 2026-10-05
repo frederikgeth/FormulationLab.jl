@@ -86,6 +86,8 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `objective_scale` | `nothing` | Divide the physical objective by this positive scalar; `nothing` preserves division by `s_base` |
 | `current_power_bases` | empty dictionary | Explicit bus-to-VA seeds for regional current coordinates; requires `transformer_scaling=:nominal` |
 | `generator_power_bases` | empty dictionary | Generator-ID-to-VA dispatch units for both P and Q; unspecified generators use `s_base` |
+| `lifted_power_base` | `nothing` | VA unit for power auxiliaries; defaults to `s_base`, without enabling lifting |
+| `power_sharing` | `:off` | `:generators` reuses exactly matching generator P/Q definitions when lifting is enabled |
 | `observation_support_threshold` | `2` | Lift affine observations only when their distinct real-variable support is strictly larger; nonnegative integer |
 | `observation_sharing` | `:off` | `:exact` shares identical composed affine observations, including constants |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
@@ -351,6 +353,49 @@ of distinct original rows reusing an existing composed definition, not repeated
 visits to the same original row. More variables can make a nonlinear
 constraint simpler, but may also make Ipopt's linear systems more expensive;
 the [performance guide](ivr_performance.md) reports measured outcomes.
+
+### Independent lifted-power units and native generator reuse
+
+`lifted_power_base=S_l` changes only power-auxiliary coordinates, including
+objective-only power lifts. Its default `nothing` uses the assembly base ``S_b``.
+For an assembly-unit complex power expression ``s``, the defining equalities are
+
+```math
+(S_l/S_b)\widehat P=\operatorname{Re}(s),\qquad
+(S_l/S_b)\widehat Q=\operatorname{Im}(s).
+```
+
+The expression returned to bounds and objectives is
+``(S_l/S_b)(\widehat P+\mathrm{i}\widehat Q)``. Consequently all existing
+operating bounds and physical objective coefficients retain their assembly/SI
+interpretation. The defining rows remain in assembly-power units; this is a
+column-coordinate intervention, not a simultaneous row normalization. Recorded
+inverse expressions and default/shared physical starts divide by ``S_l/S_b``.
+Voltage/current observation lifts keep their original units. Generator dispatch
+uses its independently declared bases. Neither option changes physical ratings.
+Nonpositive/nonfinite bases and unrepresentable coordinate ratios are refused.
+The effective VA base is recorded in `numerical_diagnostics[:lifted_power_base]`.
+With `lifting=:off`, setting this base creates no auxiliaries.
+
+`power_sharing=:generators` is a separate exact reformulation. With lifting
+on, a requested power whose original voltage/current row pair exactly matches a
+native generator channel reuses its existing dispatch variables, converted back
+by ``S_g/S_b``. The generator's defining equalities already impose the required
+power identity, so adding another P/Q pair is unnecessary. The original apparent
+power bound remains. Channel semantics stay native: delta uses coil powers.
+Updates to boxes and prices preserve the definition. The policy does not reuse
+IBR/source powers, approximate coefficients, identify proportional expressions,
+or infer equivalence merely from a device name. Nonmatching powers follow the
+ordinary lifting path. `:off` retains all existing alternatives; lifting off
+ignores this reuse policy. `reused_generator_power_count` counts distinct reused
+power definitions, not the number of bound occurrences.
+
+Supplied-point encoding derives generator dispatch and any remaining lift
+coordinates from physical observations. Results still recover SI powers from
+voltage/current products, and all formulations expose the same physical quantity
+keys. Scaling and reuse are compared separately in the
+[matched-finalist study](ivr_objectives.md); [tutorial section 39](tutorial_exact_ivr.md)
+demonstrates both controls.
 
 ### Series selection by bound support
 

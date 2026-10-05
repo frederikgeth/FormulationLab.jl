@@ -44,11 +44,15 @@ previous ground-dependent normalization. Neither option changes physical data.
 `lifting=:powers` introduces exact P/Q definitions for apparent-power limits
 and selected non-generator objective ports.
 `:bounded_observations` also materializes compound bounded voltage/current rows.
+`lifted_power_base` optionally sets the common VA unit of power auxiliaries;
+`nothing` keeps `s_base`. Circuit and generator units remain independent.
 The default :off preserves direct expressions; physical outputs are unchanged.
 `observation_support_threshold=2` lifts only rows with strictly more distinct
 real solver variables. `observation_sharing=:exact` reuses identical composed
 affine observations, including constants; default :off retains separate rows.
 Neither control changes power lifting or removes operating bounds.
+`power_sharing=:generators` reuses existing generator dispatch definitions for
+exactly matching voltage/current row pairs when lifting is enabled. Default :off.
 `device_elimination=:transformer_currents` substitutes from-side coil currents
 using fixed-transformer current balance. Retains circulation, bonds and grounds;
 multiwinding devices remain explicit. Default :off.
@@ -58,6 +62,8 @@ Base.@kwdef struct IVRNLPOptions
     objective_scale::Union{Nothing,Float64} = nothing
     current_power_bases::Dict{String,Float64} = Dict{String,Float64}()
     generator_power_bases::Dict{String,Float64} = Dict{String,Float64}()
+    lifted_power_base::Union{Nothing,Float64} = nothing
+    power_sharing::Symbol = :off
     objective::Symbol = :cost
     power_terms::Vector{IVRPowerTerm} = IVRPowerTerm[]
     specialization::Symbol = :off
@@ -253,12 +259,14 @@ function _ivrn_lift!(model,u,key,kind)
             return policy.observations[shared_key]
         end
         k=length(policy.records)+1
-        value=JuMP.value(v->JuMP.is_fixed(v) ? JuMP.fix_value(v) : JuMP.start_value(v),u)
+        scale=kind==:power ? policy.power_ratio : 1.0
+        expression=u/scale
+        value=JuMP.value(v->JuMP.is_fixed(v) ? JuMP.fix_value(v) : JuMP.start_value(v),expression)
         a=@variable(model,base_name="lift_$(kind)_$(k)_real",start=real(value))
         b=@variable(model,base_name="lift_$(kind)_$(k)_imag",start=imag(value))
-        @constraint(model,a==real(u));@constraint(model,b==imag(u))
-        push!(policy.records,(;real=a,imag=b,expression=u,kind))
-        lifted=a+im*b
+        @constraint(model,scale*a==real(u));@constraint(model,scale*b==imag(u))
+        push!(policy.records,(;real=a,imag=b,expression,kind,scale))
+        lifted=scale*(a+im*b)
         shared_key===nothing || (policy.observations[shared_key]=lifted)
         lifted
     end
@@ -272,7 +280,10 @@ function _ivrn_affine_key(u)
     (key(real(u)),key(imag(u)))
 end
 _ivrn_lifting_policy(options)=(;mode=options.lifting,threshold=options.observation_support_threshold,
-    sharing=options.observation_sharing,cache=Dict{Any,Any}(),observations=Dict{Any,Any}(),
+    power_ratio=something(options.lifted_power_base,options.s_base)/options.s_base,
+    sharing=options.observation_sharing,power_sharing=options.power_sharing,
+    generator_powers=Dict{Any,Any}(),reused_generator_count=Ref(0),
+    cache=Dict{Any,Any}(),observations=Dict{Any,Any}(),
     shared_count=Ref(0),records=NamedTuple[])
 function _ivrn_bound_observation(model,row,z)
     u=_linivr_eval(row,z);policy=model.ext[:ivr_lifting]
@@ -287,10 +298,17 @@ end
 function _ivrn_bound_power(model,v,i,z)
     policy=model.ext[:ivr_lifting]
     policy.mode==:off && return _ivrn_power(v,i,z)
+    key=(:power,_ivrn_row_key(v),_ivrn_row_key(i))
+    if policy.power_sharing==:generators && haskey(policy.generator_powers,key)
+        return get!(policy.cache,key) do
+            policy.reused_generator_count[]+=1
+            policy.generator_powers[key]
+        end
+    end
     u=_ivrn_bound_observation(model,v,z);j=_ivrn_bound_observation(model,i,z)
     s=u*conj(j)
     iszero(s) && return s
-    _ivrn_lift!(model,s,(:power,_ivrn_row_key(v),_ivrn_row_key(i)),:power)
+    _ivrn_lift!(model,s,key,:power)
 end
 
 function _ivrn_generator_bounds!(variables,low,high,sb)
@@ -369,6 +387,11 @@ end
 function _build_ivr_nlp_opf(input,optimizer,options)
     isfinite(options.s_base) && options.s_base>0 || throw(ArgumentError("s_base must be positive and finite"))
     isfinite(_ivrn_objective_scale(options)) && _ivrn_objective_scale(options)>0 || throw(ArgumentError("objective_scale must be positive and finite"))
+    if options.lifted_power_base!==nothing
+        base=options.lifted_power_base
+        isfinite(base) && base>0 && isfinite(base/options.s_base) && base/options.s_base>0 &&
+            isfinite(options.s_base/base) || throw(ArgumentError("lifted power base and coordinate ratios must be positive and finite"))
+    end
     isempty(options.current_power_bases) || options.transformer_scaling==:nominal || throw(ArgumentError("current_power_bases requires nominal transformer coordinates"))
     # Own mutable base declarations just as the build owns its physical input.
     options=IVRNLPOptions(; (k=>(k in (:current_power_bases,:generator_power_bases,:power_terms) ? deepcopy(getfield(options,k)) : getfield(options,k)) for k in fieldnames(IVRNLPOptions))...)
@@ -380,6 +403,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.ground_scaling in (:off,:voltage,:regional_voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
     options.transformer_scaling in (:off,:nominal) || throw(ArgumentError("unknown IVRNLP transformer scaling"))
     options.row_scaling in (:legacy,:composed) || throw(ArgumentError("unknown IVRNLP row scaling"))
+    options.power_sharing in (:off,:generators) || throw(ArgumentError("unknown IVRNLP power sharing"))
     options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))
     options.observation_support_threshold>=0 || throw(ArgumentError("observation support threshold must be nonnegative"))
     options.observation_sharing in (:off,:exact) || throw(ArgumentError("unknown IVRNLP observation sharing"))
@@ -450,6 +474,12 @@ function _build_ivr_nlp_opf(input,optimizer,options)
             cp=[@constraint(model,p[k]==ratio*pg[k]) for k in 1:count]
             cq=[@constraint(model,q[k]==ratio*qg[k]) for k in 1:count]
             generators[id]=(;p=pg,q=qg,p_equations=cp,q_equations=cq,power_base)
+            if options.power_sharing==:generators && options.lifting!=:off
+                for k in 1:count
+                    key=(:power,_ivrn_row_key(v[k]),_ivrn_row_key(i[k]))
+                    model.ext[:ivr_lifting].generator_powers[key]=ratio*(pg[k]+im*qg[k])
+                end
+            end
             p=pg;q=qg
         end
         if family==:load && !_sdp_is_impedance_load(d)
@@ -554,6 +584,9 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :per_unit_bases=>(voltage_V=e.vb,current_A=e.ib,power_VA=e.sb),
         :objective_scale=>_ivrn_objective_scale(options),
         :generator_power_bases=>Dict(id=>g.power_base for (id,g) in generators),
+        :lifted_power_base=>something(options.lifted_power_base,options.s_base),
+        :power_sharing=>options.power_sharing,
+        :reused_generator_power_count=>model.ext[:ivr_lifting].reused_generator_count[],
         :lifting=>options.lifting,:lifted_real_variables=>2length(model.ext[:ivr_lifting].records),
         :observation_support_threshold=>options.observation_support_threshold,
         :observation_sharing=>options.observation_sharing,

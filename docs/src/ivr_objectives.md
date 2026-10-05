@@ -662,10 +662,189 @@ This is evidence on one declared 265-bus DER scenario, not a population estimate
 or global optimality certificate. Common-base and dispatch-only experiments alter
 different coordinate families. Cross-batch absolute timings cannot establish a
 winner between the earlier common-1k profile and a new dispatch-only profile;
-that comparison needs a shared randomized panel. Lifted-power units, the
-1220-bus/multi-transformer transfer and voltage-constrained DER scenarios remain
-open. All previous transformations and defaults remain available. See
+the following shared randomized panel supplies that comparison and extends
+to lifted-power units, a larger multi-transformer feeder and a voltage-constrained
+DER scenario. All previous transformations and defaults remain available. See
 [tutorial section 38](tutorial_exact_ivr.md) for the executable matched control.
+
+
+## Matched finalists and external transfer — 6 October 2026
+
+This study develops four distinct questions: can power-lift units improve solving
+without changing other units; which previous cost finalist wins when measured
+in the same block; do results transfer to larger or voltage-constrained dispatch;
+and can exact generator-definition reuse or less aggressive condensation help?
+The new `lifted_power_base` and `power_sharing=:generators` controls are described
+in the [coordinate contract](ivr_nlp.md). Defaults and all earlier options remain.
+
+Ten candidates retain nominal transformer voltage coordinates, composed circuit
+rows, voltage-ground scaling, exact affine sharing, a fixed physical objective
+divisor 1, and no regional-current seeds:
+
+- `full_10k`, `full_1k`, `reduced_10k`, `reduced_1k`: matched full/reduced common bases.
+- `reduced_dispatch_100k`: assembly 10 kVA with only generator dispatch at 100 kVA.
+- `reduced_lifts_1k`, `reduced_lifts_10k`, `reduced_lifts_100k`: power lifting on,
+  assembly/dispatch fixed at 10 kVA, differing only in power-lift units.
+- `reduced_reuse`: the 10 kVA power-lift control with exact generator P/Q reuse.
+- `reduced_nonadjacent`: the reduced-10k unlifted control with nonadjacent passive
+  elimination instead of passive blocks. This existing conservative option retains
+  more interior coordinates; it is not a new bound on condensation block size.
+
+The reduction bundle otherwise retains conductor regions and transformer-current
+substitution. Lift-unit comparisons keep generator reuse off; reuse is measured
+against its own matched lifted control. No joint tuning is inferred from them.
+
+Three physical scenarios have distinct manifests. `BASE265` preserves the previous
+265-bus network and its 74 DER additions. `VOLTAGE265` additionally imposes
+216–242.5 V phase-neutral magnitude bounds on every phase at every original load
+bus. These are declared experimental operating limits, not claimed statutory
+limits or equivalent preprocessing. Existing fields are retained and every new
+bound is recorded. Its cost solution activates one upper-voltage limit.
+`URBAN1220` starts from the 1,220-bus DSuite urban source with four transformers,
+adding 268 generators at positive load connections using the same DER construction
+rule. Its positive demand is 268 kW, versus 74 kW on the smaller feeder. Raw source
+files remain unchanged. Neither unmodified feeder had these newly added DERs.
+
+Both objectives retain the preceding physical coefficients. Exchange tracking
+uses a soft source target equal to half positive demand—37 kW or 134 kW—and zero
+kvar, plus the same generator regularization. Comparisons are within a scenario
+and objective. Every cell tests `none` and `gradient-based` Ipopt scaling under
+MUMPS AMD, one Julia/BLAS thread and strict 1e-10 settings. Ten excluded warm-ups
+precede ten randomized cyclic sweeps; each profile occupies every position once.
+Realized orders are saved, without claiming predecessor balance or independent
+network samples. Every case receives a complete fresh-process confirmation;
+batches remain separate and all tails remain. Timing excludes construction,
+extraction and audits and never overlaps tests/docs/diagnostics.
+
+All **2400 measured solves and 240 warm-ups** pass admission, as do **120
+separate preflight SI export round trips**. Physical quantity keys match across
+formulations. Maximum recovered-power objective discrepancy is below 4.98e-14;
+within-cell spread is below 3.57e-13. Input/source hashes, additions, actual power
+bases, reuse counts, complete starts, objective correspondence and cyclic order
+balance pass the independent evidence audit. Six stricter capability witnesses
+and two stricter voltage witnesses reject independently and in encoded models.
+
+The following tables give confirmation median **Ipopt milliseconds**. They are
+separate from exploration; the two batches are not pooled.
+
+### Unchanged 265-bus DER scenario
+
+| Profile | Cost, none | Cost, gradient | Tracking, none | Tracking, gradient |
+|:--|--:|--:|--:|--:|
+| `full_10k` | 50.128 | 49.856 | 25.425 | 25.423 |
+| `full_1k` | 43.357 | 43.278 | 28.505 | 28.401 |
+| `reduced_10k` | 46.747 | 46.960 | 23.762 | 23.964 |
+| `reduced_1k` | 40.493 | 40.580 | 26.382 | 26.487 |
+| `reduced_dispatch_100k` | 40.880 | 40.772 | 23.886 | 26.329 |
+| `reduced_lifts_1k` | 39.994 | 40.097 | 23.679 | 23.551 |
+| `reduced_lifts_10k` | 44.515 | 44.618 | 23.754 | 23.875 |
+| `reduced_lifts_100k` | 59.201 | 59.422 | 23.709 | 30.912 |
+| `reduced_reuse` | 40.369 | 40.478 | 22.995 | 23.314 |
+| `reduced_nonadjacent` | 49.090 | 49.167 | 24.875 | 24.867 |
+
+### 265-bus scenario with added voltage limits
+
+| Profile | Cost, none | Cost, gradient | Tracking, none | Tracking, gradient |
+|:--|--:|--:|--:|--:|
+| `full_10k` | 86.432 | 86.019 | 34.382 | 39.893 |
+| `full_1k` | 88.420 | 87.789 | 40.074 | 40.052 |
+| `reduced_10k` | 81.390 | 79.801 | 31.866 | 37.313 |
+| `reduced_1k` | 83.510 | 82.049 | 37.452 | 37.264 |
+| `reduced_dispatch_100k` | 79.954 | 80.011 | 36.902 | 42.573 |
+| `reduced_lifts_1k` | 71.284 | 71.279 | 31.701 | 31.767 |
+| `reduced_lifts_10k` | 78.784 | 78.122 | 31.922 | 37.045 |
+| `reduced_lifts_100k` | 87.059 | 86.553 | 37.195 | 50.417 |
+| `reduced_reuse` | 74.339 | 73.797 | 30.894 | 36.223 |
+| `reduced_nonadjacent` | 84.131 | 84.718 | 33.445 | 38.968 |
+
+### 1,220-bus DER scenario
+
+| Profile | Cost, none | Cost, gradient | Tracking, none | Tracking, gradient |
+|:--|--:|--:|--:|--:|
+| `full_10k` | 251.207 | 258.124 | 118.672 | 133.570 |
+| `full_1k` | 262.875 | 267.291 | 143.793 | 152.113 |
+| `reduced_10k` | 244.221 | 248.469 | 113.778 | 125.835 |
+| `reduced_1k` | 240.116 | 246.042 | 128.855 | 140.370 |
+| `reduced_dispatch_100k` | 244.705 | 247.282 | 114.196 | 138.196 |
+| `reduced_lifts_1k` | 229.506 | 234.031 | 114.226 | 114.975 |
+| `reduced_lifts_10k` | 234.496 | 235.867 | 113.314 | 126.505 |
+| `reduced_lifts_100k` | 290.516 | 293.830 | 112.483 | 161.204 |
+| `reduced_reuse` | 246.889 | 252.657 | 109.586 | 122.983 |
+| `reduced_nonadjacent` | 253.594 | 257.599 | 117.673 | 131.269 |
+
+### What transfers, and what does not
+
+**Lifted-power units:** reducing only the lift base from 10 to 1 kVA improves
+cost in both batches. Confirmation paired median ratios are 0.898 on BASE265,
+0.904/0.913 on VOLTAGE265 and 0.979/0.988 on URBAN1220 (`none`/`gradient`). The
+larger-feeder separation is modest, with paired ranges crossing one and unchanged
+17-iteration counts. BASE265 drops from 15 to 14 iterations; VOLTAGE265 from
+26 to 24. Increasing lift units to 100 kVA regresses cost by roughly 11–33% and
+increases iterations on all three cases. Those alternatives remain available.
+
+Tracking is different. With no automatic scaling, 1 kVA lifts are near 10 kVA
+on all three scenarios; some small differences change sign between batches.
+Under gradient scaling, the matched ratios are 0.990 on BASE265, **0.857** on
+VOLTAGE265 and **0.904** on URBAN1220. The latter two decrease iterations from
+11 to 9 and 8 to 7. The 100 kVA lifts regress under gradient scaling by roughly
+28–36%. No native factorization or conditioning mechanism is established.
+
+**Exact generator reuse:** the 74 or 268 matched native powers remove 148 or
+536 redundant real variables and their defining equalities relative to the
+matched 10 kVA power-lift control. Every original capability limit remains.
+Tracking improves in all six scenario/policy median comparisons in both batches;
+confirmation paired ratios are **0.970–0.974**, without fewer iterations than the
+matched control. Cost improves about 9% on BASE265 and 6% on VOLTAGE265, but
+**regresses 6–7% on URBAN1220**, where iterations rise from 17 to 19. This is a
+new counterexample to treating auxiliary reuse or smaller dimension as a
+universal speed improvement.
+
+**Matched old finalists:** common-1k versus assembly-10k/dispatch-100k is now
+measured in the same block. Their cost medians are close on BASE265 and URBAN1220;
+paired dispatch/common ratios are 1.012/1.001 and 1.014/1.004. Dispatch-only scaling
+beats common-1k by about 2–3% on VOLTAGE265, yet both lose to the new 1k-lift
+candidate. Full common-1k also loses to full-10k on the constrained and urban cost
+cases, despite its earlier gain on BASE265. Scaling recommendations do not
+transfer automatically between these operating problems.
+
+**Conservative condensation:** nonadjacent passive elimination is **3.6–6.8%
+slower** than the matched block control in confirmation, with the same direction
+in every exploratory context. Retaining more interior states does not help these
+three scenarios. This does not test every selective or bounded-size strategy;
+the existing option remains as negative evidence and a future comparator.
+
+### Revised shortlist and limits
+
+For cost, `reduced_lifts_1k` has the smallest median in all three scenarios under
+both policies and in both batches. Relative to full-10k, confirmation median gains
+are **19.6–20.2%** on BASE265, **17.1–17.5%** on VOLTAGE265 and **8.6–9.3%** on
+URBAN1220. These are bundle gains. The isolated lift-unit gain on URBAN1220 is
+only 1–2%, and BASE265's leading alternatives are close; the table does not prove
+a universal or statistically separated optimum.
+
+For tracking without automatic scaling, `reduced_reuse` leads all three cases.
+Under gradient scaling it leads BASE265, while `reduced_lifts_1k` leads VOLTAGE265
+and URBAN1220. Retain both in the tracking shortlist and state the solver policy.
+No package default is changed. No evidence here ranks combinations of smaller
+lift units with generator reuse or different generator dispatch units.
+
+All outliers remain, including a BASE265/no-scaling tracking 100k/10k-lift ratio
+of 6.602, an urban cost/gradient nonadjacent/block ratio of 1.831, and an urban
+tracking/gradient 1k/10k-lift ratio of 1.495 despite its favorable median. Conversely,
+a slow voltage-case lifted control produces a cost 1k/10k ratio of 0.343; that
+extreme is not the representative gain. These results do not promise faster
+every-run performance or explain the tails' causes.
+
+
+The smaller/larger and constrained/unconstrained scenarios expand the evidence;
+they do not establish a universal default or a global AC optimum. The candidate
+set is explicit and omits combined lift/dispatch tuning. The nonadjacent control
+explores conservative condensation, while bounded-size hybrid blocks and
+signed/proportional observation sharing remain separate implementation questions.
+The supplied-point/physical tests preserve original bounds and native channel
+semantics. See [tutorial section 39](tutorial_exact_ivr.md) and
+`examples/benchmark_ivr_power_finalists.jl` for reproduction. Raw inputs, manifests,
+source snapshots, all trials and SI exports remain outside Git.
 
 
 ## Independent economic-dispatch oracle

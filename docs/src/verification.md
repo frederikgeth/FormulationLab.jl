@@ -1,6 +1,48 @@
 # Verification
 
 
+## Lifted units, exact generator reuse and transfer — 6 October 2026
+
+The full suite passes **70,110/70,110 assertions**, adding **436 checks** in
+`test/ivr_lifted_unit_tests.jl`. They exercise independent power-lift units with
+fixed assembly and generator units, complete starts/inverse maps, physical
+objectives, SI JSON round trips, and exact generator reuse with both power and
+bounded-observation lifting. Single-phase and three/four-wire delta cases retain
+native coil powers. Perturbed auxiliaries and tightened original capability,
+current and voltage limits reject; reusable fixed-box/load changes preserve the
+same physical problem. Invalid bases/ratios and sharing modes refuse. Profile
+comparisons verify that the declared isolated controls differ in one option.
+
+The ten-profile study admits **2400 measured solves and 240 warm-ups** across
+exploration and complete fresh-process confirmation, three physical scenarios,
+two power objectives and both solver-scaling policies. All **120 preflight SI
+exports** round-trip with matching physical quantity keys. The original 265-bus
+DER input is unchanged; its voltage-constrained variant records every added
+216–242.5 V phase-neutral bound at original load buses. The 1220-bus scenario
+records 268 DER additions on the original four-transformer feeder. All raw sources
+and original fields are preserved. Six tighter-capability and two tighter-voltage
+witnesses reject independently and algebraically. One voltage upper bound binds
+in each constrained cost preflight solution.
+
+Maximum recovered-power objective discrepancy is below 4.98e-14 and within-cell
+spread below 3.57e-13. Source snapshots, additions, actual coordinate bases, reuse
+counts, full/reverse membership, starts and cyclic order balance pass independent
+audit. Timing precedes tests/docs; construction/extraction/audits do not rank
+candidates. Every tail and slower alternative is retained.
+
+Smaller power-lift units lead cost across the declared scenarios; generator reuse
+helps tracking but slows urban cost despite removing 536 real variables.
+Nonadjacent condensation loses to blocks on this panel. The evidence establishes
+neither a universal default nor native factorization causality. Bounded-size
+hybrid condensation is still unimplemented; this study tests an existing
+conservative comparator.
+
+All **41 executable tutorial blocks** pass. Thirty new confirmation timing rows,
+earlier tables, and six rendered pages' links/anchors are checked against raw JSON
+and HTML. See the [scientific results](ivr_objectives.md), [API contract](ivr_nlp.md),
+[profile shortlist](ivr_performance.md) and [tutorial section 39](tutorial_exact_ivr.md).
+
+
 ## Independent generator units — 6 October 2026
 
 The full suite passes **69,674/69,674 assertions**, including **460 new checks**

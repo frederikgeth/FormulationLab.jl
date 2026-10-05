@@ -19,6 +19,7 @@ using OpenDSSDirect
     include("ivr_der_scenario_tests.jl")
     include("ivr_base_formulation_tests.jl")
     include("ivr_generator_scaling_tests.jl")
+    include("ivr_lifted_unit_tests.jl")
     include("ivr_series_selection_tests.jl")
     include("ivr_chain_tests.jl")
     include("ivr_lifting_blocks_tests.jl")

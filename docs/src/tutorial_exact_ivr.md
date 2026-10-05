@@ -1384,3 +1384,47 @@ set `workload=:exchange_tracking` and an explicit `exchange_target_W`. Repeat
 with `nlp_scaling_method="gradient-based"` and in a fresh process. Keep all tails
 and failures. The [evidence](ivr_objectives.md) concerns one declared scenario;
 this executable example establishes consistency, not a speed recommendation.
+
+
+## 39. Separate power-lift units, generator reuse and condensation
+
+Power lifting adds exact P/Q definitions. Its variable units can change without
+changing circuit currents or generator dispatch units. Reusing an existing
+generator definition is another intervention. Compare each against the same
+power-lifted control before combining choices.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_power_finalists.jl"))
+PF = IVRPowerFinalistStudy
+finalist_demo = EO.S.case(:quadratic_cost;segments=2)
+finalist_profiles = filter(p->p.name in ("reduced_lifts_1k","reduced_lifts_10k",
+    "reduced_lifts_100k","reduced_reuse"), PF.profiles(finalist_demo,:quadratic_cost))
+finalist_reference = build_opf(finalist_demo,IVRNLP(objective=:power,
+    power_terms=first(finalist_profiles).options.power_terms))
+finalist_anchor = Ref{Any}(nothing)
+finalist_rows = map(finalist_profiles) do profile
+    row,point = PF.P.trial(finalist_demo,profile,finalist_reference,finalist_anchor[];
+        initial_point=EO.S.U.G.H.S.L.start_point(finalist_demo))
+    @assert row["accepted"]
+    finalist_anchor[]===nothing && (finalist_anchor[]=point)
+    (profile=profile.name,variables=row["variables"],objective=row["objective"])
+end
+@assert maximum(r.objective for r in finalist_rows)-minimum(r.objective for r in finalist_rows)<1e-6
+@assert last(finalist_rows).variables < finalist_rows[2].variables
+finalist_rows
+```
+
+Use `IVRNLP(lifting=:powers, lifted_power_base=1e3)` to alter power-lift units.
+Add `power_sharing=:generators` to reuse exactly matching native generator P/Q
+pairs. Bounds, targets, price/bound updates and JSON powers remain physical.
+These settings do not change voltage/current observation-lift units.
+
+`PF.benchmark(input_path, output_path; workload=:quadratic_cost)` compares ten
+explicit profiles in ten balanced sweeps after ten excluded warm-ups. It includes
+full and reduced prior finalists, the three isolated lift bases, a matched reuse
+arm, and nonadjacent passive elimination as a less aggressive alternative to
+block condensation. For exchange tracking, supply its explicit W target. Repeat
+both solver-scaling policies and confirm in a fresh process. This example proves
+representation agreement; use the [recorded study](ivr_objectives.md) for timings.
+New voltage bounds or DER additions define a new physical scenario and need their
+own manifest; they must not be presented as equivalent preprocessing.

@@ -668,7 +668,13 @@ option uses dispatch coordinates ``P_g/S_g,Q_g/S_g`` with exact defining
 equalities ``\operatorname{Re}(V_{pu}\overline{I_{pu}})=(S_g/S_b)\widehat P_g``
 and the corresponding reactive equality. It changes dispatch columns while
 retaining assembly-unit rows; physical boxes divide by ``S_g``. Lifted powers
-continue to use ``S_b``. Ground multipliers also retain their separately
+use ``S_b`` by default, or the separately declared ``S_l`` under
+`lifted_power_base`. The lift satisfies
+``(S_l/S_b)(\widehat P+\mathrm{i}\widehat Q)=V_{pu}\overline{I_{pu}}``;
+bounds and objective observations compose this inverse factor. Exact generator
+power sharing may replace this extra pair with existing dispatch variables
+when both original voltage and current rows match. The generator defining
+equalities then supply the same identity; its original capability limit remains. Ground multipliers also retain their separately
 declared policy and common ``S_b``. Thus `current_power_bases` isolates one
 coordinate intervention instead of claiming that every NLP variable is in a
 regional power unit. Explicit seeds propagate only over lines and closed
