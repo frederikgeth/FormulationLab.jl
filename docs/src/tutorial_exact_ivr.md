@@ -687,3 +687,50 @@ Write a file with `write_result(exported, "result.json")`. Select
 `nonfinite=:null` for strict JSON consumers. The default preserves BMOPFTools'
 NaN convention for unavailable values. Read the [result contract](results.md)
 before comparing estimates from a relaxation with exact-IVR physical outputs.
+
+## 23. Lift an apparent-power limit without relaxing it
+
+The auxiliary P/Q values have exact defining equalities. The physical result
+dictionary continues to report products of the original voltage/current state.
+
+```@example exactivr
+lift_case = T.two_wire_case()
+lift_case["line"]["service"]["s_max"] = [1e4]
+lift_build = build_opf(lift_case, IVRNLP(lifting=:powers); optimizer=Ipopt.Optimizer)
+lift_result = solve_ivr_nlp_opf(lift_build; solver_options=T.SOLVER_OPTIONS)
+@assert lift_result.solve.optimal
+@assert physical_residuals(lift_case, lift_result).passed
+@assert ivr_nlp_point_report(lift_build, ACPoint(voltage=lift_result.voltage_candidate,
+    currents=lift_result.current_candidate)).passed
+(lift_build.numerical_diagnostics[:lifted_real_variables],
+ result_dict(lift_build, lift_result)["line"]["service"]["loss"])
+```
+
+## 24. Eliminate charged sections and retain interior observations
+
+This three-segment two-wire example has unequal endpoint charging. Both interior
+bus voltages and all original line endpoint currents remain observable and bounded.
+
+```@example exactivr
+pi_case = T.ivr_compiler_case(conductors=2, segments=3)
+delete!(pi_case["load"], "d1"); delete!(pi_case["load"], "d2")
+pi_case["linecode"]["wire"]["B_from_1_1"] = 1e-4
+pi_case["linecode"]["wire"]["B_to_2_2"] = 2e-4
+for line in values(pi_case["line"])
+    line["s_max"] = [1e4]
+end
+pi_build = build_opf(pi_case, IVRNLP(linear_elimination=:passive_blocks,
+    lifting=:bounded_observations); optimizer=Ipopt.Optimizer)
+pi_result = solve_ivr_nlp_opf(pi_build; solver_options=T.SOLVER_OPTIONS)
+@assert pi_result.solve.optimal
+@assert physical_residuals(pi_case, pi_result).passed
+pi_output = result_dict(pi_build, pi_result)
+@assert haskey(pi_output["bus"], "b1") && haskey(pi_output["bus"], "b2")
+(pi_build.numerical_diagnostics[:linear_elimination_report].block_diagnostics,
+ pi_output["line"]["l1"]["a"])
+```
+
+Neither demonstration establishes a speedup. Run
+`examples/benchmark_ivr_lifting_blocks.jl` separately from tests and documentation
+to compare the six declared profiles with matched physical starts and balanced
+ordering. The primary score is Ipopt wall time, excluding compilation and export.

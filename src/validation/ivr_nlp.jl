@@ -104,6 +104,10 @@ function ivr_nlp_point_report(build::IVRNLPBuild,point::ACPoint;atol=1e-7)
             x=abs2(_linivr_eval(ref.row,reconstructed))*ref.scale
             supplied[ref.variable]=x;domain &= isfinite(x) && x>0
         end
+        for ref in build.model.ext[:ivr_lifting].records
+            value=JuMP.value(v->supplied[v],ref.expression)
+            supplied[ref.real]=real(value);supplied[ref.imag]=imag(value)
+        end
         if domain
             residuals=JuMP.primal_feasibility_report(build.model,supplied;atol=0.0)
             violation=maximum(values(residuals);init=0.0)

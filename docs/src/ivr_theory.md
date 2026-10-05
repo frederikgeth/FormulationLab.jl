@@ -470,7 +470,53 @@ and ideal-ground voltages are excluded. Scalar shunts select the scale even if
 other circuit contributions share the terminal, but no general multi-terminal
 shunt, transformer-ground or global equilibration policy is implied.
 
-## 6. Implementation and evidence map
+## 6. Exact lifted definitions and local block substitutions
+
+For a physical complex power ``s(y)=u(y)\overline{j(y)}``, introduce real
+auxiliaries ``p,q`` and impose
+
+```math
+p=\Re s(y),\qquad q=\Im s(y),\qquad p^2+q^2\leq\bar s^2.
+```
+
+Projection onto ``y`` and the unique extension
+``y\mapsto(y,\Re s(y),\Im s(y))`` give inverse maps between feasible sets.
+The objective and original physical observations retain their original meaning.
+Where ``u,j`` are affine, the defining equations are quadratic and the lifted
+limit is quadratic; direct substitution produces a fourth-degree inequality.
+A further affine definition ``w=ay`` can localize a repeatedly bounded
+observation. This is an exact extended formulation, not a convex relaxation.
+It can increase linear-system size despite simplifying nonlinear expressions.
+
+For charged-section elimination, partition a selected set of surviving linear
+equations into targeted coordinates ``x`` and retained coordinates ``y``:
+
+```math
+A x+B y=0,\qquad x=-A^{-1}B y.
+```
+
+If ``A`` is nonsingular, dropping ``x`` and reconstructing it by this formula
+are inverse maps on the selected equations' feasible set. Substitution into
+**every** retained equation, objective, observation and operating limit proves
+conditional OPF equivalence. Sequential blocks preserve this property by
+induction: each block targets only currently retained coordinates. The formula
+is implemented by factorization/solve, not by forming an inverse. It uses
+current-voltage KCL/KVL rows, so it does not require invertible line impedance.
+
+The implementation equilibrates each target row by its largest absolute target
+coefficient. It rejects incomplete target sets, zero target rows, nonfinite
+coefficients, condition estimates above ``10^8`` and relative solve residuals
+above ``10^{-12}``. These conservative gates decline uncertain substitutions;
+they do not replace independent SI residual checks. No free mode is assigned a
+minimum-norm value, and no small coefficient is discarded. Rejected attempts
+retain the original circuit. Accepted blocks report their numerical evidence.
+
+Charged sections generally cannot represent a flat, zero-current start: shunt
+currents enter KCL. Matched timing experiments therefore encode one shared
+unloaded linear-circuit point in all models, including every lifted definition.
+This point is used only for initialization, not as an additional operating law.
+
+## 7. Implementation and evidence map
 
 | Responsibility | Implementation | Validation |
 |:--|:--|:--|

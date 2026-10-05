@@ -77,9 +77,10 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `s_base` | `1e4` | Positive finite internal power base in VA; SI inputs/results unchanged |
 | `objective` | `:cost` | `:cost`, `:source_import` or `:feasibility` |
 | `specialization` | `:off` | `:conductor_difference` certifies one complete section; `:conductor_regions` certifies pendant regions behind retained boundaries |
-| `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates nonadjacent eligible degree-two buses; `:passive_chains` permits adjacent candidates using surviving equations |
-| `series_selection` | `:all` | With `:passive` or `:passive_chains`, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
+| `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates nonadjacent eligible degree-two buses; `:passive_chains` permits adjacent candidates; `:passive_blocks` also admits charged π sections through conditioned local block solves |
+| `series_selection` | `:all` | With any passive policy, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
 | `ground_scaling` | `:off` | `:voltage` rescales eligible free finite-ground voltages and normalizes circuit rows in solver coordinates |
+| `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
 
 `IVRNLPResult.voltage_candidate` maps `(bus, terminal)` to complex volts;
 `current_candidate` and `powers` map `(family::Symbol, id::String)` to channel
@@ -145,11 +146,50 @@ are determined by their defining laws, so the reduced starting point need not
 equal the full model's independently assigned current starts.
 
 The name `:passive` identifies this device-free series policy, not the separate
-approximate compatibility reduction pipeline. Charged pi sections, junctions above degree two and device-boundary
-elimination remain outside these certificates. Adjacent elimination is opt-in
+approximate compatibility reduction pipeline. Charged π sections remain outside
+the unit-pivot policies; junctions above degree two and device-boundary
+elimination remain outside all current passive policies. Adjacent elimination is opt-in
 through `:passive_chains`; the original `:passive` policy is unchanged. The [theory](ivr_theory.md)
 states the equivalence argument; [verification](verification.md) records the
 tests and performance limitations.
+
+### Charged π-section block elimination
+
+`linear_elimination=:passive_blocks` retains the chain pass's topology, terminal
+and device-boundary checks but admits nonzero line-end shunts. At each candidate,
+it forms a square linear block from surviving KCL and one incident line's KVL,
+targeting that line's current coordinates and the candidate bus's voltages.
+It substitutes the block solution only if the target set is complete, the
+row-equilibrated 2-norm condition estimate is at most `1e8`, all coefficients are
+finite, and the normalized linear-solve residual is at most `1e-12`.
+No series-impedance inverse, pseudoinverse, regularization or coefficient cutoff
+is used. Singular/ill-conditioned attempts retain their original equations.
+
+`linear_elimination_report.block_diagnostics` records each accepted block's
+dimension, condition estimate and residual. These are numerical acceptance
+checks, not a rigorous floating-point error certificate. Every physical
+observation, charging contribution, endpoint rating and interior voltage limit
+is reconstructed. `series_selection=:bound_support` checks all original bounds
+after each tentative composition and rolls back a rejected block completely.
+Earth-connected charging can prevent conductor specialization even when local
+block elimination remains eligible; the two policies have separate certificates.
+
+### Exact selective lifting
+
+`lifting=:powers` replaces each bounded complex power expression with auxiliary
+P/Q variables and exact defining equalities, then applies the same rating to
+those variables. `:bounded_observations` additionally lifts affine bounded
+voltage/current expressions involving more than two nonzero real solver
+variables. Singleton complex coordinates and identically zero channels are not
+duplicated. Identical original observation rows and power-factor pairs share
+definitions. Original physical power outputs remain expressions of the state.
+
+Definitions have consistent initial values and are reconstructed uniquely when
+encoding a supplied physical point. They do not create additional device
+freedoms, change any rating or alter CP/generator update semantics. Diagnostics
+record `lifting` and `lifted_real_variables`. More variables can make a nonlinear
+constraint simpler, but may also make Ipopt's linear systems more expensive;
+the [performance guide](ivr_performance.md) reports measured outcomes.
 
 ### Series selection by bound support
 

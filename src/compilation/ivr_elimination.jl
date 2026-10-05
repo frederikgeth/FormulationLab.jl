@@ -67,14 +67,38 @@ function _ivrn_bound_support_width(rows,active)
     length(a)+count(k->!haskey(a,k),keys(b))
 end
 
+# Conditional exact Schur substitution, in the existing current-voltage rows.
+# Row equilibration and a conservative condition gate protect floating-point
+# reconstruction. No pseudoinverse, regularization or coefficient truncation.
+function _ivrn_block_substitution(rows,targets)
+    columns=sort!(collect(targets));n=length(columns)
+    n>0 && length(rows)==n || return nothing,"incomplete_local_block"
+    external=sort!(collect(setdiff(Set(k for row in rows for k in keys(row)),targets)))
+    A=ComplexF64[get(row,k,0im) for row in rows,k in columns]
+    B=ComplexF64[get(row,k,0im) for row in rows,k in external]
+    scales=maximum(abs,A;dims=2)
+    all(x->isfinite(x)&&x>0,scales) || return nothing,"singular_local_block"
+    A ./= scales;B ./= scales
+    all(isfinite,B) || return nothing,"nonfinite_local_block"
+    condition=cond(A)
+    isfinite(condition) && condition<=1e8 || return nothing,"ill_conditioned_local_block"
+    X=-(lu(A)\B)
+    all(isfinite,X) || return nothing,"nonfinite_local_block"
+    residual=norm(A*X+B,Inf)/max(1.,norm(A,Inf)*norm(X,Inf),norm(B,Inf))
+    residual<=1e-12 || return nothing,"inaccurate_local_block"
+    substitutions=Dict(columns[j]=>_SDPRow(k=>X[j,h] for (h,k) in enumerate(external) if !iszero(X[j,h])) for j in 1:n)
+    (;substitutions,condition,relative_residual=residual,dimension=n),"accepted"
+end
+
 function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:all)
     substitutions=Dict{Int,_SDPRow}();omitted_equations=Set{Int}()
     loads=String[];buses=String[];retained=Dict{String,String}()
     selected_lines=Dict{String,String}()
+    block_diagnostics=Dict{String,Any}()
     support_rejections=Dict{String,Vector{NamedTuple}}()
     report()=(;impedance_loads=loads,series_buses=buses,retained_series_buses=retained,
                series_selection,selected_series_lines=selected_lines,bound_support_rejections=support_rejections,
-               eliminated_complex_coordinates=length(substitutions))
+               block_diagnostics,eliminated_complex_coordinates=length(substitutions))
     mode==:off && return maps,omitted_equations,omitted_kcl,report()
     compose(row)=_ivrn_compose_row(row,maps.reconstruction)
     active(row)=_ivrn_resolve_row(compose(row),substitutions)
@@ -100,8 +124,8 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
         end
         push!(loads,load.id)
     end
-    if mode in (:passive,:passive_chains)
-        chains=mode==:passive_chains
+    if mode in (:passive,:passive_chains,:passive_blocks)
+        chains=mode in (:passive_chains,:passive_blocks);blocks=mode==:passive_blocks
         bound_index=nothing # Build only when a structurally eligible bus exists.
         blocked=Set{String}()
         for (b,d) in net["bus"]
@@ -130,7 +154,7 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
             if b in neighbours || !allunique(neighbours)
                 retained[b]="self_loop_or_parallel_pair";continue
             end
-            if any(l->!iszero(l.Yf)||!iszero(l.Yt),lines)
+            if !blocks && any(l->!iszero(l.Yf)||!iszero(l.Yt),lines)
                 retained[b]="line_shunt";continue
             end
             terminals=net["bus"][b]["terminal_names"]
@@ -157,11 +181,23 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
                 current_candidates=Set(k for row in line.current for k in keys(active(row)))
                 voltage_candidates=Set(k for t in terminals for k in keys(active(_sdp_e(e.voltage[(b,t)]))))
                 added=Int[];kcl_keys=sort!([(b,t) for t in terminals if (b,t) ∉ omitted_kcl])
-                ok=all(key->eliminate!(e.kcl[key],current_candidates,added),kcl_keys)
-                ok &= all(k->haskey(substitutions,k),current_candidates)
-                if ok
-                    ok=all(index->eliminate!(e.equations[index],voltage_candidates,added),line.equation_indices)
-                    ok &= all(k->haskey(substitutions,k),voltage_candidates)
+                if blocks
+                    rows=[active(e.kcl[key]) for key in kcl_keys]
+                    append!(rows,[active(e.equations[index]) for index in line.equation_indices])
+                    block,reason=_ivrn_block_substitution(rows,union(current_candidates,voltage_candidates))
+                    ok=block!==nothing
+                    if ok
+                        merge!(substitutions,block.substitutions);append!(added,keys(block.substitutions))
+                    else
+                        retained[b]=reason;continue
+                    end
+                else
+                    ok=all(key->eliminate!(e.kcl[key],current_candidates,added),kcl_keys)
+                    ok &= all(k->haskey(substitutions,k),current_candidates)
+                    if ok
+                        ok=all(index->eliminate!(e.equations[index],voltage_candidates,added),line.equation_indices)
+                        ok &= all(k->haskey(substitutions,k),voltage_candidates)
+                    end
                 end
                 if !ok
                     for k in added;delete!(substitutions,k);end
@@ -184,6 +220,7 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
                 union!(omitted_kcl,kcl_keys);union!(omitted_equations,line.equation_indices)
                 chains || union!(protected,neighbours)
                 push!(buses,b);selected_lines[b]=line.id
+                blocks && (block_diagnostics[b]=(;condition=block.condition,relative_residual=block.relative_residual,dimension=block.dimension))
                 delete!(retained,b);delete!(support_rejections,b)
                 break
             end

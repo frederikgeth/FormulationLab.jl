@@ -93,10 +93,25 @@ function rank_profiles(rows,repetitions;objective_atol=1e-6,objective_rtol=1e-8)
          "objective_atol"=>objective_atol,"objective_rtol"=>objective_rtol)
 end
 
-function trial(net,profile,reference,anchor;solver_options=STRICT)
+function trial(net,profile,reference,anchor;solver_options=STRICT,initial_point=nothing)
     settings=profile_solver_options(profile,solver_options)
     try
         t=@timed build_opf(net,IVRNLP(profile.options);optimizer=Ipopt.Optimizer);b=t.value
+        start_report=nothing
+        if initial_point!==nothing
+            encoded=ivr_nlp_point_report(b,initial_point)
+            isempty(encoded.missing_channels) && length(encoded.variable_values)==num_variables(b.model) &&
+                max(encoded.max_binding_residual_pu,encoded.max_reconstruction_residual_pu)<=1e-10 ||
+                error("shared physical start is not representable in this profile")
+            for (variable,value) in encoded.variable_values
+                isfinite(value) || error("nonfinite shared start")
+                set_start_value(variable,value)
+            end
+            start_report=(;encoded_variables=length(encoded.variable_values),
+                max_binding_residual_pu=encoded.max_binding_residual_pu,
+                max_reconstruction_residual_pu=encoded.max_reconstruction_residual_pu,
+                max_constraint_violation=encoded.max_constraint_violation)
+        end
         s=@timed solve_ivr_nlp_opf(b;solver_options=settings);r=s.value
         p=r.solve.optimal ? ACPoint(voltage=r.voltage_candidate,currents=r.current_candidate) : nothing
         physical=p===nothing ? nothing : physical_residuals(net,r)
@@ -112,6 +127,12 @@ function trial(net,profile,reference,anchor;solver_options=STRICT)
             "own_model_passed"=>(p!==nothing&&own.passed),"full_model_passed"=>(p!==nothing&&full.passed),
             "anchor_in_profile"=>reverse,"objective"=>(isfinite(r.objective) ? r.objective : nothing),
             "variables"=>num_variables(b.model),"derivatives"=>feeder_derivative_structure(b.model),
+            "shared_start"=>start_report,"lifted_real_variables"=>b.numerical_diagnostics[:lifted_real_variables],
+            "generator_s_max_slack_VA"=>(p===nothing ? nothing : Dict(id=>d["s_max"].-abs.(r.powers[(:generator,id)])
+                for (id,d) in get(net,"generator",Dict()) if haskey(d,"s_max"))),
+            "vpn_max_slack_V"=>(p===nothing ? nothing : Dict(bus=>d["vpn_max"].-abs.([p.voltage[(bus,t)]-p.voltage[(bus,b.electrical.neutral_map[bus])]
+                for t in d["terminal_names"] if t!=b.electrical.neutral_map[bus]])
+                for (bus,d) in net["bus"] if haskey(d,"vpn_max") && haskey(b.electrical.neutral_map,bus))),
             "specialization"=>b.numerical_diagnostics[:specialization],
             "specialization_report"=>b.numerical_diagnostics[:specialization_report],
             "elimination"=>b.numerical_diagnostics[:linear_elimination_report],
@@ -135,7 +156,7 @@ not a fully position-balanced design. Confirm a chosen profile with fresh paired
 measurements. All electrical inputs/objectives are retained. The solve-only
 ranking excludes construction but does not measure updated-model reuse.
 """
-function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options=STRICT,source_sha256=nothing)
+function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options=STRICT,source_sha256=nothing,initial_point=nothing)
     started=time_ns()
     repetitions>0 || throw(ArgumentError("positive repetitions required"))
     !isempty(candidates) && allunique(p.name for p in candidates) || throw(ArgumentError("unique nonempty profiles required"))
@@ -151,12 +172,13 @@ function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options
         "cpu"=>Sys.CPU_NAME,"blas_threads"=>BLAS.get_num_threads(),"julia_threads"=>Threads.nthreads(),
         "solver_options"=>solver_options,"runner_sha256"=>RUNNER_SHA,"orders"=>[],
         "primary_metric"=>"ipopt_wall_s",
+        "shared_physical_start"=>initial_point!==nothing,
         "timing_contract"=>"MOI.SolveTimeSec from Ipopt.jl: wall time of its optimizer call, including backend setup and native IpoptSolve; excludes FormulationLab build, JuMP cache transfer before the backend call, result extraction and physical/model audits. build_s and solve_s (wrapper plus extraction) are secondary diagnostics only.",
         "note"=>"Exploratory shortlist; no universal fastest claim. Primary ranking uses Ipopt wall time; build and solve/extraction timings are retained as secondary diagnostics. All timings exclude audits and warm-ups. Rejected/error trials retained. Unchanged electrical data and explicit shared objective. A first accepted warm-up supplies the full-feasible anchor for reverse mapping. Confirm winners independently; rankings do not measure parameter-update reuse.")
     save()=open(io->JSON3.write(io,report),output,"w")
     anchor=nothing
     for (j,p) in enumerate(candidates)
-        row,point=trial(net,p,reference,anchor;solver_options);rows[j]["warmup"]=row
+        row,point=trial(net,p,reference,anchor;solver_options,initial_point);rows[j]["warmup"]=row
         if anchor===nothing && row["accepted"];anchor=point;report["anchor_profile"]=p.name;end
         save()
     end
@@ -165,7 +187,7 @@ function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options
         iseven(rep) && reverse!(order)
         push!(report["orders"],[candidates[j].name for j in order])
         for j in order
-            row,_=trial(net,candidates[j],reference,anchor;solver_options)
+            row,_=trial(net,candidates[j],reference,anchor;solver_options,initial_point)
             anchor===nothing && (row["accepted"]=false)
             push!(rows[j]["trials"],row);save()
         end

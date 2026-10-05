@@ -14,13 +14,17 @@ boundary buses, leaving other circuits physical. The default is :off.
 `linear_elimination=:impedance_loads` substitutes exact impedance-load currents;
 `:passive` also eliminates certified nonadjacent device-free degree-two buses
 between unshunted lines. `:passive_chains` additionally permits adjacent buses
-using surviving unit-pivot equations. All preserve physical observations and
+using surviving unit-pivot equations. `:passive_blocks` additionally allows
+charged pi sections using conditioned local block solves. All preserve physical observations and
 operating bounds and compose with conductor specialization. The default is :off.
 `series_selection=:bound_support` retains a candidate series bus if any affected
 operating bound would depend on more solver coordinates. Default :all.
 `ground_scaling=:voltage` rescales retained free voltages attached to stiff
 one-terminal finite shunts and normalizes circuit rows in solver coordinates.
 This invertible numerical policy preserves the finite ground; default :off.
+`lifting=:powers` introduces exact P/Q definitions for apparent-power limits.
+`:bounded_observations` also materializes compound bounded voltage/current rows.
+The default :off preserves direct expressions; physical outputs are unchanged.
 """
 Base.@kwdef struct IVRNLPOptions
     s_base::Float64 = 1e4
@@ -29,6 +33,7 @@ Base.@kwdef struct IVRNLPOptions
     linear_elimination::Symbol = :off
     series_selection::Symbol = :all
     ground_scaling::Symbol = :off
+    lifting::Symbol = :off
 end
 
 """An exact-IVR scope refusal, carrying a stable `code` and explanatory `message`.
@@ -199,6 +204,40 @@ end
 
 _ivrn_power(v,i,z)=_linivr_eval(v,z)*conj(_linivr_eval(i,z))
 
+# Auxiliary definitions are exact graph extensions. Their records also encode
+# starts and supplied physical points; they never become independent observations.
+function _ivrn_lift!(model,u,key,kind)
+    policy=model.ext[:ivr_lifting]
+    get!(policy.cache,key) do
+        k=length(policy.records)+1
+        value=JuMP.value(v->JuMP.is_fixed(v) ? JuMP.fix_value(v) : JuMP.start_value(v),u)
+        a=@variable(model,base_name="lift_$(kind)_$(k)_real",start=real(value))
+        b=@variable(model,base_name="lift_$(kind)_$(k)_imag",start=imag(value))
+        @constraint(model,a==real(u));@constraint(model,b==imag(u))
+        push!(policy.records,(;real=a,imag=b,expression=u,kind))
+        a+im*b
+    end
+end
+_ivrn_row_key(row)=Tuple(sort!(collect(row);by=first))
+function _ivrn_bound_observation(model,row,z)
+    u=_linivr_eval(row,z);policy=model.ext[:ivr_lifting]
+    # Only compound observations are lifted. A physical coordinate or an
+    # identically zero channel needs no duplicate variable.
+    if policy.mode==:bounded_observations &&
+       length(Set(v for x in (real(u),imag(u)) for (v,c) in x.terms if !iszero(c)))>2
+        return _ivrn_lift!(model,u,(:observation,_ivrn_row_key(row)),:observation)
+    end
+    u
+end
+function _ivrn_bound_power(model,v,i,z)
+    policy=model.ext[:ivr_lifting]
+    policy.mode==:off && return _ivrn_power(v,i,z)
+    u=_ivrn_bound_observation(model,v,z);j=_ivrn_bound_observation(model,i,z)
+    s=u*conj(j)
+    iszero(s) && return s
+    _ivrn_lift!(model,s,(:power,_ivrn_row_key(v),_ivrn_row_key(i)),:power)
+end
+
 function _ivrn_generator_bounds!(variables,low,high,sb)
     low!==nothing && high!==nothing && any(low .> high) &&
         throw(ArgumentError("generator lower bounds must not exceed upper bounds"))
@@ -252,7 +291,7 @@ end
 
 function _ivrn_bus_limits!(model,net,e,z)
     _ivrn_each_bus_limit(net,e) do b,key,row,bound
-        u=_linivr_eval(row,z)
+        u=_ivrn_bound_observation(model,row,z)
         if endswith(key,"max")
             _ivrn_upper!(model,u,bound/e.vb)
         elseif bound>0
@@ -276,9 +315,10 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     isfinite(options.s_base) && options.s_base>0 || throw(ArgumentError("s_base must be positive and finite"))
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown IVRNLP objective"))
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
-    options.linear_elimination in (:off,:impedance_loads,:passive,:passive_chains) || throw(ArgumentError("unknown IVRNLP linear elimination"))
+    options.linear_elimination in (:off,:impedance_loads,:passive,:passive_chains,:passive_blocks) || throw(ArgumentError("unknown IVRNLP linear elimination"))
     options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
     options.ground_scaling in (:off,:voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
+    options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))
     net=_l3f_input(input);_ivrn_check(net)
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
                            delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
@@ -293,6 +333,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     maps,scaling=_ivrn_ground_coordinates(net,e,maps,options.ground_scaling)
     scaled_rows=!isempty(scaling.scaled_terminals)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
+    model.ext[:ivr_lifting]=(;mode=options.lifting,cache=Dict{Any,Any}(),records=NamedTuple[])
     n=length(maps.projection)
     xr=@variable(model,[1:n],base_name="state_real")
     xi=@variable(model,[1:n],base_name="state_imag")
@@ -408,7 +449,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
                 nt=get(e.neutral_map,d["bus"],nothing)
                 phases=findall(!=(nt),d["terminal_map"])
                 for (k,bound) in zip(phases,_sdp_vector(d,"s_max",length(phases)))
-                    _ivrn_upper!(model,s[k],bound/e.sb)
+                    _ivrn_upper!(model,_ivrn_bound_power(model,v[k],i[k],z),bound/e.sb)
                 end
             end
         end
@@ -416,8 +457,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     for (v,i,d) in e.limits
         imax=e.values_for(d,"i_max",length(i));smax=e.values_for(d,"s_max",length(v))
         for k in eachindex(v)
-            imax===nothing || _ivrn_upper!(model,_linivr_eval(i[k],z),imax[k]/e.ib)
-            smax===nothing || _ivrn_upper!(model,_ivrn_power(v[k],i[k],z),smax[k]/e.sb)
+            imax===nothing || _ivrn_upper!(model,_ivrn_bound_observation(model,i[k],z),imax[k]/e.ib)
+            smax===nothing || _ivrn_upper!(model,_ivrn_bound_power(model,v[k],i[k],z),smax[k]/e.sb)
         end
     end
     _ivrn_bus_limits!(model,net,e,z)
@@ -430,6 +471,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :network_reduction=>:off,:assembly_count=>1,
         :linear_elimination=>options.linear_elimination,:linear_elimination_report=>elimination,
         :ground_scaling=>options.ground_scaling,:ground_scaling_report=>scaling,
+        :lifting=>options.lifting,:lifted_real_variables=>2length(model.ext[:ivr_lifting].records),
         :update_count=>0,:generator_update_count=>0,
         :dispatch_variable_count=>sum(length(g.p)+length(g.q) for g in values(generators);init=0),
         :load_voltage_variable_count=>sum(length,values(load_voltages);init=0),
