@@ -200,6 +200,82 @@ these timings fixes explicit objective normalization for **unaccepted diagnostic
 primals**. Every timed solve was accepted, so that branch was never used by the
 campaigns. Final regression tests cover both paths.
 
+## Matched formulation factors
+
+The earlier six-profile comparison changes several options together. To separate
+their effects, `examples/benchmark_ivr_objective_factors.jl` crosses regional
+current units, passive-block elimination, transformer-current elimination and
+three lifting policies. These give 24 candidates for each of quadratic cost and
+exchange tracking, under both `none` and `gradient-based` Ipopt scaling.
+
+All candidates use the same 12-section unbalanced leakage circuit, physical
+objective, unloaded physical start, 10 kVA assembly base and objective divisor 1.
+Conductor-region specialization, nominal transformer voltage coordinates,
+composed row normalization, voltage-ground scaling and exact observation sharing
+are fixed. The regional-current arm seeds source/MV/LV current-unit power bases
+at 1 MVA/100 kVA/1 kVA; it does not change generator or lifted-power units.
+The common 1 kVA assembly candidate from the earlier experiment is absent here.
+Thus this study isolates the regional-current intervention at 10 kVA; it does
+not select the best assembly base or supersede the earlier 1 kVA exchange result.
+
+Each process excludes one warm-up per candidate and measures eight sweeps per
+workload/policy cell. Four seeded random permutations are each followed by their
+reverse. Every candidate has mean position 12.5 in each two-sweep block, but does
+not occupy every position: this is not a fully position-balanced design. Realized
+orders are saved. Exploration and a fresh-process confirmation together admit
+**1536 measured solves and 192 warm-ups**, with no relaxed retries or removed
+tails. Timings use one Julia/BLAS thread, MUMPS AMD and tolerance 1e-10. Compilation,
+extraction and audits are excluded; timing batches do not overlap tests,
+documentation builds or diagnostics. Physical objective discrepancies are below
+1.30e-12, and within-cell objective spreads below 1.82e-9. Acceptance also requires
+SI physics, original bounds, full-model membership and reverse representability;
+it does not certify a global AC optimum.
+
+For a matched pair, define the same-sweep ratio
+\(r_k=t_{\mathrm{on},k}/t_{\mathrm{off},k}\). Its median over eight sweeps is
+computed separately for every setting of the remaining factors. The table gives
+the **range of these context-specific medians** in confirmation; values below 1
+favor the added option. Binary factors have 12 matched contexts, lifting contrasts
+have eight. These are descriptive paired measurements, not confidence intervals;
+repeated solves and reversal blocks are not independent network samples.
+
+| Change | Quadratic, none | Quadratic, gradient | Exchange, none | Exchange, gradient |
+|:--|--:|--:|--:|--:|
+| Regional current units | 0.980–1.029 | 0.974–1.021 | 0.992–1.025 | 0.997–1.075 |
+| Passive-block elimination | 0.722–0.951 | 0.723–0.958 | 0.726–0.956 | 0.729–0.952 |
+| Transformer-current elimination | 0.971–1.011 | 0.975–1.013 | 0.945–0.996 | 0.940–1.001 |
+| Power lifting versus off | 0.974–1.015 | 0.965–1.007 | 0.973–1.009 | 0.928–1.016 |
+| Observation lifting versus off | 0.877–1.153 | 0.887–1.154 | 0.984–1.299 | 0.992–1.312 |
+| Observation versus power lifting | 0.884–1.155 | 0.887–1.163 | 1.007–1.317 | 1.013–1.389 |
+
+Passive-block elimination improves all 12 contexts in every cell, in both
+processes. Regional current scaling offers little consistent benefit here;
+transformer-current elimination has a smaller effect, most favorable on exchange
+tracking. Lifting interacts strongly with the reductions. With common current
+units and transformer-current elimination, observation lifting changes quadratic
+time by factors 1.133/1.146 without passive blocks and 0.877/0.887 with them
+(`none`/`gradient-based`). An aggregate average would conceal this reversal.
+For exchange tracking, observation lifting is slower than power lifting in every
+matched context under both policies, although the closest differences are small.
+
+The smallest confirmation medians among these 24 candidates are common-current
+passive-block plus transformer-current elimination, with observation lifting for
+quadratic cost (8.295/8.377 ms) and power lifting for exchange (8.229/8.313 ms).
+Exploration selected the same profiles. However, the nearest competitors differ
+by only 0.9–1.4% for cost and 0.4–0.8% for exchange; these fine rankings should not
+be treated as robust preferences. The stronger evidence concerns passive blocks
+and context-dependent lifting, not a universal winning profile. No native
+factorization mechanism is established by these wall-time comparisons.
+
+The next transfer experiment needs external feeders with controllable dispatch.
+A read-only inventory found no generators or IBRs in the DSuite 265/1220-bus or
+French 529-bus inputs inspected. Their fixed-load operation cannot establish
+economic dispatch performance. An augmented LV input has bounded generators;
+larger cases need an explicitly documented derived scenario. Preserve source
+hashes and physical limits, and validate the declared objectives before timing.
+All earlier formulation options remain available. See
+[tutorial section 34](tutorial_exact_ivr.md) for a matched comparison.
+
 ## Independent economic-dispatch oracle
 
 A fixed-voltage, two-generator circuit supplies 3000 W and 600 var, with source

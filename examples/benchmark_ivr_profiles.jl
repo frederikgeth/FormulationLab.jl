@@ -171,10 +171,15 @@ not a fully position-balanced design. Confirm a chosen profile with fresh paired
 measurements. All electrical inputs/objectives are retained. The solve-only
 ranking excludes construction but does not measure updated-model reuse.
 """
-function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options=STRICT,source_sha256=nothing,initial_point=nothing)
+function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options=STRICT,source_sha256=nothing,initial_point=nothing,trial_orders=nothing)
     started=time_ns()
     repetitions>0 || throw(ArgumentError("positive repetitions required"))
     !isempty(candidates) && allunique(p.name for p in candidates) || throw(ArgumentError("unique nonempty profiles required"))
+    orders=trial_orders===nothing ? [iseven(rep) ? reverse(circshift(collect(eachindex(candidates)),(rep-1)÷2)) :
+        circshift(collect(eachindex(candidates)),(rep-1)÷2) for rep in 1:repetitions] : deepcopy(trial_orders)
+    length(orders)==repetitions && all(order->order isa AbstractVector &&
+        all(i->i isa Integer && !(i isa Bool),order) && sort(order)==collect(eachindex(candidates)),orders) ||
+        throw(ArgumentError("trial_orders must contain one complete candidate-index permutation per repetition"))
     objective=first(candidates).options.objective
     all(p.options.objective==objective for p in candidates) || throw(ArgumentError("profiles must share an objective"))
     terms=first(candidates).options.power_terms
@@ -202,8 +207,7 @@ function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options
         save()
     end
     for rep in 1:repetitions
-        order=circshift(collect(eachindex(candidates)),(rep-1)÷2)
-        iseven(rep) && reverse!(order)
+        order=orders[rep]
         push!(report["orders"],[candidates[j].name for j in order])
         for j in order
             row,_=trial(net,candidates[j],reference,anchor;solver_options,initial_point)

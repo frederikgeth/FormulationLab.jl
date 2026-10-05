@@ -1,5 +1,41 @@
 # Verification
 
+## Matched power-objective factors — 5 October 2026
+
+The full suite passes **68,785/68,785 assertions**, adding **293 checks** in
+`test/ivr_objective_factor_tests.jl`. These cover the 24 independent option
+combinations, seeded permutation/reversal orders, invalid-order refusal, complete
+shared starts, physical objectives and full/reduced endpoint representability
+for quadratic cost and exchange tracking. The generic runner retains its default
+schedule and additionally accepts explicit, validated trial permutations.
+
+Exploration and fresh-process confirmation admit **1536 measured solves and 192
+warm-ups** across both workloads and both Ipopt scaling policies. Every cell
+preserves the physical input, objective definition, objective divisor and start.
+The evidence audit verifies factor coverage, actual option records, input hashes,
+admission and equal mean trial position. Maximum physical objective discrepancy
+is 1.30e-12; maximum within-cell spread is 1.82e-9. These are rounded-up bounds,
+not solver tolerances or global-optimality certificates. Initial test code used
+a Boolean inside a homogeneous integer vector, which Julia converted to an
+integer before validation. The corrected negative witness preserves its Boolean
+with an `Any` vector; both the initial failure and passing run are retained.
+A first tutorial build exposed a missing `JSON3` import in the new example;
+the explicit import fixes its module scope. The original source/log are retained.
+
+Passive-block elimination improves every matched context in both batches.
+Regional current units have little consistent benefit; observation lifting helps
+quadratic cost after passive reduction but can hurt without it. On exchange,
+observation lifting is slower than power lifting in all eight matched contexts
+under both policies. All tails and slower options remain; no default changes.
+The fixed 10 kVA assembly base does not retest the earlier 1 kVA candidate.
+
+All **36 executable tutorial blocks** pass. The six new contrast-table rows and
+four winning medians are checked against confirmation JSON and rendered HTML,
+alongside the earlier objective timing table and local links. Timing batches
+finish before regression and documentation builds. External feeder work in this
+stage is a read-only dispatch inventory, not a transfer-performance claim.
+See [matched factors](ivr_objectives.md) and [tutorial section 34](tutorial_exact_ivr.md).
+
 ## Physical-power objectives — 5 October 2026
 
 The complete suite passes **68,492/68,492 assertions**, adding **942 checks**.

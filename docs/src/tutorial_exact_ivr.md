@@ -1106,3 +1106,57 @@ recomputes custom objective values from recovered SI powers, records all failure
 and ranks only admitted, comparable solutions by Ipopt wall time. A loss-only
 workload has an explicitly different generation-availability bound; compare
 formulations within that workload rather than pooling different objectives.
+
+## 34. Change one formulation option at a time
+
+A winning bundle does not identify which option produced its benefit. The
+factorial runner crosses regional current units, passive-block elimination,
+transformer-current elimination and three lifting policies, giving 24 candidates.
+It holds the assembly base, objective divisor, conductor specialization, exact
+observation-sharing policy and all electrical data fixed.
+
+Here we select two quadratic-cost candidates that differ only in `lifting`.
+They share regional current units and both elimination options. The example
+checks the complete option records before solving and requires physical objective
+agreement and bidirectional physical-point representability. Its two-section
+case is a correctness example, not performance evidence.
+
+```@example exactivr
+using JSON3
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_objective_factors.jl"))
+OF = IVRObjectiveFactorStudy
+factor_net = OF.S.case(:quadratic_cost;segments=2)
+factor_profiles = filter(OF.profiles(factor_net,:quadratic_cost)) do p
+    f = p.factors
+    f.regional_current && f.passive_blocks && f.transformer_currents &&
+        f.lifting in (:off,:bounded_observations)
+end
+@assert length(factor_profiles)==2
+changed_fields = [key for key in fieldnames(IVRNLPOptions)
+    if JSON3.write(getfield(factor_profiles[1].options,key)) !=
+       JSON3.write(getfield(factor_profiles[2].options,key))]
+@assert changed_fields==[:lifting]
+factor_reference = build_opf(factor_net,IVRNLP(objective=:power,
+    power_terms=OF.S.terms(factor_net,:quadratic_cost)))
+factor_start = OF.S.U.G.H.S.L.start_point(factor_net)
+factor_anchor = Ref{Any}(nothing)
+factor_rows = map(factor_profiles) do profile
+    row,point = OF.S.P.trial(factor_net,profile,factor_reference,factor_anchor[];
+        initial_point=factor_start)
+    @assert row["accepted"]
+    factor_anchor[]===nothing && (factor_anchor[]=point)
+    (profile=profile.name,objective=row["objective"],variables=row["variables"])
+end
+@assert isapprox(factor_rows[1].objective,factor_rows[2].objective;atol=1e-6)
+factor_rows
+```
+
+Call `OF.benchmark("factors.json"; workload=:quadratic_cost)` in an otherwise
+idle process for the 24-candidate study. Repeat for `:exchange_tracking` and
+`nlp_scaling_method="gradient-based"`, then confirm in a fresh process. Four
+seeded random permutations are each followed by their reverse. This gives equal
+mean position in every two-sweep block; it does not occupy every possible position
+with every candidate. The realized orders are saved. Assess matched contrasts
+with all other factors fixed and retain their variation across contexts. A
+small aggregate average does not exclude a large benefit or regression in a
+particular combination. See the [objective evidence](ivr_objectives.md).
