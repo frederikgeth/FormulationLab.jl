@@ -1,5 +1,71 @@
 # Verification
 
+## Ipopt wall-time priority and held-out validation — 5 October 2026
+
+The primary metric is now `ipopt_wall_s` / `fastest_ipopt`, measured by
+`JuMP.solve_time` (`MOI.SolveTimeSec`). Inspection of the installed Ipopt.jl
+1.16.0 source confirms an elapsed wall timer around its optimizer call, including
+backend setup and `IpoptSolve`, excluding FormulationLab construction, prior
+JuMP cache transfer, extraction and physical/model audits. Previous timings
+included extraction; those records remain historical and are not relabelled.
+Construction cost contributes nothing to the primary assessment. Every
+transformation option and core default remains available and unchanged.
+
+The final suite passes **31,845/31,845** assertions (13 additional checks).
+The profile tests distinguish construction, wrapper/extraction and solver-only
+winners and reject missing/nonfinite/negative timing records. The tutorial
+adds an executable solver-timer example, bringing its total to 19 blocks.
+
+The original five-input screen is rerun with the same 12-profile shortlist,
+four measured sweeps and excluded warm-ups. **232/240 measured solves** and
+**58/60 warm-ups** pass. The same two unscaled passive profiles fail ENWL's
+physical KCL tolerance; all failures remain recorded. Among profiles admitted
+on every input, the sum of median Ipopt wall times selects
+`scaled_regional_passive` (0.520009 s versus full IVR's 1.128893 s). These are
+selection-set observations, not an independent speed estimate.
+
+Before inspecting validation results, freeze that common choice plus the
+predeclared full, scaled-passive and selected-regional-passive alternatives.
+Four held-out feeders use unchanged electrical data from DSuite SPD Rural (66),
+DSuite SPD Urban (1,220), ENWL network_2_Feeder_4 (241) and
+network_17_Feeder_6 (435). Hold-out refers to this selection panel, not all
+previous project experiments. Eight reversed/rotated sweeps balance candidate
+positions. **128/128 measured solves** and **16/16 excluded warm-ups** pass.
+The frozen common profile's sum of per-case median Ipopt times is 0.311300 s
+versus 0.403894 s full (22.9% lower), with lower medians on all four cases.
+The [performance guide](ivr_performance.md) gives individual medians, spread,
+competing winners and the aggregate weighting limitation.
+
+A separate dispatch extension uses 20-segment single-phase and delta services,
+constant-power loads at even buses, a bounded DER at the last bus and a priced
+source. DER prices 0.2/2.0 are compared with source price 1.0 currency/kWh;
+no colocated free source/generator ambiguity is introduced. All variants use
+a shared cost objective and solver-only objective scaling 1000. **128/128
+measured solves** and **16/16 warm-ups** pass physical/model gates and accepted
+objective comparison. Common/full median Ipopt ratios are 0.835/0.838 for the
+two single-phase cases and 0.367/1.569 for delta. Thus the expensive-DER delta
+case reverses the speedup despite identical derivative structures across prices:
+common/full iterations change from 10/18 to 17/11. No updated-model or global
+optimality claim is made.
+
+Four additional native timing diagnostics (full/common on DSuite 2,854 and
+ENWL 538), each after an excluded warm-up, all pass. Ipopt 3.14.19 with MUMPS
+5.9.0 attributes approximately 85–94% of native algorithm wall time to the
+primal-dual system solver in these individual observations. They are excluded
+from the rankings. Nested timing fields do not partition total cost, and a
+0.000 s numerical-factorization field is not proof that no numerical
+factorization occurred. Actual fill/memory attribution remains unresolved.
+
+The environment and strict solver/physical tolerances match the previous study;
+no tests, documentation builds or profiling overlap its timed experiments.
+The primary ranking requires complete, finite, nonnegative Ipopt timings and
+comparable accepted objectives. Missing historical timings withhold a winner.
+All source/input digests, scripts, raw failures, reports, native timing logs and
+the prospective protocol remain outside Git with the revised handover/roadmap.
+No element, control, tap, temporal or update coverage is added here. Next work
+should examine solver ordering/KKT structure and repeated-update behavior under
+explicit operating regimes; the strict 844-bus and source-import issues remain.
+
 ## Best-evidence profiles and selector preparation — 5 October 2026
 
 All transformation/reformulation options remain available, including alternatives

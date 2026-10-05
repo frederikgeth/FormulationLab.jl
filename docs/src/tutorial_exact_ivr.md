@@ -68,6 +68,20 @@ solver acceptance; `ALMOST_LOCALLY_SOLVED` does not. Unaccepted results publish
 empty candidate dictionaries and a `NaN` objective. Check status before using
 the candidate. A local solver status is not a global certificate.
 
+To read Ipopt's wall-clock solve time separately from model construction and
+result extraction:
+
+```@example exactivr
+ipopt_seconds = JuMP.solve_time(full.model)
+@assert isfinite(ipopt_seconds) && ipopt_seconds >= 0
+(ipopt_wall_seconds=ipopt_seconds,)
+```
+
+This is the solver-interface timer described in the
+[performance guide](ivr_performance.md), including solver-side setup. This
+single tutorial observation has no excluded warm-up and is not a comparative
+performance estimate. A proper ranking still requires repeated accepted solves.
+
 ## 3. Check the physics and the analytical answer
 
 ```@example exactivr
@@ -408,7 +422,10 @@ in [the contract reference](ivr_nlp.md) and [verification](verification.md).
 For an empirical choice among complete configurations, use the
 [profile-comparison procedure](ivr_performance.md). First specify whether the
 workload is a fresh model or a repeated-update sequence, then declare the common
-objective and candidate options. Rank only profiles whose warm-up and every
+objective and candidate options. Use the runner's `fastest_ipopt` ranking; model
+construction cost is excluded from this assessment. The older `fastest_solve`
+field includes result extraction and is a secondary diagnostic. Rank only
+profiles whose warm-up and every
 measured trial pass physical and model checks. Freeze the promising choices
 and confirm them with fresh runs. Keep unsuccessful and slower profiles in the
 study: a different grounding pattern, operating point or bound set can change

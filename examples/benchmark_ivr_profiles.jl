@@ -30,6 +30,8 @@ option_record(x)=(; (k=>getfield(x,k) for k in fieldnames(typeof(x)))...)
 # Separate admission from timing. A fast failed trial must never win; a profile
 # with missing/rejected repeats or warm-up is ineligible. Nonconvex objective
 # differences are not silently traded against runtime.
+valid_ipopt_time(t)=get(t,"ipopt_wall_s",nothing) isa Real && isfinite(t["ipopt_wall_s"]) && t["ipopt_wall_s"]>=0
+
 function rank_profiles(rows,repetitions;objective_atol=1e-6,objective_rtol=1e-8)
     eligible=[r for r in rows if r["warmup"]["accepted"] && length(r["trials"])==repetitions &&
               all(t->t["accepted"],r["trials"])]
@@ -37,11 +39,16 @@ function rank_profiles(rows,repetitions;objective_atol=1e-6,objective_rtol=1e-8)
     comparable=!isempty(values) && all(v->isapprox(v,minimum(values);atol=objective_atol,rtol=objective_rtol),values)
     ranking=[Dict("name"=>r["name"],"median_build_s"=>median(t["build_s"] for t in r["trials"]),
         "median_solve_s"=>median(t["solve_s"] for t in r["trials"]),
+        "median_ipopt_wall_s"=>(all(t->valid_ipopt_time(t),r["trials"]) ? median(t["ipopt_wall_s"] for t in r["trials"]) : nothing),
         "median_total_s"=>median(t["build_s"]+t["solve_s"] for t in r["trials"]),
         "median_build_bytes"=>median(t["build_bytes"] for t in r["trials"])) for r in eligible]
-    sort!(ranking;by=r->(r["median_total_s"],r["name"]))
+    timing_complete=!isempty(ranking) && all(r->r["median_ipopt_wall_s"]!==nothing,ranking)
+    # Missing historical solver timings cannot be inferred from solve+extraction.
+    sort!(ranking;by=r->(something(r["median_ipopt_wall_s"],Inf),r["name"]))
     Dict("eligible"=>ranking,"objective_comparable"=>comparable,
-         "fastest_total"=>(comparable ? first(ranking)["name"] : nothing),
+         "primary_metric"=>"ipopt_wall_s","ipopt_timing_complete"=>timing_complete,
+         "fastest_ipopt"=>(comparable && timing_complete ? first(ranking)["name"] : nothing),
+         "fastest_total"=>(comparable ? first(sort(ranking;by=r->(r["median_total_s"],r["name"])))["name"] : nothing),
          "fastest_solve"=>(comparable ? first(sort(ranking;by=r->(r["median_solve_s"],r["name"])))["name"] : nothing),
          "objective_atol"=>objective_atol,"objective_rtol"=>objective_rtol)
 end
@@ -58,6 +65,7 @@ function trial(net,profile,reference,anchor;solver_options=STRICT)
         accepted=p!==nothing && physical.passed && own.passed && full.passed && reverse!==false &&
             isfinite(r.objective) && isapprox(own.objective,full.objective;atol=1e-6,rtol=1e-8)
         row=Dict{String,Any}("build_s"=>t.time,"build_bytes"=>t.bytes,"build_gc_s"=>t.gctime,
+            "ipopt_wall_s"=>JuMP.solve_time(b.model),
             "solve_s"=>s.time,"solve_bytes"=>s.bytes,"solve_gc_s"=>s.gctime,"status"=>r.solve.termination_status,
             "accepted"=>accepted,"physical_passed"=>(p!==nothing&&physical.passed),
             "own_model_passed"=>(p!==nothing&&own.passed),"full_model_passed"=>(p!==nothing&&full.passed),
@@ -80,7 +88,8 @@ end
 
 """Measure explicit profiles; save raw trials and workload-specific rankings.
 
-Warm-ups are excluded. Four or more rotated/reversed sweeps are exploratory,
+Primary ranking uses `ipopt_wall_s`, obtained from `JuMP.solve_time`; model
+construction does not enter that ranking. Warm-ups are excluded. Four or more rotated/reversed sweeps are exploratory,
 not a fully position-balanced design. Confirm a chosen profile with fresh paired
 measurements. All electrical inputs/objectives are retained. The solve-only
 ranking excludes construction but does not measure updated-model reuse.
@@ -98,7 +107,9 @@ function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options
         "julia"=>string(VERSION),"jump"=>string(pkgversion(JuMP)),"ipopt"=>string(pkgversion(Ipopt)),
         "cpu"=>Sys.CPU_NAME,"blas_threads"=>BLAS.get_num_threads(),"julia_threads"=>Threads.nthreads(),
         "solver_options"=>solver_options,"runner_sha256"=>RUNNER_SHA,"orders"=>[],
-        "note"=>"Exploratory shortlist; no universal fastest claim. Build+solve/extraction and solve-only medians exclude audits and warm-ups. Rejected/error trials retained. Unchanged electrical data and explicit shared objective. A first accepted warm-up supplies the full-feasible anchor for reverse mapping. Confirm winners independently; rankings do not measure parameter-update reuse.")
+        "primary_metric"=>"ipopt_wall_s",
+        "timing_contract"=>"MOI.SolveTimeSec from Ipopt.jl: wall time of its optimizer call, including backend setup and native IpoptSolve; excludes FormulationLab build, JuMP cache transfer before the backend call, result extraction and physical/model audits. build_s and solve_s (wrapper plus extraction) are secondary diagnostics only.",
+        "note"=>"Exploratory shortlist; no universal fastest claim. Primary ranking uses Ipopt wall time; build and solve/extraction timings are retained as secondary diagnostics. All timings exclude audits and warm-ups. Rejected/error trials retained. Unchanged electrical data and explicit shared objective. A first accepted warm-up supplies the full-feasible anchor for reverse mapping. Confirm winners independently; rankings do not measure parameter-update reuse.")
     save()=open(io->JSON3.write(io,report),output,"w")
     anchor=nothing
     for (j,p) in enumerate(candidates)
