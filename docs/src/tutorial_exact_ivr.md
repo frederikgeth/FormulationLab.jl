@@ -460,3 +460,42 @@ This checks the result, not a speed claim from one small solve. The
 shared tolerances and starts. Its separate verbose diagnostics distinguish the
 requested ordering from the one actually selected by the installed solver.
 All formulation and solver alternatives remain available for future evidence.
+
+
+## 17. Carry a previous primal point explicitly
+
+Updating a model does not automatically select its previous solution as the
+next start. Save variable values before modifying the model, then set the start
+attributes explicitly. This example changes demand while preserving the
+coordinate layout and uses normal Ipopt dual initialization:
+
+```@example exactivr
+repeated = build_opf(T.two_wire_case(),
+    IVRNLP(objective=:source_import, specialization=:conductor_difference);
+    optimizer=Ipopt.Optimizer)
+reuse_settings = merge(T.SOLVER_OPTIONS,
+    (linear_solver="mumps", mumps_pivot_order=0, warm_start_init_point="no"))
+initial_result = solve_ivr_nlp_opf(repeated; solver_options=reuse_settings)
+T.check_result(repeated, initial_result)
+variables_before = JuMP.all_variables(repeated.model)
+previous_primal = JuMP.value.(variables_before)
+# Independent input for the post-update physical and fresh-model checks.
+changed_input = T.two_wire_case()
+changed_input["load"]["house"]["p_nom"] = [1800.]
+update_ivr_loads!(repeated, Dict("house" => (p=[1800.], q=[0.])))
+@assert JuMP.all_variables(repeated.model) == variables_before
+JuMP.set_start_value.(variables_before, previous_primal)
+next_result = solve_ivr_nlp_opf(repeated; solver_options=reuse_settings)
+T.check_result(repeated, next_result)
+@assert physical_residuals(changed_input, next_result).passed
+fresh_reference = build_opf(changed_input, IVRNLP(objective=:source_import))
+@assert ivr_nlp_point_report(fresh_reference, T.point(next_result)).passed
+(source_import_W=next_result.objective,
+ ipopt_wall_seconds=JuMP.solve_time(repeated.model))
+```
+
+This is a correctness example, not a timing comparison. No dual multipliers are
+carried, and the model update does not establish native factorization reuse.
+For a controlled comparison with fixed starts and freshly built models, use the
+[complete-sequence study](ivr_performance.md). A changed active bound or price
+can make a previous point less useful; retaining both start policies is essential.

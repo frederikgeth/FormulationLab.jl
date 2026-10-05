@@ -49,6 +49,13 @@ does not replace an economic objective. All transformations and ordering
 alternatives remain available. This recommendation concerns solver wall time;
 construction cost does not enter it.
 
+For the longer manufactured dispatch sequences studied below, explicitly
+carrying the previous primal point improves the median sequence time. Keep
+fixed starts and full IVR with AMD as comparators: the small single-phase case
+regresses, and delta formulation differences can be small. See
+[model reuse and initialization](@ref Model-reuse-and-previous-primal-initialization)
+for the separate factors and measured domain.
+
 ### Selection and transfer evidence
 
 A prospective screen crosses three formulations (full, scaled regional passive,
@@ -425,6 +432,133 @@ Use the **same candidate list/objective** when looking up the chosen name, and
 retain the reported input digest, solver settings and software versions with
 any recommendation. Rerun the study when the workload or inputs change.
 
+## Model reuse and previous-primal initialization
+
+Model reuse and initialization are separate experimental factors. The runner
+`examples/benchmark_ivr_reuse.jl` crosses fresh/reused models with fixed starts
+and explicit previous-primal starts, for full and regional/passive IVR. Every
+sequence begins from the formulation's unloaded start. Later solves either
+reset that same start or receive all primal variable values from the preceding
+accepted solve in that sequence. Starts never cross repetitions.
+
+This is **primal-only initialization**: `warm_start_init_point="no"` and no dual
+starts are supplied. The installed Ipopt.jl wrapper reads variable start
+attributes on every solve; retaining a JuMP model alone does not request the
+previous solution as its next initial point. Ipopt's
+[primal-dual warm-start option](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_warm_start_init_point)
+is a different treatment, left for a separate experiment. Nor does JuMP model
+reuse establish reuse of the native solver's factorization.
+
+For workflow ``w``, repetition ``r`` and ordered scenario ``k``, the score is
+
+```math
+T_w = \operatorname{median}_r \left(\sum_{k=1}^{K}
+ t^{\mathrm{Ipopt}}_{w,r,k}\right).
+```
+
+It is the median **complete-sequence sum**, not a sum of scenario medians.
+Construction, updates, start assignment, extraction and audits are excluded.
+Rank only workflows with an admitted warm-up and every complete requested
+repetition. Objectives must agree across workflows **within each scenario**;
+price or demand changes can legitimately change the objective between scenarios.
+
+Each reused solve is checked against independently edited input dictionaries,
+a fresh full model and a fresh model of the same formulation, in addition to
+physical and own-model checks. Reverse mapping uses a separate full-feasible
+anchor for each scenario. The report preserves variable identity checks,
+start/solution digests, effective solver settings, update counts, failures and
+partial sequences. A failed sequence is ineligible and is not repaired.
+
+A reproducible invocation uses absolute updates with cumulative semantics:
+
+```julia
+include("examples/benchmark_ivr_reuse.jl")
+schedule = [
+    (label="base", loads=Dict{String,Any}(), generators=Dict{String,Any}()),
+    (label="lower demand",
+     loads=Dict(id => (p=0.8d["p_nom"], q=0.8d["q_nom"])
+                for (id,d) in net["load"]), generators=Dict{String,Any}()),
+]
+report = IVRReuseStudy.benchmark(net, schedule, "reuse.json";
+    repetitions=4, solver_options=IVRReuseStudy.SETTINGS)
+report["ranking"]["fastest_ipopt"]
+```
+
+Here `net` must satisfy the supported constant-power update contract. Configure
+the intended objective and any objective scaling identically for all candidates.
+Four reversed/rotated sweeps over eight workflows are exploratory, not fully
+position-balanced; independently confirm a promising choice. With this runner's
+rotation rule, **16 sweeps** place every one of eight workflows in each position
+twice; eight sweeps do not. Audit the actual order table rather than inferring
+balance from the number of repetitions. Numerical
+objective agreement is not a certificate of global optimality.
+
+### Measured sequence evidence — 5 October 2026
+
+The prospective screen uses manufactured two-wire single-phase and three-wire
+delta chains, each with 20 and 100 segments. Removing odd-position loads leaves
+passive intermediate buses while retaining every operating bound. The base
+active demand is 1,000 W (single-phase) or 1,500 W (delta). A terminal DER has
+active capacity 600 W or [500, 150, 50] W respectively, with reactive power fixed
+to zero. The six scenarios are: cheap DER, identical repeat, expensive DER,
+expensive DER at 80% demand, cheap DER with zero availability at original demand,
+and restored cheap availability. DER prices are 0.2 or 2 against grid price 1.
+
+All candidates use strict controls, AMD, `obj_scaling_factor=1000` and normal
+dual initialization. Julia 1.12.6, JuMP 1.31.2 and Ipopt.jl 1.16.0 run on an
+Apple M4 with one Julia and BLAS thread. The frozen source, scenario digests,
+settings and individual measurements accompany the raw evidence.
+
+The four-case screen admits **768/768 measured solves** and **192/192 excluded
+warm-ups**. A fresh eight-sweep replication on the two longer cases admits
+another **768/768** and 96 warm-ups. Its order audit identifies that the intended
+position balance was not achieved; those data remain a separate preliminary
+replication. A new, prospectively corrected **16-sweep confirmation** admits
+**1,536/1,536 measured solves** and 96 warm-ups, with each workflow in each
+position exactly twice. The following table uses only that final batch.
+
+| 100-segment case / formulation | Fresh, fixed (ms) | Reused, fixed (ms) | Fresh, previous primal (ms) | Reused, previous primal (ms) | Previous/fixed, reused |
+|:--|--:|--:|--:|--:|--:|
+| Single-phase / full | 100.077 | 99.455 | 70.840 | 70.663 | 0.711 |
+| Single-phase / regional passive | 60.995 | 60.882 | 50.130 | 49.994 | 0.821 |
+| Delta / full | 127.908 | 127.109 | 118.243 | 117.787 | 0.927 |
+| Delta / regional passive | 136.881 | 137.236 | 115.643 | 115.417 | 0.841 |
+
+Times are median complete-sequence sums; ratios are ratios of those medians.
+All measured scenarios pass objective agreement, independent physics, fresh-model and
+reverse-anchor checks. Start digests and per-scenario iteration counts agree
+between fresh and reused treatments with the same representation/start policy.
+Within each such matched comparison, reuse/fresh median ratios range from
+0.994 to 1.003. This establishes no material median Ipopt benefit from model
+reuse alone on this panel; construction savings are deliberately excluded.
+Individual paired ratios span 0.285–1.143 because timing outliers are retained.
+No statistical-significance or every-run speedup claim is made.
+
+Previous-primal initialization has the larger effect on the longer feeders.
+Regional/passive sequence time falls about 18% (single-phase) and 16% (delta);
+its reused paired previous/fixed ratios range 0.798–0.846 and 0.838–0.870.
+However, the small single-phase screen regresses by about 4% in regional/reused
+mode. Price reversal and restored availability require ten iterations from the
+previous primal versus eight from the unloaded start. The longer single-phase
+case also has a regression within its sequence: lower demand takes 17 rather
+than 14 regional iterations, despite a lower total sequence time.
+
+For these longer dispatch sequences, regional/passive IVR with AMD and explicit
+previous-primal initialization is the best measured starting choice. Full IVR
+with AMD remains a strong comparator, especially for delta: its previous-primal
+median is only about 2% higher. Do not automatically carry primal values for
+all workloads, infer benefits from compilation savings, or remove fixed starts
+and alternative formulations. These are new timing measurements on selected
+existing manufactured inputs, not transfer evidence on unseen feeders or a
+primal-dual warm-start result. Larger real feeder update sequences and explicit
+dual initialization remain unmeasured here.
+
+The untracked evidence bundle retains `REUSE_PROTOCOL.md`, all three batches,
+`REUSE_SOURCE`, `REUSE_HASHES.txt`, `REUSE_ANALYZE.py` and `REUSE_SUMMARY.json`.
+The independent audit checks actual order counts, frozen-source/input hashes,
+start digests, model identity, iteration agreement, completeness and timing
+aggregation. The preliminary design mistake and all timing outliers are retained.
+
 ## Why the structural selector is still optional
 
 The bound-support rule can avoid growth in some operating-bound expressions,
@@ -449,9 +583,11 @@ not establish physical accuracy. Full IVR remains the physical reference, and
 all alternative coordinates remain experimental choices supported by explicit
 contracts and tests.
 
-A best-evidence recommendation must name its measured domain. The current
-portfolio uses selected feeder inputs and synthetic cases with an explicit
-feasibility objective. It cannot by itself establish the fastest formulation
-for general dispatch, different optimizers, nonlinear-load mixtures, untested
-transformers or repeated-update workloads. Broader mixed-port certificates and
-factorization-aware selection remain separate priorities.
+A best-evidence recommendation must name its measured domain. The initial
+feeder portfolio uses selected inputs with an explicit feasibility objective;
+the subsequent dispatch studies use cost objectives. This cannot establish the
+fastest formulation for general dispatch, different optimizers, nonlinear-load
+mixtures or untested transformers. The repeated-update evidence here covers manufactured
+single-phase and delta dispatch sequences, not arbitrary operating histories.
+Broader mixed-port certificates and factorization-aware selection remain
+separate priorities.

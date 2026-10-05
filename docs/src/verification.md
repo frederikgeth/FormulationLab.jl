@@ -1,5 +1,48 @@
 # Verification
 
+## Model reuse and explicit previous-primal starts — 5 October 2026
+
+The new `examples/benchmark_ivr_reuse.jl` runner crosses full/regional-passive
+formulations, fresh/reused models and fixed/previous-primal starts. It holds
+AMD and normal dual initialization fixed and ranks the median complete-sequence
+sum of Ipopt wall seconds. Compilation, updates, extraction and audits are
+excluded. Independent cumulative input edits and fresh same-formulation/full
+models check parameter updates. Start digests, coordinate layout and reused
+variable identity are checked explicitly. No core equation, bound, formulation
+option or production default changes.
+
+The full suite passes **31,995/31,995** assertions, including 121 new checks of
+scenario-specific objective comparison, incomplete/failed-workflow exclusion,
+independent input updates, fixed-zero and restored generator availability,
+explicit start propagation, reused variable identity and physical/fresh-model
+admission. The tutorial adds an executable previous-primal example.
+
+A prospective four-case single-phase/delta screen gives **768/768 admitted
+measured solves** plus 192 excluded warm-ups. An eight-sweep replication on the
+two 100-segment cases gives another **768/768** plus 96 warm-ups. Its independent
+order audit finds that eight reversed/rotated sweeps do not balance eight
+workflow positions. Preserve that batch, document the protocol correction and
+run a fresh 16-sweep confirmation: **1,536/1,536 admitted measured solves** plus
+96 warm-ups, each workflow in each position twice. No failing solve is repaired;
+all three timing batches and the design correction remain in the evidence.
+
+In the final balanced batch, matched reuse/fresh median ratios range
+**0.994–1.003**. Starts and iteration counts match for the same representation
+and start policy. Previous-primal starts reduce regional/passive reused sequence
+medians from **60.882 to 49.994 ms** for single-phase and **137.236 to 115.417 ms**
+for delta. Fixed starts still matter: the small single-phase screen regresses
+about 4% with previous-primal initialization, and individual scenarios can
+regress even when the complete sequence improves. No primal-dual warm-start,
+global-optimality, native-factorization-reuse or universal-speedup claim follows.
+
+The [performance guide](ivr_performance.md) gives the complete protocol,
+comparison table, paired ranges, numerical environment and measured scope.
+`REUSE_PROTOCOL.md`, the three raw batches, frozen sources, digests and the
+independent `REUSE_ANALYZE.py` audit remain outside Git. All 3,072 measured solves
+and 384 excluded warm-ups pass; these are manufactured dispatch sequences,
+not new coverage of real feeder updates, equipment models or transformations.
+
+
 ## Formulation–ordering interaction and factor-storage diagnostics — 5 October 2026
 
 The empirical runner now accepts explicit per-candidate solver settings and

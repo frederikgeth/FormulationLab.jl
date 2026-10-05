@@ -673,6 +673,15 @@ and objective checks are outside the workflow timer. Failed batches stop early
 and must not be compared as completed timing runs. The `--source-zero-power`
 flag changes supply accounting as described above; it is never applied implicitly.
 
+A separate `examples/benchmark_ivr_reuse.jl` study now crosses fresh/reused
+models with explicitly reset or previous-primal starts, with AMD fixed. It ranks
+complete sequences by Ipopt wall time, excluding model construction and update
+costs. Demand, generator prices and active availability vary within the sequence;
+each updated state is audited against independently edited scenario data and
+fresh models. This adds an experimental start policy, not an automatic update-API
+behavior or a primal-dual warm-start contract. See the
+[performance guide](ivr_performance.md) for the protocol and measured domain.
+
 The ablation compares full/reduced and fresh/reused construction at mapped
 physical starts. It reports failures and physical checks as well as timings.
 It does not establish performance on arbitrary networks. Transformation through mixed conductor-count

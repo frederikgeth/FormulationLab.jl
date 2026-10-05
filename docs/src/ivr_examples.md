@@ -228,13 +228,40 @@ service and separately demonstrates acceptance with a zero-impedance segment.
 The rule predicts local expression support only: actual Hessian sparsity,
 construction cost and runtime still require measurement.
 
+## Why the previous dispatch can be a poor start
+
+Consider a feeder with a controllable generator at its far end. A cheap local
+generator initially operates near its upper active-power bound. Raising its
+price above the grid price changes the economic optimum; removing availability
+can fix active power to zero. Restoring availability then releases that bound.
+The preceding solution is physically informative, but the new economic optimum
+can lie near a different set of active constraints.
+
+The [reuse experiment](ivr_performance.md) therefore crosses two independent
+choices: retain or rebuild the model, and reset the unloaded start or explicitly
+carry forward the preceding primal values. The six-step sequence includes an
+identical repeated scenario, a price reversal, a demand change, zero availability
+and restoration. Both single-phase and delta feeders are covered. It measures
+the sum of Ipopt wall seconds over the complete sequence; compilation savings
+do not enter the comparison.
+
+The small single-phase screen is a useful counterexample to automatic primal
+carryover: changing price and restoring availability take ten iterations from
+the previous point, compared with eight from the unloaded start. On its longer
+counterpart, carryover saves iterations in other scenarios and improves the
+complete-sequence time. This motivates retaining both policies and assessing
+the intended sequence rather than extrapolating from a repeated identical solve.
+The tutorial shows how to [set primal starts explicitly](tutorial_exact_ivr.md).
+
 ## Interpreting benefit and evidence
 
 There are three distinct potential benefits: a native exact reference for
 approximation studies, less repeated construction work, and fewer coordinates
 under a proved specialization. Feasibility tests address correctness; matched
-fresh/reused timing experiments address construction savings; matched full/reduced
-experiments address numerical effects. Smaller models need not solve faster,
+fresh/reused experiments separate construction reuse from solver effects; matched
+full/reduced experiments address representation effects. Explicit start policies
+are necessary in both comparisons. The current primary metric is Ipopt wall time,
+with construction excluded. Smaller models need not solve faster,
 and local solvers need not find the same stationary point on every network.
 Compare objectives only after assessing the same physical problem and accepting
 both states. Preserve failures and changed-input provenance in any benchmark.
