@@ -1662,3 +1662,38 @@ case is a control for winding ratios; other non-unit neutral-voltage matches can
 still occur. For a complete timing panel, use `NonunitDemo.benchmark(input_path,
 output_path; workload=:exchange_tracking, exchange_target_W=target_W,
 nlp_scaling_method="gradient-based")` with a distinct output path for each cell.
+
+## 46. Price IBR filter losses and retain physical exports
+
+Create a declared mixed scenario on a small single-phase network. The factory
+preserves its original loads and adds separately recorded voltage-dependent
+loads, generators and filtered IBRs. A cost term on `:ibr_internal` prices filter
+losses; tracking terms instead use `:ibr` PCC power. The original external
+benchmark runner retains its generator-only guard.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_mixed_devices.jl"))
+MixedDemo = IVRMixedDeviceStudy
+mixed_original = MixedDemo.P.ivr_compiler_case(conductors=2,segments=4)
+mixed_network, mixed_additions = MixedDemo.scenario(mixed_original; mixed=true)
+@assert length(mixed_network["ibr"])==2
+@assert all(mixed_network["load"][id]==d for (id,d) in mixed_original["load"])
+mixed_profiles = MixedDemo.profiles(mixed_network,:quadratic_cost)
+mixed_reference = build_opf(mixed_network,IVRNLP(first(mixed_profiles).options))
+mixed_anchor = Ref{Any}(nothing)
+mixed_rows = map(mixed_profiles) do profile
+    row,point = MixedDemo.P.trial(mixed_network,profile,mixed_reference,mixed_anchor[];
+        initial_point=MixedDemo.E.S.U.G.H.S.L.start_point(mixed_network))
+    @assert row["accepted"]
+    mixed_anchor[]===nothing && (mixed_anchor[]=point)
+    (profile=profile.name,variables=row["variables"],objective=row["objective"])
+end
+mixed_rows
+```
+
+The scenario manifest contains exact before/after records for reproducibility.
+The [rural transfer study](ivr_mixed_devices.md) keeps separate constant-power
+and mixed-device scenarios, both solver scaling policies, full/reduced controls,
+and two complete timing batches. The ordinary `result_dict` and `write_result`
+APIs are unchanged: BMOPFTools fields remain top-level, and additional recoverable
+IBR internals are in `_formulationlab.devices.ibr[id]`.

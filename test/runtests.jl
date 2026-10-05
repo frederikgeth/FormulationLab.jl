@@ -29,6 +29,7 @@ using OpenDSSDirect
     include("ivr_affine_sharing_tests.jl")
     include("ivr_structural_interaction_tests.jl")
     include("ivr_nonunit_transformer_tests.jl")
+    include("ivr_mixed_device_tests.jl")
     include("ivr_observation_study_tests.jl")
     include("ivr_chain_study_tests.jl")
     include("ivr_lifting_study_tests.jl")

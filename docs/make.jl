@@ -36,7 +36,9 @@ makedocs(;
             "Signed/proportional affine sharing"=>"ivr_affine_sharing.md",
             "Structural interactions"=>"ivr_structural_interactions.md",
             "Physical non-unit transformer sharing"=>"ivr_nonunit_transformers.md",
+            "Mixed-device rural transfer"=>"ivr_mixed_devices.md",
             "Best-evidence numerical profiles"=>"ivr_performance.md",
+            "Earlier timing and initialization studies"=>"ivr_performance_history.md",
         ],
         "Explicit-neutral LinIVR"=>"linivr.md",
         "LinDist3Flow"=>["Formulation and usage"=>"lindist3flow.md",
@@ -52,6 +54,7 @@ makedocs(;
             "Clarabel solve-time study and plan"=>"soc_performance_plan.md",
             "SDP solve-time study"=>"sdp_performance.md",
             "Verification"=>"verification.md",
+            "Verification history"=>"verification_history.md",
             "AC containment audit"=>"ac_validation.md",
         ],
         "Reference"=>[
