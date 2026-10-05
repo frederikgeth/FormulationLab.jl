@@ -29,6 +29,89 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+## Nominal transformer-local scaling — 5 October 2026
+
+`transformer_scaling=:nominal` composes local voltage/current units with the
+existing reconstruction maps; the common power base remains 10 kVA.
+`row_scaling=:composed` independently normalizes circuit rows after composition.
+All bounds, objectives, source fixings and physical outputs retain their original
+meaning. Both are additive options with unchanged defaults. The
+[theory](ivr_theory.md), [contract](ivr_nlp.md) and
+[tutorial](tutorial_exact_ivr.md) describe scope and conservative fallback.
+
+The first timing panel isolates these interventions in **full IVR**, with no
+conductor/line/device elimination or lifting. Four arms cross global/local
+coordinates with legacy/composed row norms. They share voltage ground scaling,
+MUMPS AMD, a 10 kVA power base, the same unloaded physical start and strict 1e-10
+solver tolerances. Ipopt `nlp_scaling_method` is explicitly fixed to `none` or
+`gradient-based` in separate experimental blocks. All inputs and feasibility
+objectives are unchanged; this is not an economic-dispatch comparison.
+
+DSuite265 has one 11 kV/415 V transformer; DSuite1220 has four. Within each
+case/policy block, one excluded warm-up per arm precedes eight rotated/reversed
+sweeps, giving two appearances in every position. No tests, documentation builds
+or other experiments run concurrently. Compilation, start encoding, extraction,
+auditing and source normalization are excluded from the assessment. All
+**128 measured solves and 16 warm-ups** pass independent SI, own/full-model,
+reverse-anchor, complete-start and objective admission checks.
+
+Exploratory medians in **milliseconds of Ipopt wall time**:
+
+| Case | Ipopt scaling | Global / legacy rows | Global / composed rows | Local / legacy rows | Local / composed rows |
+|:--|:--|--:|--:|--:|--:|
+| DSuite 265 | none | 13.885 | 13.904 | 14.074 | 13.961 |
+| DSuite 265 | gradient-based | 13.866 | 13.867 | 13.808 | 13.785 |
+| DSuite 1,220 | none | 61.151 | 60.659 | 61.240 | 61.762 |
+| DSuite 1,220 | gradient-based | 62.857 | 61.931 | 61.270 | 62.034 |
+
+The predeclared fresh-process confirmation repeats DSuite1220 under both solver
+policies regardless of exploratory ranking. All **64 measured solves and eight
+warm-ups** pass; batches remain separate:
+
+| Case | Ipopt scaling | Global / legacy rows | Global / composed rows | Local / legacy rows | Local / composed rows |
+|:--|:--|--:|--:|--:|--:|
+| DSuite 1,220 | none | 60.891 | 61.638 | 61.040 | 60.540 |
+| DSuite 1,220 | gradient-based | 61.307 | 61.808 | 61.594 | 60.795 |
+
+The confirmation establishes correctness on these inputs, not a practical speed
+advantage. Combined local/composed scaling improves the larger-feeder median by
+only 0.6% with solver scaling off and 0.8% with gradient-based scaling. All arms
+in both batches take **three iterations**. Global/composed rows differ from the
+global/legacy median by 1.2% and 0.8% in confirmation despite unchanged coordinates:
+with full identity coordinates and no finite-ground intervention, recomputing row
+norms is mathematically the same normalization. Such controls caution against
+interpreting sub-percent timings as a scaling mechanism. Local coordinates alone
+have mixed signs between blocks/batches; no default or automatic selection changes.
+
+No slow observations were discarded. Exploratory paired local-legacy/global-legacy
+ratios reach 10.782 on DSuite265 with gradient-based scaling; local/composed ratios
+reach 3.718 on DSuite1220 with solver scaling off. In confirmation, paired combined/
+baseline ratios span 0.946–1.016 (`none`) and 0.948–1.010 (`gradient-based`); even
+these do not support an every-run improvement claim. A global/composed control
+also has a confirmed paired ratio of 3.363. Iteration counts do not explain these
+outliers, and this experiment does not assign them a cause.
+
+The pass actually rescales 1,700 complex coordinates on DSuite265 and 7,642 on
+DSuite1220, without changing model dimensions. There are no nominal-cycle/source
+fallbacks or unsupported transformers on these inputs. Bus bases propagate the
+source magnitude through declared nominal ratios, so the LV base tracks the actual
+source-level anchor rather than replacing it with a nominal source voltage.
+This confirms that the experiment exercised local units rather than a no-op flag.
+It does not establish improved condition numbers or KKT factorization fill.
+
+Keep the new policies available for harder mixed-voltage operating points,
+active-limit objectives and reduction interactions. Next test a declared regional
+power-base policy and component-aware NLPDiagnostics evidence, preserving the
+existing physical tolerance gates and keeping instrumented traces outside timing
+rankings. Three-iteration feasibility cases leave little convergence work for
+scaling to improve; they neither demonstrate nor rule out benefits on harder cases.
+
+Reproduce with `examples/benchmark_ivr_transformer_scaling.jl`. The untracked
+`TRANSFORMER_SCALING_STUDY_20261005` archive contains the frozen protocol/source,
+unchanged input snapshots, raw JSON, all outliers, independent analysis and separate
+confirmation. The new implementation was validated by 66,298 regression assertions
+and 30 executable tutorial blocks before timings began.
+
 ## Scaling conventions and transformer priority — 5 October 2026
 
 All exact-IVR electrical coordinates are per unit: `Sb=s_base`, `Vb` is the

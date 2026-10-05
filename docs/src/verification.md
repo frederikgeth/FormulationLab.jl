@@ -1,5 +1,37 @@
 # Verification
 
+## Transformer-local coordinates and row scaling — 5 October 2026
+
+The full suite passes **66,298/66,298 assertions**, adding 2,335 checks.
+Independent SI witnesses cover single-phase, center-tap, delta-wye and wye-delta
+transformers under reverse flow, two power bases, both row policies, lifting and
+transformer-current elimination. Projection/reconstruction, physical objectives,
+original both-side current bounds and supplied-point encoding agree. Separate
+1:1, 10:1 and approximately 26.5:1 cases check actual solves, active capability
+limits, voltage-limit violations, JSON voltage values/round trips and reuse after
+load/generator updates.
+
+Composition tests include actual charged-chain elimination, finite-ground
+coordinates, conductor regions, lifted observations and transformer-current
+substitution. Independent sources behind an open switch verify that rescaled
+source fixing uses the inverse map. Inconsistent cycles/source magnitudes, absent
+source seeds, mixed projection bases, unsupported multiwinding propagation and
+overflow exercise conservative fallback/refusal. Fixed regulators use the same
+nominal voltage level on both sides. Default options preserve the previous model.
+The balanced experiment harness checks explicit none/gradient-based Ipopt scaling
+blocks independently of the model variable/row policies.
+
+An initial wye-delta fixture encoded roundoff-sized neutral currents as tiny
+ratings, failing model checks even with scaling off. As in the earlier device
+elimination tests, only manufactured current ratings are floored at 1e-6 A;
+physical external inputs and solver tolerances are unchanged. Failed fixture
+logs and the baseline reproduction are retained outside Git.
+
+All **30 executable tutorial blocks** pass. Timing runs follow regression and
+documentation checks and exclude compilation, extraction and audit costs.
+The [performance guide](ivr_performance.md) separates measured benefits from
+coordinate equivalence and no-op controls.
+
 ## Observation support and exact affine sharing — 5 October 2026
 
 The full suite passes **63,963/63,963 assertions**, adding 2,742 checks.
