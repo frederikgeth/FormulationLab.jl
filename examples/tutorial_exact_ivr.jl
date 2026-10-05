@@ -39,8 +39,8 @@ function check_result(build, result)
     (; physical, encoded)
 end
 
-function solve_checked(network; specialization=:off, objective=:source_import)
-    build = build_opf(network, IVRNLP(; specialization, objective); optimizer=Ipopt.Optimizer)
+function solve_checked(network; specialization=:off, objective=:source_import,linear_elimination=:off)
+    build = build_opf(network, IVRNLP(; specialization, objective,linear_elimination); optimizer=Ipopt.Optimizer)
     result = solve_ivr_nlp_opf(build; solver_options=SOLVER_OPTIONS)
     checks = check_result(build, result)
     (; build, result, checks)
@@ -226,6 +226,46 @@ function region_example()
     (;net,full,regional,report)
 end
 
+"""Substitute a load current using its exact impedance law."""
+function impedance_elimination_example()
+    net=two_wire_case();d=net["load"]["house"]
+    d["model"]="constant_impedance";d["v_nom"]=[230.]
+    full=solve_checked(net)
+    reduced=solve_checked(net;linear_elimination=:impedance_loads)
+    y=2000/230^2;u=230/(1+.5y);current=y*u
+    @assert isapprox(only(reduced.result.current_candidate[(:load,"house")]),current;atol=1e-7)
+    @assert ivr_nlp_point_report(full.build,point(reduced.result)).passed
+    @assert ivr_nlp_point_report(reduced.build,point(full.result)).passed
+    nf,nr=num_variables(full.build.model),num_variables(reduced.build.model)
+    @assert nf-nr==2
+    @printf("Impedance load: %.6f V, %.6f A; variables %d -> %d\n",u,current,nf,nr)
+    (;net,full,reduced)
+end
+
+"""Eliminate an unloaded intermediate bus while retaining its voltage limit."""
+function series_elimination_example()
+    net=two_wire_case();net["bus"]["mid"]=Dict("terminal_names"=>["a","n"],"vn_max"=>[30.])
+    original=pop!(net["line"],"service")
+    for id in ("first","second")
+        l=deepcopy(original);l["R_series_1_1"]*=.5;l["R_series_2_2"]*=.5
+        l[id=="first" ? "bus_to" : "bus_from"]="mid";net["line"][id]=l
+    end
+    full=solve_checked(net)
+    reduced=solve_checked(net;linear_elimination=:passive,specialization=:conductor_difference)
+    @assert reduced.build.numerical_diagnostics[:linear_elimination_report].series_buses==["mid"]
+    @assert ivr_nlp_point_report(full.build,point(reduced.result)).passed
+    @assert ivr_nlp_point_report(reduced.build,point(full.result)).passed
+    @assert isapprox(full.result.objective,reduced.result.objective;atol=1e-5)
+    neutral=abs(reduced.result.voltage_candidate[("mid","n")])
+    tight=deepcopy(net);tight["bus"]["mid"]["vn_max"]=[neutral/2]
+    b=build_opf(tight,IVRNLP(linear_elimination=:passive,specialization=:conductor_difference))
+    @assert !ivr_nlp_point_report(b,point(reduced.result)).passed
+    @assert !physical_residuals(tight,reduced.result).passed
+    @printf("Reconstructed mid-neutral: %.6f V; variables %d -> %d\n",neutral,num_variables(full.build.model),num_variables(reduced.build.model))
+    println("The tightened mid-bus neutral bound rejects the unchanged physical state.")
+    (;net,full,reduced)
+end
+
 function refusal_examples()
     baseline = analytical_example()
     tight = deepcopy(baseline.net)
@@ -256,6 +296,8 @@ function run_all()
     regulator_example()
     load_law_example()
     region_example()
+    impedance_elimination_example()
+    series_elimination_example()
     refusal_examples()
     println("All tutorial checks passed.")
 end

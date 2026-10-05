@@ -53,6 +53,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
     devices = []
     limits = []
     lnc_lines = []
+    impedance_loads = []
     # Decode shared physical linecodes once per arity within this assembly.
     # Length and per-unit scaling are applied separately to every branch.
     line_matrices_cache = Dict{Tuple{String,Int},NTuple{3,Matrix{ComplexF64}}}()
@@ -83,6 +84,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         Z=physical[1]*len/zb;Yf=physical[2]*len*zb;Yt=physical[3]*len*zb
         current=[_sdp_e(newvar()) for _ in 1:n]
         drop=matrows(Z,current)
+        equation_indices=collect(length(equations)+1:length(equations)+n)
         for k in 1:n
             push!(equations,_sdp_add!(_sdp_add!(copy(vf[k]),vt[k],-1),drop[k],-1))
         end
@@ -99,7 +101,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
             push!(limits,(vt[phases],ct[phases],Dict("s_max"=>ratings["s_max"])))
         end
         line_records && push!(lnc_lines,(;id,from=l["bus_from"],to=l["bus_to"],tmf,tmt,vf,vt,
-            Z=Z*zb,Yf=Yf/zb,Yt=Yt/zb,ratings,current))
+            Z=Z*zb,Yf=Yf/zb,Yt=Yt/zb,ratings,current,equation_indices))
         # Exactly zero shunts are passive without an eigendecomposition. Keep
         # the existing scaled-matrix numerical test for every nonzero matrix.
         passive=all(M->iszero(M) || minimum(eigvals(Hermitian((M+M')/2));init=0.0)>=0,(Z,Yf,Yt))
@@ -163,10 +165,12 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
             p=values_for(d,"p_nom",n);q=values_for(d,"q_nom",n);vn=values_for(d,"v_nom",n)
             vn===nothing && _sdp_refuse("load/$id requires v_nom")
             all(>(0),vn) || _sdp_refuse("load/$id requires positive v_nom")
+            first_equation=length(equations)+1
             for k in 1:n
                 y=conj(complex(p[k],q[k]))/vn[k]^2*zb
                 push!(equations,_sdp_add!(copy(ic[k]),vc[k],-y))
             end
+            push!(impedance_loads,(;id,current=ic,equation_indices=collect(first_equation:length(equations))))
         end
         # Preserve the existing SDP conductor-power convention by default.
         # LinIVR selects coil powers, matching BMOPFTools' delta dispatch.
@@ -240,7 +244,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         end
         push!(devices,(:voltage_source,source_id,rows,is,powerdata));push!(limits,(rows,is,Dict(k=>d[k] for k in ("i_max",) if haskey(d,k))))
     end
-    (; voltage, equations, kcl, devices, limits, lnc_lines, terminal_rows,
+    (; voltage, equations, kcl, devices, limits, lnc_lines, impedance_loads, terminal_rows,
        values_for, coordinate_count, newvar, fixed_source_coordinates, neutral_map,
        vs, anchor_k, anchor, source_v, vb, sb, ib, zb)
 end

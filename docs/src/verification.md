@@ -1,5 +1,92 @@
 # Verification
 
+## Local impedance and degree-two elimination — 5 October 2026
+
+Two independent opt-in settings are implemented: `linear_elimination=:impedance_loads`
+substitutes exact impedance-load coil currents, and `:passive` additionally
+eliminates eligible nonadjacent device-free degree-two buses between unshunted
+lines. Both compose with conductor specialization and retain the complete
+physical circuit/observation records. Only defining solver equalities and
+coordinates are removed; all original operating bounds use reconstruction.
+Defaults remain off. See the [contract](ivr_nlp.md#Local-linear-elimination),
+[proof](ivr_theory.md) and two new [tutorial examples](tutorial_exact_ivr.md).
+
+The default Julia 1.12.6 suite passes **30,185/30,185** assertions (1m57.2s),
+including **1,330 new checks**. They cover one- through four-conductor impedance
+loads, pure-Z ZIP/exponent-two laws, zero and signed demand, all conductor modes,
+reverse line orientation, terminal permutations, meshes, unequal lengths, zero
+impedance, mixed CP/generator reuse and conservative boundary retention,
+including declared zero-demand devices. Fixed-state
+negative tests retain intermediate phase/neutral/sequence voltages and both
+selected/surviving segment ratings. Perturbed eliminated currents and voltages
+are rejected by reconstruction, without solving or fitting. All **16 executable
+tutorial blocks** pass, including independent analytical impedance current and
+a tightened neutral-voltage bound at an eliminated intermediate bus.
+
+A matched experiment compares elimination off/on in the same implementation,
+with one excluded warm-up per variant and six balanced alternating-order pairs,
+using single-thread BLAS and a separate explicit feasibility objective. Three
+external inputs retain their electrical data; two generated 40-line four-wire
+cases use impedance loads at every bus or at alternating buses. These generated
+cases are labelled synthetic, not original feeder results. Physical, own-model,
+both cross-model and observation-channel checks lie outside timers. There are
+**108 accepted measured solves** in nine case/mode combinations; the tenth
+combination is retained as a rejected warm-up. Tests, profiling and documentation
+builds do not overlap the timed experiment.
+
+| Input / conductor mode | Real variables: off → on | Median paired solve ratio | Median paired total ratio | Median paired build-byte ratio |
+|:--|--:|--:|--:|:--|
+| DSuite 265, full | 3,430 → 2,926 | 0.881 | 1.230 | 1.068 |
+| DSuite 265, regional | 3,346 → 2,854 | 0.877 | 0.741 | 1.065 |
+| DSuite 2,854, full | 36,716 → 30,764 | 0.651 | 0.660 | 1.080 |
+| DSuite 2,854, regional | 36,242 → 30,364 | 0.662 | 0.765 | 1.078 |
+| ENWL 538, full | 9,530 → 9,226 | 0.490 | 0.536 | 1.081 |
+| ENWL 538, regional | 8,456 → 8,190 | — | — | Rejected physical audit |
+| Synthetic impedance, full | 892 → 652 | 1.119 | 1.095 | 1.133 |
+| Synthetic impedance, regional | 812 → 572 | 1.080 | 1.048 | 1.046 |
+| Synthetic series + impedance, full | 772 → 332 | 1.085 | 1.335 | 1.536 |
+| Synthetic series + impedance, regional | 692 → 292 | 0.926 | 1.118 | 1.262 |
+
+Ratios are elimination-on/off, calculated within pairs before taking medians.
+Total includes construction and solve/extraction. All three external inputs use
+`:passive` and have no impedance loads selected: the change there is series
+elimination. The synthetic impedance case uses `:impedance_loads`; the alternating
+case uses `:passive` and exercises both passes. The 2,854-bus case eliminates
+496 intermediate buses and reduces unique Jacobian entries from 159,826 to
+140,914 without conductor specialization (163,070 to 143,662 with regional mode).
+Those are backend structures before solver preprocessing, not factorization fill.
+
+The measured large-feeder solve medians improve about 34–35%, and total medians
+about 24–34%. These are promising descriptive results, not a general speed
+claim. Construction allocations increase about 6–8% on accepted external cases
+and 4–54% on the synthetic cases. The synthetic series/impedance case has fewer
+variables but a larger unique Hessian structure: 880 to 2,440 entries in full
+coordinates. All four synthetic total medians regress. Individual total ratios
+range from 0.228 to 18.344 across accepted pairs with GC enabled. Six pairs,
+three selected external feeders and two related synthetic designs do not
+establish statistical significance or population-wide performance. Allocated
+bytes exclude native solver memory and peak resident memory.
+
+**Retained failure.** Combined regional/series elimination on ENWL 538 returns
+`LOCALLY_SOLVED` but fails independent source-neutral KCL: approximately
+``2.21\times10^{-5}`` A against a ``10^{-6}`` A audit tolerance. A separate
+repeat reproduces it. Both its own model and a fresh full model accept that
+same point under their normalized residual checks (maximum approximately
+``5.3\times10^{-16}``). The input contains a finite grounding susceptance of
+``-10^{10}`` S. The observation exposes a gap between scaled-model residuals and
+physical current acceptance on this stiff-ground circuit; it does not justify
+replacing the finite ground with an ideal one or relaxing acceptance. The point
+remains rejected and contributes no accepted timing ratio. The experiment's
+legacy `strict_warmup_rejection` label denotes its combined acceptance gate;
+solver status alone was successful in this case.
+
+Raw scripts, input digests, warm-ups, trials, failures, a separate ENWL diagnostic,
+source snapshots and logs remain outside Git. The known OpenDSSDirect method-
+overwrite precompilation error falls back to successful loading and passing
+reference comparisons. Charged pi sections, adjacent chain elimination and
+mixed-port/device-boundary elimination remain outside the new certificate;
+no element, control, temporal or equipment-update coverage is added.
+
 ## Avoiding unused real/reactive power copies — 5 October 2026
 
 The default Julia 1.12.6 suite again passes **28,855/28,855** assertions

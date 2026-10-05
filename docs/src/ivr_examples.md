@@ -165,6 +165,38 @@ no convincing general runtime advantage. Keep those observations separate from
 the algebraic proof: equivalence can hold while numerical performance worsens.
 The [verification record](verification.md) retains both results and failures.
 
+## I. Remove an impedance current without losing its observation
+
+For the two-wire service, replace the 2 kW constant-power demand with a
+constant-impedance law rated 2 kW at 230 V. Its conductance is
+``Y=2000/230^2`` S, so the analytical operating point is
+
+```math
+U=\frac{230}{1+0.5Y},\qquad I=YU.
+```
+
+`linear_elimination=:impedance_loads` removes the independent coil current and
+its defining equality. The reported current, power and all network limits
+remain expressions of the retained voltage. The tutorial compares both model
+directions and the analytical current. This is a comparison of representations
+of the same impedance-load problem, not of impedance and constant-power demand.
+
+## J. Eliminate an intermediate bus but keep its neutral limit
+
+Split the original constant-power service into two equal unshunted segments.
+At an unloaded, ungrounded intermediate bus, KCL identifies the through current
+and KVL gives the intermediate voltage. With 0.15 ohm of neutral resistance in
+the first segment, its neutral displacement is ``0.15I``. A bound on that
+displacement remains meaningful even if the bus has no independent solver
+voltage variables.
+
+The tutorial combines `linear_elimination=:passive` with conductor specialization,
+checks both physical mappings, then tightens the intermediate neutral bound to
+half the solved magnitude. Both models' physical checks must reject that state.
+This is the central acceptance condition: reconstruction after solving alone
+would not retain the original optimization problem. No impedance inversion or
+approximate pi-line length aggregation is involved.
+
 ## Interpreting benefit and evidence
 
 There are three distinct potential benefits: a native exact reference for

@@ -309,7 +309,41 @@ certificate. Transformers, switches, mesh cores and mixed conductor ports can
 similarly remain physical while eligible attached trees are specialized; see
 the [regional contract](ivr_nlp.md#Pendant-regions-inside-a-larger-network).
 
-## 11. Extend the experiment without changing its meaning
+## 11. Substitute an exact impedance current
+
+Change the two-wire load to constant impedance with 2 kW nominal consumption
+at 230 V. Its conductance is `2000/230^2` S. With the same 0.5 ohm loop, the
+analytical coil voltage is `230/(1 + 0.5*2000/230^2)` V. The helper requests
+`linear_elimination=:impedance_loads`, verifies the analytical current, and
+checks the solved physical states in both models.
+
+```@example exactivr
+impedance = T.impedance_elimination_example(); nothing
+```
+
+Two real current variables disappear, but the load-current result remains
+available. This is an exact constitutive substitution. It does not apply to
+constant-power loads, and nominal impedance changes still require rebuilding.
+
+## 12. Preserve the bound at an eliminated intermediate bus
+
+Split the original service into two equal, unshunted segments with no device at
+the intermediate bus. Request `linear_elimination=:passive` together with
+`specialization=:conductor_difference`. The compiler eliminates the intermediate
+voltage coordinates and independent currents of one incident line, retaining
+expressions for every original voltage/current/power observation.
+
+```@example exactivr
+series = T.series_elimination_example(); nothing
+```
+
+The helper tightens only the intermediate neutral-voltage limit to half its
+solved magnitude. Both the compiled model and independent physical auditor
+reject the unchanged state. Merely reconstructing that voltage after solving
+would be insufficient: its bound must constrain the optimization itself.
+Charged pi sections and device/ground boundaries are outside this certificate.
+
+## 13. Extend the experiment without changing its meaning
 
 For a larger study, record the input digest and every deliberate data change;
 retain failed solves and explicit fallback reasons; compare accepted objectives

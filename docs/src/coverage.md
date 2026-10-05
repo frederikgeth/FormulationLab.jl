@@ -25,6 +25,13 @@ does not grant it every SDP or LinIVR device law. See the
 | Constant-power demand and generator P/Q/price updates | Supported through dedicated APIs | Existing certificate/maps reused |
 | Equipment, source and IBR capability updates | Require a new build | Reassess applicability on the new build |
 
+An independent opt-in `linear_elimination` pass substitutes impedance-load
+currents, or also eliminates nonadjacent device-free degree-two buses between
+unshunted lines. It composes with conductor specialization and retains every
+physical observation and operating bound. This expands coordinate-reduction
+choices, not element coverage. See the [contract](ivr_nlp.md#Local-linear-elimination)
+and [proof](ivr_theory.md#4.-Local-linear-elimination-with-retained-observations).
+
 Regional mode retains source, earth-path and device-boundary buses and certifies
 only eligible leaf regions. See [regional scope](ivr_nlp.md#Pendant-regions-inside-a-larger-network).
 A supported full-IVR network may fail the narrower specialization certificate;

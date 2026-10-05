@@ -335,12 +335,66 @@ transformer, switch or earth-connected bus, even when a broader identity might
 exist. Arbitrary meshed-region reductions and full common-mode voltage
 elimination require separate proofs.
 
-## 4. Implementation and evidence map
+## 4. Local linear elimination with retained observations
+
+Let the current solver coordinates be ``y`` after any conductor specialization,
+with the original physical state represented by ``z=Ry``. A defining equality
+with a unit pivot can be written
+
+```math
+\alpha y_j + a^T y_{-j}=0,\qquad \alpha\in\{-1,1\}.
+```
+
+Substitution ``y_j=-a^Ty_{-j}/\alpha`` gives a reconstruction ``y=T\widehat y``.
+Every remaining equality, inequality and objective is evaluated at
+``z=RT\widehat y``. The defining equality alone is omitted. On its zero set,
+dropping coordinate ``j`` and applying ``T`` are inverse maps; hence feasible
+states and objective values correspond in both directions. This is an
+algebraic equivalence statement, not a global optimality or numerical-speed
+claim. Implementation uses sparse rows and unit pivots, with no small-pivot
+tolerance or dense network nullspace.
+
+For an impedance load coil, ``I-YU=0`` has unit coefficient on ``I``. Eliminating
+that current is valid for zero, signed and complex admittance, including the
+declared pure-Z ZIP and exponent-two cases. The current and power observations
+remain ``I=YU`` and ``S=U\overline{YU}``. No division by ``Y`` occurs, and no
+otherwise free delta-generator or inverter circulation is eliminated.
+
+For a device-free, ungrounded degree-two bus between unshunted lines, conductor
+KCL expresses one incident line's current through the other. The chosen line's
+KVL then expresses the intermediate voltages through its retained neighbour's
+voltages and the surviving currents. The required pivots are current/voltage
+incidence coefficients, not impedance entries; even a zero or singular series
+impedance needs no inverse. Terminal permutations and reversed line orientation
+are taken from the actual assembled rows. The argument is local and remains
+valid in a mesh. Distinct neighbouring buses and complete intermediate terminal
+maps are required by this implementation.
+
+Without conductor specialization, this removes ``2m`` complex coordinates and
+equalities per selected ``m``-conductor bus: ``m`` currents and ``m`` voltages.
+Where a conductor certificate already removed one current coordinate and KCL
+equation, the additional removal is ``2m-1``. The two passes operate on composed
+maps and never discharge the same equality twice. Only nonadjacent buses are
+selected in one sorted pass, keeping substitutions local to retained boundaries.
+Charged pi sections and device/ground boundaries are retained. No assertion
+about positive dissipation is needed for these algebraic substitutions.
+
+Physical observations are not removed. Intermediate phase/neutral/sequence
+voltage bounds and every segment's endpoint current/apparent-power limits are
+compiled on ``RT\widehat y``. Reconstruction performed only after solving
+would not preserve those operating domains. Supplied-point validation encodes
+the original full observations first and then verifies reconstruction; an
+inconsistent eliminated current or voltage cannot be silently repaired.
+The same argument preserves fixed equipment constraints and supported demand/
+dispatch updates, provided their changes do not alter the defining linear laws.
+
+## 5. Implementation and evidence map
 
 | Responsibility | Implementation | Validation |
 |:--|:--|:--|
 | Exact circuit, maps and endpoint quantities | `src/formulations/ivr_electrical.jl` | manufactured SI states; component/OpenDSS tests |
 | Power products, operating bounds, objectives and updates | `src/formulations/ivr_nlp.jl`, `src/formulations/ivr_loads.jl` | fixed-state negative-bound tests; fresh/reused comparisons |
+| Local impedance/series elimination | `src/compilation/ivr_elimination.jl` | `test/ivr_elimination_tests.jl`: bidirectional physical points, retained bounds, modes, meshes, zero impedance and boundary refusals |
 | Local difference identities | `src/compilation/conductor_difference.jl` | `test/compiler_algebra_tests.jl` |
 | Applicability, projection and reconstruction | `src/compilation/ivr_structure.jl`, `src/compilation/ivr_regions.jl` | `test/compiler_network_tests.jl`, `test/compiler_region_tests.jl` |
 | Supplied-point evaluation of the actual NLP | `src/validation/ivr_nlp.jl` | both mapping directions; deliberately perturbed states |

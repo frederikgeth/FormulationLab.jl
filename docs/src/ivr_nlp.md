@@ -77,6 +77,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `s_base` | `1e4` | Positive finite internal power base in VA; SI inputs/results unchanged |
 | `objective` | `:cost` | `:cost`, `:source_import` or `:feasibility` |
 | `specialization` | `:off` | `:conductor_difference` certifies one complete section; `:conductor_regions` certifies pendant regions behind retained boundaries |
+| `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates eligible degree-two bus voltages and one incident line's current coordinates |
 
 `IVRNLPResult.voltage_candidate` maps `(bus, terminal)` to complex volts;
 `current_candidate` and `powers` map `(family::Symbol, id::String)` to channel
@@ -90,6 +91,53 @@ and the objective is `NaN`. An accepted local result still needs independent
 physical assessment. See [the API reference](api.md).
 
 ## Supported scope
+
+### Local linear elimination
+
+`linear_elimination` is independent of `specialization`; the two coordinate
+passes compose. Both are opt-in. The original network snapshot, electrical
+rows and physical observation channels remain available. The solver variables
+and defining equalities are reduced; no network preparation or topology merge
+is applied. Use `:linear_elimination_report` in `numerical_diagnostics` to inspect
+`impedance_loads`, `series_buses`, `retained_series_buses` and
+`eliminated_complex_coordinates`.
+
+`:impedance_loads` substitutes each exact law `I = Y*U`, including constant
+impedance, pure-Z ZIP and exponent-two load models. It removes one complex
+current coordinate and its defining complex equality per coil. It preserves
+zero and signed admittances without division by admittance. Other load laws,
+generator currents and inverter circulation freedoms are not eliminated.
+
+`:passive` performs the same load substitution, then considers degree-two buses
+with no attached source, load, generator, inverter, switch, transformer,
+capacitor or shunt and no ideal ground. Both incident lines must have exactly
+zero end-shunt matrices, cover every bus terminal and lead to distinct other
+buses. Self-loops and parallel pairs are retained. Nonadjacent eligible buses
+are selected deterministically in sorted bus order; neighbours of a selected
+bus are retained for this pass. This keeps reconstruction local, rather than
+substituting along arbitrarily long chains. The rule also applies inside meshes.
+It uses unit-coefficient KCL/KVL pivots, not impedance inversion or a numerical
+rank/PSD threshold; zero series impedance is allowed. It does not certify
+positive dissipation or improve the existing line-passivity classification.
+
+Every original removed-bus voltage limit and segment current/apparent-power
+limit is still evaluated on its reconstructed physical expression. Transformer,
+switch, generator and IBR observations/bounds are unchanged. A supplied physical
+point must include the eliminated observations: `ivr_nlp_point_report` rejects
+any reconstruction mismatch instead of fitting a replacement point. Pure-Z
+equipment/nominal-demand changes still require rebuilding; the supported CP
+load and generator updates reuse the existing maps. Initial eliminated currents
+are determined by their defining laws, so the reduced starting point need not
+equal the full model's independently assigned current starts.
+
+The name `:passive` identifies this device-free series policy, not the separate
+approximate compatibility reduction pipeline. Charged pi sections, adjacent
+multi-bus elimination, junctions above degree two and device-boundary
+elimination are outside this initial certificate. The [theory](ivr_theory.md)
+states the equivalence argument; [verification](verification.md) records the
+tests and performance limitations.
+
+### Electrical elements
 
 The initial implementation supports mutually coupled lines, endpoint shunts,
 ideal bus grounds, finite grounding admittances, fixed source phasors,

@@ -62,6 +62,16 @@ in equations, operating bounds or objective terms. Other physical limits still
 use their recorded voltage/current channels. Reported powers and their
 coefficients are unchanged; this only avoids unused expression copies.
 
+Exact IVR can additionally compose local linear substitutions with its
+conductor-coordinate maps. The shared assembler records defining load-current
+and line-KVL rows; `compilation/ivr_elimination.jl` selects unit pivots and builds
+new projection/reconstruction maps. The physical assembly and observation rows
+remain intact. Only defining equalities are omitted from the NLP, and every
+operating expression uses the reconstructed state. The supplied-point auditor
+therefore continues to bind original physical currents and voltages before
+checking the coordinate mapping. These opt-in passes do not invoke network
+preparation, discard bus bounds or change equipment data.
+
 Sparse/chordal SDP representations, fixed SOC relaxations, LNCs, shared network
 reduction, and original-network reconstruction are implemented. Formulation,
 reduction, strengthening, numerical settings and recovery remain separate layers.

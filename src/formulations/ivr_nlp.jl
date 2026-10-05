@@ -11,11 +11,16 @@ current reduction and retains reference-conductor voltages. Ineligible networks
 fall back to full IVR with a reason in the build diagnostics.
 `:conductor_regions` instead certifies pendant radial regions behind retained
 boundary buses, leaving other circuits physical. The default is :off.
+`linear_elimination=:impedance_loads` substitutes exact impedance-load currents;
+`:passive` also eliminates certified nonadjacent device-free degree-two buses
+between unshunted lines. Both preserve physical observations and operating
+bounds and compose with conductor specialization. The default is :off.
 """
 Base.@kwdef struct IVRNLPOptions
     s_base::Float64 = 1e4
     objective::Symbol = :cost
     specialization::Symbol = :off
+    linear_elimination::Symbol = :off
 end
 
 """An exact-IVR scope refusal, carrying a stable `code` and explanatory `message`.
@@ -256,6 +261,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     isfinite(options.s_base) && options.s_base>0 || throw(ArgumentError("s_base must be positive and finite"))
     options.objective in (:cost,:source_import,:feasibility) || throw(ArgumentError("unknown IVRNLP objective"))
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
+    options.linear_elimination in (:off,:impedance_loads,:passive) || throw(ArgumentError("unknown IVRNLP linear elimination"))
     net=_l3f_input(input);_ivrn_check(net)
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
                            delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
@@ -264,6 +270,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     report,plan=options.specialization==:off ? ((;status=:disabled,code=:disabled,components=String[]),nothing) :
         options.specialization==:conductor_regions ? _ivrn_regions(net,e) : _ivrn_structure(net,e)
     maps=_ivrn_coordinates(e,plan)
+    omitted=plan===nothing ? Set{Tuple{String,String}}() : Set(plan.omitted_kcl)
+    maps,omitted_equations,omitted,elimination=_ivrn_linear_coordinates(net,e,maps,omitted,options.linear_elimination)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
     n=length(maps.projection)
     xr=@variable(model,[1:n],base_name="state_real")
@@ -278,8 +286,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         j=only(keys(maps.reconstruction[k])) # Source coordinates stay physical.
         JuMP.fix(xr[j],real(v));JuMP.fix(xi[j],imag(v))
     end
-    omitted=plan===nothing ? Set{Tuple{String,String}}() : Set(plan.omitted_kcl)
-    for row in vcat(e.equations,[row for (key,row) in e.kcl if key ∉ omitted])
+    for row in Iterators.flatten(( (row for (k,row) in enumerate(e.equations) if k ∉ omitted_equations),
+                                  (row for (key,row) in e.kcl if key ∉ omitted)))
         isempty(row) && continue
         a=_linivr_eval(row,z)/norm(collect(values(row)))
         @constraint(model,real(a)==0);@constraint(model,imag(a)==0)
@@ -399,6 +407,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :specialization=>plan===nothing ? :off : options.specialization,
         :specialization_report=>report,:structure_analysis_count=>options.specialization==:off ? 0 : 1,
         :network_reduction=>:off,:assembly_count=>1,
+        :linear_elimination=>options.linear_elimination,:linear_elimination_report=>elimination,
         :update_count=>0,:generator_update_count=>0,
         :dispatch_variable_count=>sum(length(g.p)+length(g.q) for g in values(generators);init=0),
         :load_voltage_variable_count=>sum(length,values(load_voltages);init=0),
