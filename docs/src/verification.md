@@ -1,5 +1,22 @@
 # Verification
 
+## External lifting transfer harness — 5 October 2026
+
+The full suite passes **45,709/45,709 assertions**, including 16 new checks for
+the external-feeder lifting runner. These verify source-file immutability,
+electrical-field preservation after provenance relocation, sidecar hashes,
+balanced ordering, matched ground scaling and objective, admission of all six
+profiles on a charged single-phase fixture, and explicit refusal of unsupported
+physics before timing. Output paths that alias the input, including symlinks,
+are rejected. The benchmark retains failed preflights and rejected trials.
+The known OpenDSSDirect precompile fallback remains nonfatal.
+
+The [external-feeder tutorial](tutorial_exact_ivr.md) explains the raw reports,
+input snapshots and manifests. Its feasibility objective does not establish
+economic-dispatch performance, and a lifting option that introduces no variables
+is a timing control rather than evidence for that transformation. Regression
+tests and documentation builds are separate from all performance measurements.
+
 ## Exact lifting and charged-section blocks — 5 October 2026
 
 The additive `lifting=:powers` and `:bounded_observations` policies preserve a

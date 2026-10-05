@@ -29,6 +29,127 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+## External transfer of lifting and blocks — 5 October 2026
+
+`examples/benchmark_ivr_feeder_lifting.jl` compares six fixed candidates on four
+existing DSuite/ENWL files from BMOPFDraftData. These inputs have appeared in
+earlier studies; they are **not unseen validation cases**. The original DSuite
+SPD Suburban/Urban inputs contain 265/1,220 buses and one/four delta-wye
+transformers. Reduced ENWL Network 17 Feeder 6 and Network 8 Feeder 2 contain
+435/538 buses, one shunt each and 57/77 generators. The source files' existing
+reductions are inherited. All declared loads are constant power.
+
+Every profile uses the feasibility objective, voltage finite-ground scaling,
+MUMPS AMD and the same strict tolerances. Source/generator accounting, demand,
+equipment and bounds are unchanged. Known legacy provenance is relocated on an
+owned copy; source hashes and an independent recursive comparison verify input
+preservation. Each model receives the same unloaded physical circuit point,
+including exact auxiliary definitions. All 24 preflights encode every variable;
+the largest binding/reconstruction residual is below ``2.3\times10^{-16}`` pu.
+The start need not satisfy nonlinear load equations or operating bounds.
+
+Twelve rotated/reversed sweeps place each profile in each position twice.
+**288/288 measured solves and 24/24 excluded warm-ups** pass the solver,
+independent physical, own/full-model, reverse-map and objective gates. Only
+Ipopt wall time ranks candidates; construction, start assignment, extraction
+and audits are excluded. Tests and documentation builds do not overlap timing.
+The experiment does not assess model reuse or economic dispatch. Its starts
+and matched ground scaling differ from some earlier panels, so their times
+must not be pooled. Feasibility solutions may differ between profiles; admission
+checks each reconstructed state against the original physics and model, rather
+than assuming a unique physical solution or identical returned dispatch.
+
+Exploratory median Ipopt milliseconds follow. `Regional` means the earlier
+regional/passive profile; blocks also request regional coordinates. `P` and `O`
+mean power lifting and power plus bounded-observation lifting respectively.
+
+| Input | Full | Regional | Blocks | Blocks + P | Blocks + O | Full + P |
+|:--|--:|--:|--:|--:|--:|--:|
+| DSuite 265 | 13.529 | 13.342 | 12.759 | 12.771 | 12.915 | 13.430 |
+| DSuite 1,220 | 60.262 | 61.111 | 57.571 | 57.742 | 60.854 | 60.340 |
+| ENWL 435 | 194.519 | 129.973 | 130.755 | 130.689 | 158.665 | 194.907 |
+| ENWL 538 | 188.276 | 531.182 | 165.715 | 167.397 | 170.071 | 189.811 |
+
+Power lifting adds **zero variables** on these inputs. Its profiles therefore
+provide no-op timing controls, not evidence of a power-lifting benefit on real
+feeders. Their median differences are below 1.1% in this batch, although paired
+ratios retain substantial outliers. Do not interpret the small ordering changes
+between these controls as structural improvements.
+
+Block elimination lowers the full-IVR median by about 6%, 4% and 12% on DSuite
+265, DSuite 1,220 and ENWL 538. On ENWL 435, regional/passive is about 33% faster
+than full; blocks have the same variable and derivative counts and are within
+1% of regional/passive. ENWL 538 behaves differently: regional/passive takes
+23 iterations in every repeat, whereas the other profiles take eight. This
+coincides with a roughly 69% block-versus-regional median improvement; it does
+not establish why the nonlinear trajectory changed. All DSuite profiles take
+three iterations; all ENWL 435 profiles take eight.
+
+Broad observation lifting loses to blocks alone on all four inputs. On ENWL
+435 it reduces supplied Hessian entries from 24,132 to 13,292 and unique entries
+from 9,240 to 8,012, but increases variables from 6,604 to 8,412 and takes about
+22% longer. These are structures supplied before solver preprocessing, not KKT
+factor fill or peak memory. A lower Hessian-entry count alone cannot justify
+a runtime selector. The earlier synthetic benefits remain valid for their
+declared workloads; this transfer result does not justify deleting the option.
+
+All outliers remain. Exploratory paired blocks/full ranges are 0.920–0.957,
+0.934–1.564, 0.620–1.445 and 0.489–0.894 in table order. The ENWL 435
+regional/full range is 0.613–0.739. These are observed ranges, not confidence
+intervals or statistical-significance claims.
+
+**Fresh-process confirmation.** DSuite 1,220 and ENWL 538 were repeated with all
+six candidates and unchanged inputs/settings. ENWL 538 replaced ENWL 435 in an
+unexecuted follow-up plan after the unexpected 23-versus-eight iteration result
+appeared. The initial plan and amendment are retained. This is outcome-selected
+follow-up, not unseen validation, and its timings are not pooled with exploration.
+All **144/144 measured solves and 12/12 warm-ups** pass the same gates.
+
+| Input | Full | Regional | Blocks | Blocks + P | Blocks + O | Full + P |
+|:--|--:|--:|--:|--:|--:|--:|
+| DSuite 1,220 | 58.034 | 59.619 | 56.943 | 56.924 | 60.024 | 59.254 |
+| ENWL 538 | 189.424 | 520.408 | 169.696 | 165.928 | 171.413 | 191.138 |
+
+DSuite's block/full median gain falls to **1.9%**, with paired ratios
+0.941–1.036. The identical full/P control differs from full by 2.1% in median,
+so the evidence does not support a robust practical separation of these close
+DSuite candidates. On ENWL 538, blocks without lifting are **10.4% faster than
+full and 67.4% faster than regional/passive** in median. The 23-versus-eight
+iteration pattern repeats in every measurement. The no-op block/P control has
+a 12.4% gain against full; that difference is not caused by power lifting.
+Its median differs from blocks by 2.2%, illustrating remaining timing variation.
+Paired ENWL block/full ratios are 0.751–1.059; the regional/full range is
+2.349–2.822. Preserve the no-op block/P DSuite outlier of 3.480 times full as
+well. These results do not imply that every block solve is faster.
+
+**Refined shortlist.** For these fixed-start feasibility feeders, compare full,
+regional/passive and regional/blocks with AMD and matched ground scaling. Blocks
+are the leading tested candidate on ENWL 538; regional/passive and blocks are
+close on ENWL 435; full and blocks remain close on DSuite. Broad observation
+lifting has no median win over blocks in this transfer panel. Retain it for the
+synthetic domains where it helped and for further experiments. No option is
+deleted, and no package default or automatic selector changes. Nonlinear load
+mixtures, IBRs, real active power-capability limits, other starts and updated-model
+workloads remain outside this panel.
+
+The runner, protocol, frozen source hashes/snapshot, raw JSON/input/manifest
+files and independent analysis are retained outside Git in
+`FEEDER_LIFTING_STUDY_20261005`, with confirmation in its own directory.
+The [tutorial](tutorial_exact_ivr.md) gives the reproduction command. Across the
+two separate batches, 432 measured solves and 36 warm-ups are admitted.
+
+**Next exact experiments.** Test stricter observation-support thresholds and
+exact reuse of auxiliaries whose composed expressions coincide, keeping the
+current policy as a comparator. Do not infer factorization savings from a
+symbolic support score. A distinct structural candidate is transformer
+coil-current substitution: the existing stamp imposes ``j_f+R^Hj_t=0``, so
+``j_f=-R^Hj_t`` can eliminate from-side coil currents through unit pivots without
+inverting leakage or terminal-incidence matrices. Remaining coil circulation,
+bonds, grounds, all bounds and physical exports must be preserved and verified.
+This device-elimination option is **not yet implemented**. Generic IBR filter
+condensation is not a new opportunity here: filter current and internal voltage
+are already affine expressions in the implemented electrical assembler.
+
 ## Exact lifting and charged-section blocks — 5 October 2026
 
 Two additional exact choices are implemented: `linear_elimination=:passive_blocks`
@@ -216,7 +337,7 @@ a topology-only automatic selector. Larger real feeders, active interior bounds,
 heterogeneous long chains and update histories need their own measurements.
 Compilation cost plays no role in these choices.
 
-## Best-evidence starting configuration: regional IVR with AMD
+## Earlier starting configuration: regional IVR with AMD
 
 The earlier feeder and dispatch evidence supports **MUMPS AMD ordering** with
 regional conductor coordinates, passive elimination and finite-ground scaling:
@@ -234,8 +355,11 @@ strict settings define the measured experiment, not a new package default.
 Use the required objective for the intended workload; the feasibility evidence
 does not replace an economic objective. All transformations and ordering
 alternatives remain available. This recommendation concerns solver wall time;
-construction cost does not enter it. The adjacent-chain experiment above supplies
-additional workload-specific choices; keep full IVR plus AMD as a comparator.
+construction cost does not enter it. The chain, lifting and external-transfer
+experiments above refine this earlier baseline. In particular, regional/blocks
+must now be included for the demonstrated fixed-start feeder workloads, while
+full IVR remains a comparator. The new fixed-start evidence does not replace
+the separately measured initialization/reuse choices below.
 
 For the longer manufactured dispatch sequences and the two external-feeder
 demand sequences studied below, explicitly carrying the previous primal point
