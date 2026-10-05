@@ -1,5 +1,34 @@
 # Verification
 
+## Unbalanced leakage and power-base transfer — 5 October 2026
+
+The full suite passes **67,550/67,550 assertions**, adding 237 checks in
+`test/ivr_unbalanced_power_base_tests.jl`. Prescribed SI winding states cover
+single-phase, delta–wye and wye–delta leakage, both flow directions and assembly
+power bases of 1 and 1000 kVA with regional current units. Negative witnesses tighten both
+sending and receiving ratings and require rejection by the independent SI audit
+and encoded model. These tests respect the input schema's winding-versus-terminal
+current-rating convention.
+
+All six fixed power-base profiles solve the unequal three-phase panel's three
+active-limit cases from a shared physical start. Checks require matching physical
+objectives, active intended limits and rejection of tightened receiving-voltage
+bounds. Separate reduced builds compose conductor specialization, passive-block
+and transformer-current elimination, lifted bounds and exact observation sharing;
+full/reduced endpoint membership, complete starts and physical SI JSON round-trips
+pass. There is no analytical global-optimum certificate for these coupled OPFs.
+
+The two independent timing batches admit **864 measured solves and 72 warm-ups**.
+Separate diagnostics admit 36 native traces and 72 common-physical-point Jacobian
+evaluations. The initial manufactured 232 V ceiling was inactive; its source and
+preflight logs are retained, and the 231 V active case was frozen before timing.
+No scaling profile or solver tolerance was tuned during the campaigns.
+
+All **34 executable tutorial blocks** pass. Five rendered pages have their local
+links and anchors checked, and all six new confirmation timing rows are verified
+against raw JSON and rendered HTML. See the [unbalanced transfer evidence](ivr_performance.md)
+and [tutorial](tutorial_exact_ivr.md). No existing option or default is removed.
+
 ## Controlled power bases and objective normalization — 5 October 2026
 
 The full suite passes **67,313/67,313 assertions**, adding 464 checks.

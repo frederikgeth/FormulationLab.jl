@@ -29,6 +29,100 @@ still apply. A failed profile cannot win on time. Warm-ups are excluded and
 no construction-time penalty is applied to any transformation. All options
 remain available, including configurations that lose this particular comparison.
 
+## Unbalanced transformer-leakage transfer — 5 October 2026
+
+The fixed power-base candidates transfer successfully to a manufactured coupled
+three-phase circuit, but their ranking changes. A common 1 kVA base improves the
+current-limited case by **33.6% / 33.2%** relative to common 10 kVA (`none` /
+`gradient-based`). Lowering only the regional LV current base provides no
+comparable benefit on that case. Regional LV 1 kVA is fastest among these six
+candidates on the capability and voltage cases, with **6.4% / 6.7%** and
+**6.0% / 5.3%** gains over common 10 kVA, respectively. These are ratios of
+confirmation medians, not pooled averages or universal recommendations.
+
+The circuit has a shared bank of three single-phase 11 kV/2.3 kV transformers,
+two 2.3 kV/230 V delta–wye transformers, nonzero R/X leakage on every transformer,
+and twelve mutually coupled four-wire LV sections per branch. Unequal phase
+loads total 12.6 kW and 3.36 kvar before six unity-power-factor generators supply
+power. Each LV end has a finite 2 ohm neutral ground. All six full-IVR models
+have **486 real variables**. Distinct cases bind generator capability, phase-a
+line current or terminal phase-neutral voltage limits. Initial fixture preflight
+found that 232 V was slack; the voltage-case ceiling was set to 231 V before
+freezing the campaign, and the original source/logs are retained. This is a
+designed transfer panel, not an untouched feeder holdout. It changes several
+physical features together, so rank changes cannot be attributed to leakage alone.
+
+All six earlier profiles transfer unchanged: four common assembly power bases
+and two regional current-unit choices, nominal voltage coordinates, composed
+linear rows, `ground_scaling=:voltage`, fixed objective divisor 10,000, full IVR,
+MUMPS AMD and the same unloaded physical start. Each cell has six excluded
+warm-ups and twelve rotated/reversed sweeps, with every profile appearing twice
+in each position. A second complete panel runs in a fresh process. Across both
+panels, **864 measured solves and 72 warm-ups pass** the independent SI audit,
+original bounds, own/full-model membership, reverse anchor mapping and objective
+agreement. Construction, extraction and audits are excluded from ranking.
+Timings never overlap diagnostics, tests or documentation builds.
+
+Confirmation median Ipopt wall time, milliseconds:
+
+| Case | Ipopt scaling | Common 10 kVA | Common 1 kVA | Common 100 kVA | Common 1 MVA | Regional LV 1 kVA | Regional LV 10 kVA |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Capability | none | 9.668 | 9.391 | 12.233 | 12.800 | 9.051 | 9.741 |
+| Capability | gradient-based | 9.606 | 9.457 | 12.272 | 12.712 | 8.965 | 9.694 |
+| Current | none | 15.186 | 10.084 | 10.680 | 23.520 | 15.327 | 15.332 |
+| Current | gradient-based | 15.231 | 10.178 | 10.720 | 23.430 | 15.119 | 15.290 |
+| Voltage | none | 10.757 | 10.236 | 16.029 | 11.966 | 10.109 | 11.465 |
+| Voltage | gradient-based | 10.566 | 10.105 | 15.911 | 11.751 | 10.007 | 11.249 |
+
+In the same column order, iteration counts are `12/12/16/17/11/12` for
+capability, `18/13/14/20/18/18` for current, and `14/13/14/16/13/15` for voltage,
+under both Ipopt scaling policies. At fixed source/MV regional bases, lowering
+LV current units from 10 to 1 kVA improves capability by 7.1% / 7.5% and voltage
+by 11.8% / 11.0%, but current is essentially tied (0.03% / 1.1%). Common 1 MVA
+is about 54–55% slower than common 10 kVA in the current case. All candidates,
+including regressions and outliers, remain available.
+
+All twelve paired confirmation ratios for common 1 kVA versus 10 kVA in the
+current case are below 0.693 under both policies. Smaller gains have noisier
+tails: a capability/gradient-based regional-LV-1-kVA trial is 2.26 times its
+paired common-10-kVA time despite the same iteration count as its own other
+trials. Conversely, a slow capability/no-scaling baseline yields a ratio of
+0.218. Both are retained without assigning a cause or presenting them as
+representative speedups.
+
+Separate NLPDiagnostics instrumentation covers **36 solves and 72 evaluations**
+at the identical SI unloaded start and full-model reference endpoint. In the
+current case with Ipopt scaling disabled, common 10 kVA and regional LV 1 kVA
+both have five positive-regularization records, whereas common 1 kVA has zero.
+Their endpoint Jacobian column-norm spreads are approximately 36,795, 1,995 and
+28,814 respectively. Thus the much smaller spread from regional current units
+does not predict the fastest solve. For voltage, common 100 kVA has the same
+fourteen iterations as common 10 kVA but is substantially slower and has two
+positive-regularization records versus zero. These observations motivate further
+factorization diagnostics; they do not prove a causal explanation or measure
+matrix condition numbers. Maximum within-cell objective disagreement across
+timings and warm-ups is below 7.1e-10 W. Physical SI reference solutions are also
+exported in the established BMOPFTools-compatible result format.
+
+The independent analytical optimum of the earlier ideal single-phase panel
+does not apply here. SI feasibility and agreement between local optima are
+necessary admission evidence, not a certificate of global optimality. Separate
+prescribed-current SI witnesses check single-phase, delta–wye and wye–delta
+leakage under forward/reverse flow, changed power bases and tightened ratings
+on both sides. Reduced-model tests also compose the current units with conductor,
+passive-block and transformer-current elimination, lifted bounds and SI JSON
+recovery. These checks provide evidence for the exercised combinations; they do
+not constitute an exhaustive bound-expression proof for every possible network.
+
+Reproduction: `examples/benchmark_ivr_unbalanced_power_bases.jl`; see
+[tutorial section 32](tutorial_exact_ivr.md). Raw evidence, fixed protocol,
+complete source snapshots, SI reference exports, separate diagnostic traces and
+the initial inactive-voltage fixture are retained outside Git in
+`UNBALANCED_POWER_BASE_STUDY_20261005`. No production default changes. The next
+useful comparison crosses the best candidates with exact passive/device
+reductions and then transfers them to fixed external unbalanced feeders; choosing
+a base from LV voltage level alone is not supported by this evidence.
+
 ## Common power bases and regional current units — 5 October 2026
 
 Power-base changes deliver reproducible benefits on a manufactured aggregation

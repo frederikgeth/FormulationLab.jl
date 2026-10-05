@@ -1001,3 +1001,55 @@ regional-current choices. The numerical objective divisor remains 10,000 in
 every arm. Repeat the capability and voltage limits and explicit gradient-based
 Ipopt policy. Keep instrumented diagnostics separate, retain rejected trials,
 and compare physical optima and Ipopt wall time before choosing a profile.
+
+## 32. Transfer a scaling policy across unbalanced transformer leakage
+
+The analytical panel does not include shared leakage, phase coupling or unequal
+reactive demand. The next manufactured circuit introduces these effects: a shared
+three-phase MV supply feeds two delta–wye transformers, mutually coupled four-wire
+LV lines, unequal constant-P/Q phase loads and finite neutral grounds. Every
+transformer has nonzero series resistance and reactance. The two branches draw
+12.6 kW and 3.36 kvar before generation. This example uses two line sections for
+speed; the timing study uses twelve.
+
+Keep the six power-base policies fixed when transferring them. In particular,
+hold the objective divisor at 10,000 and encode the same physical start. Compare
+physical solutions across formulations, including the receiving neutral and
+transformer currents. The following two successful local solutions establish
+agreement at their endpoints; neither constitutes a global-optimum certificate.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_unbalanced_power_bases.jl"))
+UP = IVRUnbalancedPowerBaseStudy
+unbalanced = UP.case(limit=:current, segments=2)
+unbalanced_start = UP.G.H.S.L.start_point(unbalanced)
+unbalanced_runs = map(UP.G.profiles(unbalanced)[[1,2]]) do profile
+    b = build_opf(unbalanced, IVRNLP(profile.options); optimizer=Ipopt.Optimizer)
+    encoded = ivr_nlp_point_report(b, unbalanced_start)
+    @assert isempty(encoded.missing_channels)
+    @assert length(encoded.variable_values)==num_variables(b.model)
+    for (v,x) in encoded.variable_values; set_start_value(v,x); end
+    r = solve_ivr_nlp_opf(b; solver_options=merge(UP.P.STRICT,profile.solver_options))
+    @assert r.solve.optimal && physical_residuals(unbalanced,r).passed
+    @assert abs(abs(r.current_candidate[(:line_from,"lv1_l2")][1])-5.)<1e-5
+    (build=b,result=r)
+end
+u1,u2 = unbalanced_runs
+@assert isapprox(u1.result.objective,u2.result.objective;atol=1e-4,rtol=0.)
+@assert ivr_nlp_point_report(u1.build,T.point(u2.result)).passed
+@assert ivr_nlp_point_report(u2.build,T.point(u1.result)).passed
+unbalanced_json = result_dict(u2.build,u2.result)
+@assert isapprox(unbalanced_json["bus"]["lv1_b2"]["a"]["vr"],
+    real(u2.result.voltage_candidate[("lv1_b2","a")]))
+(source_import_W=u2.result.objective,
+ neutral_voltage_V=u2.result.voltage_candidate[("lv1_b2","n")],
+ receiving_current_A=u2.result.current_candidate[(:transformer_to,"delta_wye/downstream1")])
+```
+
+Call `UP.benchmark("unbalanced.json"; limit=:current)` in an otherwise idle
+process, then repeat the capability and voltage cases and the gradient-based
+solver policy. Each call runs six excluded warm-ups and twelve balanced sweeps.
+The JSON records all failures and admission checks. Repeat the full panel in a
+fresh process before choosing a candidate from the [timing evidence](ivr_performance.md).
+An unchanged physical objective and smaller derivative spread do not by themselves
+establish a faster formulation.
