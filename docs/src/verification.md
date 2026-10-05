@@ -1,5 +1,44 @@
 # Verification
 
+## Derived DER dispatch on 265 buses — 6 October 2026
+
+The full suite passes **69,044/69,044 assertions**, adding **112 checks** in
+`test/ivr_der_scenario_tests.jl`. The additive scenario helper preserves original
+fields and source bytes, records every generator addition and its source load,
+owns nested declarations and protects the source path. Tests cover invalid or
+existing dispatch, negative/nonfinite demand, capacity overflow, single-phase,
+wye and delta channels, and fixed-zero channels. A fixed-voltage analytical
+economic optimum predicts 3.75 kW generator P and zero Q; six profiles match it.
+Tightening its apparent-power limit rejects the physical point in independent SI
+and encoded-model checks. The initial ambiguous numeric literal in that test is
+corrected, with its source and failure log retained.
+
+The external source is unchanged. A separately saved 265-bus scenario adds 74
+single-phase generators with 111 kW active capacity to 74 kW original demand.
+All original fields and limits are preserved; none of its buses originally has
+a voltage magnitude bound. This is a declared DER experiment, not an equivalent
+rewrite or an untouched feeder operating case. All 24 preflight comparisons and
+24 separate export solves pass, including SI JSON round trips and matching
+physical quantity keys across formulations. All 74 new capability circles bind
+under economic cost and remain slack under exchange tracking. Two stricter-circle
+witnesses independently and algebraically reject a cost endpoint.
+
+Exploration and fresh-process confirmation admit **576 measured solves and 48
+warm-ups**. Actual orders place each candidate twice in each position; source and
+scenario hashes, physical objectives and full/reverse maps pass. Maximum physical
+objective discrepancy is below 5.33e-15 and within-cell spread below 3.58e-13.
+These checks do not certify global AC optimality. Timings finish before tests and
+documentation builds, retain every tail, and exclude construction/extraction/audits.
+
+Reduced 1 kVA power lifting wins cost by 18.3–18.4% against full 10 kVA, but the
+same base change hurts tracking. The best reduced 10 kVA tracking alternatives
+gain about 6%, with off versus power lifting near a tie. Full 1 kVA is outside
+this shortlist; no universal profile, base or factorization mechanism is claimed.
+All options and defaults remain. All **38 executable tutorial blocks** pass;
+four new timing rows and prior objective tables are checked against raw JSON
+and rendered HTML, alongside local links. See [derived-DER evidence](ivr_objectives.md)
+and [tutorial section 36](tutorial_exact_ivr.md).
+
 ## External LV power-objective transfer — 5 October 2026
 
 The full suite passes **68,932/68,932 assertions**, adding **147 checks** in

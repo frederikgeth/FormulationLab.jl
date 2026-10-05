@@ -1223,3 +1223,63 @@ scaling; never overlap timing with tests, diagnostics or a documentation build.
 A profile is eligible only after physical/objective and cross-formulation checks.
 The [external objective evidence](ivr_objectives.md) also records target errors:
 a soft target need not be achievable within the original equipment limits.
+
+## 36. Add a declared DER scenario without changing the source
+
+A feeder with only fixed loads cannot establish controllable economic-dispatch
+performance. `IVRDERScenario.augment` creates an explicitly different physical
+scenario by adding bounded static generation at positive constant-power loads.
+It preserves the native single-phase, wye or delta connection, all original
+fields, and a record of every addition. Existing generator/IBR panels are refused
+so their dispatch assumptions cannot be mixed silently with the new scenario.
+
+For each native load channel, the defaults are
+\(0\le P_g\le1.5P_d\), \(|Q_g|\le0.5P_g^{\max}\),
+\(P_g^2+Q_g^2\le(P_g^{\max})^2\). Zero-load sites are skipped; zero-demand
+channels in a multi-channel device stay fixed at zero. These are illustrative
+DER capabilities, not inferred equipment ratings or an equivalence transform.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "ivr_der_scenario.jl"))
+DER = IVRDERScenario
+load_only_demo = EO.P.ivr_compiler_case(conductors=2,segments=2)
+load_only_before = deepcopy(load_only_demo)
+der_demo, der_manifest = DER.augment(load_only_demo)
+@assert load_only_demo==load_only_before
+@assert all(der_demo[k]==v for (k,v) in load_only_demo)
+@assert length(der_manifest.changes)==2
+@assert der_manifest.total_active_capacity_W==1.5der_manifest.total_load_W
+for addition in der_manifest.changes
+    @assert der_demo["generator"][addition.generator_id]==addition.after
+    @assert addition.before===nothing
+end
+der_profiles = EO.profiles(der_demo,:quadratic_cost;
+    regional_bases=Dict("b0"=>1e3))[[1,4]]
+der_reference = build_opf(der_demo,IVRNLP(objective=:power,
+    power_terms=first(der_profiles).options.power_terms))
+der_start = EO.S.U.G.H.S.L.start_point(der_demo)
+der_anchor = Ref{Any}(nothing)
+der_rows = map(der_profiles) do profile
+    row,point = EO.P.trial(der_demo,profile,der_reference,der_anchor[];
+        initial_point=der_start)
+    @assert row["accepted"]
+    der_anchor[]===nothing && (der_anchor[]=point)
+    (profile=profile.name,objective=row["objective"])
+end
+@assert isapprox(der_rows[1].objective,der_rows[2].objective;atol=1e-6)
+der_rows
+```
+
+`DER.write_scenario(source_path, new_path)` writes the derived input and a
+`.manifest.json` sidecar containing the raw source hash, scenario hash, load
+associations and added device declarations. It refuses to overwrite the source.
+Pass the new file to `EO.benchmark` as in section 35 and retain both provenance
+layers: the original feeder and the derived dispatch case. Keep its manifest
+with the timing report. A benchmark that preserves the derived file is still an
+experiment on modified physics relative to the original feeder.
+
+The [265-bus transfer evidence](ivr_objectives.md) uses all original ratings and
+adds no bus-voltage limits where none were supplied. It therefore tests a specific
+DER capability regime; further voltage-constrained operating cases need separately
+declared scenarios. Source-target tracking remains a soft objective, not an exact
+exchange constraint.

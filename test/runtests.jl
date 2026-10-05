@@ -16,6 +16,7 @@ using OpenDSSDirect
     include("ivr_power_objective_tests.jl")
     include("ivr_objective_factor_tests.jl")
     include("ivr_external_objective_tests.jl")
+    include("ivr_der_scenario_tests.jl")
     include("ivr_series_selection_tests.jl")
     include("ivr_chain_tests.jl")
     include("ivr_lifting_blocks_tests.jl")

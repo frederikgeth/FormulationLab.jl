@@ -371,6 +371,105 @@ removed by earlier preprocessing remains separate work. See
 Larger MV/LV cases with declared DER dispatch, broader objective cases and regional
 generator/lifted-power units remain next; all earlier alternatives are retained.
 
+## Derived DER transfer on 265 buses
+
+The next panel uses DSuite's 265-bus suburban feeder as a physical network
+(source SHA-256 `bcd85940fcc020fc3448797d78576c9c7014777cca19e2e3aa778f606c8f4366`).
+Its 119 loads include 74 positive single-phase loads of 1 kW each and 45 zero-load
+records; aggregate demand is 74 kW and zero kvar. It has 264 lines, one delta–wye
+transformer with leakage, and no generator or IBR dispatch. Existing line and
+transformer ratings are retained. No bus-voltage magnitude bounds were supplied;
+this panel does not invent them or establish voltage-constrained OPF performance.
+
+`examples/ivr_der_scenario.jl` creates an **explicitly different dispatch
+scenario**. For every positive constant-power load it adds a generator on the
+same native bus and terminal map. Channel bounds are
+\(0\le P_g\le1.5P_d\), \(|Q_g|\le0.5P_g^{\max}\) and
+\(P_g^2+Q_g^2\le(P_g^{\max})^2\). This adds 74 single-phase devices with 111 kW
+active capacity. All original fields are retained exactly. The source file is
+unchanged; a separate input and manifest record every addition, source-load
+association, capability and hash. These static capabilities are illustrative,
+not inferred DER nameplates, storage models or an equivalence-preserving cleanup.
+
+The same six profiles and objective coefficients from the preceding external
+study are retained. Source-exchange tracking targets half the original demand,
+37 kW, and zero kvar, with generator midpoint/Q-effort regularization. Regional
+current-unit seeds are 100 kVA at `sourcebus` and 1 kVA at `9108515`; assembly base
+is 10 kVA in that arm. The physical objective divisor is 1 throughout. Every
+profile uses the same unloaded physical start, nominal transformer voltage
+coordinates, composed rows, voltage-ground scaling, MUMPS AMD and tolerance
+1e-10. Source cost is signed exchange, including export credit; legacy input
+prices are not implicitly added.
+
+Untimed preflight separates two operating regimes. Economic dispatch reaches all
+74 added apparent-power circles (slack below 2.1e-7 VA in the full reference),
+with approximately 111.000 kW total generation and −36.950 kW source exchange.
+Tracking leaves every circle slack by more than 998 VA, with approximately
+37.053 kW generation and 36.998 kW source exchange. Its source-target mismatch is
+about −2.49 W and −0.0043 var, consistent with a soft penalized target. Tightening
+one active DER circle by 1% rejects the cost endpoint in both independent SI
+checks and encoded-model membership, under both solver policies.
+
+Exploration and fresh-process confirmation admit **576 measured solves and 48
+warm-ups**. Each of the four workload/solver-policy cells excludes six warm-ups
+and measures twelve rotated/reversed sweeps, with every candidate occupying each
+position twice. Both batches use one Julia/BLAS thread, exclude construction,
+extraction and audits from ranking, and finish before full tests or documentation
+builds. No retries with relaxed tolerances, deleted tails or pooled processes.
+The audit verifies unchanged raw/scenario files, original-field preservation,
+all 74 additions, actual orders, SI physics, original bounds, full/reverse maps and
+physical objective equality. Maximum objective discrepancy is below 5.33e-15;
+maximum within-cell objective spread is below 3.58e-13. Neither agreement nor
+local solver status establishes a global AC optimum.
+
+Confirmation median **Ipopt milliseconds**:
+
+| Workload | Ipopt scaling | Full 10k | Reduced 10k | Reduced 10k powers | Reduced 10k observations | Reduced 1k powers | Regional observations |
+|:--|:--|--:|--:|--:|--:|--:|--:|
+| quadratic_cost | none | 49.029 | 45.949 | 43.988 | 45.022 | 40.078 | 45.066 |
+| quadratic_cost | gradient-based | 49.695 | 46.477 | 44.479 | 45.505 | 40.539 | 45.684 |
+| exchange_tracking | none | 25.164 | 23.588 | 23.648 | 24.282 | 25.954 | 24.182 |
+| exchange_tracking | gradient-based | 25.349 | 23.796 | 23.668 | 24.372 | 26.385 | 24.338 |
+
+Reduced 1 kVA power lifting wins economic dispatch in both batches and under both
+policies: **18.3%/18.4%** less wall time than the full 10 kVA control in confirmation.
+Full IVR has 3726 variables and takes 16 iterations; reduced unlifted has 2922 and
+also takes 16; reduced power lifting has 3076 and takes 15 at 10 kVA or 14 at
+1 kVA. Observation lifting has 3220 variables and takes 15. These counts describe
+the formulations before solver preprocessing, not KKT fill or memory.
+
+The matched 1 kVA/10 kVA power-lifted comparison has same-sweep median ratios
+0.910/0.912 for cost but **1.101/1.113** for tracking. The lower base helps cost
+and hurts tracking on the same physical scenario, with fixed objective divisor.
+Tracking takes seven iterations at 10 kVA and eight at 1 kVA. Its best 10 kVA
+reduced alternatives improve on full by about 6%; lifting off versus powers is
+near a tie, with paired medians 1.000/0.993. Observation lifting slightly slows
+tracking relative to reduced unlifted; regional current units remain near a tie.
+
+The full-to-reduced comparison still changes a bundle of options. Full 1 kVA is
+not in this shortlist, so the economic winner is best only among these six
+candidates, not a proof that reduction beats every full formulation or that
+1 kVA is universally preferable. Active-set changes accompany objective changes;
+the experiment does not isolate either as the cause of the timing reversal.
+Separate native traces would be required to explain factorization costs.
+
+Retained tails qualify the median gains: cost/gradient reduced-1k/full paired
+ratios span 0.520–1.046, and tracking/no-scaling observation/off spans
+1.015–1.475. Do not present the fastest individual solve as the representative
+benefit. Repetitions are timing observations on one derived feeder, not independent
+network samples. Larger multi-transformer and voltage-constrained cases remain
+open, alongside full-base controls and independent generator/lifted-power units.
+
+All 24 untimed solution exports preserve matching physical SI quantity keys
+across formulations and pass JSON round trips. Reconstruction applies to the
+input scenario; earlier preprocessing and unobservable ideal-source currents
+retain their existing limitations. The independent fixed-voltage regression
+oracle predicts 3.75 kW generation and zero generator Q from these economic
+coefficients; six profiles match it, and tighter capability bounds reject its
+endpoint. Mixed single-phase/wye/delta tests include fixed-zero native channels.
+See [tutorial section 36](tutorial_exact_ivr.md) for scenario creation and its
+provenance contract. No existing transformation or default is removed.
+
 ## Independent economic-dispatch oracle
 
 A fixed-voltage, two-generator circuit supplies 3000 W and 600 var, with source

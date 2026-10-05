@@ -38,6 +38,12 @@ separate reduction, scaling and lifting effects. The
 then finds full IVR fastest in all four cost/tracking and solver-scaling cells;
 the reduced unlifted bundle is 34–44% slower despite fewer variables. Retain full
 IVR in every shortlist: manufactured-case winners do not establish external gains.
+The subsequent [265-bus derived-DER panel](ivr_objectives.md#Derived-DER-transfer-on-265-buses)
+finds a conditional benefit: reduced 1 kVA power lifting improves economic cost
+by 18.3–18.4% against full 10 kVA, but that lower base hurts exchange tracking.
+The best 10 kVA reduced tracking candidates gain about 6%. This explicitly added
+DER scenario preserves original equipment limits; full 1 kVA and larger
+multi-transformer/voltage-constrained controls remain open.
 
 ## Unbalanced transformer-leakage transfer — 5 October 2026
 
