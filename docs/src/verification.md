@@ -1,5 +1,38 @@
 # Verification
 
+## Physical non-unit transformer sharing — 6 October 2026
+
+The full suite passes **83,907/83,907 assertions**, including **5143 new checks**.
+Manufactured single-phase cascades activate exact winding factors −8 and −1/8,
+including series leakage, reversed ports and active original winding ratings.
+Tests cover both winding sides, interior neutral/phase-neutral voltage limits,
+native powers, SI JSON fields/round trips, complete starts, full/reverse model
+membership, independent analytical values and reusable load/generator updates.
+No production equation, default or previous option changes.
+
+All **1536 measured solves, 192 warm-ups and 96 preflight SI exports** pass.
+All 384 tightened winding-current and 96 neutral-voltage witnesses reject
+physically and algebraically. The independent audit verifies source preservation,
+44,280 arbitrary-coordinate identities, named winding sharing, 192 paired timing
+contrasts and identical threshold-two MOI algebra/maps in all twelve cells.
+Objective discrepancy is below 3.34e-15; within-cell spread below 1.78e-15.
+Only Ipopt wall time ranks; timing never overlaps tests/docs/other solver work.
+
+At threshold zero, proportional sharing improves matched signed-sharing times
+about 4.5–7.7%. Nevertheless, every proportional threshold-zero/two paired median
+favours threshold two in both batches. Non-unit sharing is physically demonstrated,
+but introducing extra lifting solely to activate it is not supported here.
+Threshold-two sharing labels emit identical models; their winner changes are
+timing variation. Both batches, all tails and all options remain available.
+
+The analytical test setup was corrected to create benchmark profiles before
+fixing dispatch; the existing dispatch-freedom guard remains. The evidence audit
+explicitly accounts for the runner's empty provenance metadata addition without
+excluding arbitrary input differences. Original logs remain. The existing
+OpenDSS precompile fallback is nonfatal. See the
+[scientific study](ivr_nonunit_transformers.md) and
+[tutorial section 45](tutorial_exact_ivr.md).
+
 ## Structural reduction interactions — 6 October 2026
 
 The full suite passes **78,764/78,764 assertions**, including **1028 new checks**

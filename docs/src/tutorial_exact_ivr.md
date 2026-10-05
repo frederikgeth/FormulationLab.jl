@@ -1622,3 +1622,43 @@ nlp_scaling_method="gradient-based")` for one feeder/objective/policy panel.
 Give each panel a distinct output path and retain both timing batches. The
 [structural interaction study](ivr_structural_interactions.md) defines the paired
 conditional effects, ratio-of-ratios interactions and evidence limitations.
+
+## 45. Verify a non-unit transformer observation
+
+A ratio-eight single-phase transformer satisfies `i_to = -8i_from` with both
+currents oriented into the device. Reversing ports gives factor `-1/8`. This
+example includes series leakage and an original winding-current rating, and
+checks actual named winding observations rather than counting all matches.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_nonunit_transformers.jl"))
+NonunitDemo = IVRNonunitTransformerStudy
+nonunit_network = NonunitDemo.case(leakage=true,reverse=true,limit_side=:to)
+nonunit_profiles = filter(p -> p.name in ("signed_t0","proportional_t0","proportional_t2"),
+    NonunitDemo.profiles(nonunit_network,:quadratic_cost))
+nonunit_reference = build_opf(nonunit_network,IVRNLP(objective=:power,
+    power_terms=first(nonunit_profiles).options.power_terms))
+nonunit_anchor = Ref{Any}(nothing)
+nonunit_rows = map(nonunit_profiles) do profile
+    row,p = NonunitDemo.P.trial(nonunit_network,profile,nonunit_reference,nonunit_anchor[];
+        initial_point=NonunitDemo.E.S.U.G.H.S.L.start_point(nonunit_network))
+    @assert row["accepted"]
+    nonunit_anchor[]===nothing && (nonunit_anchor[]=p)
+    build = build_opf(nonunit_network,IVRNLP(profile.options))
+    audit = NonunitDemo.observation_audit(build)
+    @assert audit.max_relative_error<1e-12
+    @assert all(w.factor_to_from == -1/8 for w in audit.windings)
+    (profile=profile.name,variables=row["variables"],windings=audit.windings)
+end
+nonunit_rows
+```
+
+At threshold zero, proportional sharing reuses the winding auxiliary; signed
+sharing cannot reuse a factor `-1/8`. At threshold two, these simple currents
+stay direct. The physical identity still holds, but there is no lifted winding
+auxiliary to save. This distinction is why the [study](ivr_nonunit_transformers.md)
+retains both thresholds and full/reduced power-only controls. The unity-ratio
+case is a control for winding ratios; other non-unit neutral-voltage matches can
+still occur. For a complete timing panel, use `NonunitDemo.benchmark(input_path,
+output_path; workload=:exchange_tracking, exchange_target_W=target_W,
+nlp_scaling_method="gradient-based")` with a distinct output path for each cell.

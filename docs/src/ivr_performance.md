@@ -121,6 +121,11 @@ power-only lifting. Cap choices and close smaller-case rankings change between
 batches. All older finalists remain; this panel does not rank every power-only/
 reuse or power-base alternative. No default changes.
 
+[Physical non-unit sharing](ivr_nonunit_transformers.md) now activates exact
+transformer factors −8 and −1/8. Proportional sharing gains 4.5–7.7% over signed
+sharing at threshold zero, but threshold two remains faster in every paired
+median. Keep the option; do not add lifting solely to enable more sharing.
+
 ## Unbalanced transformer-leakage transfer — 5 October 2026
 
 The fixed power-base candidates transfer successfully to a manufactured coupled

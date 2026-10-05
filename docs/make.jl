@@ -35,6 +35,7 @@ makedocs(;
             "Hybrid transfer"=>"ivr_hybrid_transfer.md",
             "Signed/proportional affine sharing"=>"ivr_affine_sharing.md",
             "Structural interactions"=>"ivr_structural_interactions.md",
+            "Physical non-unit transformer sharing"=>"ivr_nonunit_transformers.md",
             "Best-evidence numerical profiles"=>"ivr_performance.md",
         ],
         "Explicit-neutral LinIVR"=>"linivr.md",

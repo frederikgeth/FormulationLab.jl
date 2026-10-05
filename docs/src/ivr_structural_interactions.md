@@ -302,3 +302,7 @@ Then broaden the retained shortlist to independent feeders and mixed device
 workloads. Any direct comparison with earlier power-only/reuse finalists needs
 a new common timing panel; timings from separate campaigns should not be spliced
 into a definitive ranking.
+
+The subsequent [physical transformer study](ivr_nonunit_transformers.md)
+demonstrates non-unit winding sharing and checks its lifting-threshold tradeoff.
+Broader feeder transfer and the common finalist comparison remain open.
