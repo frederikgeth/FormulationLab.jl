@@ -50,6 +50,7 @@ makedocs(;
         "Reference"=>[
             "Literature and lineage"=>"literature.md",
             "Formulation and input API"=>"api.md",
+            "Physical results and JSON"=>"results.md",
             "Migration provenance"=>"migration.md",
         ],
     ],

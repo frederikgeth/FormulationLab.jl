@@ -42,3 +42,14 @@ update_ivr_loads!
 update_ivr_generators!
 ivr_nlp_point_report
 ```
+
+
+## Common result dictionary and JSON
+
+See the [physical result contract](results.md) for field semantics and recovery limits.
+
+```@docs
+result_dict
+write_result
+read_result
+```

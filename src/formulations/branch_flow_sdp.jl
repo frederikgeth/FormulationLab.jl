@@ -2267,7 +2267,9 @@ end
 
 function solve_branch_flow_sdp(build::BranchFlowSDPBuild; solver_options=())
     _set_solver_options!(build.model, solver_options)
+    export_meta=_result_export_start(build)
     JuMP.optimize!(build.model)
+    build.numerical_diagnostics[:result_export]=_result_export_finish!(export_meta,build)
     outcome = _solve_outcome(build.model)
     status = SolveStatus(outcome)
     diagnostics = copy(build.numerical_diagnostics)

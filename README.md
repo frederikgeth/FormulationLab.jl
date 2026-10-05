@@ -68,6 +68,12 @@ build = build_opf(input, IVRSDP(); optimizer=nothing)
 
 Programmatic BMOPF dictionaries are also accepted. They are copied, not modified, and do not imply schema validation. A PowerIO read preserves diagnostics; it does not certify that a formulation supports the document. Unsupported SDP fields are rejected explicitly.
 
+All six formulations support `result_dict(network, result)`, `write_result` and
+`read_result` for a shared BMOPFTools-style physical result layout in SI units.
+Exact-IVR reductions restore the original observations; approximate and relaxed
+phasors are labelled, and unavailable values remain explicit. See the
+[result contract and JSON conventions](docs/src/results.md).
+
 Solvers are optional. Loading Clarabel enables formulation-specific defaults; explicit factories such as `optimizer=Clarabel.Optimizer` keep their own defaults. The SDP and SOC numerical profiles and measured tradeoffs are documented in [SDP numerics](docs/src/sdp_numerics.md) and [Fixed SOC relaxation](docs/src/soc.md).
 
 MosekTools can be passed as `optimizer=MosekTools.Optimizer` when installed by the caller. It is an **optional test dependency only** in this repository.

@@ -1229,7 +1229,9 @@ function solve_l3f_opf(net, optimizer=default_optimizer();
                        voltage_tolerance=nothing, dispatch=nothing)
     build = build_l3f_opf(net, optimizer; options, reference, dispatch)
     _set_solver_options!(build.model, solver_options)
+    export_meta=_result_export_start(build)
     JuMP.optimize!(build.model)
+    _result_export_finish!(export_meta,build)
     outcome = _solve_outcome(build.model)
     status = SolveStatus(outcome)
     buses, lines, transformers, generators, sources = _l3f_extract(build, outcome)
@@ -1238,6 +1240,7 @@ function solve_l3f_opf(net, optimizer=default_optimizer();
         _l3f_physical_objective(build, outcome),
         Dict{String,Any}(
             "name" => "L3F-BMOPF", "version" => "0.1-prototype",
+            "result_export" => export_meta,
             "operating_mode" => String(options.operating_mode),
             "dispatch_policy" => options.operating_mode == :power_flow ? "fixed_pq" : "optimized",
             "fixed_dispatch" => deepcopy(get(build.model.ext, :l3f_fixed_dispatch, nothing)),

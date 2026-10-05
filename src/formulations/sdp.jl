@@ -505,7 +505,10 @@ end
 function solve_sdp_opf(build::SDPBuild;solver_options=())
     haskey(build.model.ext,:soc_policy) && throw(ArgumentError("use solve_soc_opf for an SOC build; PSD completion is not valid for indefinite moments"))
     options=build.options
-    _set_solver_options!(build.model,solver_options);JuMP.optimize!(build.model)
+    _set_solver_options!(build.model,solver_options)
+    export_meta=_result_export_start(build)
+    JuMP.optimize!(build.model)
+    build.numerical_diagnostics[:result_export]=_result_export_finish!(export_meta,build)
     outcome=_solve_outcome(build.model);status=SolveStatus(outcome)
     if !outcome.optimal
         return SDPResult(NaN,NaN,fill(ComplexF64(NaN),size(build.moment)),

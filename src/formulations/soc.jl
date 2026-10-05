@@ -114,7 +114,9 @@ function solve_soc_opf(b::SOCBuild;solver_options=())
         load_envelopes=copy(b.electrical.load_envelopes),lnc_diagnostics=copy(b.electrical.lnc_diagnostics),
         numerics=copy(b.electrical.numerical_diagnostics))
     model=b.model;_set_solver_options!(model,solver_options)
+    export_meta=_result_export_start(b)
     start=time_ns();JuMP.optimize!(model);status=SolveStatus(_solve_outcome(model))
+    metadata=(metadata...,result_export=_result_export_finish!(export_meta,b))
     if !status.publishable
         return SOCResult(NaN,NaN,Matrix{ComplexF64}[],Dict{Tuple{Symbol,String},Vector{ComplexF64}}(),status,:solver_failure,NamedTuple[],0,NaN,metadata)
     end

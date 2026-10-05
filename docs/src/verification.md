@@ -1,5 +1,32 @@
 # Verification
 
+## Common physical result contract — 5 October 2026
+
+The new `result_dict`, `write_result` and `read_result` API follows the static-AC
+BMOPFTools result layout at revision
+`39523e8a5cc5543e0f644ab2d135dd43ef4d8c01`. The [result contract](results.md)
+specifies terminal and coil indexing, SI units, current/power signs, solver status,
+snapshot ownership and unavailable quantities. The exact-IVR tutorial now executes
+a physical-result extraction and JSON round trip.
+
+Tests compare physical field paths and numbers across nine exact-IVR policy
+combinations on two-, three- and four-wire chains. Additional checks exercise all
+six result types, raw versus physical powers, native moment serialization,
+unsuccessful diagnostic primals, changed-input refusal, parsed input, signed zero,
+strict JSON nulls and NaN-preserving round trips. Independent prescribed electrical
+states check IBR filter/PCC recovery, capacitor and shunt powers, ideal-ground
+reactions, charged-line endpoint currents, regulators and multiwinding coil/port
+quantities. Scalar and per-coil winding ratings have separate witnesses.
+
+The optional live BMOPFTools panel compares nested bus, line, load, source and loss
+field sets and values, and exchanges JSON through both libraries' writers and
+readers. It does not establish equivalence for every device law or transformer
+rating convention. Approximate and relaxed phasors remain labelled candidates;
+unidentified source/ground allocation and delta circulation are never filled by
+an arbitrary choice. Original-network export after separate topology preprocessing
+and complete failed-candidate extraction for every relaxation remain documented
+gaps. These are result-contract tests, not performance measurements.
+
 ## Adjacent-chain certificate and benchmark — 5 October 2026
 
 The additive `:passive_chains` policy consumes surviving incident-line equations

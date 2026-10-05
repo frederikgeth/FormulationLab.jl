@@ -664,3 +664,26 @@ The manifest checks equal physical starts. Twelve sweeps balance profile positio
 and warm-ups are excluded. `loads=:alternating` is a control with no additional
 adjacent opportunity. The primary ranking uses Ipopt wall time only. See the
 [performance evidence](ivr_performance.md) before choosing between these options.
+
+
+## 22. Export physical results in the BMOPFTools layout
+
+The dictionary describes the original network, including eliminated observations.
+The extension identifies derived quantities and any unavailable current allocation.
+
+```@example exactivr
+export_case = T.two_wire_case()
+export_run = T.solve_checked(export_case; specialization=:conductor_difference)
+exported = result_dict(export_run.build, export_run.result)
+buffer = IOBuffer()
+write_result(exported, buffer)
+seekstart(buffer)
+@assert isequal(read_result(buffer), exported)
+(exported["bus"]["demand"]["a"], exported["line"]["service"]["a"],
+ exported["losses"], exported["_formulationlab"]["state_kind"])
+```
+
+Write a file with `write_result(exported, "result.json")`. Select
+`nonfinite=:null` for strict JSON consumers. The default preserves BMOPFTools'
+NaN convention for unavailable values. Read the [result contract](results.md)
+before comparing estimates from a relaxation with exact-IVR physical outputs.

@@ -568,7 +568,10 @@ end
 
 """Solve a built IVR model. Local solver success is not a global certificate."""
 function solve_ivr_nlp_opf(build::IVRNLPBuild;solver_options=())
-    _set_solver_options!(build.model,solver_options);JuMP.optimize!(build.model)
+    _set_solver_options!(build.model,solver_options)
+    export_meta=_result_export_start(build)
+    JuMP.optimize!(build.model)
+    build.numerical_diagnostics[:result_export]=_result_export_finish!(export_meta,build)
     outcome=_solve_outcome(build.model);e=build.electrical
     voltage=Dict{Tuple{String,String},ComplexF64}()
     currents=Dict{Tuple{Symbol,String},Vector{ComplexF64}}()

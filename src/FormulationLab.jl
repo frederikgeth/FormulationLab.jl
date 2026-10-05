@@ -75,6 +75,8 @@ include("validation/relaxation.jl")
 include("io/bmopf_simplify.jl")
 include("io/network_reduction.jl")
 include("io/reconstruction.jl")
+include("io/results.jl")
+export result_dict, write_result, read_result
 export ReductionOptions, ReductionPlan, PreparedNetwork, prepare_network, reduction_report
 export ReconstructedSolution, reconstruct_solution, reconstruction_plan, restore_prepared_network
 export ACPoint, containment_report, physical_residuals, complete_ac_point
