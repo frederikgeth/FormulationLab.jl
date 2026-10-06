@@ -6,6 +6,17 @@ Recommendations here are additive; package defaults and the individual options
 are unchanged. “Fastest” always refers to a declared workload, accepted physical
 solutions, a candidate set, solver settings and a measured environment.
 
+The [isolated single-phase confirmation](ivr_singlephase_transfer.md#Isolated-confirmation-—-6-October-2026)
+now supplies eligible timing evidence: all 1,944 measured solves and 216 warm-ups
+pass, with no competing Julia process detected. For the tested mixed-device rural
+feeder, unreused reduced power lifting leads wide/tight cost; nominal load-law
+rows cut tight-cost iterations from 22 to 20. Reduced generator reuse leads
+tracking, and reuse with nominal rows leads narrow cost. Complete scaling winners
+repeat in only 6/12 cells, although the formulation family repeats in all 12.
+Column rescaling alone has little consistent benefit. Keep the nearby alternatives
+and full-power reference; the detailed matched comparisons qualify these small
+and workload-dependent gains. Compilation is excluded from every ranking.
+
 The [live mixed-winding comparison](ivr_nwinding_connections.md) additionally
 shows that a small scaled Ipopt error and a feasible endpoint do not establish
 objective agreement or small unscaled dual residuals. Explicit absolute
@@ -42,9 +53,11 @@ aligned nameplates. A sequentially declared narrow band reaches two upper
 voltage bounds under cost and five lower bounds under tracking; the wider
 controls remain inactive. Inherited line and nameplate limits remain loose.
 This establishes strict admission near added voltage boundaries; speed claims
-remain pending. All 1,944 subsequent trials and 216 warm-ups pass, but a
+were initially pending. All 1,944 trials and 216 warm-ups in the first attempt pass, but a
 competing Julia workload invalidates timing isolation. The whole campaign is
-excluded from speed recommendations; its raw results are retained.
+excluded from speed recommendations; its raw results are retained. The fresh
+fourth attempt summarized above supplies the eligible confirmation; no excluded
+timing row is reused.
 
 The [equipment-boundary extension](ivr_equipment_boundaries.md) additionally
 admits all 72 supported comparisons at larger added DER capacity. Export tracking

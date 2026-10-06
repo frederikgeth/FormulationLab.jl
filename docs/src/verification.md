@@ -1,5 +1,24 @@
 # Verification
 
+## Isolated single-phase timing confirmation — 6 October 2026
+
+The [fourth timing attempt](ivr_singlephase_transfer.md#Isolated-confirmation-—-6-October-2026)
+completes **1,944/1,944 measured solves and 216/216 warm-ups** with strict
+solver, physical, own/full/reverse membership, objective and expected voltage
+active-set checks. All 276 frozen hashes remain unchanged. A two-second monitor
+records 142 process snapshots without detecting competing Julia work; it does
+not exclude all system load or shorter jobs. All prior contaminated campaigns
+remain excluded from speed statistics.
+
+The raw-report audit verifies complete common-start encoding, declared numerical
+policies and power-objective reconstruction (maximum error below 1.78e-15).
+Maximum within-cell objective spread is below 2.44e-13. Timing uses Ipopt.jl
+optimizer-call wall time and excludes construction, extraction and audit costs.
+Both batches and every raw tail are retained outside Git in
+`SINGLEPHASE_ISOLATED_R4_20261006`. This checkpoint changes documentation only;
+production code and tests remain at the preceding **137,485/137,485** regression
+checkpoint. It does not claim a new independent SI-current export audit.
+
 ## Guarded voltage equalities under power costs — 6 October 2026
 
 Full regression passes **137,485/137,485 assertions**, including **1,162 new

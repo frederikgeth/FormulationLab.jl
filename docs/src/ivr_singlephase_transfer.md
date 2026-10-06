@@ -163,11 +163,139 @@ The entire partial campaign is excluded, including provisional ranking fields.
 No other workload is terminated. The original inputs and source-at-stop snapshot
 remain available, so later code changes do not obscure the attempted protocol.
 
-The remaining boundary experiment concerns inherited equipment ratings. It
-should use declared DER-capacity and source-export workloads to approach those
-limits while retaining original equipment data. The present results do not
-justify weakening or deleting any original bound, numerical option or failed
-historical treatment.
+## Isolated confirmation — 6 October 2026
+
+A fourth, separately frozen attempt, `SINGLEPHASE_ISOLATED_R4_20261006`, completes
+both batches without a detected competing Julia process. It uses package commit
+`df9ca4a28af9e9e4f742a7e7e0b8646d4403b771`, the unchanged three physical inputs,
+archived current benchmark modules and the original seeds and acceptance gates.
+All **1,944 measured solves and 216 warm-ups pass**. Every profile is eligible
+in all 24 batch/cell combinations, with the same expected voltage active sets.
+All 276 frozen source/input/control hashes are verified unchanged. None of the
+three excluded campaigns contributes to these timing statistics.
+
+The monitor samples Julia processes every two seconds and records 142 snapshots.
+This establishes absence of *detected competing Julia processes*, not absence
+of all operating-system load or jobs shorter than the sampling interval. Runs
+use Julia 1.12.6, JuMP 1.31.2 and Ipopt.jl 1.16.0 on Apple M4, one Julia/BLAS
+thread, and the settings specified above. Both batches are fresh processes on
+the same machine and day; they are not independent hardware or feeder samples.
+
+The primary metric is `MOI.SolveTimeSec`, exposed by `JuMP.solve_time`: Ipopt.jl
+optimizer-call wall time, including backend setup and native `IpoptSolve`.
+FormulationLab construction/compilation, preceding JuMP cache transfer, result
+extraction and audits do not enter the ranking. Every arm receives an excluded
+warm-up in each cell. The design controls candidate position but not predecessor
+or all machine-load effects. No confidence interval or universal fastest claim
+is inferred from these short repeated runs.
+
+### Leaders and repeatability
+
+`RP` denotes reduced power lifting without generator reuse; `RG` additionally
+reuses generator power definitions. The suffix is `U` for uniform 1 kVA load
+columns with assembly-unit rows, `C` for nominal load columns with assembly-unit
+rows, or `R` for nominal columns and nominal voltage-law rows. These are exactly
+the nine previously declared arms, including the three full-IVR controls.
+
+| Band | Objective | Ipopt scaling | First-batch leader | Confirmation leader | Confirmation median (ms) |
+|:--|:--|:--|:--|:--|--:|
+| wide | Cost | none | RP-R | RP-U | 21.057 |
+| wide | Cost | gradient-based | RP-R | RP-R | 20.718 |
+| wide | Tracking | none | RG-U | RG-C | 12.020 |
+| wide | Tracking | gradient-based | RG-C | RG-R | 12.167 |
+| tight | Cost | none | RP-R | RP-R | 23.696 |
+| tight | Cost | gradient-based | RP-R | RP-R | 23.715 |
+| tight | Tracking | none | RG-U | RG-U | 13.423 |
+| tight | Tracking | gradient-based | RG-U | RG-R | 13.414 |
+| narrow | Cost | none | RG-R | RG-R | 27.099 |
+| narrow | Cost | gradient-based | RG-R | RG-R | 27.433 |
+| narrow | Tracking | none | RG-U | RG-C | 25.413 |
+| narrow | Tracking | gradient-based | RG-U | RG-R | 25.356 |
+
+The leading **formulation family repeats in all 12 cells**, while the complete
+formulation/scaling choice repeats in only **6/12**. Tracking consistently favors
+the reuse family, but its load-unit winner changes in five of six cells. The
+wide cost cell with scaling off also changes its winning load treatment. These
+changes counsel retaining nearby alternatives rather than treating every small
+median difference as a reproducible benefit. All tails remain in the archive;
+for example, the narrow cost/gradient winner ranges from 27.061 to 42.339 ms in
+confirmation despite its 27.433 ms median.
+
+### Matched effects
+
+For each measured sweep, divide treatment Ipopt time by the matched control
+time. The table reports the range of the resulting *within-cell median ratios*
+over the 18 conditions per objective and change. A ratio below one favors the
+treatment. Conditions combine three bands, two solver policies and three other
+factor settings; they are not 18 independent networks. “Faster in both batches”
+records repeated direction, not a significance test. Ratios are not ratios of
+the separately reported candidate medians.
+
+The column change compares nominal with uniform columns while keeping rows at
+assembly units. The row change adds nominal voltage-law row scaling with nominal
+columns held fixed. Reduction compares reduced power lifting with full power
+lifting at the same load-unit treatment. Reuse compares generator reuse with
+unreused reduced power lifting.
+
+| Objective | Matched change | Faster in both batches | Confirmation paired-ratio range |
+|:--|:--|--:|--:|
+| Cost | column | 7/18 | 0.9834–1.0166 |
+| Cost | row | 16/18 | 0.9025–1.0149 |
+| Cost | reduction | 17/18 | 0.9644–1.0000 |
+| Cost | reuse | 4/18 | 0.9902–1.0914 |
+| Tracking | column | 6/18 | 0.9886–1.0059 |
+| Tracking | row | 6/18 | 0.9860–1.0305 |
+| Tracking | reduction | 18/18 | 0.9570–0.9985 |
+| Tracking | reuse | 17/18 | 0.9771–1.0109 |
+
+Column rescaling alone has no consistent direction and changes these medians
+by roughly 1–2%. It should remain a controlled factor, not an automatic rule that
+lower LV power implies a faster smaller base. Reduction has a modest repeated
+benefit, while reuse usually benefits tracking and slows cost in **12/18**
+matched conditions in both batches. Fewer variables alone do not predict the
+better cost formulation: cost profiles have 1,355, 1,253 and 1,217 real variables
+for full, reduced and reuse, respectively.
+
+The clearest row-scaling effect occurs in the **tight cost** band, whose voltage
+bounds remain inactive. With nominal columns fixed, nominal row scaling reduces
+full and unreused reduced iterations from 22 to 20, and reuse iterations from
+23 to 22, under both solver policies and both batches. Confirmation matched
+ratios are 0.9025–0.9158 for full/unreused reduction, and 0.9541–0.9590 for reuse.
+Thus a changed iteration path appears before a voltage bound becomes active;
+active-set membership alone cannot select the best numerical scaling.
+
+In narrow cost, every arm takes 23 iterations. Reuse with nominal rows leads in
+both batches under both solver policies, but its matched advantage over unreused
+reduction is small (confirmation ratios 0.9912 and 0.9965). This is a conditional
+candidate, not evidence that reuse universally improves economic objectives.
+Tracking iteration counts remain 9/10/22 for wide/tight/narrow across every arm;
+its small reduction/reuse gains occur without iteration-count changes.
+
+### Admission and recommendation
+
+A separate report audit rechecks every raw physical/model gate, complete common
+SI-start encoding, declared bases and solver policy. Maximum difference between
+the solver objective and the independently reconstructed power objective is
+``1.78\times10^{-15}``; maximum within-cell objective spread, including warm-ups,
+is ``2.44\times10^{-13}``. The earlier 108-export independent SI audit remains
+separate: this timing audit is not a new independent current-reconstruction
+study. The JSON timing reports retain objectives, statuses, physical checks,
+active-bound slacks and all raw trials in the existing benchmark format.
+
+For this single-phase mixed-device feeder, retain **unreused reduced power
+lifting for wide/tight cost**, with nominal voltage-law row scaling especially
+useful in tight cost. Add **reuse with nominal rows for narrow cost**, and keep
+**reduced reuse for tracking**, with load-unit alternatives close enough to retain.
+Full power lifting remains the reference and robust comparator. These findings
+refine a workload-specific shortlist; they change no package default and remove
+no transformation option. Transfer to independent feeders and mixed-winding
+networks remains necessary before a broader recommendation.
+
+The inherited equipment boundary extension has since been completed in the
+[transformer-boundary study](ivr_equipment_boundaries.md) and subsequent
+[line-boundary study](ivr_line_boundaries.md). Those physical interventions are
+separate from the timing comparison here; their results do not justify weakening
+any original bound or discarding a historical treatment.
 
 ## Reproduction
 
