@@ -1697,3 +1697,35 @@ and mixed-device scenarios, both solver scaling policies, full/reduced controls,
 and two complete timing batches. The ordinary `result_dict` and `write_result`
 APIs are unchanged: BMOPFTools fields remain top-level, and additional recoverable
 IBR internals are in `_formulationlab.devices.ibr[id]`.
+
+## 47. Compare retained finalists in a common panel
+
+Reusing a previous profile definition avoids accidentally changing its units or
+reduction bundle while comparing it with a newer candidate. This example checks
+all 16 common finalists on one physical power objective and reports model size
+and objective agreement. Its execution is a correctness demonstration; timing
+claims require the complete isolated protocol in the [urban study](ivr_urban_finalists.md).
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_urban_finalists.jl"))
+UrbanDemo = IVRUrbanFinalistStudy
+urban_demo = UrbanDemo.S.A.H.case(conductors=2,segments=6,charged=true)
+urban_profiles = UrbanDemo.profiles(urban_demo,:exchange_tracking;exchange_target_W=500.)
+@assert length(urban_profiles)==16
+urban_reference = build_opf(urban_demo,IVRNLP(first(urban_profiles).options))
+urban_anchor = Ref{Any}(nothing)
+urban_rows = map(urban_profiles) do profile
+    row,point = UrbanDemo.P.trial(urban_demo,profile,urban_reference,urban_anchor[];
+        initial_point=UrbanDemo.E.S.U.G.H.S.L.start_point(urban_demo))
+    @assert row["accepted"]
+    urban_anchor[]===nothing && (urban_anchor[]=point)
+    (profile=profile.name,variables=row["variables"],objective=row["objective"])
+end
+urban_rows
+```
+
+`powers_reuse` versus `powers` changes only generator reuse. `cap4_powers_reuse`
+versus `powers_reuse` changes only the line-elimination policy. A signed-observation
+profile versus a power-only profile changes the observation bundle; it does not
+isolate the coefficient-sharing rule. Keep these distinctions when interpreting
+paired ratios, and retain the full 1 kVA and 10 kVA controls.

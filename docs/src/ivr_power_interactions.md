@@ -212,3 +212,10 @@ complete original-bound reconstruction, charged-chain controls and explicit
 retained boundaries. The present work records its design only; it does not
 implement or benchmark that new policy. Broader independent transfer and the
 signed/proportional affine-sharing extension also remain open.
+
+Subsequent work implements [bounded hybrid condensation](ivr_hybrid.md),
+[signed/proportional sharing](ivr_affine_sharing.md), and
+[selected mixed-device transfer](ivr_mixed_devices.md). The
+[common urban finalist panel](ivr_urban_finalists.md) revisits the retained
+power-base and structural candidates together. The limitations above describe
+this original interaction study, not the scope of those later panels.

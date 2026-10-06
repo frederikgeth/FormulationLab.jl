@@ -170,13 +170,19 @@ end
 
 """Measure explicit profiles; save raw trials and workload-specific rankings.
 
+`checkpoint=:trial` retains legacy per-trial reports; `:sweep` saves every
+completed measured sweep, retaining all rows while avoiding repeated large-file
+writes. Warm-ups still save individually. An interrupted sweep may have unsaved
+rows; checkpoint frequency is outside the solver timer.
+
 Primary ranking uses `ipopt_wall_s`, obtained from `JuMP.solve_time`; model
 construction does not enter that ranking. Warm-ups are excluded. Four or more rotated/reversed sweeps are exploratory,
 not a fully position-balanced design. Confirm a chosen profile with fresh paired
 measurements. All electrical inputs/objectives are retained. The solve-only
 ranking excludes construction but does not measure updated-model reuse.
 """
-function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options=STRICT,source_sha256=nothing,initial_point=nothing,trial_orders=nothing)
+function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options=STRICT,source_sha256=nothing,initial_point=nothing,trial_orders=nothing,checkpoint=:trial)
+    checkpoint in (:trial,:sweep) || throw(ArgumentError("checkpoint must be :trial or :sweep"))
     started=time_ns()
     repetitions>0 || throw(ArgumentError("positive repetitions required"))
     !isempty(candidates) && allunique(p.name for p in candidates) || throw(ArgumentError("unique nonempty profiles required"))
@@ -201,7 +207,7 @@ function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options
         "cpu"=>Sys.CPU_NAME,"blas_threads"=>BLAS.get_num_threads(),"julia_threads"=>Threads.nthreads(),
         "solver_options"=>solver_options,"runner_sha256"=>RUNNER_SHA,"orders"=>[],
         "primary_metric"=>"ipopt_wall_s",
-        "shared_physical_start"=>initial_point!==nothing,
+        "shared_physical_start"=>initial_point!==nothing,"checkpoint"=>string(checkpoint),
         "timing_contract"=>"MOI.SolveTimeSec from Ipopt.jl: wall time of its optimizer call, including backend setup and native IpoptSolve; excludes FormulationLab build, JuMP cache transfer before the backend call, result extraction and physical/model audits. build_s and solve_s (wrapper plus extraction) are secondary diagnostics only.",
         "note"=>"Exploratory shortlist; no universal fastest claim. Primary ranking uses Ipopt wall time; build and solve/extraction timings are retained as secondary diagnostics. All timings exclude audits and warm-ups. Rejected/error trials retained. Unchanged electrical data and explicit shared objective. A first accepted warm-up supplies the full-feasible anchor for reverse mapping. Confirm winners independently; rankings do not measure parameter-update reuse.")
     save()=open(io->JSON3.write(io,report),output,"w")
@@ -217,8 +223,9 @@ function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options
         for j in order
             row,_=trial(net,candidates[j],reference,anchor;solver_options,initial_point)
             anchor===nothing && (row["accepted"]=false)
-            push!(rows[j]["trials"],row);save()
+            push!(rows[j]["trials"],row);checkpoint==:trial && save()
         end
+        checkpoint==:sweep && save()
     end
     report["ranking"]=rank_profiles(rows,repetitions)
     report["total_study_s"]=(time_ns()-started)/1e9

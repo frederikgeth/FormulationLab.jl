@@ -12,6 +12,17 @@ the mixed confirmation panel; generator reuse helps constant-power tracking but
 slows mixed cost and does not help mixed tracking. The cap-four/block arms emit
 identical algebra here, so their timing differences do not establish a cap effect.
 
+The [common urban finalist panel](ivr_urban_finalists.md) compares 16 retained
+profiles on the same input. For cost, keep unreused 1 kVA power lifting with
+10/100 kVA dispatch and block/cap-four alternatives; several leading medians
+are too close to establish a meaningful ordering. For tracking, power-only
+reuse at 1 kVA lifts remains a useful candidate, alongside nearby alternatives.
+Its matched gain is about 2–4%, whereas reuse slows cost about 7–10%.
+Signed observations do not consistently improve power-only reuse. Raising lift
+units to 10 kVA under gradient scaling can add iterations and lose 10–21%,
+depending on dispatch units and reuse. The study retains full 1/10 kVA and
+full-power controls, both batches and every tail; no universal default follows.
+
 ## Primary assessment: Ipopt wall-clock time
 
 The primary assessment now **excludes the cost of constructing reduced models**.

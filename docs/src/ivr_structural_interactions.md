@@ -305,4 +305,6 @@ into a definitive ranking.
 
 The subsequent [physical transformer study](ivr_nonunit_transformers.md)
 demonstrates non-unit winding sharing and checks its lifting-threshold tradeoff.
-Broader feeder transfer and the common finalist comparison remain open.
+The [rural mixed-device study](ivr_mixed_devices.md) adds selected feeder transfer,
+and the [common urban panel](ivr_urban_finalists.md) compares the retained finalists
+in one campaign. Broader population transfer remains open.

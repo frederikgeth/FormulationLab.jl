@@ -1,5 +1,38 @@
 # Verification
 
+## Common urban finalists — 6 October 2026
+
+The full suite passes **88,310/88,310 assertions**, including **2214 new checks**
+for profile provenance, isolated factors, independent option ownership,
+single-phase/delta objectives under both solver scaling policies, complete
+starts, physical/full/reverse membership and SI JSON round trips. Tightened
+original capability and voltage limits reject unchanged recovered points.
+Both report checkpoint policies preserve accepted rows and retain failed trials.
+
+All **2048 measured solves, 128 warm-ups and 64 preflight exports** pass on the
+unchanged urban DER scenario. All **64 tightened capability witnesses** reject
+physically and algebraically. An independent audit verifies the frozen source,
+exact input preservation, full recorded profile and solver options, balanced
+orders, recovery and 120 paired contrasts. Maximum recovered-objective error is
+below 4.98e-14 and within-cell spread below 2.92e-13. Only Ipopt wall time ranks;
+timing does not overlap tests, documentation builds or other solver work.
+
+Reuse slows urban cost about 7–10% but helps tracking about 2–4%. Several cost
+finalists are closely grouped, and the tracking winner changes between batches.
+Power-only reuse remains a tracking candidate; signed observations do not
+consistently improve it. See the [study](ivr_urban_finalists.md) for the complete
+16-profile table, paired contrasts and conditional shortlist, and
+[tutorial section 47](tutorial_exact_ivr.md) for an executable example.
+
+An initial campaign was stopped before ranking analysis when per-trial report
+rewrites exceeded 100 MiB. Its files remain separate and excluded; the entire
+panel restarted with sweep checkpoints after regression tests. The solver timer,
+trial routine, candidates and physical inputs are unchanged. The checkpoint
+failure test initially hit an earlier objective guard; using an invalid power
+base exercises the intended retained-error path without weakening that guard.
+The existing OpenDSS precompile fallback is nonfatal. No production equation,
+package default, previous option or result schema changes.
+
 ## Mixed-device rural transfer — 6 October 2026
 
 The full suite passes **86,096/86,096 assertions**, including **2189 new checks**

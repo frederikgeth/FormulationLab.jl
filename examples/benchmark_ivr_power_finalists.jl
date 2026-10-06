@@ -42,7 +42,8 @@ benchmark(path,output;kwargs...) = benchmark_profiles(path,output,profiles,@__FI
 
 # Shared source-safe protocol; the caller supplies its own candidate design and provenance.
 function benchmark_profiles(path,output,profile_builder,runner_path;workload=:quadratic_cost,exchange_target_W=nothing,
-                   nlp_scaling_method="none",blocks=1,seed=20261006)
+                   nlp_scaling_method="none",blocks=1,seed=20261006,checkpoint=:trial)
+    checkpoint in (:trial,:sweep) || throw(ArgumentError("checkpoint must be :trial or :sweep"))
     canonical(p)=ispath(p) ? realpath(p) : abspath(p)
     any(p->canonical(p)==canonical(path),(output,output*".input.json",output*".manifest.json")) &&
         throw(ArgumentError("output and sidecars must not overwrite the source"))
@@ -60,7 +61,7 @@ function benchmark_profiles(path,output,profile_builder,runner_path;workload=:qu
     save(output*".input.json",net);save(output*".manifest.json",manifest)
     start=E.S.U.G.H.S.L.start_point(net)
     report=P.benchmark(net,output;repetitions=length(trial_orders),candidates,initial_point=start,
-        trial_orders,source_sha256=digest)
+        trial_orders,source_sha256=digest,checkpoint)
     report["feeder_input"]=manifest
     report["factors"]=Dict(p.name=>p.factors for p in candidates)
     report["order_design"]=(;kind="randomized_cyclic_blocks",blocks,seed,
