@@ -32,12 +32,14 @@ function _ivrn_check_load(id,d)
     end
 end
 
-function _ivrn_load_law!(model,id,d,rows,p,q,z,z0,e,voltage_range;power_lifting=false,power_ratio=nothing)
+function _ivrn_load_law!(model,id,d,rows,p,q,z,z0,e,voltage_range;power_lifting=false,power_ratio=nothing,
+                        definition_row_multiplier=1.0,law_row_multiplier=1.0)
     if power_lifting
         # Exact graph extension: keep quadratic electrical products separate
         # from fractional voltage laws. The common registry encodes every start
         # and recovered physical point, including these power auxiliaries.
-        lifted=[_ivrn_lift!(model,p[k]+im*q[k],(:load_law_power,id,k),:power;power_ratio) for k in eachindex(rows)]
+        lifted=[_ivrn_lift!(model,p[k]+im*q[k],(:load_law_power,id,k),:power;
+            power_ratio,row_multiplier=definition_row_multiplier) for k in eachindex(rows)]
         p=real.(lifted);q=imag.(lifted)
     end
     n=length(rows);vn=_sdp_vector(d,"v_nom",n)
@@ -71,8 +73,10 @@ function _ivrn_load_law!(model,id,d,rows,p,q,z,z0,e,voltage_range;power_lifting=
             a==0 ? 1.0 : a==1 ? x : x^a
         end
         fp=factor("alpha","gamma_p");fq=factor("beta","gamma_q")
-        @constraint(model,p[k]==pn[k]/e.sb*fp)
-        @constraint(model,q[k]==qn[k]/e.sb*fq)
+        cp=@constraint(model,law_row_multiplier*p[k]==(law_row_multiplier*(pn[k]/e.sb))*fp)
+        cq=@constraint(model,law_row_multiplier*q[k]==(law_row_multiplier*(qn[k]/e.sb))*fq)
+        get!(()->Dict{Tuple{String,Int},Any}(),model.ext,:ivr_load_law_rows)[(id,k)]=
+            (;p=cp,q=cq,row_multiplier=law_row_multiplier)
     end
     observations
 end

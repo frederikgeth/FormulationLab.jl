@@ -42,6 +42,7 @@ makedocs(;
             "Voltage-law power lifting"=>"ivr_load_power_lifting.md",
             "Paired load-power timing"=>"ivr_load_power_timing.md",
             "Independent load-power units"=>"ivr_load_power_units.md",
+            "Load-power row/column scaling"=>"ivr_load_power_rows.md",
             "Best-evidence numerical profiles"=>"ivr_performance.md",
             "Earlier timing and initialization studies"=>"ivr_performance_history.md",
         ],

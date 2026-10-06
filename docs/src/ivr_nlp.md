@@ -699,6 +699,13 @@ appear in `:load_power_bases`. It applies independently of `lifting`;
 constant-power and impedance loads remain unchanged. The default is false.
 See the [equivalence argument and numerical evidence](ivr_load_power_lifting.md).
 `:load_power_lift_count` counts complex power auxiliaries.
+`load_power_row_scaling=:definitions/:laws/:both` independently selects load
+power equalities to rescale; default `:off` retains assembly units. Per-load
+`load_power_row_bases` override `load_power_row_base`, then `s_base`, independently
+of column units. An active mode requires load-power lifting. Explicit row units
+require an active mode; invalid/inactive IDs are refused. See the
+[row/column study](ivr_load_power_rows.md) for the exact residual and dual-unit
+relations, diagnostics and strict physical admission.
 `ivr_nlp_point_report` derives their values from the supplied physical voltages;
 it cannot choose them to repair a mismatch. Fractional powers are evaluated
 only on the positive domain. A supplied zero-voltage state rejects safely.

@@ -50,8 +50,12 @@ finalists. Nominal load units have small mixed effects; uniform 10 kVA load unit
 consistently slow generator reuse. Keep 1 kVA load auxiliaries as the common
 control, with other power lifts also at 1 kVA. The conditional cost shortlist
 remains full/reduced power lifting; tracking favours reduced power with reuse.
-No new automatic scaling default follows. Independent residual-row scaling and
-broader MV sampling are the next experiments.
+No new automatic scaling default follows. The subsequent
+[row/column factorial](ivr_load_power_rows.md) passes all 1024 measured solves
+and 128 warm-ups, but finds no consistently faster row policy and no iteration
+changes. Keep assembly-unit load rows (`load_power_row_scaling=:off`) with the
+1 kVA load-column control. All row modes remain experimental options. Broader
+MV sampling and original-mode sensitivity remain open.
 
 ## Primary assessment: Ipopt wall-clock time
 

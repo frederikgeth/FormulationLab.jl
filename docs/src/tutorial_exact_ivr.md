@@ -1868,3 +1868,31 @@ unspecified loads. Defaults preserve the previous unit choice. The four declared
 study treatments are hypotheses to test with strict physical admission and Ipopt
 wall time; [their protocol and evidence](ivr_load_power_units.md) do not treat
 smaller variables or fewer iterations as sufficient evidence of a speedup.
+
+
+## 53. Scale selected load equalities independently
+
+Row normalization can be tested without changing auxiliary column units. Here
+load variables retain 1 kVA units, while both their electrical definitions and
+voltage-law equations use 500 VA rows. Other circuit rows and bounds are unchanged.
+
+```@example exactivr
+load_row_build = build_opf(load_lift_net, IVRNLP(load_power_lifting=true,
+    load_power_base=1e3, load_power_row_scaling=:both, load_power_row_base=500.))
+@assert all(==(1e3), values(load_row_build.numerical_diagnostics[:load_power_bases]))
+@assert all(==(500.), values(load_row_build.numerical_diagnostics[:load_power_row_bases]))
+load_row_point = ivr_nlp_point_report(load_row_build,load_lift_point)
+@assert load_row_point.passed
+include(joinpath(pkgdir(FormulationLab), "examples", "benchmark_ivr_load_power_rows.jl"))
+row_factorial = IVRLoadPowerRowStudy.profiles(load_lift_net,:quadratic_cost)
+@assert length(row_factorial)==8
+[(name=p.name, rows=p.options.load_power_row_scaling) for p in row_factorial]
+```
+
+Use `:definitions` or `:laws` to isolate either group; `:off` preserves the
+previous equations. Per-load `load_power_row_bases` override the common row unit;
+unspecified row units fall back to `s_base`, independently of load columns.
+Positive equality scaling preserves exact feasibility, but changes numerical
+residual magnitudes. Keep independent SI and original-model audits when comparing
+solves. The [factorial study](ivr_load_power_rows.md) retains these gates and ranks
+only Ipopt wall time.

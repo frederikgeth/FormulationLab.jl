@@ -1,5 +1,25 @@
 # Verification
 
+## Independent load-power rows — 6 October 2026
+
+Full regression passes **121,580/121,580 assertions**, including **21,531 new
+checks** for selective residual multiplication, unchanged primal coordinates,
+all unselected constraints and bounds at off-manifold points, single-phase/delta/
+wye loads, signed/zero demand, full/reduced coordinates, independent row/column
+units, original-model membership, SI JSON recovery, declaration ownership and
+invalid/composed-unit guards. The eight-arm study isolates columns and row
+groups on the prespecified objective-specific finalists. All **55 executable
+tutorial blocks** pass. See the [row/column study](ivr_load_power_rows.md).
+
+The frozen row/column campaign passes all **1024 measured solves and 128
+warm-ups**. QA verifies **160 paired contrasts and 48 paired interactions**,
+with objective reconstruction error below 4.53e-10 and within-cell spread below
+6.22e-11. Timing is isolated and ranks only Ipopt wall time. NLPDiagnostics
+checks 32 evaluations at common SI points; every complete Jacobian matches the
+predicted row/column transformation to a maximum scaled discrepancy below
+2.23e-16. No derivative-evaluation failure occurs. Row-norm improvement alone
+does not establish a faster formulation; the assembly-row control remains.
+
 ## Independent load-power units — 6 October 2026
 
 Full regression passes **100,049/100,049 assertions**, including **2826 new

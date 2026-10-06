@@ -193,3 +193,6 @@ row normalization remain separate research questions.
 The frozen source, raw JSON reports, protocol, timing window and independent QA
 are retained outside Git in `LOAD_POWER_UNITS_20261006`. Both batches, all tails,
 and every earlier transformation option remain available.
+
+The follow-up [row/column study](ivr_load_power_rows.md) implements this separate
+row-normalization experiment while retaining the column-only controls.
