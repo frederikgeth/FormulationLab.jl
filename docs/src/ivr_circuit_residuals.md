@@ -205,3 +205,8 @@ An isolated timing retry was refused before launch because a competing Julia
 process appeared at the initial guard. It produced zero warmups and zero
 measured solves; the record is retained in `NWINDING_COORDINATE_TIMING_20261007`.
 The diagnostic comparisons above are not speed evidence.
+
+The complementary [load-law and voltage-bound trace](ivr_nonlinear_residuals.md)
+records original nonlinear load laws and bus-voltage declarations, including
+shared equalities and tautologies. Its catalogue is explicitly partial and
+does not extend the linear residual certificates to nonlinear laws.

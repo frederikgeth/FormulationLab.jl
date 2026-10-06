@@ -507,15 +507,17 @@ function _ivrn_upper!(model,u,bound)
     isfinite(bound) && bound>=0 || _ivrn_refuse("magnitude limits must be finite and nonnegative")
     # Grounded voltage channels are identically zero. Emitting 0 == 0 for
     # their zero ratings can make an otherwise square NLP overdetermined.
-    iszero(u) && return
+    iszero(u) && return Any[]
     if iszero(bound)
-        @constraint(model,real(u)==0)
-        @constraint(model,imag(u)==0)
+        cr=@constraint(model,real(u)==0)
+        ci=@constraint(model,imag(u)==0)
+        return Any[cr,ci]
     else
         # A small neutral-voltage rating can be orders below the phase base.
         # Normalize by its declared rating so a solver's absolute constraint
         # tolerance does not turn into an excessive physical violation.
-        @constraint(model,(real(u)/bound)^2+(imag(u)/bound)^2<=1)
+        c=@constraint(model,(real(u)/bound)^2+(imag(u)/bound)^2<=1)
+        return Any[c]
     end
 end
 
@@ -581,6 +583,16 @@ function _ivrn_bus_limits!(model,net,e,z;coincident=:separate)
         push!(limits,(;b,key,row,bound,channel))
     end
     upper=Dict((x.b,x.key,x.channel)=>x for x in limits if endswith(x.key,"max"))
+    # One provenance entry per original declaration, even when two bounds
+    # share an equality or an identically zero observation needs no row.
+    records=Any[merge(x,(;row=copy(x.row),relation=endswith(x.key,"min") ? :lower : :upper,
+        form=:unrecorded,constraints=Any[])) for x in limits]
+    model.ext[:ivr_bus_limit_rows]=records
+    indices=Dict((x.b,x.key,x.channel)=>j for (j,x) in enumerate(limits))
+    function record!(b,key,channel,form,refs)
+        j=indices[(b,key,channel)]
+        records[j]=merge(records[j],(;form,constraints=Any[refs...]))
+    end
     skipped=Set{Tuple{String,String,Int}}();report=Any[]
     for (;b,key,row,bound,channel) in limits
         (b,key,channel) in skipped && continue
@@ -599,13 +611,17 @@ function _ivrn_bus_limits!(model,net,e,z;coincident=:separate)
                         representative=representatives[signature]
                         push!(report,merge(entry,(;action=:shared_equality,representative_bus=representative.bus,
                             representative_lower=representative.lower,representative_channel=representative.channel)))
+                        record!(b,key,channel,:shared_equality,[representative.constraint])
+                        record!(upper_key...,:shared_equality,[representative.constraint])
                         push!(skipped,upper_key)
                         continue
                     end
                     u=_ivrn_bound_observation(model,row,z);scale=bound/e.vb
-                    @constraint(model,(real(u)/scale)^2+(imag(u)/scale)^2==1)
+                    c=@constraint(model,(real(u)/scale)^2+(imag(u)/scale)^2==1)
+                    record!(b,key,channel,:coincident_equality,[c])
+                    record!(upper_key...,:coincident_equality,[c])
                     push!(report,merge(entry,(;action=:equality)))
-                    signature===nothing || (representatives[signature]=entry)
+                    signature===nothing || (representatives[signature]=merge(entry,(;constraint=c)))
                     push!(skipped,upper_key)
                     continue
                 end
@@ -613,10 +629,15 @@ function _ivrn_bus_limits!(model,net,e,z;coincident=:separate)
         end
         u=_ivrn_bound_observation(model,row,z)
         if endswith(key,"max")
-            _ivrn_upper!(model,u,bound/e.vb)
+            refs=_ivrn_upper!(model,u,bound/e.vb)
+            form=isempty(refs) ? :identically_zero_upper : iszero(bound) ? :zero_upper : :magnitude_upper
+            record!(b,key,channel,form,refs)
         elseif bound>0
             scale=bound/e.vb
-            @constraint(model,(real(u)/scale)^2+(imag(u)/scale)^2>=1)
+            c=@constraint(model,(real(u)/scale)^2+(imag(u)/scale)^2>=1)
+            record!(b,key,channel,:magnitude_lower,[c])
+        else
+            record!(b,key,channel,:nonnegative_magnitude,Any[])
         end
     end
     report

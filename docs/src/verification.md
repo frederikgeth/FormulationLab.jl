@@ -1,5 +1,23 @@
 # Verification
 
+## Original load laws and voltage-bound provenance — 7 October 2026
+
+The [nonlinear residual trace](ivr_nonlinear_residuals.md) records load-law
+constraint references, row-to-SI factors, voltage-square definitions and every
+original bus-voltage declaration. Shared equalities and tautologies remain
+traceable as original bounds. Its catalogue is explicitly partial: equipment
+ratings, dispatch/IBR constraints and other rows remain outside this catalogue.
+Their existing enforcement and independent physical audit are unchanged.
+
+All 108 prior/current solver-model fingerprints match, including coefficients,
+constraint sets, variables, starts and objectives. All 24 live multiwinding
+cases pass, with 2,160 load P/Q rows and 6,480 voltage declarations traced.
+Independent physical residual comparisons and both canonical export readers
+pass. The scientific guide explains the auxiliary-gap identity, gives an
+executable single-phase tutorial and states the Float64 and coverage limits.
+Raw evidence and original development failures remain outside Git in
+`NONLINEAR_PROVENANCE_20261007`. No timing ranking or default changes follow.
+
 ## Five-arm coil-observation timing protocol — 7 October 2026
 
 The [coil-observation study](ivr_coil_observations.md#Prospective-wall-time-comparison)

@@ -82,6 +82,7 @@ using OpenDSSDirect
     include("ivr_load_power_lifting_tests.jl")
     include("ivr_load_power_unit_tests.jl")
     include("ivr_load_power_row_tests.jl")
+    include("ivr_nonlinear_trace_tests.jl")
     include("ivr_load_law_opendss_tests.jl")
     include("ivr_input_annotations_tests.jl")
     include("ivr_bound_coverage_tests.jl")

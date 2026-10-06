@@ -53,6 +53,7 @@ function _ivrn_load_law!(model,id,d,rows,p,q,z,z0,e,voltage_range;power_lifting=
         # Equal engineering bounds also fix the magnitude. Evaluate the law
         # directly; a fixed auxiliary plus its defining equality would add a
         # redundant equality to an otherwise square power-flow NLP.
+        voltage_definition=nothing
         if lo==hi
             x=(lo/vn[k])^2
         else
@@ -60,7 +61,7 @@ function _ivrn_load_law!(model,id,d,rows,p,q,z,z0,e,voltage_range;power_lifting=
             isfinite(hi) && JuMP.set_upper_bound(x,(hi/vn[k])^2)
             JuMP.set_start_value(x,clamp(abs2(_linivr_eval(row,z0))*scale,(lo/vn[k])^2,(hi/vn[k])^2))
             u=_linivr_eval(row,z)
-            @constraint(model,x==scale*(real(u)^2+imag(u)^2))
+            voltage_definition=@constraint(model,x==scale*(real(u)^2+imag(u)^2))
             push!(observations,(;variable=x,row,scale))
         end
         factor(prefix,gamma)=if law=="constant_current"
@@ -76,7 +77,9 @@ function _ivrn_load_law!(model,id,d,rows,p,q,z,z0,e,voltage_range;power_lifting=
         cp=@constraint(model,law_row_multiplier*p[k]==(law_row_multiplier*(pn[k]/e.sb))*fp)
         cq=@constraint(model,law_row_multiplier*q[k]==(law_row_multiplier*(qn[k]/e.sb))*fq)
         get!(()->Dict{Tuple{String,Int},Any}(),model.ext,:ivr_load_law_rows)[(id,k)]=
-            (;p=cp,q=cq,row_multiplier=law_row_multiplier)
+            (;p=cp,q=cq,row_multiplier=law_row_multiplier,voltage_row=copy(row),
+                voltage_coordinate=x,voltage_definition,voltage_nominal=vn[k],
+                voltage_bounds=(lower=lo,upper=hi),power_expressions=(p=p[k],q=q[k]))
     end
     observations
 end
