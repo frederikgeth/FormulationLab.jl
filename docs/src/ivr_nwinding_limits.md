@@ -87,6 +87,12 @@ calculate its expected power cap.
 
 ## Live BMOPFTools comparison
 
+The subsequent [mixed-winding comparison](ivr_nwinding_connections.md) adds
+finite leakage, YDY/DYY connections and both delta orientations. It records
+convergence and objective-agreement failures separately from physical
+correspondence; its narrower admission counts must not be read as universal
+live parity. The original all-wye panel below remains unchanged.
+
 `test/integration/ivr_nwinding_limits_reference.jl` runs against the local
 BMOPFTools checkout at revision
 `a8b52e069bfd4a7a57434c91bc0470ac03cfdd55`, with the relevant source hashes

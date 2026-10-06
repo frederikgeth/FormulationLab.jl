@@ -1,5 +1,23 @@
 # Verification
 
+## Live mixed-winding comparison — 6 October 2026
+
+Full regression passes **130,513/130,513 assertions**.
+
+The [connection transfer](ivr_nwinding_connections.md) adds **2,700 native
+assertions** and an optional live measurement runner. All 240 native live-panel
+solves converge strictly and pass physical/model checks. Of 120 comparisons per
+stopping panel, 114 are fully admitted under baseline settings and 57 under
+additional absolute dual/complementarity tolerances. All rejected statuses and
+objective discrepancies remain explicit; feasible reference endpoints do not
+override these gates.
+
+An independent SI audit checks 80 reference and 240 native exports, 2,752 nodal
+balances, 480 coil-cap observations and the coupled leakage/ampere-turn equations.
+All 120 bounded native cases reject separately tightened caps. The reference
+JSON reader accepts all native exports. No speed or general excitation/tap
+parity claim follows.
+
 ## Inherited MV shunt boundaries — 6 October 2026
 
 The [independent external-feeder panel](ivr_external_shunts.md) admits **24/24

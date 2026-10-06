@@ -45,6 +45,7 @@ makedocs(;
             "Load-power row/column scaling"=>"ivr_load_power_rows.md",
             "Scaling transfer across MV load sites"=>"ivr_mv_scale_transfer.md",
             "Multiwinding power-limit units"=>"ivr_nwinding_limits.md",
+            "Live mixed-winding comparison"=>"ivr_nwinding_connections.md",
             "Single-phase voltage-bound transfer"=>"ivr_singlephase_transfer.md",
             "Inherited transformer boundaries"=>"ivr_equipment_boundaries.md",
             "Inherited line-current boundaries"=>"ivr_line_boundaries.md",

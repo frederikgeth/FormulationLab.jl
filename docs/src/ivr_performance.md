@@ -6,6 +6,13 @@ Recommendations here are additive; package defaults and the individual options
 are unchanged. “Fastest” always refers to a declared workload, accepted physical
 solutions, a candidate set, solver settings and a measured environment.
 
+The [live mixed-winding comparison](ivr_nwinding_connections.md) additionally
+shows that a small scaled Ipopt error and a feasible endpoint do not establish
+objective agreement or small unscaled dual residuals. Explicit absolute
+tolerances improve selected discrepancies but worsen reference convergence
+across the complete panel. Retain separate status, physical and objective gates;
+this diagnostic study changes no numerical recommendation.
+
 The [single-phase voltage-bound transfer](ivr_singlephase_transfer.md) admits
 all 108 full/reduced/reuse combinations with exact load-power lifting and
 aligned nameplates. A sequentially declared narrow band reaches two upper
