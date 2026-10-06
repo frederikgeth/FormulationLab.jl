@@ -781,6 +781,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
     model.ext[:ivr_lifting]=_ivrn_lifting_policy(options,e)
     model.ext[:ivr_equipment_limit_rows]=Any[]
+    model.ext[:ivr_dispatch_rows]=Dict{Tuple{Symbol,String,String,Int},Any}()
     n=length(maps.projection)
     xr=@variable(model,[1:n],base_name="state_real")
     xi=@variable(model,[1:n],base_name="state_imag")
@@ -889,10 +890,18 @@ function _build_ivr_nlp_opf(input,optimizer,options)
                 end
                 for k in 1:count
                     if low!==nothing && high!==nothing && low[k]==high[k]
-                        @constraint(model,x[k]==low[k]/e.sb)
+                        c=@constraint(model,x[k]==low[k]/e.sb)
+                        model.ext[:ivr_dispatch_rows][(family,id,lo,k)]=c
+                        model.ext[:ivr_dispatch_rows][(family,id,hi,k)]=c
                     else
-                        low===nothing || !isfinite(low[k]) || @constraint(model,x[k]>=low[k]/e.sb)
-                        high===nothing || !isfinite(high[k]) || @constraint(model,x[k]<=high[k]/e.sb)
+                        if low!==nothing && isfinite(low[k])
+                            c=@constraint(model,x[k]>=low[k]/e.sb)
+                            model.ext[:ivr_dispatch_rows][(family,id,lo,k)]=c
+                        end
+                        if high!==nothing && isfinite(high[k])
+                            c=@constraint(model,x[k]<=high[k]/e.sb)
+                            model.ext[:ivr_dispatch_rows][(family,id,hi,k)]=c
+                        end
                     end
                 end
             end

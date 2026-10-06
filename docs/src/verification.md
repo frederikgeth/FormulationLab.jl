@@ -1,5 +1,25 @@
 # Verification
 
+## Dispatch bounds and reusable provenance — 7 October 2026
+
+The [nonlinear operating-limit trace](ivr_nonlinear_residuals.md) now includes
+generator/source/IBR P/Q boxes and generator power definitions. It resolves
+current generator bound references after updates, maps phase-only source
+arrays to original channels, and distinguishes dispatch-coordinate power from
+physical power in SI. Shared equalities retain both original declarations.
+
+All 23,952 targeted assertions and 354 prior/current model fingerprints pass.
+The 24 live cases trace 2,880 dispatch declarations and 960 generator definitions;
+independent dispatch-violation comparisons agree to below 2.9e-14 W/var.
+Deletion/restoration at saved assignments and both canonical result readers
+pass. The scientific guide includes the separate bound/definition conversion
+factors and an executable reusable-generator tutorial. Raw evidence is outside
+Git in `DISPATCH_PROVENANCE_20261007`. No performance ranking changes.
+
+IBR availability, DC-link and internal-voltage constraints remain the next
+provenance families, followed by auxiliary and fixed-coordinate classification.
+The catalogue continues to report partial coverage explicitly.
+
 ## Equipment current and apparent-power limit provenance — 7 October 2026
 
 The [operating-limit trace](ivr_nonlinear_residuals.md) now records original
@@ -17,9 +37,9 @@ The scientific guide includes a rating-convention table and executable inherited
 line-limit/JSON tutorial. Raw evidence is outside Git in
 `EQUIPMENT_LIMIT_PROVENANCE_20261007`; no speed ranking or default changes follow.
 
-Coverage remains explicitly partial. The next families are dispatch boxes,
-IBR availability/DC/internal-voltage constraints, and auxiliary/fixed-coordinate
-classification. Existing enforcement is unchanged.
+At that checkpoint, dispatch boxes, IBR availability/DC/internal-voltage
+constraints and auxiliary/fixed-coordinate classification remained outstanding.
+The dispatch extension above supersedes that coverage boundary. Existing enforcement is unchanged.
 
 ## Original load laws and voltage-bound provenance — 7 October 2026
 

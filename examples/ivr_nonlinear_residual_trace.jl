@@ -1,11 +1,69 @@
-"""Original load-law, bus-voltage and equipment-limit residuals; partial coverage."""
+"""Original nonlinear laws, operating limits and dispatch residuals; partial coverage."""
 module IVRNonlinearResidualTrace
 using FormulationLab, JuMP
 const F=FormulationLab
 
+# Resolve generator bounds on each call: reusable updates may delete or recreate
+# variable-bound constraints. Only original source channels are declarations;
+# unbounded neutral entries inserted by assembly are not operating limits.
+function _dispatch_catalog(build)
+    e=build.electrical;model=build.model;dispatch=Any[];definitions=Any[]
+    haskey(model.ext,:ivr_dispatch_rows) || throw(ArgumentError("missing dispatch provenance"))
+    for (family,id,v,i,_) in e.devices
+        family in (:generator,:voltage_source,:ibr) || continue
+        d=build.network[string(family)][id];generator=family==:generator
+        prefix=family==:voltage_source ? "source" : string(family)
+        basis=family==:voltage_source ? :terminal :
+            family==:ibr && d["topology"]=="THREE_LEG" ? :conductor_pcc : :connection_coil
+        scale=generator ? build.generator_variables[id].power_base : e.sb
+        for quantity in (:p,:q)
+            expressions=generator ? getproperty(build.generator_variables[id],quantity) :
+                (quantity==:p ? real.(build.powers[(family,id)]) : imag.(build.powers[(family,id)]))
+            if generator
+                refs=getproperty(build.generator_variables[id],Symbol(quantity,"_equations"))
+                for k in eachindex(v)
+                    push!(definitions,(;label="generator/$id/$(quantity)_definition/$k",id,channel=k,quantity,
+                        unit=quantity==:p ? :W : :var,basis,voltage_row=copy(v[k]),current_row=copy(i[k]),
+                        expression=expressions[k],physical_scale=scale,row_scale=e.sb,constraint=refs[k]))
+                end
+            end
+            for (suffix,relation) in (("min",:lower),("max",:upper))
+                field=string(quantity,"_",suffix);haskey(d,field) || continue
+                raw=d[field];channels=collect(eachindex(v))
+                if family==:voltage_source && length(raw)!=length(v)
+                    neutral=get(e.neutral_map,d["bus"],nothing)
+                    channels=findall(!=(neutral),d["terminal_map"])
+                end
+                limits=e.values_for(d,field,length(channels))
+                for (j,k) in enumerate(channels)
+                    ref=if generator
+                        x=expressions[k]
+                        present=relation==:lower ? has_lower_bound(x) : has_upper_bound(x)
+                        present || throw(ArgumentError("missing current generator bound: $id/$field/$k"))
+                        relation==:lower ? LowerBoundRef(x) : UpperBoundRef(x)
+                    else
+                        get(model.ext[:ivr_dispatch_rows],(family,id,field,k),nothing)
+                    end
+                    ref===nothing && throw(ArgumentError("missing dispatch row: $family/$id/$field/$k"))
+                    is_valid(model,ref) || throw(ArgumentError("invalid dispatch row reference"))
+                    form=generator ? Symbol("variable_",relation) :
+                        constraint_object(ref).set isa JuMP.MOI.EqualTo ? :shared_equality : relation
+                    push!(dispatch,(;label="$prefix/$id/$field/$k",audit_label="$prefix/$id/$field",
+                        family,id,field,quantity,channel=k,source_path=(string(family),id,field),
+                        source_channel=raw isa Number ? nothing : j,limit_SI=limits[j],relation,form,basis,
+                        unit=quantity==:p ? :W : :var,voltage_row=copy(v[k]),current_row=copy(i[k]),
+                        expression=expressions[k],physical_scale=scale,constraint=ref))
+                end
+            end
+        end
+    end
+    (;dispatch,definitions)
+end
+
 """Catalogue original declarations and their emitted rows, without solving.
 
-This covers load power laws, bus-voltage bounds and equipment current/power limits. Impedance
+This covers load power laws, bus/equipment limits, dispatch boxes and generator
+power definitions. Impedance
 loads belong to the linear-circuit catalogue. Other constraints are enumerated
 as outside this catalogue; they are not declared absent from the model.
 """
@@ -41,6 +99,7 @@ function catalog(build)
     bounds=model.ext[:ivr_bus_limit_rows]
     haskey(model.ext,:ivr_equipment_limit_rows) || throw(ArgumentError("missing equipment-limit provenance"))
     equipment=model.ext[:ivr_equipment_limit_rows]
+    dispatch,definitions=_dispatch_catalog(build)
     all(q->q.form!=:unrecorded,bounds) || throw(ArgumentError("incomplete bus-bound provenance"))
     covered=Set{Any}(q.constraint for q in loads)
     for q in loads
@@ -52,10 +111,11 @@ function catalog(build)
     end
     for q in bounds;union!(covered,q.constraints);end
     for q in equipment;union!(covered,q.constraints);end
+    for q in [dispatch;definitions];push!(covered,q.constraint);end
     outside=[c for c in all_constraints(model;include_variable_in_set_constraints=true) if c ∉ covered]
-    (;loads,bounds,equipment,linear_loads=sort!(linear_loads),outside_scope_constraints=outside,
+    (;loads,bounds,equipment,dispatch,definitions,linear_loads=sort!(linear_loads),outside_scope_constraints=outside,
         covered_constraint_count=length(covered),complete_model_coverage=false,
-        scope=(:load_power_laws,:bus_voltage_bounds,:equipment_current_power_limits))
+        scope=(:load_power_laws,:bus_voltage_bounds,:equipment_current_power_limits,:dispatch_boxes,:generator_power_definitions))
 end
 
 function _residual(c,evaluate)
@@ -148,10 +208,33 @@ function trace(build;variable_values=nothing)
             observation_gap_SI=abs(modeled-physical),slack_SI=slack,violation_SI=max(-slack,0.),
             native=[_residual(ref,evaluate) for ref in q.constraints])
     end
-    (;loads,bounds,equipment,c.linear_loads,c.scope,c.complete_model_coverage,c.covered_constraint_count,
+    physical_power(q)=let s=e.sb*observe(q.voltage_row)*conj(observe(q.current_row))
+        q.quantity==:p ? real(s) : imag(s)
+    end
+    dispatch=map(c.dispatch) do q
+        physical=physical_power(q);modeled=q.physical_scale*evaluate(q.expression)
+        gap=modeled-physical;native=_residual(q.constraint,evaluate)
+        residual_SI=native.signed_residual*q.physical_scale
+        slack=q.relation==:lower ? physical-q.limit_SI : q.limit_SI-physical
+        all(isfinite,(physical,modeled,gap,residual_SI,slack)) || throw(DomainError(q.label,"nonfinite dispatch evaluation"))
+        (;q.label,q.audit_label,q.family,q.id,q.field,q.quantity,q.channel,q.source_path,q.source_channel,
+            q.limit_SI,q.relation,q.form,q.basis,q.unit,q.physical_scale,
+            electrical_power_SI=physical,modeled_power_SI=modeled,power_auxiliary_gap_SI=gap,
+            slack_SI=slack,violation_SI=max(-slack,0.),native,native_residual_SI=residual_SI,
+            reconciliation_error_SI=(physical-q.limit_SI)-(residual_SI-gap))
+    end
+    definitions=map(c.definitions) do q
+        physical=physical_power(q);modeled=q.physical_scale*evaluate(q.expression)
+        gap=modeled-physical;native=_residual(q.constraint,evaluate).signed_residual*q.row_scale
+        all(isfinite,(physical,modeled,gap,native)) || throw(DomainError(q.label,"nonfinite generator power definition"))
+        (;q.label,q.id,q.channel,q.quantity,q.basis,q.unit,q.physical_scale,q.row_scale,
+            electrical_power_SI=physical,modeled_power_SI=modeled,power_auxiliary_gap_SI=gap,
+            native_residual_SI=native,reconciliation_error_SI=native+gap)
+    end
+    (;loads,bounds,equipment,dispatch,definitions,c.linear_loads,c.scope,c.complete_model_coverage,c.covered_constraint_count,
         inactive_nameplates=[q for q in build.numerical_diagnostics[:transformer_nameplate_report] if !q.enforced],
         outside_scope_constraint_count=length(c.outside_scope_constraints),
-        note="Partial provenance: load power laws, bus-voltage bounds and equipment current/apparent-power limits. Native squared-magnitude residuals have no constant SI-magnitude conversion. Float64 diagnostics, not a certificate.")
+        note="Partial provenance: load power laws, bus-voltage and equipment limits, dispatch boxes and generator power definitions. Native squared-magnitude residuals have no constant SI-magnitude conversion. Float64 diagnostics, not a certificate.")
 end
 
 function trace(build,point::ACPoint)

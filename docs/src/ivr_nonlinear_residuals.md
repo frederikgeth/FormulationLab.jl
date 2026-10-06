@@ -11,11 +11,11 @@ original SI residual and the auxiliary discrepancies that connect them.
 
 This is a **partial provenance catalogue**. It covers constant-power,
 constant-current, ZIP and exponential load power laws, plus every original bus
-voltage-bound declaration, and equipment current/apparent-power limits. Constant-impedance loads are identified separately;
+voltage-bound declaration, equipment current/apparent-power limits, dispatch
+boxes and generator power definitions. Constant-impedance loads are identified separately;
 their equations belong to the [linear circuit catalogue](ivr_circuit_residuals.md).
 Other constraints are enumerated as outside this catalogue. These include
-KCL, other circuit rows, generator dispatch definitions and boxes,
-IBR availability/DC/internal-voltage limits and generic lifting definitions.
+KCL, other circuit rows, IBR availability/DC/internal-voltage limits and generic lifting definitions.
 “Outside scope” does not mean that a constraint is absent from the model.
 `complete_model_coverage` is deliberately `false`.
 
@@ -171,6 +171,62 @@ remain separate: there is no constant multiplier converting their residual to
 an SI magnitude violation. The original rows bypass all observation auxiliaries.
 This separation helps diagnose a misleadingly small native bound residual.
 
+## Dispatch declarations and reusable generator updates
+
+The catalogue records each original `p_min`, `p_max`, `q_min` and `q_max`
+channel of generators, voltage sources and IBR PCC ports. Generator and
+single-phase/WYE IBR dispatch uses connection-coil powers; three-leg IBR
+PCC dispatch uses conductor powers. Source powers use terminal-to-ground
+voltage. The declaration path, array index, physical channel, quantity, units,
+lower/upper sense and actual constraint reference remain explicit.
+
+A phase-only source array is mapped to the non-neutral terminal indices,
+including permuted terminal maps. Assembly fills the other entries with
+unbounded sentinels; these are not original declarations and do not appear as
+neutral limits. A full-terminal array does declare neutral power bounds.
+User-supplied nonfinite dispatch limits are refused by the existing compiler.
+Absent bounds have no declaration, and diagnostic JSON contains no artificial
+infinite limits.
+
+For sources and IBRs, equal lower/upper values share the emitted equality.
+Both declarations retain that reference. Their individual SI violations remain
+one-sided even though the native equality violation is two-sided. Generator
+boxes use separate variable-bound references, including equal lower/upper
+values. Generator power definitions are catalogued separately for every P/Q
+channel, including generators without any dispatch bounds.
+
+Reusable generator updates may delete or recreate bound constraints. A call to
+`catalog` or `trace` resolves generator references from the current model and
+limits from the current network data. A previously returned catalogue is a
+snapshot and must not be reused after an update. `update_ivr_generators!` is the
+supported mutation API; directly editing `build.network` does not update the
+model. Invalid updates retain the previous catalogue and model when validation
+fails before mutation, consistent with the existing update API contract.
+
+Let ``P`` be the power reconstructed from original electrical rows and
+``\widetilde P=B_g g`` the generator dispatch coordinate in SI, where ``B_g``
+is its declared power-coordinate base. Define ``\Delta=\widetilde P-P``.
+For a bound ``L``, its signed native residual is ``r_b=(\widetilde P-L)/B_g``;
+therefore
+
+```math
+P-L=B_g r_b-\Delta.
+```
+
+The separate generator defining equation uses the assembly base ``S_b``:
+
+```math
+r_d=(P-\widetilde P)/S_b,\qquad S_b r_d+\Delta=0.
+```
+
+These two conversion factors generally differ. The trace reports the physical
+power, modeled power, signed auxiliary discrepancy, SI slack/violation, native
+residual and numerical reconciliation error. Source/IBR box expressions directly
+use electrical powers with conversion ``S_b``. A generator auxiliary may satisfy
+its native box while the physical power violates that box, or conversely; the
+defining equation is essential to interpreting either observation. These are
+pointwise Float64 checks, not uniform nonlinear error bounds.
+
 ## Tutorial
 
 The following single-phase example solves a ZIP load, then inspects an
@@ -233,6 +289,41 @@ encoded = JSON3.write(original)
   current_A=q.magnitude_SI, slack_A=q.slack_SI) for q in line_limits]
 ```
 
+
+This continuation uses a generator power base of 500 VA and an assembly base
+of 100 kVA. It removes and restores a bound, then perturbs only the dispatch
+coordinate while keeping the saved electrical state fixed.
+
+```@example nonlinear_trace
+net_dispatch = deepcopy(net)
+net_dispatch["generator"] = Dict("g" => Dict("bus" => "b1",
+    "terminal_map" => ["a", "n"], "configuration" => "SINGLE_PHASE",
+    "p_min" => [50.0], "p_max" => [50.0], "q_min" => [0.0], "q_max" => [0.0]))
+b_dispatch = build_opf(net_dispatch, IVRNLP(s_base=1e5,
+    generator_power_bases=Dict("g" => 500.0), lifting=:powers); optimizer=Ipopt.Optimizer)
+r_dispatch = solve_ivr_nlp_opf(b_dispatch; solver_options=(print_level=0,
+    tol=1e-10, constr_viol_tol=1e-10, acceptable_iter=0, bound_relax_factor=0.0))
+@assert r_dispatch.solve.optimal && physical_residuals(net_dispatch, r_dispatch).passed
+saved = Dict(v => value(v) for v in all_variables(b_dispatch.model))
+baseline = T.trace(b_dispatch; variable_values=saved)
+@assert length(baseline.dispatch) == 4
+update_ivr_generators!(b_dispatch, Dict("g" => (p_min=nothing,)))
+@assert length(T.catalog(b_dispatch).dispatch) == 3
+update_ivr_generators!(b_dispatch, Dict("g" => (p_min=[50.0],)))
+@assert length(T.catalog(b_dispatch).dispatch) == 4
+perturbed_dispatch = copy(saved)
+perturbed_dispatch[only(b_dispatch.generator_variables["g"].p)] += 0.1
+shifted = T.trace(b_dispatch; variable_values=perturbed_dispatch)
+definition = only(q for q in shifted.definitions if q.quantity == :p)
+@assert isapprox(definition.power_auxiliary_gap_SI, 50.0; atol=1e-7)
+@assert isapprox(definition.native_residual_SI, -50.0; atol=1e-7)
+@assert maximum(abs(q.reconciliation_error_SI) for q in shifted.dispatch) < 1e-7
+@assert [q.electrical_power_SI for q in baseline.dispatch] ==
+        [q.electrical_power_SI for q in shifted.dispatch]
+(quantity=definition.quantity, coordinate_base_VA=definition.physical_scale,
+ equation_base_VA=definition.row_scale, discrepancy_W=definition.power_auxiliary_gap_SI)
+```
+
 ## Verification and remaining coverage
 
 Independent manufactured states span single-phase, three-wire delta and
@@ -244,8 +335,7 @@ family is tightened and compared with the independently evaluated original
 network. Further tests cover zero limits, fixed magnitude domains, shared
 coincident rows, constant-power updates and strict JSON without infinite values.
 
-The next coverage extension is generator/source/IBR dispatch boxes and IBR
-availability/DC/internal-voltage constraints. Those families remain enforced
+The next coverage extension is IBR availability/DC/internal-voltage constraints. Those families remain enforced
 and independently audited today, but this constraint-reference catalogue does
 not yet describe them. A
 complete emitted-row inventory must also distinguish original physical laws
@@ -311,3 +401,36 @@ corrected without changing the electrical equations. The failures, revised
 scripts, fingerprints, full test logs and raw records are retained outside Git
 in `EQUIPMENT_LIMIT_PROVENANCE_20261007`. This extension supplies no performance
 ranking and leaves `complete_model_coverage=false`.
+
+### Dispatch extension evidence, 7 October 2026
+
+The dispatch extension passes **23,952 targeted assertions**. Independent
+manufactured states cover every P/Q lower/upper field and each declared
+channel for generators, sources and IBRs on two-, three- and four-conductor
+circuits. Tests cross full/reduced coordinates and assembly bases of 1 kVA and
+100 kVA, with generator power-coordinate bases tested separately. Tightening a
+single field/channel produces the expected 10 W or 10 var violation and agrees
+with the independent original-network auditor.
+
+Reusable tests cross interval, equal, one-sided and absent boxes, restoration,
+price-only updates and rejected updates. They compare fresh and reused traces,
+check reference validity after deletion, and deliberately perturb generator
+power coordinates. Further tests cover permuted source terminal maps,
+phase-only versus full-terminal arrays, scalar declarations, shared equality
+references and refusal of nonfinite user limits.
+
+All **354** prior/current solver-model fingerprints match commit `de7d3a7`.
+This includes the preceding 222 cases, 84 reusable-update states and 48
+source/IBR box cases. The live 24-case panel traces **2,880 dispatch declarations**
+and **960 generator power definitions**. All 2,880 aggregate dispatch-violation
+comparisons agree with the independent SI auditor to below
+``2.9\times10^{-14}`` W/var. Bound deletion/restoration preserves the trace at
+the saved electrical and dispatch assignment in every live case. All canonical
+exports pass both readers with unchanged physical field paths.
+
+Two development test errors are retained: a missing per-unit-to-SI conversion
+when constructing test limits, and an untyped empty-vector comparison in the
+fully unbounded case. Neither required changing the solver formulation.
+Raw data, failures, scripts, source snapshots and verification logs remain
+outside Git in `DISPATCH_PROVENANCE_20261007`. This is correctness evidence;
+there is no new wall-time ranking or formulation recommendation.
