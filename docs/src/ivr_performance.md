@@ -36,6 +36,12 @@ single-phase/delta connections and equivalent inline/linecode matrices. Its
 independent SI audit also verifies inherited shunt recovery in the 24 archived
 feeder exports. This is additional correctness evidence, with no timing ranking.
 
+The [joint-boundary study](ivr_joint_boundaries.md) admits all 144 manufactured
+P/Q comparisons and verifies 96 independent restriction witnesses. Relaxing
+current or voltage alone admits a better point that violates only that original
+bound family. Roundoff-sized negative slacks remain explicit. This adds no
+timing recommendation and removes no formulation option.
+
 The [mixed-device rural transfer](ivr_mixed_devices.md) adds filtered IBRs and
 voltage-dependent demand on a selected 70-bus feeder. Reduced power lifting leads
 the mixed confirmation panel; generator reuse helps constant-power tracking but

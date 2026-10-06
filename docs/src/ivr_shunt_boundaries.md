@@ -131,3 +131,7 @@ audits and validation logs remain outside Git in `SHUNT_BOUNDARY_20261006`.
 Package equations, options and fastest-profile recommendations are unchanged.
 The next coverage gaps are simultaneous current/voltage activity and active
 inherited shunt-loaded limits on independently selected valid feeders.
+
+The subsequent [joint-boundary study](ivr_joint_boundaries.md) addresses the
+manufactured current/voltage interaction with independent relaxation witnesses.
+Active inherited shunt boundaries on another valid feeder remain untested.

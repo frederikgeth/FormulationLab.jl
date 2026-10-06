@@ -1,5 +1,21 @@
 # Verification
 
+## Joint current/voltage restrictions — 6 October 2026
+
+The [joint-boundary panel](ivr_joint_boundaries.md) passes **144/144 manufactured
+admissions** and **96 restriction certificates**. Relaxing voltage alone or
+current alone improves the objective and violates only that original bound
+family; joint points remain feasible in both controls. All six formulations,
+both Ipopt policies, both directions and single-phase/delta devices are covered.
+The focused suite passes **1,985 assertions**.
+
+The independent audit checks 144 SI exports, 720 line-port margins, 288 selected
+voltage margins, π-line equations, P/Q products, objectives and manifest replay.
+Every joint result is near both boundaries; tiny negative slacks remain labelled
+violations rather than being counted as strict activity. The study and a
+self-contained [tutorial](tutorial_joint_boundaries.md) state this qualification.
+No global-optimality or speed claim follows from these correctness checks.
+
 ## Shunt-loaded line endpoint boundaries — 6 October 2026
 
 The [shunt-boundary extension](ivr_shunt_boundaries.md) passes **96/96
