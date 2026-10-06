@@ -91,7 +91,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `power_sharing` | `:off` | `:generators` reuses exactly matching generator P/Q definitions when lifting is enabled |
 | `observation_support_threshold` | `2` | Lift affine observations only when their distinct real-variable support is strictly larger; nonnegative integer |
 | `observation_sharing` | `:off` | `:exact` shares identical composed affine observations; `:signed` also shares opposite rows; `:proportional` admits certified real multiples, including constants |
-| `coincident_voltage_bounds` | `:separate` | `:equality` replaces exactly coincident positive bus-voltage bounds by one magnitude equality; explicitly fixed source rows retain their original representation |
+| `coincident_voltage_bounds` | `:separate` | `:equality` replaces exactly coincident positive bus-voltage bounds by one magnitude equality; explicitly fixed source rows retain their original representation. `:guarded_equality` additionally shares identical normalized affine observations and retains inequalities on structurally circuit-fixed voltages; see [scope and evidence](ivr_voltage_dependencies.md) |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
 | `device_elimination` | `:off` | `:transformer_currents` removes from-side coil currents through fixed-transformer current balance; multiwinding devices remain explicit |
 

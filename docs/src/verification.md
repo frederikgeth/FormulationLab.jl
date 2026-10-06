@@ -1,5 +1,25 @@
 # Verification
 
+## Guarded voltage equalities under power costs — 6 October 2026
+
+Full regression passes **137,485/137,485 assertions**, including **1,162 new
+dependency and power-cost assertions**. The [guarded voltage option](ivr_voltage_dependencies.md)
+uses exact normalized affine identity and structural circuit propagation; it
+changes no default or declared engineering limit.
+
+The diagnostic panel retains all 432 solve attempts. Guarded equalities and
+separate inequalities each admit 144/144 cases. Plain equalities admit 116/144:
+12 solver errors and 16 strictly solved, physically feasible endpoints that fail
+objective agreement. All exclusions occur with duplicate declarations. These
+are local optimizer comparisons, not global-optimality certificates or timings.
+
+Independent SI auditing passes for all 420 strict endpoints, including the 16
+economically excluded controls. It checks 1,632 current margins, 1,656 KCL
+balances, 828 fixed-voltage channels, 432 switch channels and 840 two-sided
+restriction certificates. All 420 exports pass the BMOPFTools reader comparison.
+Raw failures, the unlifted preflight and the corrected initial test parse error
+remain in the external `VOLTAGE_EQUALITY_TRANSFER_20261006` archive.
+
 ## Coincident voltage bounds — 6 October 2026
 
 Full regression passes **136,323/136,323 assertions**, including **1,490 new

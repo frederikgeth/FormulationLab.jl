@@ -42,6 +42,13 @@ An equality representation can expose an overdetermined or otherwise dependent
 system, so the separate-inequality control and strict admission tests remain
 necessary. No universal regularity or global-optimality claim follows.
 
+The subsequent [power-cost and dependency study](ivr_voltage_dependencies.md)
+tests these limitations and adds `:guarded_equality`. That option shares identical
+normalized affine observations and retains inequalities when single-unknown
+circuit propagation certifies fixed coordinates. The results below describe the
+original `:equality` experiment; they are not a general recommendation to replace
+every coincident pair.
+
 ## Bound-representation audit
 
 The review inspected the exact-IVR construction paths rather than assuming that

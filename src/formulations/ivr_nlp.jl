@@ -94,6 +94,10 @@ retains both inequalities. Pairs on explicitly fixed source coordinates retain
 their original inequalities to avoid adding redundant fixed-source equalities.
 Zero limits and proper intervals retain their original representation. This
 local rewrite does not remove dependencies on other voltage or circuit rows.
+`:guarded_equality` also shares exactly identical normalized affine voltage
+observations and retains pairs whose coordinates are fixed by single-unknown
+propagation through the existing linear circuit equations. It uses no nominal
+voltage, operating point, coefficient tolerance or numerical rank threshold.
 """
 Base.@kwdef struct IVRNLPOptions
     s_base::Float64 = 1e4
@@ -496,8 +500,44 @@ function _ivrn_each_bus_limit(f,net,e;buses=nothing)
     end
 end
 
+# Structural certificate only: if all but one nonzero term in an existing
+# homogeneous circuit equation are fixed, its remaining coordinate is fixed.
+# We need no value estimate because certified voltage pairs remain inequalities.
+function _ivrn_circuit_fixed_coordinates(e)
+    fixed=Set(keys(e.fixed_source_coordinates));derivations=NamedTuple[]
+    supports=[[k for (k,a) in row if !iszero(a)] for row in e.equations]
+    uses=Dict{Int,Vector{Int}}()
+    for (j,ks) in enumerate(supports),k in ks;push!(get!(()->Int[],uses,k),j);end
+    remaining=[count(k->k ∉ fixed,ks) for ks in supports]
+    queue=findall(==(1),remaining);cursor=1
+    while cursor<=length(queue)
+        j=queue[cursor];cursor+=1
+        remaining[j]==1 || continue
+        k=only(k for k in supports[j] if k ∉ fixed)
+        push!(fixed,k);push!(derivations,(;coordinate=k,equation=j))
+        for index in uses[k]
+            remaining[index]-=1
+            remaining[index]==1 && push!(queue,index)
+        end
+    end
+    (;fixed,derivations)
+end
+
+# Compare stored binary coefficients relative to the physical limit exactly.
+# Rounded floating division is insufficient: nearby declarations can normalize
+# to the same float without defining the same real-valued observation.
+function _ivrn_voltage_equality_key(u,bound)
+    raw=_ivrn_affine_key(u);q=Rational{BigInt}(bound)
+    normalize(part)=(Rational{BigInt}(part[1])/q,
+        Tuple((v,Rational{BigInt}(c)/q) for (v,c) in part[2]))
+    normalize(raw[1]),normalize(raw[2])
+end
+
 function _ivrn_bus_limits!(model,net,e,z;coincident=:separate)
-    coincident in (:separate,:equality) || throw(ArgumentError("unknown coincident voltage bound policy"))
+    coincident in (:separate,:equality,:guarded_equality) || throw(ArgumentError("unknown coincident voltage bound policy"))
+    certificate=coincident==:guarded_equality ? _ivrn_circuit_fixed_coordinates(e) : nothing
+    model.ext[:ivr_voltage_fixed_dependencies]=certificate===nothing ? NamedTuple[] : certificate.derivations
+    representatives=Dict{Any,Any}()
     limits=Any[];channels=Dict{Tuple{String,String},Int}()
     _ivrn_each_bus_limit(net,e) do b,key,row,bound
         channel=get(channels,(b,key),0)+1;channels[(b,key)]=channel
@@ -507,16 +547,28 @@ function _ivrn_bus_limits!(model,net,e,z;coincident=:separate)
     skipped=Set{Tuple{String,String,Int}}();report=Any[]
     for (;b,key,row,bound,channel) in limits
         (b,key,channel) in skipped && continue
-        if coincident==:equality && endswith(key,"min") && isfinite(bound) && bound>0
+        if coincident!=:separate && endswith(key,"min") && isfinite(bound) && bound>0
             upper_key=(b,replace(key,r"min$"=>"max"),channel)
             hi=get(upper,upper_key,nothing)
             if hi!==nothing && hi.bound==bound && _ivrn_row_key(hi.row)==_ivrn_row_key(row)
-                fixed=all(k->haskey(e.fixed_source_coordinates,k),keys(row))
-                push!(report,(;bus=b,lower=key,upper=upper_key[2],channel,limit_V=bound,
-                    action=fixed ? :fixed_source_pair_retained : :equality))
-                if !fixed
+                source_fixed=all(k->haskey(e.fixed_source_coordinates,k),keys(row))
+                circuit_fixed=certificate!==nothing && all(k->k in certificate.fixed,keys(row))
+                entry=(;bus=b,lower=key,upper=upper_key[2],channel,limit_V=bound)
+                if source_fixed || circuit_fixed
+                    push!(report,merge(entry,(;action=source_fixed ? :fixed_source_pair_retained : :circuit_fixed_pair_retained)))
+                else
+                    signature=coincident==:guarded_equality ? _ivrn_voltage_equality_key(_linivr_eval(row,z),bound) : nothing
+                    if signature!==nothing && haskey(representatives,signature)
+                        representative=representatives[signature]
+                        push!(report,merge(entry,(;action=:shared_equality,representative_bus=representative.bus,
+                            representative_lower=representative.lower,representative_channel=representative.channel)))
+                        push!(skipped,upper_key)
+                        continue
+                    end
                     u=_ivrn_bound_observation(model,row,z);scale=bound/e.vb
                     @constraint(model,(real(u)/scale)^2+(imag(u)/scale)^2==1)
+                    push!(report,merge(entry,(;action=:equality)))
+                    signature===nothing || (representatives[signature]=entry)
                     push!(skipped,upper_key)
                     continue
                 end
@@ -585,7 +637,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))
     options.observation_support_threshold>=0 || throw(ArgumentError("observation support threshold must be nonnegative"))
     options.observation_sharing in (:off,:exact,:signed,:proportional) || throw(ArgumentError("unknown IVRNLP observation sharing"))
-    options.coincident_voltage_bounds in (:separate,:equality) || throw(ArgumentError("unknown coincident voltage bound policy"))
+    options.coincident_voltage_bounds in (:separate,:equality,:guarded_equality) || throw(ArgumentError("unknown coincident voltage bound policy"))
     options.device_elimination in (:off,:transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
     options.transformer_nameplate in (:ignore,:bmopftools) || throw(ArgumentError("unknown transformer nameplate policy"))
     net=_l3f_input(input);_ivrn_check(net)
@@ -797,6 +849,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :observation_sharing=>options.observation_sharing,
         :coincident_voltage_bounds=>options.coincident_voltage_bounds,
         :coincident_voltage_bound_report=>voltage_bound_report,
+        :voltage_fixed_dependencies=>model.ext[:ivr_voltage_fixed_dependencies],
         :shared_observation_count=>model.ext[:ivr_lifting].shared_count[],
         :observation_sharing_report=>copy(model.ext[:ivr_lifting].sharing_report),
         :update_count=>0,:generator_update_count=>0,

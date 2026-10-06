@@ -28,6 +28,14 @@ representation with unchanged defaults, not a new speed winner. A third attempt
 at isolated single-phase timing also detects another Julia workload and is
 stopped and excluded in full; its partial results remain archived.
 
+The [power-cost dependency panel](ivr_voltage_dependencies.md) qualifies that
+evidence: guarded equalities and separate inequalities each admit 144/144 cases,
+whereas plain equalities admit 116/144 when duplicate voltage declarations are
+included. A read-only screen of the supplied external data finds no positive
+exactly coincident paired declarations. The guarded option is therefore a
+conditional robustness improvement, with no measured speed benefit or change
+to the best-evidence shortlist. All three representations remain available.
+
 The [single-phase voltage-bound transfer](ivr_singlephase_transfer.md) admits
 all 108 full/reduced/reuse combinations with exact load-power lifting and
 aligned nameplates. A sequentially declared narrow band reaches two upper
