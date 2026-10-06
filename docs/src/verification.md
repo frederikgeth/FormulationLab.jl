@@ -1,5 +1,23 @@
 # Verification
 
+## Inherited MV shunt boundaries — 6 October 2026
+
+The [independent external-feeder panel](ivr_external_shunts.md) admits **24/24
+comparisons** across six formulations, two directions and both Ipopt scaling
+policies. A separately selected French feeder preserves all original fields;
+its selected cable reaches the inherited 428 A limit at opposite endpoints
+under opposite reactive requests. All **48 tightened-rating certificates**
+reject only the intended selected-line endpoint family, including 24 cases
+where the series current remains below the tightened cap.
+
+An independent audit checks all 24 SI exports, 576 line-port margins, 360 KCL
+balances, 360 voltage intervals, π-line equations, powers, objective and exact
+manifest replay. Tiny signed slacks and cross-language roundoff differences
+remain explicit. This documentation/evidence checkpoint changes no package or
+test code; the last full regression remains 127,813/127,813 assertions at
+`cebc919`. These external admissions are reported separately from that count.
+No new speed ranking follows.
+
 ## Joint current/voltage restrictions — 6 October 2026
 
 The [joint-boundary panel](ivr_joint_boundaries.md) passes **144/144 manufactured

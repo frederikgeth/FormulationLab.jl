@@ -42,6 +42,12 @@ current or voltage alone admits a better point that violates only that original
 bound family. Roundoff-sized negative slacks remain explicit. This adds no
 timing recommendation and removes no formulation option.
 
+The [inherited MV shunt study](ivr_external_shunts.md) admits 24/24 comparisons
+on a separately selected French feeder. Both directions reach an inherited
+428 A cable rating at different ends; 48 endpoint rejection certificates pass,
+including series-only counterexamples. This transfers boundary correctness to
+original shunted-line data without changing numerical recommendations.
+
 The [mixed-device rural transfer](ivr_mixed_devices.md) adds filtered IBRs and
 voltage-dependent demand on a selected 70-bus feeder. Reduced power lifting leads
 the mixed confirmation panel; generator reuse helps constant-power tracking but

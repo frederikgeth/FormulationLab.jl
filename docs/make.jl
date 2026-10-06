@@ -49,6 +49,7 @@ makedocs(;
             "Inherited transformer boundaries"=>"ivr_equipment_boundaries.md",
             "Inherited line-current boundaries"=>"ivr_line_boundaries.md",
             "Shunt-loaded endpoint boundaries"=>"ivr_shunt_boundaries.md",
+            "Inherited MV shunt boundaries"=>"ivr_external_shunts.md",
             "Joint current/voltage boundaries"=>"ivr_joint_boundaries.md",
             "Joint-boundary tutorial"=>"tutorial_joint_boundaries.md",
             "Best-evidence numerical profiles"=>"ivr_performance.md",

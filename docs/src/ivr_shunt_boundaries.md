@@ -6,6 +6,11 @@ magnitudes were equal. This extension tests unequal terminal currents explicitly
 using manufactured active-bound witnesses and a separate reconstruction audit
 of inherited shunts in the archived real-feeder results.
 
+A subsequent [independent MV feeder study](ivr_external_shunts.md) reaches an
+inherited shunted-cable rating in both transfer directions, with 24 admissions
+and 48 endpoint-specific rejection certificates. The manufactured and earlier
+inactive-bound evidence below are retained as distinct experiments.
+
 ## Physical equations and the potential error
 
 Let ``v_f,v_t`` be conductor voltages in the line's ordered endpoint maps,
