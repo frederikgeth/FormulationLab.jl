@@ -47,6 +47,7 @@ makedocs(;
             "Multiwinding power-limit units"=>"ivr_nwinding_limits.md",
             "Live mixed-winding comparison"=>"ivr_nwinding_connections.md",
             "Fixed-Q equalities and excitation"=>"ivr_nwinding_equalities.md",
+            "Four-winding non-star correspondence"=>"ivr_nwinding_nonstar.md",
             "Coincident voltage equalities"=>"ivr_voltage_equalities.md",
             "Voltage dependencies under power costs"=>"ivr_voltage_dependencies.md",
             "Single-phase voltage-bound transfer"=>"ivr_singlephase_transfer.md",

@@ -17,6 +17,13 @@ Column rescaling alone has little consistent benefit. Keep the nearby alternativ
 and full-power reference; the detailed matched comparisons qualify these small
 and workload-dependent gains. Compilation is excluded from every ranking.
 
+The [four-winding non-star extension](ivr_nwinding_nonstar.md) separately admits
+336/336 native solves and 112/112 equality-treated reference cases, preserving
+three failed original reference controls. It verifies mixed connections, active
+caps and winding-4 excitation on leakage data with no exact ordinary star fit.
+This adds physical correspondence and export evidence, not a new timing ranking
+or a general multiwinding-current elimination pass.
+
 The [live mixed-winding comparison](ivr_nwinding_connections.md) additionally
 shows that a small scaled Ipopt error and a feasible endpoint do not establish
 objective agreement or small unscaled dual residuals. Explicit absolute

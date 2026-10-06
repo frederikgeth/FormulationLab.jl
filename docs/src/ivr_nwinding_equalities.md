@@ -9,6 +9,10 @@ native formulations.** The original inequality treatment remains available and
 its failures remain recorded. This is mechanism and physical-correspondence
 evidence on manufactured circuits, not an isolated timing experiment.
 
+The [four-winding non-star extension](ivr_nwinding_nonstar.md) tests loaded ports,
+mixed connections, explicit winding-4 excitation and active caps on pair data
+that provably admit no ordinary star fit. It retains both reference Q treatments.
+
 ## Mathematical intervention
 
 For a coil voltage ``u`` and injected current ``i``, write

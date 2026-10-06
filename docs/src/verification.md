@@ -1,5 +1,28 @@
 # Verification
 
+## Four-winding non-star correspondence — 6 October 2026
+
+Full regression passes **152,946/152,946 assertions**, including **15,461 new
+non-star leakage and recovery assertions**. The [four-winding study](ivr_nwinding_nonstar.md)
+admits all 336 native solves and 112/112 equality-treated reference cases on
+passive pair data that provably cannot be represented by an ordinary star.
+Original paired-Q reference controls admit 109/112; two miss cost/current
+agreement and one returns `OTHER_ERROR`. Every endpoint remains archived.
+
+Independent SI auditing covers 560 exports, 6,400 KCL balances, 1,680 coil caps,
+840 excitation contributions, 5,088 native terminal channels and 4,032 native
+coil channels. All 557 admitted endpoints pass. The two economically excluded
+controls also pass; the solver-error endpoint exceeds the stricter fixed-Q
+threshold with a 1.843e-4 var residual. Its failure and the 1e-5 var threshold
+are retained. All 336 native exports pass the on-disk BMOPFTools reader check.
+
+Native physical/model checks verify 336 pair-change and 336 bound-tightening
+rejections; the independent audit verifies 560 of each across its larger
+native/reference set. This adds regression and correspondence evidence without
+changing production transformer equations, removing options or ranking timings.
+Raw evidence and version-pinned reference sources remain outside Git in
+`NONSTAR_FOUR_WINDING_20261006`.
+
 ## Isolated single-phase timing confirmation — 6 October 2026
 
 The [fourth timing attempt](ivr_singlephase_transfer.md#Isolated-confirmation-—-6-October-2026)
