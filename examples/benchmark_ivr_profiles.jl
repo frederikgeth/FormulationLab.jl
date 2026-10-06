@@ -143,6 +143,9 @@ function trial(net,profile,reference,anchor;solver_options=STRICT,initial_point=
             "vpn_max_slack_V"=>(p===nothing ? nothing : Dict(bus=>d["vpn_max"].-abs.([p.voltage[(bus,t)]-p.voltage[(bus,b.electrical.neutral_map[bus])]
                 for t in d["terminal_names"] if t!=b.electrical.neutral_map[bus]])
                 for (bus,d) in net["bus"] if haskey(d,"vpn_max") && haskey(b.electrical.neutral_map,bus))),
+            "vpn_min_slack_V"=>(p===nothing ? nothing : Dict(bus=>abs.([p.voltage[(bus,t)]-p.voltage[(bus,b.electrical.neutral_map[bus])]
+                for t in d["terminal_names"] if t!=b.electrical.neutral_map[bus]]).-d["vpn_min"]
+                for (bus,d) in net["bus"] if haskey(d,"vpn_min") && haskey(b.electrical.neutral_map,bus))),
             "specialization"=>b.numerical_diagnostics[:specialization],
             "specialization_report"=>b.numerical_diagnostics[:specialization_report],
             "elimination"=>b.numerical_diagnostics[:linear_elimination_report],

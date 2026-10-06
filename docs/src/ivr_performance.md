@@ -6,6 +6,16 @@ Recommendations here are additive; package defaults and the individual options
 are unchanged. “Fastest” always refers to a declared workload, accepted physical
 solutions, a candidate set, solver settings and a measured environment.
 
+The [single-phase voltage-bound transfer](ivr_singlephase_transfer.md) admits
+all 108 full/reduced/reuse combinations with exact load-power lifting and
+aligned nameplates. A sequentially declared narrow band reaches two upper
+voltage bounds under cost and five lower bounds under tracking; the wider
+controls remain inactive. Inherited line and nameplate limits remain loose.
+This establishes strict admission near added voltage boundaries; speed claims
+remain pending. All 1,944 subsequent trials and 216 warm-ups pass, but a
+competing Julia workload invalidates timing isolation. The whole campaign is
+excluded from speed recommendations; its raw results are retained.
+
 The [mixed-device rural transfer](ivr_mixed_devices.md) adds filtered IBRs and
 voltage-dependent demand on a selected 70-bus feeder. Reduced power lifting leads
 the mixed confirmation panel; generator reuse helps constant-power tracking but

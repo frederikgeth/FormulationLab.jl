@@ -1,5 +1,29 @@
 # Verification
 
+## Single-phase voltage-bound transfer — 6 October 2026
+
+Full regression passes **123,059/123,059 assertions**; all **58 executable
+tutorial blocks** pass. The 452 new assertions check source-preserving scenario
+construction, exact addition manifests, preservation of existing bounds,
+activity/violation reporting, numerical factor isolation and full/reduced
+single-phase solve agreement. Every transformation and package default remains.
+
+All **108 real-feeder admissions** pass across nine numerical arms, three
+voltage bands, two power objectives and two Ipopt policies. The first two bands
+are inactive; a separately declared sequential extension reaches two upper
+voltage bounds for cost and five lower bounds for tracking. All numerical
+treatments reproduce those active sets. The independent export audit verifies
+108 matching physical structures and objective/filter-loss identities, 44,064
+inherited line-current margins and 324 nameplate margins. Equipment bounds
+remain loose. See the [single-phase study](ivr_singlephase_transfer.md) for the
+selection exclusions, sequential design, exact claim and timing protocol.
+
+The attempted timing campaign passes **1,944 trials and 216 warm-ups**, including
+all expected active sets. Its process monitor detects a competing Julia job,
+so the entire campaign is **excluded from performance claims**. Raw timings
+and isolation failures remain outside Git; the speed-analysis script refuses
+the contaminated campaign. No default or fastest-profile recommendation changes.
+
 ## Scalar multiwinding power-limit parity — 6 October 2026
 
 Full regression passes **122,607/122,607 assertions**; all **57 executable

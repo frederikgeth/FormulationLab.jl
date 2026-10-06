@@ -1976,3 +1976,39 @@ audit must receive the policy explicitly; auditing an `IVRNLPResult` reads it
 from the solve snapshot. Keep that policy fixed when comparing numerical
 formulations or timings. See the [multiwinding study](ivr_nwinding_limits.md)
 for the live-reference scope and the remaining limitations.
+
+## 56. Separate physical voltage bands from numerical treatments
+
+Use a two-wire manufactured network to inspect the single-phase scenario
+factory. The input remains unchanged. Missing voltage bounds, DERs and parallel
+demand are recorded as physical additions; the nine numerical profiles then
+share that same derived network. An existing voltage-bound field is preserved.
+
+```@example exactivr
+include(joinpath(@__DIR__,"..","..","examples","benchmark_ivr_singlephase_transfer.jl"))
+sp_study = IVRSinglePhaseTransferStudy
+sp_original = sp_study.P.ivr_compiler_case(conductors=2,segments=3)
+for bus in values(sp_original["bus"]), field in ("vpn_min","vpn_max")
+    pop!(bus,field,nothing)
+end
+sp_before = deepcopy(sp_original)
+sp_net, sp_manifest = sp_study.scenario(sp_original;voltage_band=:narrow)
+@assert sp_original==sp_before
+@assert length(sp_manifest.selected_loads)==3
+sp_profiles = sp_study.profiles(sp_net,:exchange_tracking;
+    exchange_target_W=1000.,nlp_scaling_method="gradient-based")
+@assert length(sp_profiles)==9
+@assert all(p.options.transformer_nameplate==:bmopftools for p in sp_profiles)
+sp_start = sp_study.M.E.S.U.G.H.S.L.start_point(sp_net)
+sp_activity = sp_study.voltage_activity(sp_net,sp_start,sp_manifest)
+@assert all(!r.active && !r.violated for r in sp_activity.records)
+[(name=p.name,columns=p.options.load_power_bases,rows=p.options.load_power_row_scaling)
+    for p in sp_profiles]
+```
+
+The unloaded start lies inside the voltage band; this does not establish its
+power-flow feasibility. Evaluate `voltage_activity` again on a recovered
+`ACPoint` after strict solving and independent physical validation. A narrow
+band alone does not prove that any constraint is active. See the
+[single-phase transfer](ivr_singlephase_transfer.md) for the sequential
+experiment and the distinction between added and inherited limits.
