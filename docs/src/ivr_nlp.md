@@ -692,7 +692,10 @@ the power function directly, avoiding a redundant fixed auxiliary.
 `:load_voltage_variable_count` reports the added variables.
 The opt-in `load_power_lifting=true` additionally separates electrical power
 products from nonlinear voltage laws using exact power auxiliaries, in
-`lifted_power_base` units (or `s_base`). It applies independently of `lifting`;
+per-load `load_power_bases` units, then `load_power_base`, `lifted_power_base`,
+or `s_base` in that precedence. Explicit load units require this lifting option;
+per-load overrides must identify loads that receive auxiliaries. Effective units
+appear in `:load_power_bases`. It applies independently of `lifting`;
 constant-power and impedance loads remain unchanged. The default is false.
 See the [equivalence argument and numerical evidence](ivr_load_power_lifting.md).
 `:load_power_lift_count` counts complex power auxiliaries.

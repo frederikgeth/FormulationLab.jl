@@ -72,7 +72,11 @@ policy, not a numerical transformation. General multiwinding `s_rating` remains
 metadata in both policies; its explicit winding limits keep their native units.
 `load_power_lifting=true` separates voltage-dependent load power products from
 their nonlinear voltage laws using exact complex-power auxiliaries. It uses
-`lifted_power_base` (or `s_base`) and applies independently of `lifting`.
+`load_power_base`, falling back to `lifted_power_base` (then `s_base`), and applies
+independently of `lifting`. `load_power_bases=Dict(load_id=>VA, ...)` overrides
+this unit per load, for all its native channels. Explicit load units require
+`load_power_lifting=true`; per-load entries must identify voltage-law loads
+that actually receive auxiliaries. Other power auxiliaries retain their units.
 Constant-power and impedance loads are unchanged. Default false.
 """
 Base.@kwdef struct IVRNLPOptions
@@ -97,9 +101,13 @@ Base.@kwdef struct IVRNLPOptions
     device_elimination::Symbol = :off
     transformer_nameplate::Symbol = :ignore
     load_power_lifting::Bool = false
+    load_power_base::Union{Nothing,Float64} = nothing
+    load_power_bases::Dict{String,Float64} = Dict{String,Float64}()
 end
 
 _ivrn_objective_scale(options)=something(options.objective_scale,options.s_base)
+_ivrn_load_power_base(options,id)=get(options.load_power_bases,id,
+    something(options.load_power_base,options.lifted_power_base,options.s_base))
 
 # Bound observations enter the common limit path before coordinate elimination,
 # so direct and lifted formulations bind the same original physical quantity.
@@ -301,7 +309,7 @@ _ivrn_power(v,i,z)=_linivr_eval(v,z)*conj(_linivr_eval(i,z))
 
 # Auxiliary definitions are exact graph extensions. Their records also encode
 # starts and supplied physical points; they never become independent observations.
-function _ivrn_lift!(model,u,key,kind)
+function _ivrn_lift!(model,u,key,kind;power_ratio=nothing)
     policy=model.ext[:ivr_lifting]
     get!(policy.cache,key) do
         signature=kind==:observation ? _ivrn_observation_signature(u,policy.sharing) : nothing
@@ -315,7 +323,7 @@ function _ivrn_lift!(model,u,key,kind)
             end
         end
         k=length(policy.records)+1
-        scale=kind==:power ? policy.power_ratio : 1.0
+        scale=kind==:power ? something(power_ratio,policy.power_ratio) : 1.0
         expression=u/scale
         value=JuMP.value(v->JuMP.is_fixed(v) ? JuMP.fix_value(v) : JuMP.start_value(v),expression)
         a=@variable(model,base_name="lift_$(kind)_$(k)_real",start=real(value))
@@ -476,8 +484,16 @@ function _build_ivr_nlp_opf(input,optimizer,options)
             isfinite(options.s_base/base) || throw(ArgumentError("lifted power base and coordinate ratios must be positive and finite"))
     end
     isempty(options.current_power_bases) || options.transformer_scaling==:nominal || throw(ArgumentError("current_power_bases requires nominal transformer coordinates"))
+    if options.load_power_base!==nothing || !isempty(options.load_power_bases)
+        options.load_power_lifting || throw(ArgumentError("load power units require load_power_lifting=true"))
+        for base in (options.load_power_base,values(options.load_power_bases)...)
+            base===nothing && continue
+            isfinite(base) && base>0 && isfinite(base/options.s_base) && base/options.s_base>0 &&
+                isfinite(options.s_base/base) || throw(ArgumentError("load power bases and coordinate ratios must be positive and finite"))
+        end
+    end
     # Own mutable base declarations just as the build owns its physical input.
-    options=IVRNLPOptions(; (k=>(k in (:current_power_bases,:generator_power_bases,:power_terms) ? deepcopy(getfield(options,k)) : getfield(options,k)) for k in fieldnames(IVRNLPOptions))...)
+    options=IVRNLPOptions(; (k=>(k in (:current_power_bases,:generator_power_bases,:load_power_bases,:power_terms) ? deepcopy(getfield(options,k)) : getfield(options,k)) for k in fieldnames(IVRNLPOptions))...)
     options.objective in (:cost,:source_import,:feasibility,:power) || throw(ArgumentError("unknown IVRNLP objective"))
     _ivrn_check_power_terms(options)
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
@@ -494,6 +510,12 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.device_elimination in (:off,:transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
     options.transformer_nameplate in (:ignore,:bmopftools) || throw(ArgumentError("unknown transformer nameplate policy"))
     net=_l3f_input(input);_ivrn_check(net)
+    for id in keys(options.load_power_bases)
+        haskey(get(net,"load",Dict()),id) || throw(ArgumentError("unknown load in load_power_bases: $id"))
+        d=net["load"][id]
+        lowercase(get(d,"model","constant_power"))!="constant_power" && !_sdp_is_impedance_load(d) ||
+            throw(ArgumentError("load_power_bases entry $id has no voltage-law power auxiliaries"))
+    end
     for (id,base) in options.generator_power_bases
         haskey(get(net,"generator",Dict()),id) || throw(ArgumentError("unknown generator in generator_power_bases: $id"))
         isfinite(base) && base>0 && isfinite(base/options.s_base) && base/options.s_base>0 &&
@@ -581,7 +603,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
                         Dict(k=>v*e.vb for (k,v) in e.fixed_source_coordinates))
                 end
                 load_voltages[id]=_ivrn_load_law!(model,id,d,v,p,q,z,z0,e,voltage_range;
-                    power_lifting=options.load_power_lifting)
+                    power_lifting=options.load_power_lifting,
+                    power_ratio=_ivrn_load_power_base(options,id)/e.sb)
             end
         elseif family==:ibr_internal
             if get(d,"dc_link_coupled",false)
@@ -684,6 +707,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :dispatch_variable_count=>sum(length(g.p)+length(g.q) for g in values(generators);init=0),
         :load_voltage_variable_count=>sum(length,values(load_voltages);init=0),
         :load_power_lifting=>options.load_power_lifting,
+        :load_power_bases=>Dict(id=>_ivrn_load_power_base(options,id) for id in keys(load_voltages) if options.load_power_lifting),
         :load_power_lift_count=>count(k->first(k)==:load_law_power,keys(model.ext[:ivr_lifting].cache)),
         :state_dimension=>e.coordinate_count[],
         :solver_state_dimension=>n,:discharged_complex_kcl=>length(omitted),:source_mode=>:affine,

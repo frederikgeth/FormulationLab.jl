@@ -1,5 +1,26 @@
 # Verification
 
+## Independent load-power units — 6 October 2026
+
+Full regression passes **100,049/100,049 assertions**, including **2826 new
+checks** for independent load-unit inverses, exact physical recovery, signed/zero
+demand, single-phase/delta/wye connections, full/reduced coordinates, unchanged
+other auxiliaries, SI JSON round-trips, bound rejection, option precedence and
+ownership, invalid declarations and isolated study factors. All **54 executable
+tutorial blocks** pass. Defaults and all previous transformation options remain.
+
+The [independent-unit study](ivr_load_power_units.md) isolates load-power columns
+from electrical, generator and other lifted-power units. Its declared MV/LV and
+nominal-power rules are experimental profiles, not automatic compiler policies.
+
+The two isolated batches pass all **2304 measured trials and 192 warm-ups**.
+Independent QA verifies frozen source, input preservation, per-load assignments,
+complete starts, option isolation, objective agreement and **272 paired
+contrasts**. Maximum objective reconstruction discrepancy is below 5.04e-10;
+within-cell spread is below 1.81e-10. Every candidate remains eligible. The
+[results](ivr_load_power_units.md) qualify the limited and objective-dependent
+speed effects; only Ipopt wall time ranks.
+
 ## Paired voltage-law timing — 6 October 2026
 
 Full regression passes **97,223/97,223 assertions**, including 129 new checks for

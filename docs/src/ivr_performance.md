@@ -43,6 +43,16 @@ so this is a conditional shortlist. Signed observations and inactive cap-four
 restrictions do not establish a speed advantage. All original/rejected outcomes
 and every option remain available; package defaults are unchanged.
 
+The [independent load-unit study](ivr_load_power_units.md) admits all 2304
+measured trials and 192 warm-ups. A declared MV/LV unit split improves some
+full-model tracking cells, but gives no consistent large gain over the reduced
+finalists. Nominal load units have small mixed effects; uniform 10 kVA load units
+consistently slow generator reuse. Keep 1 kVA load auxiliaries as the common
+control, with other power lifts also at 1 kVA. The conditional cost shortlist
+remains full/reduced power lifting; tracking favours reduced power with reuse.
+No new automatic scaling default follows. Independent residual-row scaling and
+broader MV sampling are the next experiments.
+
 ## Primary assessment: Ipopt wall-clock time
 
 The primary assessment now **excludes the cost of constructing reduced models**.

@@ -37,7 +37,8 @@ changes. The positive engineering voltage domain remains mandatory.
 
 Each applicable coil adds two real variables and two defining equalities. The
 option is independent of `lifting=:off/:powers/:bounded_observations` and uses
-`lifted_power_base`, falling back to `s_base`. It preserves the existing assembly
+the per-load unit described below, falling back to `lifted_power_base` and then
+`s_base`. It preserves the existing assembly
 units of the equation rows. Constant-power and impedance loads are unchanged.
 Fixed-magnitude voltage laws may use the power extension but retain their existing
 constant evaluation of the voltage factor. The common auxiliary registry derives
@@ -138,3 +139,38 @@ batches with all alternatives retained. All 1152 lifted measured trials pass;
 including some slowdowns. The complete tables and conditional shortlist supersede
 the untimed performance limitation of this initial diagnosis without changing
 its original evidence.
+
+## Independent load-power units
+
+`load_power_base` sets a common VA unit for voltage-law power auxiliaries only.
+`load_power_bases=Dict(load_id=>VA, ...)` overrides it for individual loads;
+each entry applies to all native channels of that load. The precedence is
+per-load entry, common load unit, `lifted_power_base`, then `s_base`.
+Explicit load units require `load_power_lifting=true`. Unknown load IDs,
+entries for constant-power or impedance loads, nonpositive/nonfinite units,
+and nonrepresentable forward/inverse coordinate ratios are refused.
+The build owns a copy of the declarations. Effective units are reported in
+`:load_power_bases`, including only loads with power auxiliaries.
+
+For a unit change from ``S_\ell`` to ``S'_\ell``, the exact inverse is
+``w'_k=(S_\ell/S'_\ell)w_k``. Equation rows retain assembly power units;
+this changes the auxiliary columns. Physical P/Q, objective coefficients,
+voltage domains, operating bounds and all other auxiliary units are unchanged.
+The same recovery registry derives complete starts and physical-point images;
+SI exports continue to use physical electrical observations.
+
+A smaller LV demand need not share the numerical power unit of a larger MV
+load. The experimental runner `benchmark_ivr_load_power_units.jl` therefore
+compares uniform 1 kVA and 10 kVA, a declared native-coil voltage split, and
+per-load maximum nominal apparent power. The split assigns 1 kVA when every
+`v_nom` channel is at most 1 kV and 10 kVA when every channel exceeds 1 kV;
+a load straddling the threshold is refused. This is an experimental classification,
+not an electrical voltage standard or a transformer-region inference.
+The nominal rule uses ``\max(1\,\mathrm{VA},\max_k\sqrt{P_{n,k}^2+Q_{n,k}^2})``;
+the positive floor covers zero demand. No rule is a compiler default.
+
+The retained experimental shortlist is full power lifting, reduced power lifting,
+and reduced power lifting with generator reuse. The existing six-profile and
+original/lifted runners remain available. Each matched treatment changes only
+`load_power_bases`; assembly, current, dispatch and other power-lift units are
+fixed. See [the independent unit study](ivr_load_power_units.md).

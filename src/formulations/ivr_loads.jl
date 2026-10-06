@@ -32,12 +32,12 @@ function _ivrn_check_load(id,d)
     end
 end
 
-function _ivrn_load_law!(model,id,d,rows,p,q,z,z0,e,voltage_range;power_lifting=false)
+function _ivrn_load_law!(model,id,d,rows,p,q,z,z0,e,voltage_range;power_lifting=false,power_ratio=nothing)
     if power_lifting
         # Exact graph extension: keep quadratic electrical products separate
         # from fractional voltage laws. The common registry encodes every start
         # and recovered physical point, including these power auxiliaries.
-        lifted=[_ivrn_lift!(model,p[k]+im*q[k],(:load_law_power,id,k),:power) for k in eachindex(rows)]
+        lifted=[_ivrn_lift!(model,p[k]+im*q[k],(:load_law_power,id,k),:power;power_ratio) for k in eachindex(rows)]
         p=real.(lifted);q=imag.(lifted)
     end
     n=length(rows);vn=_sdp_vector(d,"v_nom",n)

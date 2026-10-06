@@ -155,10 +155,13 @@ Use the table's workload-specific ratios, not one pooled speedup figure.
 
 The passive-component elimination report is empty for every reduced arm, with
 no component-limit rejection. Thus cap four is not exercised as an active
-restriction here. With load-power lifting enabled, full/reduced power models
+restriction here. For the cost objective with load-power lifting enabled, full/reduced power models
 have 2616/2592 real variables; reuse reduces the latter to 2478. Signed
 observations have 3846 variables without reuse or 3732 with reuse; the cap-four
-arm also has 3732. The study does not establish a cap-four advantage or claim
+arm also has 3732. Tracking instead has 2502/2478/2364 variables for
+full/reduced/reuse powers and 3504/3390 for signed observations without/with
+reuse (including 3390 for cap four). Counts depend on the objective observations.
+The study does not establish a cap-four advantage or claim
 that fewer variables alone explain runtime. All tails are retained, including
 occasional large paired ratios; no repeat is trimmed.
 

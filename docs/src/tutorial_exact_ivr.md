@@ -1842,3 +1842,29 @@ Run the [paired timing protocol](ivr_load_power_timing.md) in isolated Julia
 processes. A candidate with any rejected warm-up or measured repeat is ineligible;
 never report its survivor-only median as a speed estimate. Retain original failures
 alongside the auxiliary-power candidates. Compilation time does not rank profiles.
+
+
+## 52. Separate load-power units from other power auxiliaries
+
+Small LV loads and larger MV loads can use different auxiliary power units while
+retaining the same electrical circuit and SI outputs. This example keeps other
+power lifts at 1 kVA and changes only the load auxiliaries to 10 kVA.
+
+```@example exactivr
+load_unit_options = IVRNLPOptions(load_power_lifting=true, lifting=:powers,
+    lifted_power_base=1e3, load_power_base=1e4)
+load_unit_build = build_opf(load_lift_net, IVRNLP(load_unit_options))
+@assert all(==(1e4), values(load_unit_build.numerical_diagnostics[:load_power_bases]))
+@assert load_unit_build.numerical_diagnostics[:lifted_power_base]==1e3
+include(joinpath(pkgdir(FormulationLab), "examples", "benchmark_ivr_load_power_units.jl"))
+load_unit_profiles = IVRLoadPowerUnitStudy.profiles(load_lift_net,:quadratic_cost)
+@assert length(load_unit_profiles)==12
+[(name=p.name, units=p.options.load_power_bases) for p in load_unit_profiles]
+```
+
+Use `load_power_bases=Dict("load_id"=>500.0)` for an individual load, with all
+its native channels expressed in that VA unit. The common load unit supplies
+unspecified loads. Defaults preserve the previous unit choice. The four declared
+study treatments are hypotheses to test with strict physical admission and Ipopt
+wall time; [their protocol and evidence](ivr_load_power_units.md) do not treat
+smaller variables or fewer iterations as sufficient evidence of a speedup.
