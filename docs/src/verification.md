@@ -1,5 +1,24 @@
 # Verification
 
+## Regional multiwinding current units — 6 October 2026
+
+The [regional-current panel](ivr_nwinding_network.md#Regional-current-units-across-transformer-boundaries)
+passes **3,796/3,796 targeted assertions** and admits **93/96 preflight endpoints**.
+All 96 exports pass both result readers. Independent SI audits reject the same
+three endpoints as the original physical checks: 24 KCL violations above 1 μA,
+despite `LOCALLY_SOLVED`. All options and failed endpoints are retained.
+All three reproduce with identical iterations/objectives in a fresh process,
+while native constraint violations remain below ``5\times10^{-13}``.
+No relaxed tolerances or timing promotion are used.
+
+Actual diagnostics reveal that general multiwinding nominal-voltage propagation
+is unsupported; secondary circuits retain the global voltage base. This study
+preserves that fallback while varying only regional current-power seeds, with
+assembly/generator/auxiliary units fixed. Composed linear row normalization may
+respond. The unchanged high/high controls reproduce all 24 preceding factorial
+iteration counts and objectives. Raw data, test-development failures and
+independent validation live outside Git in `NWINDING_REGIONAL_CURRENT_20261006`.
+
 ## Independent multiwinding assembly/generator units — 6 October 2026
 
 The [crossed-base preflight](ivr_nwinding_network.md#Separating-assembly-and-generator-units)

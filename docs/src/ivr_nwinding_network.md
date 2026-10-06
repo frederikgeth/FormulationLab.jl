@@ -247,25 +247,156 @@ reverses the tracking assembly-base trend for eliminated powers: 29 iterations
 at 1 kVA versus 23 at 100 kVA. The earlier diagonal contrast hid that distinction.
 
 These are convergence diagnostics from nonisolated runs, with no wall-time
-ranking and no change to recommended defaults. Next, isolate circuit-current
-columns using explicit regional current bases at fixed assembly/generator
-units, with transformer boundaries defining independent regions. This would
-separate current-coordinate effects from power-row normalization. The factorial
+ranking and no change to recommended defaults. The regional follow-up below
+varies current units at fixed assembly/generator units, with transformer
+boundaries defining independent regions and assembly power-row units held
+fixed. The factorial
 wall-time confirmation also remains pending; iteration reductions alone do not
 establish an optimizer speed benefit.
+
+## Regional current units across transformer boundaries
+
+`examples/benchmark_ivr_nwinding_regional.jl` fixes assembly base at 100 kVA,
+generator P/Q units at 1 kVA, power/load auxiliaries at 500 VA and objective
+divisor at 1. It crosses shared-primary current-power base
+``S_p\in\{1,100\}`` kVA with secondary current-power base
+``S_s\in\{1,100\}`` kVA. The source region stays at 100 kVA. These four treatments
+are tested for each size, objective and current/lifting representation: 96
+preflight endpoints. They use the same physical inputs and unloaded SI start.
+
+The primary seed at `hub` propagates through the common trunk and each primary
+branch to all first windings. Each winding 2/3/4 has its own seed, propagated
+through its two feeder sections. Transformer boundaries stop propagation;
+conflicting declarations in one line-connected region are refused. The declared
+seeds are specific to this manufactured family, not a general topology selector.
+The high/high arm reproduces the preceding 100 kVA assembly/1 kVA generator
+control, including its coordinate maps.
+
+### A previously unexamined nominal-voltage fallback
+
+Inspecting the actual coordinate diagnostics reveals that nominal voltage-base
+propagation supports the ordinary transformer bank but **skips general
+multiwinding transformers**. It reports `unsupported_nominal_base_contract`.
+The downstream regions consequently retain the global 2300 V base with reason
+`no_nonzero_source_base`, although the physical circuits are energized through
+their transformers. This is a scaling fallback, not a disconnected network.
+The earlier studies selected `transformer_scaling=:nominal`; that option did
+not establish nominal voltage units on these secondary circuits.
+
+The regional experiment preserves this fallback, so it changes no voltage
+units. With characteristic voltage unit ``V_r`` and current-power base ``S_r``,
+
+```math
+I_r=S_r/V_r,\qquad \widehat i_r=i_r/I_r.
+```
+
+Here ``V_r=2300`` V at the source and all secondary circuits, and 230 V in the
+shared primary region. Thus secondary current units are approximately 0.435 A
+and 43.48 A for 1/100 kVA seeds; they are **not** inferred from the winding's
+physical low-voltage nameplate. The nominal-base limitation remains explicit
+in every report. A connection-aware multiwinding voltage policy is a separate
+candidate intervention, to retain this fallback as a control.
+
+Only `current_power_bases` changes between arms of a fixed representation.
+Generator and auxiliary columns, objective normalization and assembly power-row
+units stay fixed. Composed linear circuit-row normalization and Ipopt gradient
+scaling can respond to the changed coordinates. Therefore this is a controlled
+current-unit policy comparison, not a claim that all numerical row multipliers
+are identical. Retained voltage columns keep their units; eliminated-voltage
+recovery expressions contain current terms whose coefficients must change.
+Their recovered SI values and feasible-point membership remain the contracts.
+
+The regression checks region propagation, unchanged voltage bases and retained
+voltage columns, changed current maps, equality with the high/high control,
+complete start encoding, physical/full/reverse correspondence and rejected
+current-limit violations on both a primary and secondary feeder. The timing
+runner retains eight balanced sweeps and reversed confirmation, with 1,536
+measured solves and 192 excluded warm-ups planned. Isolation and all existing
+acceptance gates remain prerequisites for any speed claim.
+
+### Regional preflight results — 6 October 2026
+
+The new targeted regression passes **3,796/3,796 assertions**. The full regional
+panel admits **93/96** endpoints. All 96 report `LOCALLY_SOLVED`, preserve
+independent winding equations and objective agreement, and pass both JSON
+readers; these facts do not make the three rejected endpoints physically
+admissible. Independent SI audits agree with all three rejections, detecting
+24 KCL violations from ``1.189\times10^{-6}`` to ``1.526\times10^{-6}`` A
+(rounded outward) against the unchanged ``10^{-6}`` A gate. No tolerance is
+relaxed and no failed arm is removed.
+
+All rejections use tracking, eliminated multiwinding currents, power lifting
+and 1 kVA secondary current units: both primary bases at eight units, and the
+1 kVA primary base at 24 units. Violations occur at winding-4 buses of units
+whose first winding is delta-connected. Independent ampere-turn, leakage,
+loss and bound checks still pass. Feasible-anchor mapping into each rejected
+representation passes; this distinguishes algebraic correspondence from the
+accuracy of the returned optimizer endpoint. The correlation identifies a
+useful diagnostic subset, not a proven causal explanation.
+
+All three reproduce in a fresh Julia process with the same iterations and
+objectives under unchanged settings. Their native constraint violations are
+``3.28\times10^{-13}``, ``3.55\times10^{-13}`` and ``4.72\times10^{-13}``
+(rounded), and their own-model point reports pass. Full-model membership and
+original SI KCL still fail. This demonstrates a gap between normalized-model
+accuracy and recovered physical accuracy. It motivates tracing residual
+amplification through composed rows and reconstruction; it does not prove which
+individual transformation causes that amplification. Native wall timers in
+these concurrent diagnostic runs remain ineligible.
+
+The 24-unit iteration counts are:
+
+| Workload | Representation | Sp=1, Ss=1 | Sp=1, Ss=100 | Sp=100, Ss=1 | Sp=100, Ss=100 |
+|:--|:--|--:|--:|--:|--:|
+| cost | Explicit, powers | 27 | 30 | 27 | 30 |
+| cost | Explicit, bounded | 26 | 30 | 27 | 30 |
+| cost | Eliminated, powers | 28 | 28 | 29 | 28 |
+| cost | Eliminated, bounded | 27 | 28 | 28 | 28 |
+| tracking | Explicit, powers | 22 | 26 | 22 | 23 |
+| tracking | Explicit, bounded | 22 | 25 | 24 | 25 |
+| tracking | Eliminated, powers | 32 † | 30 | 29 | 23 |
+| tracking | Eliminated, bounded | 26 | 23 | 26 | 23 |
+
+Bases are kVA; † denotes a rejected physical endpoint, whose iteration count
+is retained only as a diagnostic. For explicit power lifting, lowering the
+secondary current base at fixed high primary base reduces cost iterations
+30→27 and tracking 23→22. With eliminated powers it instead changes 28→29
+and 23→29. Bounded observations admit all 24 regional cells in their eliminated
+variant, but show no universal iteration improvement. All 24 high/high controls
+reproduce the preceding factorial's iteration counts and agree in objective.
+These single-preflight observations establish neither speed nor a general
+scaling recommendation.
+
+An initial regression incorrectly required eliminated-voltage recovery
+coefficients to stay unchanged under current rescaling; all 368 initial
+assertion failures came from that expectation. The corrected test verifies
+unchanged retained voltage columns and complete SI recovery. Both versions
+and logs remain archived. Independent export auditing deliberately exits with
+failure for this panel's three rejected endpoints; the validation summary
+checks that these agree with the original physical gates rather than silently
+turning them into passes.
+
+The next voltage-scaling experiment should introduce an opt-in, explicitly
+defined multiwinding nominal-base policy with mixed-connection, conflicting-cycle
+and floating-reference checks. Retain today's global-base fallback as a control.
+Trace scaled-to-SI residual amplification on the three reproduced rejected
+endpoints before proposing a numerical remedy. Isolated wall-time confirmation remains pending; no performance
+ranking uses these concurrent solves.
 
 ## Reproduction
 
 ```sh
 julia --project=test test/ivr_nwinding_network_tests.jl
 julia --project=test test/ivr_nwinding_scaling_tests.jl
+julia --project=test test/ivr_nwinding_regional_tests.jl
 julia --project=test examples/benchmark_ivr_nwinding_network.jl /tmp/nwinding-network/exploration exploration
 julia --project=test examples/benchmark_ivr_nwinding_network.jl /tmp/nwinding-network/confirmation confirmation
 ```
 
 The factorial timing runner accepts the same two arguments (output directory,
 `exploration` or `confirmation`). Its correctness evidence is archived separately
-in `NWINDING_SCALING_FACTORIAL_20261006`.
+in `NWINDING_SCALING_FACTORIAL_20261006`. The regional-current runner uses the
+same invocation contract and archives evidence in `NWINDING_REGIONAL_CURRENT_20261006`.
 
 Use `JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1`, fresh processes and recorded
 isolation from other Julia work. The external `NWINDING_FEEDER_TRANSFER_20261006`

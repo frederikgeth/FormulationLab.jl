@@ -55,6 +55,14 @@ This separates generator-column effects from the combined assembly intervention;
 it does not isolate circuit-current columns or establish a speed ranking.
 Keep both bases and all representations pending isolated wall-time confirmation.
 
+The [regional current-unit follow-up](ivr_nwinding_network.md#Regional-current-units-across-transformer-boundaries)
+fixes assembly and generator units and admits 93/96 cases. Lower secondary
+current units modestly reduce selected explicit-power iteration counts but
+worsen eliminated-power tracking and produce three SI KCL failures despite
+optimal solver status. No speed recommendation follows. Inspection also reveals
+that multiwinding secondary voltage units still use the global fallback; an
+opt-in nominal-voltage policy is a distinct next experiment.
+
 The [live mixed-winding comparison](ivr_nwinding_connections.md) additionally
 shows that a small scaled Ipopt error and a feasible endpoint do not establish
 objective agreement or small unscaled dual residuals. Explicit absolute
