@@ -43,9 +43,17 @@ preflight cases up to 243 buses and 24 live non-star transformers, under quadrat
 cost and exchange tracking. It confirms recovery and bound preservation on a
 larger manufactured network. At 24 units, power-lifted elimination removes 576
 variables but increases derivative entries and selected factor-storage counts.
-Both timing campaigns were interrupted by other Julia work and remain fully
+All three timing campaigns were interrupted by other Julia work and remain fully
 excluded; there is no eligible larger-network speed result. The small-panel
 benefit should not be extrapolated to these cases.
+
+The [assembly/generator factorial](ivr_nwinding_network.md#Separating-assembly-and-generator-units)
+now passes 96/96 physical preflights and SI audits. Holding assembly at 100 kVA,
+1 kVA generator columns cut 243-bus tracking iterations from 49/50 to 23/23
+for explicit/eliminated power lifting. Cost has a different interaction.
+This separates generator-column effects from the combined assembly intervention;
+it does not isolate circuit-current columns or establish a speed ranking.
+Keep both bases and all representations pending isolated wall-time confirmation.
 
 The [live mixed-winding comparison](ivr_nwinding_connections.md) additionally
 shows that a small scaled Ipopt error and a feasible endpoint do not establish

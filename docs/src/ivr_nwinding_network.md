@@ -80,7 +80,7 @@ control retains the existing ordinary-transformer reduction.
 Per-generator power-base overrides are empty, so generator power coordinates
 inherit the assembly base. The 1/100 kVA comparison therefore changes both
 current coordinates and generator power columns; it does not isolate their
-individual effects. A subsequent scaling experiment should vary them separately.
+individual effects. The factorial follow-up below varies them separately.
 
 Timing uses two fresh Julia processes, reversed case/schedule order in
 confirmation, one excluded warm-up per arm/case and eight measured sweeps in
@@ -150,25 +150,126 @@ the corresponding pairs are 21/49 and 29/50. This supports testing power bases
 and recovered-observation support jointly, while keeping the physical objective
 and limits fixed. It does not identify a universal scaling threshold.
 
-Two isolated timing attempts were started, and both detected competing Julia
+Three isolated timing attempts were started, and all detected competing Julia
 work. The monitor interrupted only the study's process group; other workloads
-were untouched. **Both entire campaigns are excluded**, including rows completed
+were untouched. **All three entire campaigns are excluded**, including rows completed
 before interference. All partial reports and isolation logs remain archived.
 There is no eligible larger-network speed ranking from this checkpoint. The
 frozen two-batch, eight-sweep protocol is ready to rerun during a quiet window;
 the earlier small-panel average benefit cannot be assumed to transfer.
+The third attempt records 83 isolation samples and rechecks the 262-file freeze.
+All production, runner and dependency contents match the first two attempts;
+only the nonexecuted test-suite registration differs. Its complete and partial
+rows are retained without speed interpretation.
+
+## Separating assembly and generator units
+
+The follow-up `examples/benchmark_ivr_nwinding_scaling.jl` crosses assembly
+base ``S\in\{10^3,10^5\}`` VA with explicit generator power base
+``G\in\{10^3,10^5\}`` VA. Each of the four current/lifting representations
+receives all four combinations, at all three sizes and both objectives:
+96 physical preflight endpoints. Every generator receives an explicit override.
+The original diagonal comparison ``G=S`` is retained within this factorial.
+
+At fixed ``S``, changing ``G`` rescales generator P/Q columns only. Their
+physical equations and boxes retain the form
+
+```math
+p_{\mathrm{circuit}}(z)=(G/S)\widehat p_g,\qquad
+P_g^{\min}/G\leq\widehat p_g\leq P_g^{\max}/G,
+\qquad P_g=G\widehat p_g.
+```
+
+Changing ``S`` at fixed ``G`` is broader: it changes inherited current units
+and assembly-normalized nonlinear power rows, including IBR power/DC bounds.
+IBRs use circuit power expressions rather than separate generator dispatch
+columns. Hence this factorial separates generator-column effects from the
+remaining assembly-base effects; it **does not isolate current columns alone**.
+Objective divisor 1, 500 VA generic/load-power auxiliaries, physical data,
+nominal voltage scaling, row policy and solver settings remain fixed.
+Ipopt gradient scaling can respond to the changed rows and derivatives.
+
+The timing protocol groups four scaling arms within each fixed
+size/objective/representation cell, with the same eight balanced sweeps and
+reversed confirmation schedule as above. This plans 1,536 measured solves and
+192 excluded warm-ups across two fresh processes. For an eligible cell, report
+both conditional contrasts
+``T(S,10^5)/T(S,10^3)`` and ``T(10^5,G)/T(10^3,G)``.
+The ratio of the former contrasts at high and low ``S`` describes interaction;
+a diagonal ratio alone cannot identify either factor. These are descriptive
+optimizer-call wall-time comparisons, conditional on strict physical and
+objective gates. Compilation costs remain excluded.
+
+The regression verifies correspondence under every crossed setting, exact
+physical generator-power recovery from independently scaled columns, rejected
+generator-bound violations, independent non-star equations and complete common
+SI starts. Objective terms and option dictionaries are owned independently by
+each arm. The preflight anchor is shared across all sixteen candidates for a
+size/objective pair, allowing cross-representation and cross-base membership
+checks. No speed claim follows from nonisolated preflight iteration counts.
+
+### Factorial preflight results — 6 October 2026
+
+All **96/96** endpoints pass strict termination, physical and own/full/reverse
+membership, objective agreement, complete starts and independent non-star
+checks. All 96 exports pass both readers and independent SI audits, including
+38,400 KCL balances, 13,056 coil powers, 6,528 winding caps, 29,376 voltage bands
+and 2,176 inverter internal-power channels. Physical export structures match
+across all sixteen representations/scales per size/objective. Maximum audited
+KCL residual is ``6.38\times10^{-7}`` A (rounded upward), below the ``10^{-6}`` A
+gate; this finite residual should not be mistaken for symbolic exactness.
+The targeted regression passes **1,010/1,010 assertions**. An initial test
+compared copied objective objects by identity; the corrected test compares
+serialized field contents. All 96 initial failures were this test comparison,
+not failed physical solves; the original test and log remain archived.
+
+At 24 units, the single-preflight iteration counts are:
+
+| Workload | Representation | S=1, G=1 | S=1, G=100 | S=100, G=1 | S=100, G=100 |
+|:--|:--|--:|--:|--:|--:|
+| cost | Explicit, powers | 22 | 31 | 30 | 22 |
+| cost | Explicit, bounded | 23 | 28 | 30 | 38 |
+| cost | Eliminated, powers | 23 | 30 | 28 | 38 |
+| cost | Eliminated, bounded | 25 | 31 | 28 | 36 |
+| tracking | Explicit, powers | 21 | 29 | 23 | 49 |
+| tracking | Explicit, bounded | 22 | 34 | 25 | 47 |
+| tracking | Eliminated, powers | 29 | 33 | 23 | 50 |
+| tracking | Eliminated, bounded | 32 | 38 | 23 | 46 |
+
+Bases in the table are kVA. At fixed 100 kVA assembly units, 1 kVA generator
+columns reduce tracking iterations from 49 to 23 (explicit powers) and from
+50 to 23 (eliminated powers). Conversely, explicit-power cost needs 22
+iterations at both diagonal settings, but 31 and 30 at the off-diagonal
+settings. Thus the generator/assembly interaction depends on the physical
+objective and representation; a uniformly smaller generator base is not a
+universal convergence prescription. Fixing generator units at 1 kVA also
+reverses the tracking assembly-base trend for eliminated powers: 29 iterations
+at 1 kVA versus 23 at 100 kVA. The earlier diagonal contrast hid that distinction.
+
+These are convergence diagnostics from nonisolated runs, with no wall-time
+ranking and no change to recommended defaults. Next, isolate circuit-current
+columns using explicit regional current bases at fixed assembly/generator
+units, with transformer boundaries defining independent regions. This would
+separate current-coordinate effects from power-row normalization. The factorial
+wall-time confirmation also remains pending; iteration reductions alone do not
+establish an optimizer speed benefit.
 
 ## Reproduction
 
 ```sh
 julia --project=test test/ivr_nwinding_network_tests.jl
+julia --project=test test/ivr_nwinding_scaling_tests.jl
 julia --project=test examples/benchmark_ivr_nwinding_network.jl /tmp/nwinding-network/exploration exploration
 julia --project=test examples/benchmark_ivr_nwinding_network.jl /tmp/nwinding-network/confirmation confirmation
 ```
 
+The factorial timing runner accepts the same two arguments (output directory,
+`exploration` or `confirmation`). Its correctness evidence is archived separately
+in `NWINDING_SCALING_FACTORIAL_20261006`.
+
 Use `JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1`, fresh processes and recorded
 isolation from other Julia work. The external `NWINDING_FEEDER_TRANSFER_20261006`
-archive retains generated inputs, preflight exports, both timing attempts, diagnostics,
+archive retains generated inputs, preflight exports, all three timing attempts, diagnostics,
 source hashes, validation scripts and inventory scope. The archive name does
 not imply successful external-feeder transfer. Plans and raw evidence remain
 outside Git.

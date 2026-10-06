@@ -1,5 +1,23 @@
 # Verification
 
+## Independent multiwinding assembly/generator units — 6 October 2026
+
+The [crossed-base preflight](ivr_nwinding_network.md#Separating-assembly-and-generator-units)
+passes **96/96 physical cases**, **96/96 independent SI export audits** and
+**96/96 BMOPFTools/FormulationLab reader comparisons**. The new targeted regression
+passes **1,010/1,010 assertions**; the preceding complete suite remains the
+158,563-assertion checkpoint below, rather than an unexecuted cumulative claim.
+Only assembly and explicit generator units vary within each fixed representation.
+Physical data, objective divisor, auxiliary units and strict settings are fixed.
+All sixteen settings per size/objective share a physical start and feasible anchor.
+
+At 243 buses, tracking with 100 kVA assembly units needs 49/50 iterations for
+explicit/eliminated power lifting with 100 kVA generator units, versus 23/23
+with 1 kVA generator units. Cost behaves differently; the conditional iteration
+comparisons show an interaction, not a universal scaling rule. Preflight wall
+times are excluded. Raw evidence and original test-comparison failures remain
+outside Git in `NWINDING_SCALING_FACTORIAL_20261006`.
+
 ## Coupled mixed-device multiwinding networks — 6 October 2026
 
 Full regression passes **158,563/158,563 assertions**, including **242 new
@@ -15,7 +33,7 @@ pass both readers. Independent checks include 19,200 KCL balances, 14,688 voltag
 bands, 29,760 line-current bounds, 6,528 coil powers, 8,304 recovered winding
 terminal currents, 3,264 coil caps and 1,088 IBR internal-power channels.
 
-Both isolated timing attempts were interrupted by competing Julia work. Both
+Three isolated timing attempts were interrupted by competing Julia work. All
 entire campaigns are retained and excluded from performance claims. Sixteen
 separate structural diagnostic solves and sixteen warm-ups pass, with actual
 MUMPS order 2 for request 7; their concurrent wall times are also excluded. Correctness

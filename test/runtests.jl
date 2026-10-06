@@ -62,6 +62,7 @@ using OpenDSSDirect
     include("ivr_nwinding_nonstar_tests.jl")
     include("ivr_nwinding_elimination_tests.jl")
     include("ivr_nwinding_network_tests.jl")
+    include("ivr_nwinding_scaling_tests.jl")
     include("ivr_voltage_equality_tests.jl")
     include("ivr_voltage_dependency_tests.jl")
     include("ivr_regulator_tests.jl")
