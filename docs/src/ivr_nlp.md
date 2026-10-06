@@ -90,6 +90,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `generator_power_bases` | empty dictionary | Generator-ID-to-VA dispatch units for both P and Q; unspecified generators use `s_base` |
 | `lifted_power_base` | `nothing` | VA unit for power auxiliaries; defaults to `s_base`, without enabling lifting |
 | `power_sharing` | `:off` | `:generators` reuses exactly matching generator P/Q definitions when lifting is enabled |
+| `observation_selection` | `:all` | With bounded-observation lifting, restrict to `:coil_voltages`, `:coil_currents` or `:coils`; original bounds remain enforced |
 | `observation_support_threshold` | `2` | Lift affine observations only when their distinct real-variable support is strictly larger; nonnegative integer |
 | `observation_sharing` | `:off` | `:exact` shares identical composed affine observations; `:signed` also shares opposite rows; `:proportional` admits certified real multiples, including constants |
 | `coincident_voltage_bounds` | `:separate` | `:equality` replaces exactly coincident positive bus-voltage bounds by one magnitude equality; explicitly fixed source rows retain their original representation. `:guarded_equality` additionally shares identical normalized affine observations and retains inequalities on structurally circuit-fixed voltages; see [scope and evidence](ivr_voltage_dependencies.md) |
@@ -385,6 +386,13 @@ bounds. At the default threshold, singleton complex coordinates are not duplicat
 Identically zero channels are never lifted. Identical original observation rows
 and power-factor pairs already share definitions.
 
+`observation_selection=:coil_voltages`, `:coil_currents` or `:coils` restricts
+eligibility to rows matching stamped ordinary/multiwinding coil observations.
+The default `:all` retains the existing scope. Selection precedes affine sharing;
+the support threshold still applies and every unselected bound remains direct.
+See the [selective coil guide](ivr_coil_observations.md) for the identity, tutorial
+and structural evidence.
+
 With `observation_sharing=:exact`, distinct original rows also share one affine
 definition when their composed real and imaginary constants and coefficients are
 exactly identical. Variable order and exact zero terms do not affect identity.
@@ -417,13 +425,14 @@ the same original row do not add entries. This is build diagnostic information,
 not a persistent physical-variable identifier. [The affine-sharing study](ivr_affine_sharing.md)
 explains the equivalence proof, numerical evidence and remaining scope.
 
-The threshold and sharing controls have no effect for `lifting=:off` or `:powers`.
+The threshold, selection and sharing controls have no effect for `lifting=:off` or `:powers`.
 Original physical power outputs remain expressions of the state.
 
 Definitions have consistent initial values and are reconstructed uniquely when
 encoding a supplied physical point. They do not create additional device
 freedoms, change any rating or alter CP/generator update semantics. Diagnostics
 record `lifting`, `lifted_real_variables`, `observation_support_threshold`,
+`observation_selection`, `observation_selected_row_count`,
 `observation_sharing` and `shared_observation_count`. The last count is the number
 of distinct original rows reusing an existing composed definition, not repeated
 visits to the same original row. More variables can make a nonlinear

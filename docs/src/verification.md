@@ -1,5 +1,25 @@
 # Verification
 
+## Selective coil observations — 7 October 2026
+
+The [coil-observation selector](ivr_coil_observations.md) preserves the default
+`:all` policy and adds coil-voltage, coil-current and combined scopes for
+bounded-observation lifting. It selects original stamped rows before affine
+sharing. Power lifting, electrical reductions and all original bounds remain
+unchanged. Unselected observations stay direct.
+
+All 421 targeted checks and 60 preflight endpoints pass. Eight archived default
+controls reproduce their objective and iteration count exactly. Selective lifting
+reduces variables and Jacobian entries relative to broad lifting on the larger
+case, but increases Hessian entries; the tracking iteration count is 21 versus
+20 for broad lifting. Voltage-only lifting takes 24 iterations. These structural
+and single-trial observations do not establish an optimizer-wall-time ranking.
+
+Scientific definitions, a tutorial, motivating support profiles and limitations
+are tracked. Raw panels, exports, initial unit-mismatch test failure, source
+snapshots and validation logs remain outside Git in
+`COIL_OBSERVATION_SELECTION_20261007`.
+
 ## Multiwinding finite-ground units — 7 October 2026
 
 The opt-in `ground_scaling=:regional_multiwinding_voltage` uses multiwinding

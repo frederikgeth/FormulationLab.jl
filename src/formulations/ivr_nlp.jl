@@ -61,7 +61,11 @@ and selected non-generator objective ports.
 `nothing` keeps `s_base`. Circuit and generator units remain independent.
 The default :off preserves direct expressions; physical outputs are unchanged.
 `observation_support_threshold=2` lifts only rows with strictly more distinct
-real solver variables. `observation_sharing=:exact` reuses identical composed
+real solver variables. `observation_selection=:all` retains that default scope;
+`:coil_voltages`, `:coil_currents` and `:coils` select rows matching original
+ordinary or multiwinding coil observations, only when bounded-observation lifting
+is enabled. The threshold still applies; all physical bounds remain enforced.
+`observation_sharing=:exact` reuses identical composed
 affine observations, including constants; default :off retains separate rows.
 `:signed` also shares opposite rows; `:proportional` shares real scalar multiples
 only when all coefficients and constants have an exact binary-rational
@@ -132,6 +136,7 @@ Base.@kwdef struct IVRNLPOptions
     kcl_row_max_base::Union{Nothing,Float64} = nothing
     lifting::Symbol = :off
     observation_support_threshold::Int = 2
+    observation_selection::Symbol = :all
     observation_sharing::Symbol = :off
     coincident_voltage_bounds::Symbol = :separate
     device_elimination::Symbol = :off
@@ -432,7 +437,23 @@ function _ivrn_observation_factor(pivot,representative)
     isfinite(factor) && !iszero(factor) || return nothing
     Rational{BigInt}(factor)*Rational{BigInt}(representative)==Rational{BigInt}(pivot) ? factor : nothing
 end
-_ivrn_lifting_policy(options)=(;mode=options.lifting,threshold=options.observation_support_threshold,
+function _ivrn_selected_observation_rows(options,e)
+    options.lifting==:bounded_observations && options.observation_selection!=:all || return nothing
+    e===nothing && throw(ArgumentError("coil observation selection requires electrical provenance"))
+    rows=Set{Any}()
+    for (family,_,v,i,_) in e.devices
+        family in (:transformer_coil,:transformer_coil_from,:transformer_coil_to) || continue
+        if options.observation_selection in (:coil_voltages,:coils)
+            union!(rows,(_ivrn_row_key(row) for row in v))
+        end
+        if options.observation_selection in (:coil_currents,:coils)
+            union!(rows,(_ivrn_row_key(row) for row in i))
+        end
+    end
+    rows
+end
+_ivrn_lifting_policy(options,e=nothing)=(;mode=options.lifting,threshold=options.observation_support_threshold,
+    selection=options.observation_selection,selection_rows=_ivrn_selected_observation_rows(options,e),
     power_ratio=something(options.lifted_power_base,options.s_base)/options.s_base,
     sharing=options.observation_sharing,power_sharing=options.power_sharing,
     generator_powers=Dict{Any,Any}(),reused_generator_count=Ref(0),
@@ -443,6 +464,7 @@ function _ivrn_bound_observation(model,row,z)
     # The default threshold leaves physical coordinates direct. No threshold
     # lifts an identically zero channel or changes the original operating bound.
     if policy.mode==:bounded_observations &&
+       (policy.selection_rows===nothing || _ivrn_row_key(row) in policy.selection_rows) &&
        length(Set(v for x in (real(u),imag(u)) for (v,c) in x.terms if !iszero(c)))>policy.threshold
         return _ivrn_lift!(model,u,(:observation,_ivrn_row_key(row)),:observation)
     end
@@ -651,6 +673,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.power_sharing in (:off,:generators) || throw(ArgumentError("unknown IVRNLP power sharing"))
     options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))
     options.observation_support_threshold>=0 || throw(ArgumentError("observation support threshold must be nonnegative"))
+    options.observation_selection in (:all,:coil_voltages,:coil_currents,:coils) || throw(ArgumentError("unknown IVRNLP observation selection"))
     options.observation_sharing in (:off,:exact,:signed,:proportional) || throw(ArgumentError("unknown IVRNLP observation sharing"))
     options.coincident_voltage_bounds in (:separate,:equality,:guarded_equality) || throw(ArgumentError("unknown coincident voltage bound policy"))
     options.device_elimination in (:off,:transformer_currents,:all_transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
@@ -700,7 +723,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     maps,transformer_scaling=_ivrn_transformer_coordinates(net,e,maps,options.transformer_scaling,options.current_power_bases)
     scaled_rows=options.row_scaling==:composed || !isempty(scaling.scaled_terminals)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
-    model.ext[:ivr_lifting]=_ivrn_lifting_policy(options)
+    model.ext[:ivr_lifting]=_ivrn_lifting_policy(options,e)
     n=length(maps.projection)
     xr=@variable(model,[1:n],base_name="state_real")
     xi=@variable(model,[1:n],base_name="state_imag")
@@ -868,6 +891,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :reused_generator_power_count=>model.ext[:ivr_lifting].reused_generator_count[],
         :lifting=>options.lifting,:lifted_real_variables=>2length(model.ext[:ivr_lifting].records),
         :observation_support_threshold=>options.observation_support_threshold,
+        :observation_selection=>options.observation_selection,
+        :observation_selected_row_count=>model.ext[:ivr_lifting].selection_rows===nothing ? nothing : length(model.ext[:ivr_lifting].selection_rows),
         :observation_sharing=>options.observation_sharing,
         :coincident_voltage_bounds=>options.coincident_voltage_bounds,
         :coincident_voltage_bound_report=>voltage_bound_report,
