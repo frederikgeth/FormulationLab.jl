@@ -164,3 +164,11 @@ optimizer-call wall timing, with compilation excluded, remains necessary before
 promoting this robustness intervention as a speed improvement. Nominal-voltage
 propagation through general multiwinding devices remains a separate opt-in
 research priority; this intervention preserves the existing fallback.
+
+## Voltage equations and implied rows
+
+The [circuit-row diagnostic](ivr_circuit_residuals.md) extends physical-unit
+tracing to recorded line drops, winding leakage and ampere balances. It reports
+unclassified equations explicitly and leaves normalized fields undefined for
+rows that are not independently enforced. This complements the original KCL
+trace without changing its API or the formulation.

@@ -65,6 +65,7 @@ using OpenDSSDirect
     include("ivr_nwinding_scaling_tests.jl")
     include("ivr_nwinding_regional_tests.jl")
     include("ivr_kcl_trace_tests.jl")
+    include("ivr_circuit_trace_tests.jl")
     include("ivr_kcl_row_scaling_tests.jl")
     include("ivr_nwinding_voltage_scaling_tests.jl")
     include("ivr_voltage_equality_tests.jl")

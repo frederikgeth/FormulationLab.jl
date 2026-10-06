@@ -1,5 +1,25 @@
 # Verification
 
+## Physical circuit-row residuals — 6 October 2026
+
+The [read-only circuit-row diagnostic](ivr_circuit_residuals.md) passes
+**12,193 new targeted assertions**. Tests verify ampere/volt provenance,
+retained versus implied rows, KCL-only capping, independent SI line/winding
+residuals, precision restoration and unchanged native solutions. Production
+formulation equations, options and defaults are unchanged.
+
+The matched 32-endpoint trace retains two failed KCL controls and admits the
+other 30 endpoints. All 38,144 classified row evaluations and three unclassified
+ordinary-transformer voltage equations per endpoint remain explicit. Full
+regression and documentation logs are archived with the source, input and
+native-coordinate records in `CIRCUIT_ROW_RESIDUALS_20261006` outside Git.
+
+A separate monitored timing attempt completed 16 exploration cells before
+external Julia computation appeared. Its entire campaign is excluded; no
+confirmation or eligible speed ranking is reported. The monitor stopped only
+its own benchmark session. Negative timing evidence is retained in
+`NWINDING_COORDINATE_TIMING_20261006`.
+
 ## Multiwinding nominal-coordinate contract, 6 October 2026
 
 Full regression passes **164,684/164,684 assertions**, including 530 new

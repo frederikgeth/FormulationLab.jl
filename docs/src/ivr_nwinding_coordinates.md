@@ -174,3 +174,16 @@ measurements**: the runs overlapped other computation. The next performance
 step is the declared balanced factorial under whole-campaign isolation.
 No default or best-evidence timing recommendation is changed by iteration
 counts alone. External multiwinding feeder transfer remains untested.
+
+## Isolated timing attempt and residual follow-up
+
+The first isolated coordinate/cap campaign completed 16 exploration cells before
+the two-second process monitor detected an external Julia workload. It interrupted
+only its own benchmark session. Confirmation did not run. The **entire campaign**,
+including completed cells, is excluded from speed claims and preserved in
+`NWINDING_COORDINATE_TIMING_20261006`. No timing recommendation changes.
+
+The subsequent [physical-row trace](ivr_circuit_residuals.md) compares retained
+and implied voltage/current equations. It supports reduced normalization
+amplification under the new nominal policy, while explicitly distinguishing
+convergence evidence from an eligible wall-time comparison.
