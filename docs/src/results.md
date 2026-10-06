@@ -59,6 +59,16 @@ and regulator transformer positions refer to coils; other two-bus transformer
 positions refer to the series-current terminal image. Terminal currents including
 excitation, internal grounding and bonds are separately retained in the extension.
 
+For exact-IVR multiwinding results, exported `s_max` is the applied **per-coil VA
+cap**. Under `transformer_nameplate=:bmopftools`, scalar winding input is divided
+by coil count; under `:ignore` it is broadcast unchanged. Explicit vectors stay
+per-coil. `s` always uses physical coil voltage and series-coil current. The
+extension `_formulationlab.nwinding_power_limit_report` records the interpretation
+and resolved caps. A policy change can change dispatch; a numerical formulation
+change with the same policy preserves the physical-variable contract. The
+[live unit-parity study](ivr_nwinding_limits.md) checks the scalar case against
+BMOPFTools, including SI JSON reader compatibility.
+
 Compatibility of result fields does not imply identical OPFs. In particular,
 the default exact-IVR policy leaves transformer `s_rating` unenforced, so it
 does not report it as an enforced `s_max`. With

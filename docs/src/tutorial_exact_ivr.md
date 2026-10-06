@@ -1927,3 +1927,52 @@ original input and scenario-addition manifests separately. The
 [multi-MV-site transfer](ivr_mv_scale_transfer.md) demonstrates case selection,
 strict admission and an isolated timing protocol; its outcomes do not establish
 a universal scaling policy.
+
+## 55. Reconcile scalar multiwinding power ratings
+
+A scalar winding rating can mean a cap on each coil or a total rating allocated
+equally among coils. These define different physical feasible sets. For an ideal
+three-phase transformer supplying 200, 160 and 120 W, a scalar 300 VA rating
+permits all demand under the native per-coil contract. The BMOPFTools contract
+permits 100 VA per coil, requiring 100, 60 and 20 W of local generation.
+
+```@example exactivr
+nw_tm = ["a","b","c","n"]
+nw_net = Dict{String,Any}(
+    "bus"=>Dict("b$k"=>Dict("terminal_names"=>copy(nw_tm),
+        "perfectly_grounded_terminals"=>["n"]) for k in 1:3),
+    "voltage_source"=>Dict("s"=>Dict("bus"=>"b1","terminal_map"=>copy(nw_tm),
+        "v_magnitude"=>[230.,230.,230.,0.],"v_angle"=>[0.,-2pi/3,2pi/3,0.])),
+    "transformer"=>Dict("n_winding"=>Dict("tx"=>Dict(
+        "windings"=>[Dict{String,Any}("bus"=>"b$k","terminal_map"=>copy(nw_tm),
+            "configuration"=>"WYE","v_nom"=>230.0/2.0^(k-1),"r_winding"=>0.) for k in 1:3],
+        "x_sc"=>Dict("1_2"=>0.,"1_3"=>0.,"2_3"=>0.)))),
+    "load"=>Dict("d"=>Dict("bus"=>"b2","terminal_map"=>copy(nw_tm),
+        "configuration"=>"WYE","p_nom"=>[200.,160.,120.],"q_nom"=>zeros(3))),
+    "generator"=>Dict("g"=>Dict("bus"=>"b2","terminal_map"=>copy(nw_tm),
+        "configuration"=>"WYE","p_min"=>zeros(3),"p_max"=>fill(300.,3),
+        "q_min"=>zeros(3),"q_max"=>zeros(3),"s_max"=>fill(300.,3))))
+nw_net["transformer"]["n_winding"]["tx"]["windings"][2]["s_max"] = 300.
+nw_terms = [IVRPowerTerm(channels=[(:generator,"g",k)],linear=1.) for k in 1:3]
+nw_summary = []
+for (policy,expected,cap) in ((:ignore,0.,300.),(:bmopftools,180.,100.))
+    b = build_opf(nw_net,IVRNLP(objective=:power,power_terms=nw_terms,
+        objective_scale=1.,s_base=1e4,transformer_nameplate=policy,
+        transformer_scaling=:nominal,lifting=:powers);optimizer=Ipopt.Optimizer)
+    r = solve_ivr_nlp_opf(b;solver_options=(print_level=0,tol=1e-10,
+        constr_viol_tol=1e-10,acceptable_iter=0,bound_relax_factor=0.))
+    @assert r.solve.optimal && physical_residuals(nw_net,r).passed
+    @assert isapprox(r.objective,expected;atol=1e-5)
+    d = result_dict(b,r)
+    @assert all(d["transformer"]["tx"]["w2"][string(k)]["s_max"]==cap for k in 1:3)
+    push!(nw_summary,(;policy,generation_W=r.objective,per_coil_cap_VA=cap))
+end
+nw_summary
+```
+
+The exported `s_max` always describes the applied per-coil cap in SI. A vector
+such as `[100.,100.,100.]` is already per-coil under either policy. An `ACPoint`
+audit must receive the policy explicitly; auditing an `IVRNLPResult` reads it
+from the solve snapshot. Keep that policy fixed when comparing numerical
+formulations or timings. See the [multiwinding study](ivr_nwinding_limits.md)
+for the live-reference scope and the remaining limitations.

@@ -69,7 +69,11 @@ regulators (undivided per regulator). Missing ratings add no cap; the BMOPFTools
 policy rejects a supplied zero rating, matching its native input validation.
 Default :ignore retains the earlier native contract. This is a physical bound
 policy, not a numerical transformation. General multiwinding `s_rating` remains
-metadata in both policies; its explicit winding limits keep their native units.
+metadata in both policies. Under :bmopftools, scalar winding `s_max` is a total
+VA rating divided equally among its coils; under :ignore it retains the native
+per-coil interpretation. Explicit vectors remain per-coil in both policies.
+Current limits remain per-coil amperes. This distinction changes the feasible
+set, not numerical scaling; diagnostics and SI exports record the applied caps.
 `load_power_lifting=true` separates voltage-dependent load power products from
 their nonlinear voltage laws using exact complex-power auxiliaries. It uses
 `load_power_base`, falling back to `lifted_power_base` (then `s_base`), and applies
@@ -148,6 +152,24 @@ function _ivrn_nameplate_limits!(net,e,policy)
         enforced=policy==:bmopftools
         enforced && push!(e.limits,(u,j,Dict("s_max"=>fill(per,length(u)))))
         push!(records,(;id,kind,side,channels,current_basis,limit_VA=per,enforced))
+    end
+    records
+end
+
+# The common electrical assembler retains native per-coil limits for SDP/SOC.
+# Resolve the opt-in scalar winding-total contract before exact-IVR elimination.
+function _ivrn_nwinding_limits!(net,e,policy)
+    records=Any[]
+    for (id,d) in get(get(net,"transformer",Dict()),"n_winding",Dict()),(k,w) in enumerate(d["windings"])
+        haskey(w,"s_max") || continue
+        key="n_winding/$id/$k"
+        _,_,u,j,_=only(x for x in e.devices if x[1]==:transformer_coil && x[2]==key)
+        bounds=only(x[3] for x in e.limits if x[1]===u && x[2]===j)
+        total=policy==:bmopftools && w["s_max"] isa Real
+        total && (bounds["s_max"]=bounds["s_max"]./length(u))
+        push!(records,(;id,winding=k,coil_count=length(u),
+            interpretation=total ? :winding_total_equal_shares : :per_coil,
+            current_basis=:series_coil,limits_VA=copy(bounds["s_max"])))
     end
     records
 end
@@ -560,6 +582,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
                            delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
                            record_transformer_bonds=true,record_transformer_currents=true)
     nameplates=_ivrn_nameplate_limits!(net,e,options.transformer_nameplate)
+    winding_limits=_ivrn_nwinding_limits!(net,e,options.transformer_nameplate)
     z0=_ivrn_start(net,e)
     report,plan=options.specialization==:off ? ((;status=:disabled,code=:disabled,components=String[]),nothing) :
         options.specialization==:conductor_regions ? _ivrn_regions(net,e) : _ivrn_structure(net,e)
@@ -721,6 +744,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
                  if e.voltage[(d["bus"],t)]==0]
     diagnostics=Dict{Symbol,Any}(:power_model=>:exact,:delta_dispatch=>:coil,:ibr_delta_dispatch=>:conductor,
         :transformer_nameplate=>options.transformer_nameplate,:transformer_nameplate_report=>nameplates,
+        :nwinding_power_limit_report=>winding_limits,
         :specialization=>plan===nothing ? :off : options.specialization,
         :specialization_report=>report,:structure_analysis_count=>options.specialization==:off ? 0 : 1,
         :network_reduction=>:off,:assembly_count=>1,

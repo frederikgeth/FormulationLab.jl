@@ -16,7 +16,8 @@ units rate the from coil; Yd/Dy units rate each wye phase at one third of the
 bank VA; regulators rate each from-side through coil at the undivided rating.
 The [complete contract](ivr_nlp.md#Explicit-transformer-nameplate-policy)
 distinguishes series current from wye phase-terminal current, documents missing
-and invalid-zero data, and explains the unchanged multiwinding interpretation.
+and invalid-zero data. The later [multiwinding unit reconciliation](ivr_nwinding_limits.md)
+extends the same policy to scalar winding `s_max`; multiwinding `s_rating` remains metadata.
 This is an explicit choice of physical bounds, not an exact coordinate transform.
 All candidates in the new external preflight use the enforced policy.
 
@@ -171,8 +172,9 @@ No timing campaign is run. Next, diagnose the voltage-dependent reduced-model
 failures with complete solver logs and derivative/scaling checks, retaining the
 full-model feasible points. After admission is reliable, freeze the complete
 panel and run isolated paired timing batches ranked only by Ipopt wall time.
-Broader live transformer-family parity, the different scalar multiwinding power-
-limit conventions, and original-network preprocessing reconstruction remain open.
+Broader live transformer-family parity and original-network preprocessing
+reconstruction remain open. The subsequent [multiwinding study](ivr_nwinding_limits.md)
+reconciles scalar power-limit conventions while retaining the native policy.
 
 ## Follow-up: exact load-power extension
 

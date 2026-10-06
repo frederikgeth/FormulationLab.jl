@@ -227,6 +227,12 @@ materially indefinite leakage-reactance matrices are rejected. Singular/zero
 leakage is permitted. The transformer and winding `s_rating` values are power-base
 metadata; explicit per-winding `i_max` (and dictionary extension `s_max`) impose
 per-coil operating limits. Scalar limits are broadcast across that winding's coils.
+This remains the shared SDP/SOC and default exact-IVR contract. Exact IVR's
+opt-in `transformer_nameplate=:bmopftools` instead divides scalar winding `s_max`
+equally among the coils to match the inspected reference's total-winding VA
+interpretation. Explicit vectors and current limits retain their per-coil units.
+See the [multiwinding limit study](ivr_nwinding_limits.md); selecting different
+physical limit policies is not an exact reformulation of the same feasible set.
 
 Legacy multiwinding excitation is on winding 1, following the inspected schema.
 `no_load_shunt` chooses another physical winding explicitly. Independent OpenDSS

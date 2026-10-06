@@ -638,9 +638,20 @@ these products. Wye phase current includes excitation; regulator bond/ground
 currents are not substituted for the through-coil current. Missing ratings add
 no row. A supplied zero rating is rejected in this mode, matching the reference's
 input validation; the legacy mode continues to allow zero without a cap.
-General multiwinding `s_rating` remains metadata, and explicit multiwinding
-`s_max` retains the existing native per-coil interpretation. This policy does
-not claim complete BMOPFTools multiwinding, control or device-law equivalence.
+General multiwinding `s_rating` remains metadata. Under `:bmopftools`, scalar
+winding `s_max` is the total winding VA rating and each of its ``m`` coils has
+cap `s_max / m`. Under `:ignore`, the scalar retains the native per-coil cap.
+Explicit `s_max` vectors remain per-coil in both policies; they are a dictionary
+extension, not a live BMOPFTools vector-parity claim. Winding `i_max` remains
+per-coil amperes. Zero explicit `s_max` imposes zero coil power; an absent field
+adds no bound. Neither scalar interpretation is an aggregate apparent-power
+constraint: the cap is applied separately to each coil's voltage/current product.
+The `nwinding_power_limit_report` records winding index, coil count, interpretation,
+series-coil current basis and applied SI `limits_VA`. See the
+[unit-parity study](ivr_nwinding_limits.md) for independent and live checks.
+This policy does not claim complete BMOPFTools multiwinding, control or
+device-law equivalence; excitation-location and other declared scope differences
+remain relevant.
 
 Direct and lifted constraints share the same original rated observations, even
 after transformer-current elimination and unit changes. The independent SI
@@ -818,7 +829,7 @@ the independent SI auditor:
 | Voltage source | `s_max`, `i_max` | Phase apparent power; terminal current only when no source terminal is ideally grounded |
 | Ordinary fixed transformer | `i_max_from`, `i_max_to` | Delta-side coil current; other-side terminal current |
 | Fixed autotransformer / open-delta regulator | `i_max_from`, `i_max_to` | Total terminal current, including conductive-bond and internal grounding contributions |
-| General multiwinding transformer | Winding `i_max`, `s_max` | Coil current and coil apparent power, including scalar broadcast |
+| General multiwinding transformer | Winding `i_max`, `s_max` | Coil current and coil apparent power; scalar power divided by coil count under `:bmopftools`, broadcast under `:ignore`; vectors per-coil |
 
 Source Q/current/apparent bounds and switch/multiwinding `s_max` are dictionary
 extensions to the pinned schema. Fixed tap bounds are checked against the

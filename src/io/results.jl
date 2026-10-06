@@ -115,6 +115,8 @@ function result_dict(input::Union{AbstractDict,BMOPFInput,AbstractString,PowerIO
         extras["transformer_nameplate_policy"]=string(get(r.numerical_diagnostics,:transformer_nameplate,:ignore))
         extras["transformer_nameplate_report"]=[Dict(string(k)=>(v isa Symbol ? string(v) : deepcopy(v))
             for (k,v) in pairs(entry)) for entry in get(r.numerical_diagnostics,:transformer_nameplate_report,Any[])]
+        extras["nwinding_power_limit_report"]=[Dict(string(k)=>(v isa Symbol ? string(v) : deepcopy(v))
+            for (k,v) in pairs(entry)) for entry in get(r.numerical_diagnostics,:nwinding_power_limit_report,Any[])]
     end
     haskey(meta,"objective_definition") && (extras["objective_definition"]=deepcopy(meta["objective_definition"]))
     V(b,t)=get(voltage,(b,t),_RESULT_NAN)
@@ -236,6 +238,9 @@ function result_dict(input::Union{AbstractDict,BMOPFInput,AbstractString,PowerIO
                 rec["w$k"]=Dict(string(j)=>_result_current(coil[j]) for j in eachindex(coil))
                 if haskey(w,"s_max")
                     ratings=_sdp_vector(w,"s_max",length(coil))
+                    if r isa IVRNLPResult && get(r.numerical_diagnostics,:transformer_nameplate,:ignore)==:bmopftools && w["s_max"] isa Real
+                        ratings ./= length(coil)
+                    end
                     for j in eachindex(coil);merge!(rec["w$k"][string(j)],Dict("s"=>abs(u[j]*conj(coil[j])),"s_max"=>ratings[j]));end
                 end
                 inject!(w["bus"],tm,terminal);append!(ports,zip(v,terminal));earth+=sum(terminal)

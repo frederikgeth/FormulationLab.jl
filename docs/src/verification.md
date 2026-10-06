@@ -1,5 +1,23 @@
 # Verification
 
+## Scalar multiwinding power-limit parity — 6 October 2026
+
+Full regression passes **122,607/122,607 assertions**; all **57 executable
+tutorial blocks** pass.
+
+The [multiwinding limit study](ivr_nwinding_limits.md) closes the scalar
+winding-total/per-coil discrepancy under the opt-in BMOPFTools policy. The
+native per-coil policy, explicit vectors, current limits and every numerical
+option remain available. **974 targeted assertions** cover analytical active
+dispatch, exact recovery, SI exports, non-star mixed-winding witnesses, unequal
+vectors, zero/absent caps and invalid declarations. The optional live suite
+passes **1552 assertions** across 16 per-unit BMOPFTools solves and 48 exact-IVR
+comparisons, including single/three phases, forward/reverse flow, two power bases,
+active/absent caps and three lifting modes. Scalar cap and SI export parity
+is established for that declared panel; full multiwinding device-law parity
+remains outside the claim. Tutorial section 55 constructs the 180 W analytical
+dispatch example. Raw evidence and reference hashes are stored outside Git.
+
 ## Multiple-MV-site scaling transfer — 6 October 2026
 
 Full regression passes **121,633/121,633 assertions**. The 53 new checks verify

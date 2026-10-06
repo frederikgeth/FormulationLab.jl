@@ -246,7 +246,7 @@ function _physical_transformers!(net,point,V,current,check,bounds,inject,unasses
     for (kind,table) in get(net,"transformer",Dict()),(id,d) in table
         key="$kind/$id"
         if !(kind in (_SDP_TRANSFORMERS...,"n_winding"));push!(unassessed,"transformer/$key");continue;end
-        kind=="n_winding" && (_physical_nwinding!(net,d,key,V,current,check,bounds,inject,unassessed);continue)
+        kind=="n_winding" && (_physical_nwinding!(net,d,key,V,current,check,bounds,inject,unassessed;transformer_nameplate);continue)
         mf,mt=d["terminal_map_from"],d["terminal_map_to"];nf,nt=length(mf),length(mt)
         vf,vt=V(d["bus_from"],mf),V(d["bus_to"],mt)
         pair(n)=[(1,n==1 ? 0 : 2)]
@@ -355,7 +355,7 @@ function _physical_neutral!(net,d,rfield,xfield,bus,tm,v,expected,check,unassess
         expected[ni]+=v[ni]/z
     end
 end
-function _physical_nwinding!(net,d,key,V,current,check,bounds,inject,unassessed)
+function _physical_nwinding!(net,d,key,V,current,check,bounds,inject,unassessed;transformer_nameplate=:ignore)
     ws=d["windings"];n=length(ws)
     volts=[w["v_nom"] for w in ws];nominal=volts/volts[1]
     tap=[get(w,"tap_ratio",get(w,"tap_ratio_min",1.)) for w in ws];turns=nominal.*tap
@@ -373,7 +373,11 @@ function _physical_nwinding!(net,d,key,V,current,check,bounds,inject,unassessed)
         _physical_neutral!(net,w,"r_neutral","x_neutral",w["bus"],tm,v,expected,check,unassessed,"transformer/$key/$k",c)
         check("transformer/$key/$k/terminal",c-expected,:current);inject(w["bus"],tm,c)
         bounds(w,abs.(jk),"__none","i_max","transformer/$key/$k",:current)
-        bounds(w,abs.(uk.*conj.(jk)),"__none","s_max","transformer/$key/$k",:power)
+        power_bounds=w
+        if transformer_nameplate==:bmopftools && get(w,"s_max",nothing) isa Real
+            power_bounds=Dict("s_max"=>w["s_max"]/length(pairs))
+        end
+        bounds(power_bounds,abs.(uk.*conj.(jk)),"__none","s_max","transformer/$key/$k",:power)
     end
     J=[turns[k].*j[k] for k in 1:n]
     check("transformer/$key/ampere_turns",sum(J),:current)
