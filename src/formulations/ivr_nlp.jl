@@ -181,7 +181,15 @@ function _ivrn_nameplate_limits!(net,e,policy)
         end
         per=kind in ("delta_wye","wye_delta") ? rating/3 : rating
         enforced=policy==:bmopftools
-        enforced && push!(e.limits,(u,j,Dict("s_max"=>fill(per,length(u)))))
+        if enforced
+            push!(e.limits,(u,j,Dict("s_max"=>fill(per,length(u)))))
+            _sdp_record_limit!(e.limit_metadata,e.limits;label="transformer/$kind/$id",
+                family=:transformer,id=key,side,channels,voltage_basis=:connection_coil,
+                current_basis=Symbol(current_basis),sources=Dict("s_max"=>_sdp_limit_source(
+                    ("transformer",kind,id,"s_rating"),rating;
+                    interpretation=kind in ("delta_wye","wye_delta") ? :nameplate_equal_shares : :per_coil_nameplate,
+                    divisor=kind in ("delta_wye","wye_delta") ? 3 : 1)))
+        end
         push!(records,(;id,kind,side,channels,current_basis,limit_VA=per,enforced))
     end
     records
@@ -195,14 +203,41 @@ function _ivrn_nwinding_limits!(net,e,policy)
         haskey(w,"s_max") || continue
         key="n_winding/$id/$k"
         _,_,u,j,_=only(x for x in e.devices if x[1]==:transformer_coil && x[2]==key)
-        bounds=only(x[3] for x in e.limits if x[1]===u && x[2]===j)
+        index=only(k for (k,x) in enumerate(e.limits) if x[1]===u && x[2]===j)
+        bounds=e.limits[index][3]
         total=policy==:bmopftools && w["s_max"] isa Real
         total && (bounds["s_max"]=bounds["s_max"]./length(u))
+        if e.limit_metadata!==nothing
+            e.limit_metadata[index].sources["s_max"]=_sdp_limit_source(
+                ("transformer","n_winding",id,"windings",k,"s_max"),w["s_max"];
+                interpretation=total ? :winding_total_equal_shares : :per_coil,
+                divisor=total ? length(u) : 1)
+        end
         push!(records,(;id,winding=k,coil_count=length(u),
             interpretation=total ? :winding_total_equal_shares : :per_coil,
             current_basis=:series_coil,limits_VA=copy(bounds["s_max"])))
     end
     records
+end
+
+# Retain original declarations and the actual emitted rows, including tautologies.
+# Observations may be lifted; physical tracing separately evaluates the original rows.
+function _ivrn_equipment_upper!(model,e,z,meta,field,k,v,i,bound)
+    source=meta.sources[field];power=field=="s_max"
+    base=power ? e.sb : e.ib
+    observation=power ? _ivrn_bound_power(model,v,i,z) : _ivrn_bound_observation(model,i,z)
+    refs=_ivrn_upper!(model,observation,bound/base)
+    declared=source.declared isa Real ? source.declared : source.declared[k]
+    audit_label=(meta.family==:switch && meta.side==:from ? "switch/$(meta.id)" : meta.label)*"/"*last(source.path)
+    push!(model.ext[:ivr_equipment_limit_rows],(;label=meta.label*"/"*last(source.path)*"/$(meta.channels[k])",
+        audit_label,meta.family,meta.id,meta.side,meta.winding,channel=meta.channels[k],
+        source_channel=source.declared isa Real ? nothing : k,source_path=source.path,
+        declared_value=declared,source.interpretation,source.divisor,field,
+        meta.voltage_basis,meta.current_basis,voltage_row=copy(v),current_row=copy(i),
+        limit_SI=bound,unit=power ? :VA : :A,physical_scale=base,observation,
+        form=isempty(refs) ? :identically_zero_upper : iszero(bound) ? :zero_upper : :magnitude_upper,
+        constraints=refs))
+    nothing
 end
 
 """An exact-IVR scope refusal, carrying a stable `code` and explanatory `message`.
@@ -724,7 +759,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     end
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
                            delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
-                           record_transformer_bonds=true,record_transformer_currents=true,record_equations=true)
+                           record_transformer_bonds=true,record_transformer_currents=true,record_equations=true,record_limits=true)
     if options.kcl_row_max_base!==nothing
         cap=options.kcl_row_max_base
         isfinite(cap) && cap>0 && isfinite(cap/e.ib) && cap/e.ib>0 ||
@@ -745,6 +780,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     scaled_rows=options.row_scaling==:composed || !isempty(scaling.scaled_terminals)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
     model.ext[:ivr_lifting]=_ivrn_lifting_policy(options,e)
+    model.ext[:ivr_equipment_limit_rows]=Any[]
     n=length(maps.projection)
     xr=@variable(model,[1:n],base_name="state_real")
     xi=@variable(model,[1:n],base_name="state_imag")
@@ -874,17 +910,21 @@ function _build_ivr_nlp_opf(input,optimizer,options)
             if family==:voltage_source && haskey(d,"s_max")
                 nt=get(e.neutral_map,d["bus"],nothing)
                 phases=findall(!=(nt),d["terminal_map"])
-                for (k,bound) in zip(phases,_sdp_vector(d,"s_max",length(phases)))
-                    _ivrn_upper!(model,_ivrn_bound_power(model,v[k],i[k],z),bound/e.sb)
+                meta=(;label="source/$id",family,id,side=nothing,winding=nothing,channels=phases,
+                    voltage_basis=:terminal_to_ground,current_basis=:terminal,
+                    sources=Dict("s_max"=>_sdp_limit_source(("voltage_source",id,"s_max"),d["s_max"])))
+                for (c,(k,bound)) in enumerate(zip(phases,_sdp_vector(d,"s_max",length(phases))))
+                    _ivrn_equipment_upper!(model,e,z,meta,"s_max",c,v[k],i[k],bound)
                 end
             end
         end
     end
-    for (v,i,d) in e.limits
+    for (index,(v,i,d)) in enumerate(e.limits)
+        meta=e.limit_metadata[index]
         imax=e.values_for(d,"i_max",length(i));smax=e.values_for(d,"s_max",length(v))
         for k in eachindex(v)
-            imax===nothing || _ivrn_upper!(model,_ivrn_bound_observation(model,i[k],z),imax[k]/e.ib)
-            smax===nothing || _ivrn_upper!(model,_ivrn_bound_power(model,v[k],i[k],z),smax[k]/e.sb)
+            imax===nothing || _ivrn_equipment_upper!(model,e,z,meta,"i_max",k,v[k],i[k],imax[k])
+            smax===nothing || _ivrn_equipment_upper!(model,e,z,meta,"s_max",k,v[k],i[k],smax[k])
         end
     end
     voltage_bound_report=_ivrn_bus_limits!(model,net,e,z;coincident=options.coincident_voltage_bounds)

@@ -137,7 +137,7 @@ end
 
 function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
                                  equations, devices, limits, zb; record_bonds=false,neutral_map=nothing,
-                                 current_balances=nothing,equation_metadata=nothing)
+                                 current_balances=nothing,equation_metadata=nothing,limit_metadata=nothing)
     for (subtype,table) in sort!(collect(get(net,"transformer",Dict()));by=first),
         (id,d) in sort!(collect(table);by=first)
         subtype=="n_winding" && continue
@@ -196,6 +196,10 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
                 # Delta limits are on winding coils, not their differences at bus terminals.
                 delta=(subtype=="delta_wye" && side==:from)||(subtype=="wye_delta" && side==:to)
                 push!(limits,(delta ? u : v,delta ? j : i,Dict("i_max"=>d[ratingkey])))
+                _sdp_record_limit!(limit_metadata,limits;label,family=:transformer,id=key,side,
+                    voltage_basis=delta ? :connection_coil : :terminal_to_ground,
+                    current_basis=delta ? :series_coil : :terminal,
+                    sources=Dict("i_max"=>_sdp_limit_source(("transformer",subtype,id,ratingkey),d[ratingkey])))
             end
             # s_rating is a schema power base, not an operating limit.
         end

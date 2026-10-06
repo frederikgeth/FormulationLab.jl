@@ -37,7 +37,7 @@ function _sdp_nwinding_plan(net,id,d;neutral_map=nothing)
     real(y)>=0 || _sdp_refuse("$label negative core conductance")
     (;ws,Ds,turns,Z,shunt,y)
 end
-function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing,current_blocks=nothing,equation_metadata=nothing)
+function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing,current_blocks=nothing,equation_metadata=nothing,limit_metadata=nothing)
     for (id,d) in get(get(net,"transformer",Dict()),"n_winding",Dict())
         neutral_map===nothing && (neutral_map=_kr_neutral_map(net))
         p=_sdp_nwinding_plan(net,id,d;neutral_map);n=length(p.ws)
@@ -76,6 +76,9 @@ function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,
             end
             # Schema s_rating is a power base, not an implicit operating cap.
             push!(limits,(u[k],j[k],bounds))
+            _sdp_record_limit!(limit_metadata,limits;label="transformer/n_winding/$id/$k",family=:transformer,id="n_winding/$id",winding=k,
+                voltage_basis=:connection_coil,current_basis=:series_coil,
+                sources=Dict(field=>_sdp_limit_source(("transformer","n_winding",id,"windings",k,field),w[field];interpretation=:per_coil) for field in keys(bounds)))
         end
     end
 end

@@ -6,13 +6,28 @@ function _sdp_record_equation!(records,equations,label,unit;multiplier=1.0)
     nothing
 end
 
+# Sources are recorded at stamping time, never inferred from coincident rows.
+_sdp_limit_source(path,value;interpretation=:per_channel,divisor=1)=
+    (;path=Tuple(path),declared=deepcopy(value),interpretation,divisor)
+function _sdp_record_limit!(records,limits;label,family,id,side=nothing,winding=nothing,
+                           voltage_basis,current_basis,channels=nothing,sources)
+    records===nothing && return nothing
+    v,i,d=last(limits)
+    Set(keys(sources))==Set(k for k in ("i_max","s_max") if haskey(d,k)) || error("incomplete equipment limit provenance")
+    channels===nothing && (channels=collect(eachindex(v)))
+    length(channels)==length(v)==length(i) || error("equipment provenance channel mismatch")
+    push!(records,(;index=length(limits),label,family,id,side,winding,voltage_basis,current_basis,
+        channels=collect(channels),sources))
+    nothing
+end
+
 # Shared, solver-independent current–voltage circuit assembly. All coordinates
 # are per unit; ideal grounds are fixed at zero, finite grounds remain shunts.
 # No Kron reduction, power approximation, lifting, or operational-bound tightening.
 function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
                               line_records=false, delta_dispatch=:conductor,
                               source_mode=:homogeneous, ibr_delta_dispatch=delta_dispatch,
-                              record_transformer_bonds=false,record_transformer_currents=false,record_equations=false)
+                              record_transformer_bonds=false,record_transformer_currents=false,record_equations=false,record_limits=false)
     delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown delta dispatch convention"))
     ibr_delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown IBR dispatch convention"))
     source_mode in (:homogeneous,:affine) || throw(ArgumentError("unknown source mode"))
@@ -40,6 +55,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
     kcl = Dict(key => _SDPRow() for (key,i) in voltage if i != 0)
     equations = _SDPRow[]
     equation_metadata = record_equations ? NamedTuple[] : nothing
+    limit_metadata = record_limits ? NamedTuple[] : nothing
     function inject(bus,tm,rows,sign=1)
         for (t,row) in zip(tm,rows)
             haskey(kcl,(bus,t)) && _sdp_add!(kcl[(bus,t)],row,sign)
@@ -105,12 +121,22 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         inject(l["bus_from"],tmf,cf);inject(l["bus_to"],tmt,ct)
         ratings=Dict(k=>get(l,k,get(code,k,nothing)) for k in ("i_max","s_max") if haskey(l,k)||haskey(code,k))
         current_ratings=Dict(k=>ratings[k] for k in ("i_max",) if haskey(ratings,k))
-        push!(limits,(vf,cf,current_ratings));push!(limits,(vt,ct,current_ratings))
+        rating_source(k)=_sdp_limit_source(haskey(l,k) ? ("line",id,k) : ("linecode",l["linecode"],k),ratings[k])
+        for (side,v,i) in ((:from,vf,cf),(:to,vt,ct))
+            push!(limits,(v,i,current_ratings))
+            _sdp_record_limit!(limit_metadata,limits;label="line/$id/$side",family=:line,id,side,
+                voltage_basis=:terminal_to_ground,current_basis=:terminal,
+                sources=Dict(k=>rating_source(k) for k in keys(current_ratings)))
+        end
         if haskey(ratings,"s_max")
             neutral=get(neutral_map,l["bus_from"],nothing)
             phases=findall(!=(neutral),tmf)
-            push!(limits,(vf[phases],cf[phases],Dict("s_max"=>ratings["s_max"])))
-            push!(limits,(vt[phases],ct[phases],Dict("s_max"=>ratings["s_max"])))
+            for (side,v,i) in ((:from,vf,cf),(:to,vt,ct))
+                push!(limits,(v[phases],i[phases],Dict("s_max"=>ratings["s_max"])))
+                _sdp_record_limit!(limit_metadata,limits;label="line/$id/$side",family=:line,id,side,
+                    voltage_basis=:terminal_to_ground,current_basis=:terminal,channels=phases,
+                    sources=Dict("s_max"=>rating_source("s_max")))
+            end
         end
         line_records && push!(lnc_lines,(;id,from=l["bus_from"],to=l["bus_to"],tmf,tmt,vf,vt,
             Z=Z*zb,Yf=Yf/zb,Yt=Yt/zb,ratings,current,equation_indices))
@@ -120,11 +146,11 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         push!(devices,(:line_from,id,vf,cf,Dict("passive"=>passive)));push!(devices,(:line_to,id,vt,ct,Dict()))
     end
     _sdp_stamp_transformers!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;
-                            record_bonds=record_transformer_bonds,neutral_map,equation_metadata,
+                            record_bonds=record_transformer_bonds,neutral_map,equation_metadata,limit_metadata,
                             current_balances=record_transformer_currents ? transformer_current_balances : nothing)
-    _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map,equation_metadata,
+    _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map,equation_metadata,limit_metadata,
         current_blocks=record_transformer_currents ? nwinding_current_blocks : nothing)
-    _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map,equation_metadata)
+    _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map,equation_metadata,limit_metadata)
     for (id,d) in get(net,"shunt",Dict())
         rows=terminal_rows(d["bus"],d["terminal_map"])
         Y=_l3f_shunt_matrix(d,length(rows))*zb
@@ -203,6 +229,9 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
                     bounds["i_max"]=imax
                 elseif length(imax)==length(tm)
                     push!(limits,(vr,terminal_current,Dict("i_max"=>imax)))
+                    _sdp_record_limit!(limit_metadata,limits;label="$family/$id",family=Symbol(family),id,
+                        voltage_basis=:terminal_to_ground,current_basis=:terminal,
+                        sources=Dict("i_max"=>_sdp_limit_source((family,id,"i_max"),imax)))
                 elseif length(imax)==n
                     bounds["i_max"]=imax
                 else
@@ -210,6 +239,10 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
                 end
             end
             push!(limits,(port_v,port_i,bounds))
+            _sdp_record_limit!(limit_metadata,limits;label="$family/$id",family=Symbol(family),id,
+                voltage_basis=conductor_dispatch ? :terminal_to_ground : :connection_coil,
+                current_basis=conductor_dispatch ? :terminal : :connection_coil,
+                sources=Dict(k=>_sdp_limit_source((family,id,k),d[k]) for k in keys(bounds)))
         end
     end
     tm=source["terminal_map"]; vs=terminal_rows(source["bus"],tm)
@@ -260,9 +293,13 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
             expanded=zeros(length(rows));expanded[phases]=values_for(d,key,length(phases));powerdata[key]=expanded
         end
         push!(devices,(:voltage_source,source_id,rows,is,powerdata));push!(limits,(rows,is,Dict(k=>d[k] for k in ("i_max",) if haskey(d,k))))
+        _sdp_record_limit!(limit_metadata,limits;label="source/$source_id",family=:voltage_source,id=source_id,
+            voltage_basis=:terminal_to_ground,current_basis=:terminal,
+            sources=Dict(k=>_sdp_limit_source(("voltage_source",source_id,k),d[k]) for k in ("i_max",) if haskey(d,k)))
     end
     equation_metadata===nothing || length(equation_metadata)==length(equations) || error("incomplete circuit equation provenance")
-    (; voltage, equations, equation_metadata, kcl, devices, limits, lnc_lines, impedance_loads, transformer_current_balances, nwinding_current_blocks, terminal_rows,
+    limit_metadata===nothing || length(limit_metadata)==length(limits) || error("incomplete equipment limit provenance")
+    (; voltage, equations, equation_metadata, kcl, devices, limits, limit_metadata, lnc_lines, impedance_loads, transformer_current_balances, nwinding_current_blocks, terminal_rows,
        values_for, coordinate_count, newvar, fixed_source_coordinates, neutral_map,
        vs, anchor_k, anchor, source_v, vb, sb, ib, zb)
 end

@@ -1,4 +1,4 @@
-# Original load-law and voltage-bound residuals
+# Original nonlinear laws and operating-limit residuals
 
 ## Purpose and scope
 
@@ -11,11 +11,11 @@ original SI residual and the auxiliary discrepancies that connect them.
 
 This is a **partial provenance catalogue**. It covers constant-power,
 constant-current, ZIP and exponential load power laws, plus every original bus
-voltage-bound declaration. Constant-impedance loads are identified separately;
+voltage-bound declaration, and equipment current/apparent-power limits. Constant-impedance loads are identified separately;
 their equations belong to the [linear circuit catalogue](ivr_circuit_residuals.md).
 Other constraints are enumerated as outside this catalogue. These include
-KCL, other circuit rows, generator dispatch definitions and boxes, equipment
-current/apparent-power ratings, IBR capabilities and generic lifting definitions.
+KCL, other circuit rows, generator dispatch definitions and boxes,
+IBR availability/DC/internal-voltage limits and generic lifting definitions.
 “Outside scope” does not mean that a constraint is absent from the model.
 `complete_model_coverage` is deliberately `false`.
 
@@ -119,6 +119,58 @@ perturbed observation auxiliary can coexist with zero original voltage
 violation. Conversely, inspecting an auxiliary without its defining equation
 can miss a physical violation.
 
+## Equipment declarations and rating conventions
+
+Equipment entries are recorded when the original network is assembled, before
+coordinate reduction. Each retains a `source_path` into the input network,
+`source_channel` (or `nothing` for a scalar), `declared_value`, applied divisor,
+physical channel, voltage/current basis, and actual emitted constraint
+references. Inheritance is recorded per field: a line's explicit `i_max` can
+override its linecode while its `s_max` still comes from that linecode.
+Equivalent or zero rows cannot identify this provenance reliably by themselves.
+
+| Equipment | Current limit | Apparent-power limit |
+|:--|:--|:--|
+| Line, both ends | Terminal current, including end shunts | Phase terminal-to-ground voltage times conjugate terminal current |
+| Fixed switch, both ends | Terminal current | Terminal-to-ground voltage times conjugate terminal current |
+| Generator | Declared coil or terminal arity; delta coil convention takes precedence | Connection-coil power |
+| IBR | Declared coil or terminal arity | Connection-coil power for WYE/single-phase; conductor PCC power for three-leg delta |
+| Voltage source | Supported terminal currents | Non-neutral terminal powers |
+| Ordinary transformer | Delta series-coil current; otherwise terminal current | Existing opt-in `s_rating` convention |
+| N-winding transformer | Series-coil current | Coil voltage times conjugate series-coil current |
+
+An ordinary transformer's terminal current may include excitation, grounding
+and bond contributions. It must not be substituted for a delta series-coil
+current. Under the BMOPFTools nameplate policy, mixed delta–WYE nameplates use
+three equal shares on the WYE side with phase terminal currents; the other
+supported ordinary transformer types use the existing per-coil nameplate
+interpretation. For n-winding transformers, a scalar `s_max` means equal shares
+of the winding total under `:bmopftools`, and a per-coil cap under `:ignore`.
+A vector is per-coil under both policies. Scalar current caps remain per-coil.
+These are the compiler's existing conventions; provenance does not redefine them.
+
+Under `transformer_nameplate=:ignore`, ordinary transformer nameplates remain
+visible in `inactive_nameplates`. They are not enforced operating limits under
+that policy. This differs from an enforced but identically satisfied limit.
+Open-switch zero-current bounds, for example, retain equipment declarations
+with `form=:identically_zero_upper` and no emitted row. A zero upper limit on
+a nonzero observation references its two real/imaginary equality constraints.
+
+For a current bound, let ``w=I_b a_i z``; for a power bound, let
+``w=(V_b a_v z)\overline{(I_b a_i z)}``. The trace evaluates
+
+```math
+m=|w|,\qquad \sigma=L-m,\qquad \nu=\max(-\sigma,0).
+```
+
+Here ``L`` is the applied SI limit; ``\sigma`` and ``\nu`` are slack and
+violation in A or VA. The separately reported `observation_gap_SI` is
+``|\widetilde w-w|`` and includes both real and imaginary discrepancies, even
+when two observations have equal magnitudes. Native normalized squared rows
+remain separate: there is no constant multiplier converting their residual to
+an SI magnitude violation. The original rows bypass all observation auxiliaries.
+This separation helps diagnose a misleadingly small native bound residual.
+
 ## Tutorial
 
 The following single-phase example solves a ZIP load, then inspects an
@@ -164,6 +216,23 @@ retain stale demand values. An absent upper engineering voltage bound is
 reported as `nothing`, allowing strict JSON serialization of the diagnostic
 report. These reports are separate from BMOPFTools-compatible physical results.
 
+
+The same catalogue explains an inherited line-current rating in this solved
+single-phase model. This diagnostic is separate from the canonical result JSON.
+
+```@example nonlinear_trace
+using JSON3
+line_limits = filter(q -> q.family == :line && q.field == "i_max", original.equipment)
+@assert length(line_limits) == 4 # two conductors at both ends
+@assert all(q -> q.source_path == ("linecode", "wire", "i_max"), line_limits)
+@assert all(q -> q.violation_SI < 1e-8, line_limits)
+@assert all(q -> q.observation_gap_SI < 1e-8, line_limits)
+encoded = JSON3.write(original)
+@assert length(JSON3.read(encoded).equipment) == length(original.equipment)
+[(label=q.label, origin=q.source_path, limit_A=q.limit_SI,
+  current_A=q.magnitude_SI, slack_A=q.slack_SI) for q in line_limits]
+```
+
 ## Verification and remaining coverage
 
 Independent manufactured states span single-phase, three-wire delta and
@@ -175,10 +244,10 @@ family is tightened and compared with the independently evaluated original
 network. Further tests cover zero limits, fixed magnitude domains, shared
 coincident rows, constant-power updates and strict JSON without infinite values.
 
-The next coverage extension is original equipment current/apparent-power
-ratings, generator/source dispatch boxes and IBR capability/DC/internal-voltage
-constraints. Those families remain enforced and independently audited today,
-but this new constraint-reference catalogue does not yet describe them. A
+The next coverage extension is generator/source/IBR dispatch boxes and IBR
+availability/DC/internal-voltage constraints. Those families remain enforced
+and independently audited today, but this constraint-reference catalogue does
+not yet describe them. A
 complete emitted-row inventory must also distinguish original physical laws
 from auxiliary definitions and fixed native coordinates.
 
@@ -215,3 +284,30 @@ All data, model fingerprints, development failures and validation logs are
 outside Git in `NONLINEAR_PROVENANCE_20261007`. The live panel is deliberately
 correctness evidence; it supplies no wall-time ranking and changes no numerical
 recommendation.
+
+### Equipment extension evidence, 7 October 2026
+
+The equipment extension passes **4,420 targeted assertions**. Manufactured
+states compare tightened limits against the independent original-network
+auditor across two-, three- and four-conductor circuits, line shunts,
+forward/reverse switch and IBR flows, all six ordinary transformer types,
+scalar/vector winding ratings and both nameplate policies. Full/reduced
+coordinates, two assembly power bases and direct/lifted observations are
+included. Zero limits, open-switch tautologies, strict diagnostic JSON and an
+auxiliary-only perturbation have separate checks.
+
+All **222** solver-model fingerprints match commit `2924367`, including 114
+additional equipment cases. The 24-case live panel retains the preceding
+physical and export gates and traces **13,296 equipment declarations**.
+All **4,416** aggregate equipment-violation comparisons agree with the independent
+SI auditor, with zero observed discrepancy. The live solutions are feasible;
+the manufactured tightened-limit tests provide the complementary nonzero
+violation evidence. Every canonical export passes both readers, and physical
+leaf paths remain invariant across formulations at each network size.
+
+The initial development checks exposed a switch audit-label mismatch, an
+islanded open-switch test fixture and standalone-driver errors. These were
+corrected without changing the electrical equations. The failures, revised
+scripts, fingerprints, full test logs and raw records are retained outside Git
+in `EQUIPMENT_LIMIT_PROVENANCE_20261007`. This extension supplies no performance
+ranking and leaves `complete_model_coverage=false`.

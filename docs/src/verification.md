@@ -1,12 +1,34 @@
 # Verification
 
+## Equipment current and apparent-power limit provenance — 7 October 2026
+
+The [operating-limit trace](ivr_nonlinear_residuals.md) now records original
+equipment declarations, inherited rating paths, coil/terminal conventions,
+scalar rating divisors and actual emitted rows. Physical SI magnitudes bypass
+lifted observations, whose discrepancies are reported separately. Ignored
+nameplates remain visible as inactive; enforced zero-observation limits retain
+their declarations even when they emit no row.
+
+All 4,420 targeted assertions and all 222 prior/current model fingerprints pass.
+The 24 live multiwinding cases trace 13,296 equipment declarations and pass
+4,416 aggregate violation comparisons with the independent physical auditor.
+All canonical exports pass both readers with unchanged physical field paths.
+The scientific guide includes a rating-convention table and executable inherited
+line-limit/JSON tutorial. Raw evidence is outside Git in
+`EQUIPMENT_LIMIT_PROVENANCE_20261007`; no speed ranking or default changes follow.
+
+Coverage remains explicitly partial. The next families are dispatch boxes,
+IBR availability/DC/internal-voltage constraints, and auxiliary/fixed-coordinate
+classification. Existing enforcement is unchanged.
+
 ## Original load laws and voltage-bound provenance — 7 October 2026
 
 The [nonlinear residual trace](ivr_nonlinear_residuals.md) records load-law
 constraint references, row-to-SI factors, voltage-square definitions and every
 original bus-voltage declaration. Shared equalities and tautologies remain
-traceable as original bounds. Its catalogue is explicitly partial: equipment
-ratings, dispatch/IBR constraints and other rows remain outside this catalogue.
+traceable as original bounds. At that checkpoint, equipment ratings, dispatch/IBR constraints and other
+rows remained outside the catalogue; the equipment extension above supersedes
+that coverage boundary.
 Their existing enforcement and independent physical audit are unchanged.
 
 All 108 prior/current solver-model fingerprints match, including coefficients,

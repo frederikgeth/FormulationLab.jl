@@ -1,11 +1,11 @@
-"""Original load-law and bus-voltage residuals, with explicit partial coverage."""
+"""Original load-law, bus-voltage and equipment-limit residuals; partial coverage."""
 module IVRNonlinearResidualTrace
 using FormulationLab, JuMP
 const F=FormulationLab
 
 """Catalogue original declarations and their emitted rows, without solving.
 
-This deliberately covers load power laws and bus-voltage bounds only. Impedance
+This covers load power laws, bus-voltage bounds and equipment current/power limits. Impedance
 loads belong to the linear-circuit catalogue. Other constraints are enumerated
 as outside this catalogue; they are not declared absent from the model.
 """
@@ -39,6 +39,8 @@ function catalog(build)
     sort!(loads;by=q->q.label)
     haskey(model.ext,:ivr_bus_limit_rows) || throw(ArgumentError("missing bus-bound provenance"))
     bounds=model.ext[:ivr_bus_limit_rows]
+    haskey(model.ext,:ivr_equipment_limit_rows) || throw(ArgumentError("missing equipment-limit provenance"))
+    equipment=model.ext[:ivr_equipment_limit_rows]
     all(q->q.form!=:unrecorded,bounds) || throw(ArgumentError("incomplete bus-bound provenance"))
     covered=Set{Any}(q.constraint for q in loads)
     for q in loads
@@ -49,10 +51,11 @@ function catalog(build)
         end
     end
     for q in bounds;union!(covered,q.constraints);end
+    for q in equipment;union!(covered,q.constraints);end
     outside=[c for c in all_constraints(model;include_variable_in_set_constraints=true) if c ∉ covered]
-    (;loads,bounds,linear_loads=sort!(linear_loads),outside_scope_constraints=outside,
+    (;loads,bounds,equipment,linear_loads=sort!(linear_loads),outside_scope_constraints=outside,
         covered_constraint_count=length(covered),complete_model_coverage=false,
-        scope=(:load_power_laws,:bus_voltage_bounds))
+        scope=(:load_power_laws,:bus_voltage_bounds,:equipment_current_power_limits))
 end
 
 function _residual(c,evaluate)
@@ -131,9 +134,24 @@ function trace(build;variable_values=nothing)
             limit_V=q.bound,magnitude_V=magnitude,slack_V=slack,violation_V=max(-slack,0.),
             native=[_residual(ref,evaluate) for ref in q.constraints])
     end
-    (;loads,bounds,c.linear_loads,c.scope,c.complete_model_coverage,c.covered_constraint_count,
+    equipment=map(c.equipment) do q
+        current=e.ib*observe(q.current_row)
+        physical=q.field=="s_max" ? e.vb*observe(q.voltage_row)*conj(current) : current
+        modeled=q.physical_scale*(evaluate(real(q.observation))+im*evaluate(imag(q.observation)))
+        magnitude=abs(physical);slack=q.limit_SI-magnitude
+        all(isfinite,(real(physical),imag(physical),real(modeled),imag(modeled),slack)) ||
+            throw(DomainError(q.label,"nonfinite equipment-limit evaluation"))
+        (;q.label,q.audit_label,q.family,q.id,q.side,q.winding,q.channel,q.source_channel,
+            q.source_path,q.declared_value,q.interpretation,q.divisor,q.field,
+            q.voltage_basis,q.current_basis,q.limit_SI,q.unit,q.form,
+            magnitude_SI=magnitude,modeled_magnitude_SI=abs(modeled),
+            observation_gap_SI=abs(modeled-physical),slack_SI=slack,violation_SI=max(-slack,0.),
+            native=[_residual(ref,evaluate) for ref in q.constraints])
+    end
+    (;loads,bounds,equipment,c.linear_loads,c.scope,c.complete_model_coverage,c.covered_constraint_count,
+        inactive_nameplates=[q for q in build.numerical_diagnostics[:transformer_nameplate_report] if !q.enforced],
         outside_scope_constraint_count=length(c.outside_scope_constraints),
-        note="Partial provenance: load power laws and bus-voltage bounds. Native squared-magnitude residuals have no constant SI-voltage conversion. Float64 diagnostics, not a certificate.")
+        note="Partial provenance: load power laws, bus-voltage bounds and equipment current/apparent-power limits. Native squared-magnitude residuals have no constant SI-magnitude conversion. Float64 diagnostics, not a certificate.")
 end
 
 function trace(build,point::ACPoint)

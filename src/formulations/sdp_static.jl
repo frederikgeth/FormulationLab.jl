@@ -104,7 +104,7 @@ function _sdp_ground!(d,rkey,xkey,neutral_index,v,newvar,equations,zb;equation_m
     result
 end
 
-function _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing,equation_metadata=nothing)
+function _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing,equation_metadata=nothing,limit_metadata=nothing)
     for (id,d) in get(net,"switch",Dict())
         _sdp_fields(d,("bus_from","bus_to","terminal_map_from","terminal_map_to","open_switch","i_max","s_max"),"switch/$id")
         get(d,"open_switch",nothing) isa Bool || _sdp_refuse("switch/$id needs a fixed Boolean open_switch")
@@ -121,6 +121,9 @@ function _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,de
         inject(d["bus_from"],d["terminal_map_from"],cf);inject(d["bus_to"],d["terminal_map_to"],ct)
         for (side,v,i) in ((:from,vf,cf),(:to,vt,ct))
             push!(devices,(Symbol("switch_",side),id,v,i,Dict()));push!(limits,(v,i,d))
+            _sdp_record_limit!(limit_metadata,limits;label="switch/$id/$side",family=:switch,id,side,
+                voltage_basis=:terminal_to_ground,current_basis=:terminal,
+                sources=Dict(k=>_sdp_limit_source(("switch",id,k),d[k]) for k in ("i_max","s_max") if haskey(d,k)))
         end
     end
     for (id,d) in get(net,"capacitor",Dict())
