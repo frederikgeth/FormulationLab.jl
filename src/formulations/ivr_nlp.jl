@@ -70,6 +70,10 @@ policy rejects a supplied zero rating, matching its native input validation.
 Default :ignore retains the earlier native contract. This is a physical bound
 policy, not a numerical transformation. General multiwinding `s_rating` remains
 metadata in both policies; its explicit winding limits keep their native units.
+`load_power_lifting=true` separates voltage-dependent load power products from
+their nonlinear voltage laws using exact complex-power auxiliaries. It uses
+`lifted_power_base` (or `s_base`) and applies independently of `lifting`.
+Constant-power and impedance loads are unchanged. Default false.
 """
 Base.@kwdef struct IVRNLPOptions
     s_base::Float64 = 1e4
@@ -92,6 +96,7 @@ Base.@kwdef struct IVRNLPOptions
     observation_sharing::Symbol = :off
     device_elimination::Symbol = :off
     transformer_nameplate::Symbol = :ignore
+    load_power_lifting::Bool = false
 end
 
 _ivrn_objective_scale(options)=something(options.objective_scale,options.s_base)
@@ -575,7 +580,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
                     voltage_range=_sdp_voltage_ranges(net,e.terminal_rows,
                         Dict(k=>v*e.vb for (k,v) in e.fixed_source_coordinates))
                 end
-                load_voltages[id]=_ivrn_load_law!(model,id,d,v,p,q,z,z0,e,voltage_range)
+                load_voltages[id]=_ivrn_load_law!(model,id,d,v,p,q,z,z0,e,voltage_range;
+                    power_lifting=options.load_power_lifting)
             end
         elseif family==:ibr_internal
             if get(d,"dc_link_coupled",false)
@@ -677,6 +683,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :update_count=>0,:generator_update_count=>0,
         :dispatch_variable_count=>sum(length(g.p)+length(g.q) for g in values(generators);init=0),
         :load_voltage_variable_count=>sum(length,values(load_voltages);init=0),
+        :load_power_lifting=>options.load_power_lifting,
+        :load_power_lift_count=>count(k->first(k)==:load_law_power,keys(model.ext[:ivr_lifting].cache)),
         :state_dimension=>e.coordinate_count[],
         :solver_state_dimension=>n,:discharged_complex_kcl=>length(omitted),:source_mode=>:affine,
         :initialization=>_ivrn_needs_circuit_start(net) ? :linear_circuit : :line_propagation,

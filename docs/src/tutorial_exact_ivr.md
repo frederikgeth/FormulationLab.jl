@@ -1792,3 +1792,29 @@ This construction example establishes factor isolation, not solver robustness.
 The [external preflight](ivr_threephase_transfer.md) retains 22 failed admissions
 under strict settings despite full-model feasible witnesses. Diagnose those
 failures before using this scenario panel for timing claims.
+
+
+## 50. Separate voltage-dependent load powers
+
+The option below adds exact power auxiliaries for current, ZIP and exponential
+loads. It uses the previous section's declared high-filter scenario. The physical
+power laws, voltage domains and operating limits are unchanged.
+
+```@example exactivr
+load_lift_net = threephase_scenarios[(:high,:voltage_dependent)].network
+load_lift_profiles = ThreePhaseDemo.profiles(load_lift_net,:quadratic_cost;load_power_lifting=true)
+load_lift_profile = only(p for p in load_lift_profiles if p.name=="reduced_powers")
+load_lift_build = build_opf(load_lift_net,IVRNLP(load_lift_profile.options);optimizer=Ipopt.Optimizer)
+load_lift_result = solve_ivr_nlp_opf(load_lift_build;solver_options=(print_level=0,tol=1e-10,
+    constr_viol_tol=1e-10,acceptable_iter=0,bound_relax_factor=0.))
+@assert load_lift_result.solve.optimal && physical_residuals(load_lift_net,load_lift_result).passed
+load_lift_point = ACPoint(voltage=load_lift_result.voltage_candidate,currents=load_lift_result.current_candidate)
+load_lift_original = build_opf(load_lift_net,IVRNLP(first(ThreePhaseDemo.profiles(load_lift_net,:quadratic_cost)).options))
+@assert ivr_nlp_point_report(load_lift_original,load_lift_point).passed
+(complex_load_power_auxiliaries=load_lift_build.numerical_diagnostics[:load_power_lift_count],
+ objective=load_lift_result.objective)
+```
+
+The [external study](ivr_load_power_lifting.md) improves admission from 74/96 to
+96/96 with this representation. This demonstrates robustness on that panel,
+not a universal speedup. Keep `load_power_lifting=false` as an explicit control.

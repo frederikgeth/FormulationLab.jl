@@ -173,3 +173,11 @@ full-model feasible points. After admission is reliable, freeze the complete
 panel and run isolated paired timing batches ranked only by Ipopt wall time.
 Broader live transformer-family parity, the different scalar multiwinding power-
 limit conventions, and original-network preprocessing reconstruction remain open.
+
+## Follow-up: exact load-power extension
+
+The [subsequent diagnosis](ivr_load_power_lifting.md) retains these 22 failures
+and introduces the opt-in `load_power_lifting=true` representation. All 96
+combinations then pass strict admission, with the same physical starts and bounds.
+This follow-up adds robustness evidence; it does not change the original table
+or establish a speed ranking.

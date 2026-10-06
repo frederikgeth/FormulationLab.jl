@@ -30,8 +30,12 @@ policy enforces its ordinary-transformer nameplate caps. All 112 retrospectively
 checked urban/rural endpoints satisfy these caps, but their recorded timings do
 not include the extra rows. On the new French feeder, 22 of 96 strict admissions
 fail, all with voltage-dependent demand, while full power lifting passes every
-cell. Each failed reduced model admits a full-model feasible point. Diagnose
-these convergence failures before promoting or timing a reduced shortlist there.
+cell. Each failed reduced model admits a full-model feasible point. These failures
+require a robustness qualification before timing a reduced shortlist there.
+A [subsequent exact load-power extension](ivr_load_power_lifting.md) admits all
+96 combinations with unchanged strict settings. It is available as the opt-in
+`load_power_lifting=true`; it has not yet been timed in an isolated comparison.
+The original representation and all rejected outcomes remain available.
 
 ## Primary assessment: Ipopt wall-clock time
 

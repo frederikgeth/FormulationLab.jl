@@ -690,6 +690,12 @@ bounded by the matched engineering bounds, and equates it to the physical
 squared magnitude. Coils with fixed source voltages or equal matched magnitude bounds evaluate
 the power function directly, avoiding a redundant fixed auxiliary.
 `:load_voltage_variable_count` reports the added variables.
+The opt-in `load_power_lifting=true` additionally separates electrical power
+products from nonlinear voltage laws using exact power auxiliaries, in
+`lifted_power_base` units (or `s_base`). It applies independently of `lifting`;
+constant-power and impedance loads remain unchanged. The default is false.
+See the [equivalence argument and numerical evidence](ivr_load_power_lifting.md).
+`:load_power_lift_count` counts complex power auxiliaries.
 `ivr_nlp_point_report` derives their values from the supplied physical voltages;
 it cannot choose them to repair a mismatch. Fractional powers are evaluated
 only on the positive domain. A supplied zero-voltage state rejects safely.

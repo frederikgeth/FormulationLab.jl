@@ -9,9 +9,10 @@ using FormulationLab
 include("benchmark_ivr_mixed_devices.jl")
 const M=IVRMixedDeviceStudy
 const P=M.P
-function profiles(net,workload;kwargs...)
-    [merge(p,(;options=IVRNLPOptions(;(k=>(k==:transformer_nameplate ? :bmopftools : deepcopy(getfield(p.options,k)))
-        for k in fieldnames(IVRNLPOptions))...),factors=merge(p.factors,(;transformer_nameplate=:bmopftools))))
+function profiles(net,workload;load_power_lifting=false,kwargs...)
+    [merge(p,(;options=IVRNLPOptions(;(k=>(k==:transformer_nameplate ? :bmopftools :
+        k==:load_power_lifting ? load_power_lifting : deepcopy(getfield(p.options,k)))
+        for k in fieldnames(IVRNLPOptions))...),factors=merge(p.factors,(;transformer_nameplate=:bmopftools,load_power_lifting))))
         for p in M.profiles(net,workload;kwargs...)]
 end
 benchmark(path,output;checkpoint=:sweep,kwargs...)=M.F.benchmark_profiles(path,output,profiles,@__FILE__;checkpoint,kwargs...)

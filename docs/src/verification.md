@@ -1,5 +1,20 @@
 # Verification
 
+## Voltage-law power lifting — 6 October 2026
+
+Full regression passes **97,094/97,094 assertions**, including **3916 new checks**
+for exact auxiliary recovery, signed/zero loads, bases, connections, existing
+lifting modes, JSON exports and tightened bounds. All **96 external preflight
+combinations** pass with `load_power_lifting=true`, including the 22 previously
+rejected arms. All **384 bound witnesses** reject and all 48 tracking endpoints
+retain the active inherited nameplate cap. The original mode remains the default.
+
+Thirty-six manufactured first/second derivative checks pass. A larger derivative
+attempt was stopped for diagnostic cost; its partial discrepancy flags remain
+and are not claimed as a passed audit. Solver-only counterfactuals and original
+failures remain explicit. No timing campaign is run. See the
+[scientific study](ivr_load_power_lifting.md) for scope and limitations.
+
 ## Three-phase transfer and explicit nameplates — 6 October 2026
 
 The full suite passes **93,178/93,178 assertions**, including **4868 new checks**.
