@@ -6,7 +6,8 @@ currents. The [non-star correspondence study](ivr_nwinding_nonstar.md) supplies
 the physical test cases. The new pass removes 12 complex current coordinates
 in each four-winding case, preserves physical recovery and all bounds, and
 retains the explicit formulation when a numerical or structural guard fails.
-It is not a new default or an established speed improvement.
+It is not a new default. The subsequent [isolated lifted timing study](ivr_nwinding_timing.md)
+finds a modest average benefit with material capped-case regressions.
 
 ## Algebra and implementation contract
 
@@ -180,7 +181,8 @@ julia --project=test test/ivr_nwinding_elimination_tests.jl
 julia --project=test examples/benchmark_ivr_nwinding_elimination.jl /tmp/nwinding-elimination/report.json
 ```
 
-The next assessment should compare accepted lifted candidates by isolated Ipopt
-wall time, excluding compilation, and examine Jacobian/Hessian growth and
-factorization cost. Keep singular fallbacks, unlifted failures and slower options.
-No speed recommendation follows solely from the smaller electrical state.
+The [subsequent timing assessment](ivr_nwinding_timing.md) compares accepted lifted
+candidates by isolated Ipopt wall time, excluding compilation, and examines
+Jacobian/Hessian growth and separate factorization diagnostics. Keep singular
+fallbacks, unlifted failures and slower options. No speed recommendation follows
+solely from the smaller electrical state.

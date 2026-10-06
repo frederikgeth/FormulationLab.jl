@@ -29,8 +29,14 @@ removes 12 complex current coordinates on the four-winding panel. Both lifted
 variants admit 112/112 cases; the unlifted variant admits only 56/112, with all
 failures at active winding caps despite feasible-point correspondence. Recovery
 and all physical bounds pass for 616 strict endpoints across the two modes.
-This is an experimental option with singular/unsafe-block fallback, not an
-isolated speed result or a reason to replace the explicit-current reference.
+The [isolated lifted timing follow-up](ivr_nwinding_timing.md) admits all 7,168
+measured solves and 896 warm-ups. Elimination's geometric mean time ratio is
+0.947 with power lifting and 0.952 with bounded observations in confirmation.
+Uncapped power-lifted cases improve by about 10.5%, while capped cases average
+approximately a tie; capped, excited 100 kVA cases regress by about 26% on
+average. Derivative growth and iteration changes qualify the smaller electrical
+state. Keep explicit currents with power lifting as the control and test the
+optional elimination on the actual workload; no default changes.
 
 The [live mixed-winding comparison](ivr_nwinding_connections.md) additionally
 shows that a small scaled Ipopt error and a feasible endpoint do not establish

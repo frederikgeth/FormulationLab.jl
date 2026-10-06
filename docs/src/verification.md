@@ -1,5 +1,28 @@
 # Verification
 
+## Isolated lifted multiwinding timing — 6 October 2026
+
+The [four-arm comparison](ivr_nwinding_timing.md) passes **7,168/7,168 measured
+solves and 896/896 warm-ups** in two fresh processes. All 224 batch/case cells
+pass strict physical, own/full/reverse membership, independent transformer
+equations and cost checks. Inputs equal the preceding 112-case panel; all 260
+frozen source/environment hashes remain unchanged. A two-second monitor records
+54 samples without observing competing Julia work, subject to sampling limits.
+
+All 448 start preflights pass, and the raw-report audit verifies every trial's
+encoding, admission, objective, unchanged input and balanced schedule. Maximum
+within-case objective spread is below 1.181e-12. Sixteen separate verbose solves
+and sixteen excluded diagnostic warm-ups pass; actual MUMPS order is 2 for
+request 7. Native factorization timers are too coarsely rounded to resolve costs
+on these tiny models. All raw evidence remains outside Git in
+`NWINDING_ELIMINATION_TIMING_20261006`.
+
+This checkpoint adds a benchmark runner and scientific documentation. Production
+code and the full-suite checkpoint remain **158,321/158,321**; the full suite was
+not repeated for this example/documentation change. Focused benchmark admission,
+timing and ordering regression checks pass **68/68 assertions**. It does not add a new
+physical JSON export audit or rerun BMOPFTools.
+
 ## Optional multiwinding current elimination — 6 October 2026
 
 Full regression passes **158,321/158,321 assertions**, including **5,375 new
