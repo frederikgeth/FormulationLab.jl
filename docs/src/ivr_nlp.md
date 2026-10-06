@@ -93,7 +93,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `observation_sharing` | `:off` | `:exact` shares identical composed affine observations; `:signed` also shares opposite rows; `:proportional` admits certified real multiples, including constants |
 | `coincident_voltage_bounds` | `:separate` | `:equality` replaces exactly coincident positive bus-voltage bounds by one magnitude equality; explicitly fixed source rows retain their original representation. `:guarded_equality` additionally shares identical normalized affine observations and retains inequalities on structurally circuit-fixed voltages; see [scope and evidence](ivr_voltage_dependencies.md) |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
-| `device_elimination` | `:off` | `:transformer_currents` removes from-side coil currents through fixed-transformer current balance; multiwinding devices remain explicit |
+| `device_elimination` | `:off` | `:transformer_currents` removes ordinary from-side coil currents; `:all_transformer_currents` also attempts complete multiwinding current blocks, retaining unsafe blocks. See [scope and solver qualifications](ivr_nwinding_elimination.md) |
 
 The [coincident-voltage study](ivr_voltage_equalities.md) gives the equality
 rewrite, its scope and retained numerical controls. It matches the same bus,
@@ -235,8 +235,11 @@ inferred from terminal currents or fixed to zero.
 
 The pass is atomic per transformer. Missing/consumed balance equations,
 nonunit pivots or nonfinite substitutions retain that device with a diagnostic
-reason. `n_winding` has a separate stamp and remains explicit pending a separate
-certificate. Inspect `numerical_diagnostics[:device_elimination_report]` for
+reason. In this mode `n_winding` remains explicit. The additional
+[`device_elimination=:all_transformer_currents` option](ivr_nwinding_elimination.md)
+uses a square local solve for recorded multiwinding coil-current blocks, with
+condition, residual and reconstruction-gain gates and atomic fallback.
+Inspect `numerical_diagnostics[:device_elimination_report]` for
 selected/retained transformer IDs, removed equation indices and complex-coordinate
 counts. All original terminal/coil limits, powers and JSON observations are
 evaluated through the composed reconstruction. `series_selection=:bound_support`

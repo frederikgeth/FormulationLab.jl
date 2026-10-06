@@ -1,5 +1,29 @@
 # Verification
 
+## Optional multiwinding current elimination — 6 October 2026
+
+Full regression passes **158,321/158,321 assertions**, including **5,375 new
+elimination assertions**. The [optional block pass](ivr_nwinding_elimination.md)
+preserves full-model witnesses, every coil bound, taps, finite grounds,
+excitation, load updates and SI recovery. Singular, structurally unsuitable or
+numerically unsafe blocks retain their original coordinates and equations.
+
+The 672-attempt four-winding diagnostic admits 336/336 explicit-current controls
+and 280/336 eliminated-current cases. Both lifted variants admit 112/112.
+Unlifted elimination admits 56/112: all active-cap cases fail strict termination
+(55 `ALMOST_LOCALLY_SOLVED`, one `ITERATION_LIMIT`). Every failed model admits
+the original feasible point. Failed statuses remain excluded, without relaxing
+tolerances or claiming nonequivalence.
+
+All 616 strict SI exports pass independent auditing and both result readers.
+Checks cover 7,040 KCL balances, 1,680 coil caps, 924 excitation contributions,
+9,328 terminal channels, 7,392 coil channels, 560 cap-tightening certificates
+and 616 pair-change certificates. All agree with retained prior equality-treated
+BMOPFTools endpoints; those reference solves were not rerun. New JSON policy and
+block diagnostics are additive metadata. No timing ranking or default change
+follows. The initial serialization/test failures, corrections and all outcomes
+remain outside Git in `NWINDING_ELIMINATION_20261006`.
+
 ## Four-winding non-star correspondence — 6 October 2026
 
 Full regression passes **152,946/152,946 assertions**, including **15,461 new

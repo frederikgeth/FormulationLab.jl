@@ -24,6 +24,14 @@ caps and winding-4 excitation on leakage data with no exact ordinary star fit.
 This adds physical correspondence and export evidence, not a new timing ranking
 or a general multiwinding-current elimination pass.
 
+The subsequent [optional multiwinding elimination](ivr_nwinding_elimination.md)
+removes 12 complex current coordinates on the four-winding panel. Both lifted
+variants admit 112/112 cases; the unlifted variant admits only 56/112, with all
+failures at active winding caps despite feasible-point correspondence. Recovery
+and all physical bounds pass for 616 strict endpoints across the two modes.
+This is an experimental option with singular/unsafe-block fallback, not an
+isolated speed result or a reason to replace the explicit-current reference.
+
 The [live mixed-winding comparison](ivr_nwinding_connections.md) additionally
 shows that a small scaled Ipopt error and a feasible endpoint do not establish
 objective agreement or small unscaled dual residuals. Explicit absolute

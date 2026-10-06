@@ -184,7 +184,8 @@ This closes a specific correspondence gap: four windings, finite non-star
 leakage, all secondary ports loaded, mixed delta orientations, explicit fourth-
 winding excitation and active caps. It does not establish arbitrary-winding
 coverage, movable-tap equivalence or a faster formulation. The next exact
-reduction to investigate is elimination of multiwinding coil currents while
+reduction, now available in the [optional elimination study](ivr_nwinding_elimination.md),
+removes multiwinding coil currents while
 preserving their affine recovery, winding caps, excitation and delta circulation.
 Singular leakage must retain a valid fallback; invertibility in this fixture
 does not justify assuming it for every supported input.

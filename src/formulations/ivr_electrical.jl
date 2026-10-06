@@ -55,6 +55,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
     lnc_lines = []
     impedance_loads = []
     transformer_current_balances = []
+    nwinding_current_blocks = []
     # Decode shared physical linecodes once per arity within this assembly.
     # Length and per-unit scaling are applied separately to every branch.
     line_matrices_cache = Dict{Tuple{String,Int},NTuple{3,Matrix{ComplexF64}}}()
@@ -111,7 +112,8 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
     _sdp_stamp_transformers!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;
                             record_bonds=record_transformer_bonds,neutral_map,
                             current_balances=record_transformer_currents ? transformer_current_balances : nothing)
-    _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map)
+    _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map,
+        current_blocks=record_transformer_currents ? nwinding_current_blocks : nothing)
     _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map)
     for (id,d) in get(net,"shunt",Dict())
         rows=terminal_rows(d["bus"],d["terminal_map"])
@@ -246,7 +248,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         end
         push!(devices,(:voltage_source,source_id,rows,is,powerdata));push!(limits,(rows,is,Dict(k=>d[k] for k in ("i_max",) if haskey(d,k))))
     end
-    (; voltage, equations, kcl, devices, limits, lnc_lines, impedance_loads, transformer_current_balances, terminal_rows,
+    (; voltage, equations, kcl, devices, limits, lnc_lines, impedance_loads, transformer_current_balances, nwinding_current_blocks, terminal_rows,
        values_for, coordinate_count, newvar, fixed_source_coordinates, neutral_map,
        vs, anchor_k, anchor, source_v, vb, sb, ib, zb)
 end

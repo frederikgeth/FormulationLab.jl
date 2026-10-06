@@ -112,6 +112,16 @@ function result_dict(input::Union{AbstractDict,BMOPFInput,AbstractString,PowerIO
         "network_sha256"=>_result_digest(net))
     out["_formulationlab"]=extras
     if r isa IVRNLPResult
+        extras["device_elimination"]=string(get(r.numerical_diagnostics,:device_elimination,:off))
+        elimination=get(r.numerical_diagnostics,:device_elimination_report,nothing)
+        if elimination!==nothing
+            extras["device_elimination_report"]=Dict("transformers"=>copy(elimination.transformers),
+                "retained_transformers"=>copy(elimination.retained_transformers),
+                "equation_indices"=>copy(elimination.equation_indices),
+                "eliminated_complex_coordinates"=>elimination.eliminated_complex_coordinates,
+                "block_diagnostics"=>Dict(id=>Dict(string(k)=>v for (k,v) in pairs(d))
+                    for (id,d) in get(elimination,:block_diagnostics,Dict())))
+        end
         extras["coincident_voltage_bounds"]=string(get(r.numerical_diagnostics,:coincident_voltage_bounds,:separate))
         extras["coincident_voltage_bound_report"]=[Dict(string(k)=>(v isa Symbol ? string(v) : deepcopy(v))
             for (k,v) in pairs(entry)) for entry in get(r.numerical_diagnostics,:coincident_voltage_bound_report,Any[])]

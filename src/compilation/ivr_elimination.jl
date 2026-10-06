@@ -6,14 +6,15 @@ function _ivrn_compose_row(row,maps)
     out
 end
 
-# Independent of line elimination: remove only recorded from-side coil-current
-# coordinates through surviving unit pivots. No inverse of leakage, incidence,
-# or the possibly rectangular winding ratio is required. Each device is atomic.
+# Independent of line elimination and atomic per device. The ordinary pass
+# removes recorded from-side currents through unit pivots, without inverting
+# leakage or incidence. The broader opt-in also solves complete multiwinding
+# current blocks, guarded by condition, residual and reconstruction-gain checks.
 function _ivrn_device_coordinates(net,e,maps,omitted_equations,mode)
     selected=String[];retained=Dict{String,String}();consumed=Int[]
-    substitutions=Dict{Int,_SDPRow}()
+    substitutions=Dict{Int,_SDPRow}();block_diagnostics=Dict{String,Any}()
     report()=(;transformers=selected,retained_transformers=retained,
-        equation_indices=consumed,eliminated_complex_coordinates=length(substitutions))
+        equation_indices=consumed,block_diagnostics,eliminated_complex_coordinates=length(substitutions))
     mode==:off && return maps,omitted_equations,report()
     for id in keys(get(get(net,"transformer",Dict()),"n_winding",Dict()))
         retained["n_winding/$id"]="separate_certificate_required"
@@ -48,6 +49,47 @@ function _ivrn_device_coordinates(net,e,maps,omitted_equations,mode)
         end
         push!(selected,device.id);append!(consumed,device.equation_indices)
         union!(omitted_equations,device.equation_indices)
+    end
+    if mode==:all_transformer_currents
+        for device in e.nwinding_current_blocks
+            indices=device.equation_indices
+            if isempty(device.current) || length(device.current)!=length(indices) || !allunique(indices) ||
+                !all(i->i in eachindex(e.equations),indices)
+                retained[device.id]="incomplete_current_block_record";continue
+            end
+            if any(in(omitted_equations),indices)
+                retained[device.id]="current_block_equation_already_consumed";continue
+            end
+            targets=Set{Int}();valid=true
+            for current in device.current
+                row=active(current)
+                if length(row)!=1 || only(values(row)) ∉ (-1,1) || only(keys(row)) in targets
+                    valid=false;break
+                end
+                push!(targets,only(keys(row)))
+            end
+            if !valid
+                retained[device.id]="current_block_not_retained_coordinates";continue
+            end
+            # Atomic, square local solve in the actual surviving equations.
+            # Keep every row and coordinate when the existing block gates fail.
+            block,reason=_ivrn_block_substitution([active(e.equations[i]) for i in indices],targets)
+            if block===nothing
+                retained[device.id]=reason;continue
+            end
+            gain=maximum((sum(abs,values(row);init=0.) for row in values(block.substitutions));init=0.)
+            if !isfinite(gain) || gain>1e8
+                # Row equilibration can hide a weak but independent leakage
+                # direction. Retain it rather than amplify voltage roundoff.
+                retained[device.id]="large_current_reconstruction";continue
+            end
+            merge!(substitutions,block.substitutions)
+            block_diagnostics[device.id]=(;condition=block.condition,relative_residual=block.relative_residual,dimension=block.dimension,
+                max_reconstruction_row_sum=gain,
+                max_reconstruction_coefficient=maximum((abs(a) for row in values(block.substitutions) for a in values(row));init=0.))
+            delete!(retained,device.id);push!(selected,device.id)
+            append!(consumed,indices);union!(omitted_equations,indices)
+        end
     end
     isempty(substitutions) && return maps,omitted_equations,report()
     kept=[k for k in eachindex(maps.projection) if !haskey(substitutions,k)]

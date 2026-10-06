@@ -61,7 +61,11 @@ Neither control changes power lifting or removes operating bounds.
 exactly matching voltage/current row pairs when lifting is enabled. Default :off.
 `device_elimination=:transformer_currents` substitutes from-side coil currents
 using fixed-transformer current balance. Retains circulation, bonds and grounds;
-multiwinding devices remain explicit. Default :off.
+multiwinding devices remain explicit. `:all_transformer_currents` additionally
+substitutes complete multiwinding coil-current blocks when the composed block
+passes the condition and residual gates; singular or unsafe blocks remain
+explicit. Every bound and recovery observation is composed through the map.
+No pseudoinverse, regularization or star fit is used. Default :off.
 `transformer_nameplate=:bmopftools` enforces positive ordinary-transformer
 `s_rating` on the BMOPFTools rated port: from coil for single-phase/center-tap,
 wye phase port for Yd/Dy (one third per phase), and from through-coil for
@@ -638,7 +642,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.observation_support_threshold>=0 || throw(ArgumentError("observation support threshold must be nonnegative"))
     options.observation_sharing in (:off,:exact,:signed,:proportional) || throw(ArgumentError("unknown IVRNLP observation sharing"))
     options.coincident_voltage_bounds in (:separate,:equality,:guarded_equality) || throw(ArgumentError("unknown coincident voltage bound policy"))
-    options.device_elimination in (:off,:transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
+    options.device_elimination in (:off,:transformer_currents,:all_transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
     options.transformer_nameplate in (:ignore,:bmopftools) || throw(ArgumentError("unknown transformer nameplate policy"))
     net=_l3f_input(input);_ivrn_check(net)
     for field in (:load_power_bases,:load_power_row_bases),id in keys(getfield(options,field))

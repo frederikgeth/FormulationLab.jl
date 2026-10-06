@@ -37,13 +37,14 @@ function _sdp_nwinding_plan(net,id,d;neutral_map=nothing)
     real(y)>=0 || _sdp_refuse("$label negative core conductance")
     (;ws,Ds,turns,Z,shunt,y)
 end
-function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing)
+function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing,current_blocks=nothing)
     for (id,d) in get(get(net,"transformer",Dict()),"n_winding",Dict())
         neutral_map===nothing && (neutral_map=_kr_neutral_map(net))
         p=_sdp_nwinding_plan(net,id,d;neutral_map);n=length(p.ws)
         v=[terminal_rows(w["bus"],w["terminal_map"]) for w in p.ws]
         u=[matrows(p.Ds[k],v[k]) for k in 1:n]
         j=[[_sdp_e(newvar()) for _ in u[k]] for k in 1:n]
+        first_equation=length(equations)+1
         for c in eachindex(u[1])
             amp=_SDPRow();for k in 1:n;_sdp_add!(amp,j[k][c],p.turns[k]);end;push!(equations,amp)
             for i in 2:n
@@ -52,6 +53,8 @@ function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,
                 push!(equations,row)
             end
         end
+        current_blocks===nothing || push!(current_blocks,(;id="n_winding/$id",
+            current=deepcopy(vcat(j...)),equation_indices=collect(first_equation:length(equations))))
         for k in 1:n
             w=p.ws[k];cf=deepcopy(j[k])
             if k==p.shunt
