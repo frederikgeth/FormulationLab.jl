@@ -1,5 +1,20 @@
 # Verification
 
+## Exact stored-coefficient residual certificates — 7 October 2026
+
+The [implied-row diagnostic](ivr_implied_residuals.md) supplies explicit retained
+KCL dependencies and rational reconstruction defects. It bounds all 15,968
+omitted rows at the 32 archived states without new optimization. Independent
+Python rational calculations reproduce the exported defect and conditional
+bounds. The original 30 accepted and two rejected endpoints are unchanged.
+
+This is a certificate for stored linear coefficients at supplied native states,
+not a uniform physical-model error bound. It assigns no solver tolerance to
+omitted rows and changes no production option or default. New scientific
+documentation, analytical examples and an evaluation tutorial accompany the
+regression tests. The complete evidence lives outside Git in
+`IMPLIED_RESIDUAL_CERTIFICATES_20261007`.
+
 ## Explicit linear-equation provenance — 7 October 2026
 
 The [physical-row catalogue](ivr_circuit_residuals.md) now uses records produced

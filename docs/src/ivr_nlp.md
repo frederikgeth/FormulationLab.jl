@@ -1212,3 +1212,7 @@ The [physical circuit-row guide](ivr_circuit_residuals.md) explains complete
 linear-row coverage, omission status, shared-assembly controls and the remaining
 scope limits. Nonlinear laws, operating bounds and fixed-variable constraints
 are outside that linear-row catalogue.
+
+The [implied-row certificate guide](ivr_implied_residuals.md) constructs exact
+stored-coefficient dependencies and state-dependent SI residual bounds for
+omitted linear rows, without changing the optimization model.

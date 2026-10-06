@@ -83,8 +83,10 @@ An omitted row has **no independent normalized constraint**. Its `divisor`,
 `nothing`. The physical residual ``s aRy`` is still evaluated. A small residual
 may follow from algebraic substitution, while approximate stored reconstruction
 coefficients can leave a nonzero remainder. A residual bound inherited from
-other rows would require an explicit dependence certificate; this diagnostic
-does not supply one or borrow the largest retained-row tolerance.
+other rows requires an explicit dependence certificate. The separate
+[exact stored-coefficient diagnostic](ivr_implied_residuals.md) now provides
+these identities and state-dependent bounds; the trace itself does not borrow
+the largest retained-row tolerance.
 
 For every classified row, the trace compares Float64 nested reconstruction,
 Float64 composed evaluation, the JuMP expression, and high-precision nested

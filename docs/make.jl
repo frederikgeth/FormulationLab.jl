@@ -53,6 +53,7 @@ makedocs(;
             "Mixed-device multiwinding networks"=>"ivr_nwinding_network.md",
             "KCL residual amplification"=>"ivr_kcl_residuals.md",
             "Physical circuit-row residuals"=>"ivr_circuit_residuals.md",
+            "Implied-row residual certificates"=>"ivr_implied_residuals.md",
             "Multiwinding nominal coordinates"=>"ivr_nwinding_coordinates.md",
             "Coincident voltage equalities"=>"ivr_voltage_equalities.md",
             "Voltage dependencies under power costs"=>"ivr_voltage_dependencies.md",
