@@ -13,6 +13,13 @@ tolerances improve selected discrepancies but worsen reference convergence
 across the complete panel. Retain separate status, physical and objective gates;
 this diagnostic study changes no numerical recommendation.
 
+The subsequent [fixed-Q intervention](ivr_nwinding_equalities.md) reproduces
+these controls and resolves all tested reference discrepancies by replacing
+opposing fixed-Q inequalities with exact equalities. Explicit excitation also
+agrees after aligning winding location and per-coil units. This supports checking
+constraint redundancy before tuning tolerances or scaling, while leaving the
+fastest-formulation shortlist unchanged until isolated Ipopt timing is available.
+
 The [single-phase voltage-bound transfer](ivr_singlephase_transfer.md) admits
 all 108 full/reduced/reuse combinations with exact load-power lifting and
 aligned nameplates. A sequentially declared narrow band reaches two upper

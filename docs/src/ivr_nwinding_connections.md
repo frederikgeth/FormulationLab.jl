@@ -170,3 +170,8 @@ should distinguish physical feasibility, stationarity, complementarity and
 objective agreement. No timing, package-equation or default change follows.
 Protocols, original/revised diagnostic stages, source snapshots and numerical
 evidence remain outside Git in `NWINDING_CONNECTIONS_20261006`.
+
+The subsequent [fixed-Q equality and excitation study](ivr_nwinding_equalities.md)
+reproduces these controls, tests an exact constraint intervention and extends
+live correspondence using explicitly located winding shunts. Its new results
+do not replace the original outcomes above.

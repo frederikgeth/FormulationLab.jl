@@ -67,17 +67,35 @@ function _nwinding_connection_point(net,d)
         currents[(:voltage_source,id)]=[t in grounded ? 0im : complex(d["voltage_source"][id][t]["cr"],d["voltage_source"][id][t]["ci"]) for t in s["terminal_map"]]
     end
     tx=net["transformer"]["n_winding"]["tx"]
-    @assert !any(haskey(tx,k) for k in ("g_no_load","b_no_load","no_load_shunt"))
+    @assert !any(haskey(tx,k) for k in ("g_no_load","b_no_load"))
+    excitation=get(tx,"no_load_shunt",nothing)
     for (k,w) in enumerate(tx["windings"])
         j=[complex(d["transformer"]["tx"]["w$k"][string(c)]["cr"],d["transformer"]["tx"]["w$k"][string(c)]["ci"]) for c in 1:3]
         terminal=zeros(ComplexF64,length(w["terminal_map"]))
         for c in 1:3
-            terminal[c]+=j[c]
             other=w["configuration"]=="DELTA" ? mod1(c+get(w,"delta_roll",1),3) : 4
-            terminal[other]-=j[c]
+            injection=j[c]
+            if excitation!==nothing && excitation["winding"]==k
+                u=voltage[(w["bus"],w["terminal_map"][c])]-voltage[(w["bus"],w["terminal_map"][other])]
+                injection+=complex(excitation["g"],excitation["b"])*u
+            end
+            terminal[c]+=injection
+            terminal[other]-=injection
         end
         currents[(:transformer_coil,"n_winding/tx/$k")]=j
         currents[(:transformer_winding,"n_winding/tx/$k")]=terminal
     end
     ACPoint(;voltage,currents)
+end
+
+# Explicit SI per-coil admittance, attached at the physical winding terminals.
+# At nominal coil voltage each branch consumes 2 W and 3 var. Nothing is moved
+# through leakage or inferred from either package's legacy excitation fields.
+function _nwinding_excitation_case(;winding=2,kwargs...)
+    winding in 1:3 || throw(ArgumentError("excitation winding must be 1, 2 or 3"))
+    net=_nwinding_connection_case(;kwargs...)
+    tx=net["transformer"]["n_winding"]["tx"]
+    v=tx["windings"][winding]["v_nom"]
+    tx["no_load_shunt"]=Dict("winding"=>winding,"g"=>2/v^2,"b"=>-3/v^2)
+    net
 end

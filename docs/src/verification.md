@@ -1,5 +1,24 @@
 # Verification
 
+## Fixed-Q equalities and explicit excitation — 6 October 2026
+
+Full regression passes **134,833/134,833 assertions**, including **4,320 new
+excitation assertions**. The optional fixed-Q diagnostic hook passes 32 separate
+checks; 300 archived native exports pass the live BMOPFTools reader comparison.
+
+The [equality intervention](ivr_nwinding_equalities.md) admits all **200/200
+equality-treatment reference solves** against three native formulations each.
+Original opposing-inequality controls remain: 38/40 and 19/40 admissions without
+excitation, 55/60 and 32/60 with explicit excitation, under baseline and absolute
+stopping respectively. All 300 native solves pass. These are manufactured
+physical-correspondence and mechanism experiments, not timing measurements.
+
+Independent auditing covers 700 exports, 6,020 nodal balances, 1,680 coil-cap
+observations and 1,260 excitation contributions. One excluded reference endpoint
+fails fixed-Q and KCL checks; its raw results remain. All admitted reference and
+all native exports pass. Equalities remove the tested multiplier redundancy;
+this does not establish global optimality or universal constraint regularity.
+
 ## Live mixed-winding comparison — 6 October 2026
 
 Full regression passes **130,513/130,513 assertions**.
