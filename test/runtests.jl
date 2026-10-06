@@ -37,6 +37,7 @@ using OpenDSSDirect
     include("ivr_load_power_row_study_tests.jl")
     include("ivr_singlephase_transfer_tests.jl")
     include("ivr_line_transfer_tests.jl")
+    include("ivr_line_shunt_tests.jl")
     include("ivr_observation_study_tests.jl")
     include("ivr_chain_study_tests.jl")
     include("ivr_lifting_study_tests.jl")

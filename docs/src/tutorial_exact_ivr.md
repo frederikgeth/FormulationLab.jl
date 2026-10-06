@@ -2086,3 +2086,38 @@ For a three-conductor line, selecting its three indices creates delta devices.
 See the [real-feeder study](ivr_line_boundaries.md) for an active inherited
 600 A boundary with simultaneous inactive transformer caps, all six arms,
 both directions and independent reconstruction from SI JSON.
+
+## 59. Distinguish series and terminal current limits
+
+With line shunts, the series current alone does not determine terminal loading.
+Use a manufactured two-wire π line with unequal coupled shunts. Its line-level
+200 A rating overrides the linecode's 250 A rating; the scenario retains both.
+
+```@example exactivr
+pi_original = line_study.shunt_fixture(conductors=2)
+pi_net, pi_manifest = line_study.scenario(pi_original;
+    line_id="l1",terminal_indices=[1,2],q_capacity_VAR=1.2e6)
+pi_profile = only(p for p in line_study.profiles(pi_net,pi_manifest;
+    target_VAR=6e5,nlp_scaling_method="gradient-based") if p.name=="reduced_reuse")
+pi_build = build_opf(pi_net,IVRNLP(pi_profile.options);optimizer=Ipopt.Optimizer)
+pi_start = line_study.M.E.S.U.G.H.S.L.start_point(pi_net)
+for (variable,value) in ivr_nlp_point_report(pi_build,pi_start).variable_values
+    set_start_value(variable,value)
+end
+pi_result = solve_ivr_nlp_opf(pi_build;
+    solver_options=merge(line_study.P.STRICT,pi_profile.solver_options))
+@assert pi_result.solve.optimal && physical_residuals(pi_net,pi_result).passed
+pi_point = ACPoint(voltage=pi_result.voltage_candidate,currents=pi_result.current_candidate)
+pi_activity = line_study.current_activity(pi_net,pi_point)
+@assert all(!x.violated && x.active==(x.side==:to) for x in pi_activity.records)
+pi_export = result_dict(pi_build,pi_result)
+pi_series = pi_export["_formulationlab"]["devices"]["line"]["l1"]["series_current"]
+@assert maximum(x["cm"] for x in pi_series)<191.
+[(side=x.side,current_A=x.current_A,slack_A=x.slack_A) for x in pi_activity.records]
+```
+
+The receiving current reaches 200 A while series current stays below 191 A.
+Reversing the target activates the sending end. The
+[shunt-boundary study](ivr_shunt_boundaries.md) verifies both directions across
+all six formulations, both solver policies, two connections and two equivalent
+matrix representations, with independent SI reconstruction and rejection tests.

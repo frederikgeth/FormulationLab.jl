@@ -30,6 +30,12 @@ policies. All three selected line conductors reach the inherited 600 A cap at
 both ends while transformer caps remain inactive. This extends correctness
 evidence at original current boundaries; it does not change timing rankings.
 
+The [shunt-loaded extension](ivr_shunt_boundaries.md) admits all 96 manufactured
+comparisons with one endpoint active and the other inactive, including
+single-phase/delta connections and equivalent inline/linecode matrices. Its
+independent SI audit also verifies inherited shunt recovery in the 24 archived
+feeder exports. This is additional correctness evidence, with no timing ranking.
+
 The [mixed-device rural transfer](ivr_mixed_devices.md) adds filtered IBRs and
 voltage-dependent demand on a selected 70-bus feeder. Reduced power lifting leads
 the mixed confirmation panel; generator reuse helps constant-power tracking but

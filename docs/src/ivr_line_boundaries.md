@@ -91,6 +91,10 @@ active-bound combination, shunt-loaded line endpoint asymmetry, transformer
 configuration, or feeder. No timings from this correctness panel are ranked.
 All previous transformations and slower alternatives remain available.
 
+A subsequent [shunt-loaded endpoint study](ivr_shunt_boundaries.md) supplies
+manufactured witnesses with unequal endpoint currents and independently audits
+the inherited shunt-current recovery in these archived feeder exports.
+
 ## Reproduction and next experiments
 
 Use `examples/benchmark_ivr_line_transfer.jl` and the executable

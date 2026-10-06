@@ -67,4 +67,68 @@ function profiles(net,manifest;target_VAR,nlp_scaling_method="none")
         factors=merge(p.factors,(;transformer_nameplate=:bmopftools))))
         for p in M.profiles_for_terms(net,terms(manifest;target_VAR);nlp_scaling_method)]
 end
+
+"""Manufactured passive pi line with unequal, coupled endpoint shunts.
+
+The fixture declares a 200 A line override of a 250 A linecode rating, length
+0.5, zero demand and 230 V source phase magnitude. `:inline` stores the same
+physical matrices directly on the line, without a length multiplier. This is
+a new research input, not a modification of an external feeder. Three-wire
+receiving terminals are cyclically permuted to exercise positional recovery.
+"""
+function shunt_fixture(;conductors=2,storage=:linecode)
+    conductors isa Integer && conductors in (2,3) || throw(ArgumentError("fixture requires two or three conductors"))
+    storage in (:linecode,:inline) || throw(ArgumentError("unknown matrix storage"))
+    n=conductors;net=P.ivr_compiler_case(;conductors,segments=1,loading=0.)
+    code=net["linecode"]["wire"];empty!(code);code["i_max"]=fill(250.,n)
+    line=net["line"]["l1"];line["length"]=.5;line["i_max"]=fill(200.,n)
+    for i in 1:n,j in 1:n
+        c=n==2 ? (i==j ? 1. : -1.) : (i==j ? 2/3 : -1/3)
+        code["R_series_$(i)_$j"]=i==j ? .004 : .001
+        code["X_series_$(i)_$j"]=i==j ? .002 : .0003
+        for (side,g,b) in (("from",.001,.02),("to",.002,.08))
+            code["G_$(side)_$(i)_$j"]=g*c
+            code["B_$(side)_$(i)_$j"]=b*c
+        end
+    end
+    n==3 && (line["terminal_map_to"]=["b","c","a"])
+    if storage==:inline
+        for (k,v) in code;k=="i_max" || (line[k]=.5v);end
+        delete!(line,"linecode");delete!(line,"length");empty!(net["linecode"])
+    end
+    net
+end
+
+"""Finite SI terminal-current margins, independently at both line ends.
+
+Ratings follow conductor positions, even when endpoint terminal names differ.
+A line-level rating overrides the linecode. Negative slack is a violation and
+is never reported as active. This is geometric activity, not a dual certificate.
+"""
+function current_activity(net,point;atol_A=1e-5)
+    tol=finite_value(atol_A,"atol_A");tol>=0 || throw(ArgumentError("negative activity tolerance"))
+    records=Any[]
+    for id in sort!(collect(keys(get(net,"line",Dict()))))
+        line=net["line"][id];code=haskey(line,"linecode") ? net["linecode"][line["linecode"]] : Dict()
+        owner=haskey(line,"i_max") ? line : code
+        haskey(owner,"i_max") || continue
+        limits=owner["i_max"];n=length(line["terminal_map_from"])
+        limits isa AbstractVector && length(limits)==n || throw(ArgumentError("invalid current-bound arity at $id"))
+        all(x->x isa Real && !(x isa Bool) && !isnan(x) && x>=0,limits) || throw(ArgumentError("invalid current bound at $id"))
+        length(line["terminal_map_to"])==n || throw(ArgumentError("endpoint arity mismatch at $id"))
+        for side in (:from,:to)
+            current=point.currents[(Symbol("line_",side),id)]
+            length(current)==n || throw(ArgumentError("current arity mismatch at $id"))
+            all(isfinite,current) || throw(ArgumentError("nonfinite terminal current at $id"))
+            for (k,cap) in enumerate(limits)
+                isfinite(cap) || continue
+                value=abs(current[k]);slack=cap-value
+                push!(records,(;id,side,channel=k,terminal=line["terminal_map_"*String(side)][k],
+                    limit_A=cap,current_A=value,slack_A=slack,origin=owner===line ? :line : :linecode,
+                    active=0<=slack<=tol,violated=slack<0))
+            end
+        end
+    end
+    (;atol_A=tol,records)
+end
 end

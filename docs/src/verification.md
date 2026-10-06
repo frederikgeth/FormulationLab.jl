@@ -1,5 +1,23 @@
 # Verification
 
+## Shunt-loaded line endpoint boundaries — 6 October 2026
+
+The [shunt-boundary extension](ivr_shunt_boundaries.md) passes **96/96
+manufactured admissions** across single-phase/delta devices, inline/linecode
+matrices, both target directions, both solver policies and six retained arms.
+Only one endpoint is active in each case. All 96 separately tightened-rating
+witnesses reject the active end while the opposite end remains below the cap.
+The focused suite passes **1,669 assertions**, including rating precedence,
+permuted terminal names, invalid observations and exact shunt/series recovery.
+
+Independent SI export auditing verifies 480 manufactured port margins, 1,632
+archived real-feeder line records and 9,792 external port margins. It checks
+the full π-line equations, complex losses, objective, original fields and
+matching output structures. The inherited source-branch shunts are recovered
+but their ratings remain inactive. This distinction prevents manufactured
+activity from being misreported as new real-feeder active-shunt evidence.
+All existing options remain; no performance ranking is changed.
+
 ## Inherited line-current boundaries — 6 October 2026
 
 Full regression passes **124,159/124,159 assertions**, including **654 new
