@@ -61,8 +61,9 @@ factor; neither intervention replaces the independent SI acceptance audit.
 
 `ground_scaling=:regional_voltage` deliberately retains its independent
 ordinary-transformer base policy. Enabling multiwinding coordinates does not
-silently change finite-ground multipliers. A joint regional-ground extension
-would be a separate experiment.
+silently change finite-ground multipliers. The separate opt-in
+[`ground_scaling=:regional_multiwinding_voltage`](ivr_nwinding_ground.md) now
+provides that extension, with its own finite-ground controls.
 
 A floating delta illustrates the distinction between units and physical
 references. Adding the same complex voltage to its three terminals leaves coil

@@ -38,12 +38,14 @@ one-terminal finite shunts and normalizes circuit rows in solver coordinates.
 This invertible numerical policy preserves the finite ground; default :off.
 `:regional_voltage` instead selects the shunt multiplier using nominal regional
 voltage bases and the common power base, independently of transformer scaling.
+`:regional_multiwinding_voltage` also propagates multiwinding characteristic
+voltage units when selecting that multiplier; it creates no physical reference.
 Uncertain regional assignments retain the global base with diagnostics.
 `transformer_scaling=:nominal` composes local voltage/current units inferred
 from source magnitudes and nominal winding ratios. Uncertain assignments retain
 the global base with diagnostics. `:nominal_multiwinding` additionally propagates
 WYE/SINGLE_PHASE coil nominals and DELTA coil nominals divided by √3; these are
-characteristic units, never an inferred ground reference. Regional ground scaling
+characteristic units, never an inferred ground reference. `:regional_voltage`
 retains its independent ordinary-transformer policy. `row_scaling=:composed` independently normalizes
 linear circuit rows after all coordinate maps; default :legacy retains the
 previous ground-dependent normalization. Neither option changes physical data.
@@ -643,7 +645,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.linear_elimination in (:off,:impedance_loads,:passive,:passive_chains,:passive_blocks,:passive_hybrid) || throw(ArgumentError("unknown IVRNLP linear elimination"))
     options.passive_component_limit>0 || throw(ArgumentError("passive_component_limit must be positive"))
     options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
-    options.ground_scaling in (:off,:voltage,:regional_voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
+    options.ground_scaling in (:off,:voltage,:regional_voltage,:regional_multiwinding_voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
     options.transformer_scaling in (:off,:nominal,:nominal_multiwinding) || throw(ArgumentError("unknown IVRNLP transformer scaling"))
     options.row_scaling in (:legacy,:composed) || throw(ArgumentError("unknown IVRNLP row scaling"))
     options.power_sharing in (:off,:generators) || throw(ArgumentError("unknown IVRNLP power sharing"))

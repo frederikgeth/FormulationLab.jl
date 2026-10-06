@@ -84,7 +84,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `transformer_scaling` | `:off` | `:nominal` composes local voltage/current units from ordinary transformer ratios; `:nominal_multiwinding` additionally uses declared coil-voltage conventions; uncertain assignments retain global units |
 | `row_scaling` | `:legacy` | `:composed` normalizes linear circuit rows after all coordinate transformations, independently of local voltage/current scaling |
 | `kcl_row_max_base` | `nothing` | Optional positive ampere cap on the numerical unit of each retained KCL row; preserves existing smaller row units and every physical bound |
-| `ground_scaling` | `:off` | `:voltage` uses global-base shunt multipliers; `:regional_voltage` uses nominal regional-base multipliers; both preserve finite grounds |
+| `ground_scaling` | `:off` | `:voltage` uses global-base shunt multipliers; `:regional_voltage` uses ordinary regional units; `:regional_multiwinding_voltage` also crosses multiwinding transitions; all preserve finite grounds |
 | `objective_scale` | `nothing` | Divide the physical objective by this positive scalar; `nothing` preserves division by `s_base` |
 | `current_power_bases` | empty dictionary | Explicit bus-to-VA seeds for regional current coordinates; requires `transformer_scaling=:nominal` or `:nominal_multiwinding` |
 | `generator_power_bases` | empty dictionary | Generator-ID-to-VA dispatch units for both P and Q; unspecified generators use `s_base` |
@@ -326,7 +326,8 @@ This option deliberately **does not** rebase generator P/Q variables, lifted
 observations/powers, voltage-law auxiliaries or ground multipliers. Generator
 dispatch can be rebased separately as described below; the others retain
 their assembly-unit conventions. In particular, `ground_scaling=:regional_voltage`
-still uses the common assembly power base, not these current-unit declarations.
+and `:regional_multiwinding_voltage` both use the common assembly power base,
+not these current-unit declarations.
 The option isolates regional current coordinates; it is not a complete regional
 power normalization of every NLP variable. See the [theory](ivr_theory.md) and
 [controlled experiment](ivr_performance.md) before selecting numerical settings.
@@ -541,6 +542,10 @@ voltage coordinate. No regional power base is introduced. The new policy refuses
 nonfinite multipliers or coefficient overflow/underflow instead of discarding
 nonzero terms. The existing `:voltage` policy and default remain unchanged.
 
+`ground_scaling=:regional_multiwinding_voltage` applies the same contract using
+the multiwinding characteristic-unit graph. The ordinary-only regional policy
+remains unchanged. See the [scientific guide and live-ground controls](ivr_nwinding_ground.md).
+
 When at least one coordinate is scaled, circuit equalities are divided by the
 Euclidean norm of their coefficients **after** projection/reconstruction and
 scaling. An identically cancelled row uses divisor one. This keeps a large
@@ -553,8 +558,8 @@ existing coordinates and normalization.
 Inspect `:ground_scaling_report` in `numerical_diagnostics`: `scaled_terminals`
 contains bus, terminal, solver coordinate and scale; `retained_shunts` gives
 reasons for declarations not selected. `region_assignment` records the selected
-bases and fallback reasons for `:regional_voltage` and is `nothing` for the other
-modes. Parameters of grounding equipment still
+bases and fallback reasons for either regional policy and is `nothing` for
+`:off` and `:voltage`. Parameters of grounding equipment still
 require rebuilding. CP and generator updates preserve the maps. Default `:off`
 retains existing numerical behaviour. This limited policy does not guarantee
 physical accuracy for arbitrary ill-conditioned circuits or replace independent

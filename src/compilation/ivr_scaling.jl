@@ -5,7 +5,8 @@ _ivrn_kcl_row_divisor(divisor,current_A,cap)=cap===nothing ? divisor : min(divis
 # Physical assembly, observation channels and bounds remain unchanged.
 function _ivrn_ground_coordinates(net,e,maps,mode)
     scaled=NamedTuple[];retained=Dict{String,String}()
-    region=mode==:regional_voltage ? _ivrn_region_bases(net,e) : nothing
+    regional=mode in (:regional_voltage,:regional_multiwinding_voltage)
+    region=regional ? _ivrn_region_bases(net,e;multiwinding=mode==:regional_multiwinding_voltage) : nothing
     report()=(;scaled_terminals=scaled,retained_shunts=retained,region_assignment=region)
     mode==:off && return maps,report()
     scales=ones(length(maps.projection));terminals=Dict{Int,Tuple{String,String}}()
@@ -42,7 +43,7 @@ function _ivrn_ground_coordinates(net,e,maps,mode)
     end
     projection=[_SDPRow(k=>a*scales[j] for (k,a) in row) for (j,row) in enumerate(maps.projection)]
     reconstruction=[_SDPRow(k=>a/scales[k] for (k,a) in row) for row in maps.reconstruction]
-    if mode==:regional_voltage
+    if regional
         valid(new,old)=all(length(a)==length(b) && all(k->isfinite(a[k]) && (iszero(b[k]) || !iszero(a[k])),keys(b)) for (a,b) in zip(new,old))
         valid(projection,maps.projection) && valid(reconstruction,maps.reconstruction) ||
             _ivrn_refuse("regional ground scaling has unrepresentable coordinate coefficients")

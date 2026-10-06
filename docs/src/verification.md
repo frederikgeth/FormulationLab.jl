@@ -1,5 +1,25 @@
 # Verification
 
+## Multiwinding finite-ground units — 7 October 2026
+
+The opt-in `ground_scaling=:regional_multiwinding_voltage` uses multiwinding
+characteristic voltage units to select finite-ground multipliers. Existing
+policies, defaults, physical equations, bounds and SI result variables remain
+unchanged. The [scientific guide](ivr_nwinding_ground.md) gives the coordinate
+identity, reference safeguards, motivating example and tutorial.
+
+The 834 targeted checks pass, including single-phase analytical optima, complex
+stiff grounds, map inverses, full-model membership and refusal of a floating
+delta without its reference. Two separately retained 128-endpoint panels pass
+all admission gates. The stronger fixture carries up to 0.199152 A through
+finite reference grounds. Every matched cell retains the same iteration count
+across all four scaling policies; no speed recommendation changes.
+
+Thirty-two exports pass both result readers and physical-variable path checks;
+576 independent shunt-current/power checks pass. Full-suite and documentation
+logs, source snapshots, weak/live fixtures, unranked raw trials and analyses are
+stored outside Git in `NWINDING_GROUND_UNITS_20261007`.
+
 ## Exact stored-coefficient residual certificates — 7 October 2026
 
 The [implied-row diagnostic](ivr_implied_residuals.md) supplies explicit retained

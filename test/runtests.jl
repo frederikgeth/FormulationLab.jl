@@ -70,6 +70,7 @@ using OpenDSSDirect
     include("ivr_equation_provenance_tests.jl")
     include("ivr_kcl_row_scaling_tests.jl")
     include("ivr_nwinding_voltage_scaling_tests.jl")
+    include("ivr_nwinding_ground_tests.jl")
     include("ivr_voltage_equality_tests.jl")
     include("ivr_voltage_dependency_tests.jl")
     include("ivr_regulator_tests.jl")
