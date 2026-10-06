@@ -383,6 +383,10 @@ Trace scaled-to-SI residual amplification on the three reproduced rejected
 endpoints before proposing a numerical remedy. Isolated wall-time confirmation remains pending; no performance
 ranking uses these concurrent solves.
 
+The subsequent [KCL residual trace](ivr_kcl_residuals.md) identifies a large
+normalization conversion factor at those rows and tests an optional ampere-unit
+cap while preserving the uncapped controls.
+
 ## Reproduction
 
 ```sh

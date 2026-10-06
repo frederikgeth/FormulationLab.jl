@@ -63,6 +63,14 @@ optimal solver status. No speed recommendation follows. Inspection also reveals
 that multiwinding secondary voltage units still use the global fallback; an
 opt-in nominal-voltage policy is a distinct next experiment.
 
+The [subsequent residual trace](ivr_kcl_residuals.md) identifies a roughly
+384,630-fold increase in the ampere conversion factor of the affected KCL rows
+after elimination. Optional `kcl_row_max_base=1000.0` resolves all three failures
+and admits the complete 96-case panel, with unchanged physical inputs and strict
+settings. This is an additional robustness candidate, not a fastest-profile
+promotion: iterations fall in 20 cases and rise in 17, and isolated wall timing
+remains pending. The uncapped default and all prior controls remain available.
+
 The [live mixed-winding comparison](ivr_nwinding_connections.md) additionally
 shows that a small scaled Ipopt error and a feasible endpoint do not establish
 objective agreement or small unscaled dual residuals. Explicit absolute

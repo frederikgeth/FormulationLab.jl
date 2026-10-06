@@ -44,6 +44,11 @@ from source magnitudes and nominal winding ratios. Uncertain assignments retain
 the global base with diagnostics. `row_scaling=:composed` independently normalizes
 linear circuit rows after all coordinate maps; default :legacy retains the
 previous ground-dependent normalization. Neither option changes physical data.
+`kcl_row_max_base` optionally caps the ampere unit of each retained complex KCL
+row: its existing divisor is limited to `kcl_row_max_base / current_A`.
+The positive cap changes numerical equality scaling only, never an operating
+current limit. `nothing` preserves existing normalization. It does not cap
+omitted KCL rows or guarantee recovered SI accuracy; retain physical audits.
 `lifting=:powers` introduces exact P/Q definitions for apparent-power limits
 and selected non-generator objective ports.
 `:bounded_observations` also materializes compound bounded voltage/current rows.
@@ -119,6 +124,7 @@ Base.@kwdef struct IVRNLPOptions
     ground_scaling::Symbol = :off
     transformer_scaling::Symbol = :off
     row_scaling::Symbol = :legacy
+    kcl_row_max_base::Union{Nothing,Float64} = nothing
     lifting::Symbol = :off
     observation_support_threshold::Int = 2
     observation_sharing::Symbol = :off
@@ -670,6 +676,11 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
                            delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
                            record_transformer_bonds=true,record_transformer_currents=true)
+    if options.kcl_row_max_base!==nothing
+        cap=options.kcl_row_max_base
+        isfinite(cap) && cap>0 && isfinite(cap/e.ib) && cap/e.ib>0 ||
+            throw(ArgumentError("KCL row cap and ampere-to-assembly ratio must be positive and finite"))
+    end
     nameplates=_ivrn_nameplate_limits!(net,e,options.transformer_nameplate)
     winding_limits=_ivrn_nwinding_limits!(net,e,options.transformer_nameplate)
     z0=_ivrn_start(net,e)
@@ -698,10 +709,11 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         j,a=only(maps.reconstruction[k]) # Source coordinates remain singleton, possibly scaled.
         JuMP.fix(xr[j],real(v/a));JuMP.fix(xi[j],imag(v/a))
     end
-    for row in Iterators.flatten(( (row for (k,row) in enumerate(e.equations) if k ∉ omitted_equations),
-                                  (row for (key,row) in e.kcl if key ∉ omitted)))
+    for (row,is_kcl) in Iterators.flatten(( ((row,false) for (k,row) in enumerate(e.equations) if k ∉ omitted_equations),
+                                  ((row,true) for (key,row) in e.kcl if key ∉ omitted)))
         isempty(row) && continue
         divisor=scaled_rows ? _ivrn_scaled_row_norm(row,maps) : norm(collect(values(row)))
+        is_kcl && (divisor=_ivrn_kcl_row_divisor(divisor,e.ib,options.kcl_row_max_base))
         isfinite(divisor) && divisor>0 || _ivrn_refuse("invalid circuit-row normalization")
         a=_linivr_eval(row,z)/divisor
         @constraint(model,real(a)==0);@constraint(model,imag(a)==0)
@@ -842,6 +854,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :ground_scaling=>options.ground_scaling,:ground_scaling_report=>scaling,
         :transformer_scaling=>options.transformer_scaling,:transformer_scaling_report=>transformer_scaling,
         :row_scaling=>options.row_scaling,:composed_row_normalization=>scaled_rows,
+        :kcl_row_max_base=>options.kcl_row_max_base,
         :per_unit_bases=>(voltage_V=e.vb,current_A=e.ib,power_VA=e.sb),
         :objective_scale=>_ivrn_objective_scale(options),
         :generator_power_bases=>Dict(id=>g.power_base for (id,g) in generators),

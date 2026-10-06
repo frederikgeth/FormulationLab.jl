@@ -83,6 +83,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `series_selection` | `:all` | With any passive policy, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
 | `transformer_scaling` | `:off` | `:nominal` composes local voltage/current units inferred from nominal transformer ratios and source magnitudes; uncertain assignments retain global units |
 | `row_scaling` | `:legacy` | `:composed` normalizes linear circuit rows after all coordinate transformations, independently of local voltage/current scaling |
+| `kcl_row_max_base` | `nothing` | Optional positive ampere cap on the numerical unit of each retained KCL row; preserves existing smaller row units and every physical bound |
 | `ground_scaling` | `:off` | `:voltage` uses global-base shunt multipliers; `:regional_voltage` uses nominal regional-base multipliers; both preserve finite grounds |
 | `objective_scale` | `nothing` | Divide the physical objective by this positive scalar; `nothing` preserves division by `s_base` |
 | `current_power_bases` | empty dictionary | Explicit bus-to-VA seeds for regional current coordinates; requires `transformer_scaling=:nominal` |
@@ -282,6 +283,14 @@ circuit-row norms are refused rather than turning equations into zero rows.
 Diagnostics report `transformer_scaling_report` (bus bases, scaled and retained
 coordinates, and fallback reasons), `row_scaling`, `composed_row_normalization`
 and `per_unit_bases`. Separate Ipopt scaling options are controlled by the caller.
+
+`kcl_row_max_base` optionally limits the ampere unit of retained KCL rows by
+capping their divisor at `kcl_row_max_base / current_A`. The default `nothing`
+preserves existing behavior. The cap is a numerical equality multiplier, not
+an operating current bound. It leaves non-KCL equations and coordinate maps
+unchanged and cannot independently control omitted KCL rows. Diagnostics record
+the chosen cap. See the [residual trace and validation](ivr_kcl_residuals.md)
+for the connection between normalized solver errors and SI accuracy.
 
 ### Electrical power bases and objective normalization
 

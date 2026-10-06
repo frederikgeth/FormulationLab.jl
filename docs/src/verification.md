@@ -1,5 +1,24 @@
 # Verification
 
+## KCL residual tracing and optional row-unit cap — 6 October 2026
+
+The [residual study](ivr_kcl_residuals.md) compares twelve matched solves and
+96 originally violated row locations. It reproduces all three uncapped
+rejections and distinguishes a conversion factor of 3.866 million A after
+current elimination from about 10.05 A with explicit currents. Compared
+arithmetic effects remain below ``1.8\times10^{-11}`` A.
+
+The optional `kcl_row_max_base=1000.0` admits **96/96** original regional cases,
+versus the retained uncapped **93/96**. All 96 SI export audits and both-reader
+comparisons pass; maximum independently audited KCL is below
+``5.247\times10^{-11}`` A. The 328 diagnostic and 457 cap assertions pass.
+The complete regression log is archived alongside these checks. Only retained
+KCL equality normalization changes; solver tolerances, physical bounds, maps
+and defaults are unchanged. Iterations improve in 20 cases and worsen in 17;
+no isolated wall-time claim follows. Source snapshots before and after the
+intervention, failed controls and original development errors remain outside
+Git in `NWINDING_KCL_RESIDUAL_TRACE_20261006`.
+
 ## Regional multiwinding current units — 6 October 2026
 
 The [regional-current panel](ivr_nwinding_network.md#Regional-current-units-across-transformer-boundaries)

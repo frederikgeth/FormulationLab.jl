@@ -1,3 +1,6 @@
+# A numerical KCL row unit in amperes; never a physical operating bound.
+_ivrn_kcl_row_divisor(divisor,current_A,cap)=cap===nothing ? divisor : min(divisor,cap/current_A)
+
 # Reversible finite-ground voltage scaling, after all coordinate elimination.
 # Physical assembly, observation channels and bounds remain unchanged.
 function _ivrn_ground_coordinates(net,e,maps,mode)
