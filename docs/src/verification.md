@@ -1,5 +1,26 @@
 # Verification
 
+## Coincident voltage bounds — 6 October 2026
+
+Full regression passes **136,323/136,323 assertions**, including **1,490 new
+voltage-representation assertions**. The optional
+[`coincident_voltage_bounds=:equality` policy](ivr_voltage_equalities.md) preserves
+the default separate inequalities and records each exact matched pair.
+
+The 192-solve manufactured comparison admits 96/96 equality treatments and
+95/96 separate controls under standard physical/model/objective gates. All
+solves converge strictly. The additional independent export audit flags three
+separate-control π-loss identity discrepancies, including the objective-discrepant
+control; combined admission is 93/96 separate and 96/96 equality. Its stricter
+threshold is retained, and the original report flags remain visible.
+
+The SI audit covers 192 exports, 960 current margins, 864 KCL balances and 384
+fixed-voltage observations. All 384 two-sided voltage-rejection certificates pass,
+and all 192 exports pass the BMOPFTools reader comparison. These results neither
+certify global optimality nor change the speed shortlist. The third isolated
+single-phase timing attempt is excluded after detecting another Julia process;
+882 saved measured trials and 99 warm-ups remain as partial validation evidence.
+
 ## Fixed-Q equalities and explicit excitation — 6 October 2026
 
 Full regression passes **134,833/134,833 assertions**, including **4,320 new

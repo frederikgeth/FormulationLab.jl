@@ -112,6 +112,9 @@ function result_dict(input::Union{AbstractDict,BMOPFInput,AbstractString,PowerIO
         "network_sha256"=>_result_digest(net))
     out["_formulationlab"]=extras
     if r isa IVRNLPResult
+        extras["coincident_voltage_bounds"]=string(get(r.numerical_diagnostics,:coincident_voltage_bounds,:separate))
+        extras["coincident_voltage_bound_report"]=[Dict(string(k)=>(v isa Symbol ? string(v) : deepcopy(v))
+            for (k,v) in pairs(entry)) for entry in get(r.numerical_diagnostics,:coincident_voltage_bound_report,Any[])]
         extras["transformer_nameplate_policy"]=string(get(r.numerical_diagnostics,:transformer_nameplate,:ignore))
         extras["transformer_nameplate_report"]=[Dict(string(k)=>(v isa Symbol ? string(v) : deepcopy(v))
             for (k,v) in pairs(entry)) for entry in get(r.numerical_diagnostics,:transformer_nameplate_report,Any[])]

@@ -88,6 +88,12 @@ It requires load-power lifting. `load_power_row_base` and per-load
 `load_power_row_bases` specify row units in VA, falling back to `s_base` (not
 column units). Explicit row units require an active row-scaling mode. These
 positive equality multipliers do not change physical bounds or primal recovery.
+`coincident_voltage_bounds=:equality` replaces a positive, exactly coincident
+bus-voltage lower/upper pair with one magnitude equality. Default :separate
+retains both inequalities. Pairs on explicitly fixed source coordinates retain
+their original inequalities to avoid adding redundant fixed-source equalities.
+Zero limits and proper intervals retain their original representation. This
+local rewrite does not remove dependencies on other voltage or circuit rows.
 """
 Base.@kwdef struct IVRNLPOptions
     s_base::Float64 = 1e4
@@ -108,6 +114,7 @@ Base.@kwdef struct IVRNLPOptions
     lifting::Symbol = :off
     observation_support_threshold::Int = 2
     observation_sharing::Symbol = :off
+    coincident_voltage_bounds::Symbol = :separate
     device_elimination::Symbol = :off
     transformer_nameplate::Symbol = :ignore
     load_power_lifting::Bool = false
@@ -489,8 +496,32 @@ function _ivrn_each_bus_limit(f,net,e;buses=nothing)
     end
 end
 
-function _ivrn_bus_limits!(model,net,e,z)
+function _ivrn_bus_limits!(model,net,e,z;coincident=:separate)
+    coincident in (:separate,:equality) || throw(ArgumentError("unknown coincident voltage bound policy"))
+    limits=Any[];channels=Dict{Tuple{String,String},Int}()
     _ivrn_each_bus_limit(net,e) do b,key,row,bound
+        channel=get(channels,(b,key),0)+1;channels[(b,key)]=channel
+        push!(limits,(;b,key,row,bound,channel))
+    end
+    upper=Dict((x.b,x.key,x.channel)=>x for x in limits if endswith(x.key,"max"))
+    skipped=Set{Tuple{String,String,Int}}();report=Any[]
+    for (;b,key,row,bound,channel) in limits
+        (b,key,channel) in skipped && continue
+        if coincident==:equality && endswith(key,"min") && isfinite(bound) && bound>0
+            upper_key=(b,replace(key,r"min$"=>"max"),channel)
+            hi=get(upper,upper_key,nothing)
+            if hi!==nothing && hi.bound==bound && _ivrn_row_key(hi.row)==_ivrn_row_key(row)
+                fixed=all(k->haskey(e.fixed_source_coordinates,k),keys(row))
+                push!(report,(;bus=b,lower=key,upper=upper_key[2],channel,limit_V=bound,
+                    action=fixed ? :fixed_source_pair_retained : :equality))
+                if !fixed
+                    u=_ivrn_bound_observation(model,row,z);scale=bound/e.vb
+                    @constraint(model,(real(u)/scale)^2+(imag(u)/scale)^2==1)
+                    push!(skipped,upper_key)
+                    continue
+                end
+            end
+        end
         u=_ivrn_bound_observation(model,row,z)
         if endswith(key,"max")
             _ivrn_upper!(model,u,bound/e.vb)
@@ -499,6 +530,7 @@ function _ivrn_bus_limits!(model,net,e,z)
             @constraint(model,(real(u)/scale)^2+(imag(u)/scale)^2>=1)
         end
     end
+    report
 end
 
 """Build exact IVR without topology reduction; `optimizer=nothing` is supported."""
@@ -553,6 +585,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))
     options.observation_support_threshold>=0 || throw(ArgumentError("observation support threshold must be nonnegative"))
     options.observation_sharing in (:off,:exact,:signed,:proportional) || throw(ArgumentError("unknown IVRNLP observation sharing"))
+    options.coincident_voltage_bounds in (:separate,:equality) || throw(ArgumentError("unknown coincident voltage bound policy"))
     options.device_elimination in (:off,:transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
     options.transformer_nameplate in (:ignore,:bmopftools) || throw(ArgumentError("unknown transformer nameplate policy"))
     net=_l3f_input(input);_ivrn_check(net)
@@ -737,7 +770,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
             smax===nothing || _ivrn_upper!(model,_ivrn_bound_power(model,v[k],i[k],z),smax[k]/e.sb)
         end
     end
-    _ivrn_bus_limits!(model,net,e,z)
+    voltage_bound_report=_ivrn_bus_limits!(model,net,e,z;coincident=options.coincident_voltage_bounds)
     options.objective==:power && (objective=_ivrn_power_objective(model,options.power_terms,e,z,generators))
     @objective(model,Min,objective/_ivrn_objective_scale(options))
     unavailable=[(id,t) for (id,d) in net["voltage_source"] for t in d["terminal_map"]
@@ -762,6 +795,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :lifting=>options.lifting,:lifted_real_variables=>2length(model.ext[:ivr_lifting].records),
         :observation_support_threshold=>options.observation_support_threshold,
         :observation_sharing=>options.observation_sharing,
+        :coincident_voltage_bounds=>options.coincident_voltage_bounds,
+        :coincident_voltage_bound_report=>voltage_bound_report,
         :shared_observation_count=>model.ext[:ivr_lifting].shared_count[],
         :observation_sharing_report=>copy(model.ext[:ivr_lifting].sharing_report),
         :update_count=>0,:generator_update_count=>0,

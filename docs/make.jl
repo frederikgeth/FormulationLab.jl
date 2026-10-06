@@ -47,6 +47,7 @@ makedocs(;
             "Multiwinding power-limit units"=>"ivr_nwinding_limits.md",
             "Live mixed-winding comparison"=>"ivr_nwinding_connections.md",
             "Fixed-Q equalities and excitation"=>"ivr_nwinding_equalities.md",
+            "Coincident voltage equalities"=>"ivr_voltage_equalities.md",
             "Single-phase voltage-bound transfer"=>"ivr_singlephase_transfer.md",
             "Inherited transformer boundaries"=>"ivr_equipment_boundaries.md",
             "Inherited line-current boundaries"=>"ivr_line_boundaries.md",

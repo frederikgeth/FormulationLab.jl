@@ -154,6 +154,15 @@ from speed claims and retained separately; the isolation criterion is unchanged.
 All 1,944 repeat trials and 216 warm-ups pass the solver, physical and active-set
 gates. This additional validation does not restore timing eligibility.
 
+A third attempt, `SINGLEPHASE_ISOLATED_CONFIRMATION_20261006`, again detects an
+external Julia process. The task interrupts only its own benchmark and retains
+882 completed measured trials and 99 warm-ups, all accepted in their saved
+reports. Ten cells are complete and one is partial; the confirmation process
+never starts. All 142 frozen hashes are verified before subsequent development.
+The entire partial campaign is excluded, including provisional ranking fields.
+No other workload is terminated. The original inputs and source-at-stop snapshot
+remain available, so later code changes do not obscure the attempted protocol.
+
 The remaining boundary experiment concerns inherited equipment ratings. It
 should use declared DER-capacity and source-export workloads to approach those
 limits while retaining original equipment data. The present results do not

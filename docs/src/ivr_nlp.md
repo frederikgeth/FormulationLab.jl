@@ -91,8 +91,16 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `power_sharing` | `:off` | `:generators` reuses exactly matching generator P/Q definitions when lifting is enabled |
 | `observation_support_threshold` | `2` | Lift affine observations only when their distinct real-variable support is strictly larger; nonnegative integer |
 | `observation_sharing` | `:off` | `:exact` shares identical composed affine observations; `:signed` also shares opposite rows; `:proportional` admits certified real multiples, including constants |
+| `coincident_voltage_bounds` | `:separate` | `:equality` replaces exactly coincident positive bus-voltage bounds by one magnitude equality; explicitly fixed source rows retain their original representation |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
 | `device_elimination` | `:off` | `:transformer_currents` removes from-side coil currents through fixed-transformer current balance; multiwinding devices remain explicit |
+
+The [coincident-voltage study](ivr_voltage_equalities.md) gives the equality
+rewrite, its scope and retained numerical controls. It matches the same bus,
+voltage family, channel and electrical row. It neither rounds nearly equal
+bounds nor merges different voltage declarations that happen to be equivalent
+after grounding. Zero limits retain their existing component equalities.
+Diagnostics and SI export metadata record the policy and every matched pair.
 
 `IVRNLPResult.voltage_candidate` maps `(bus, terminal)` to complex volts;
 `current_candidate` and `powers` map `(family::Symbol, id::String)` to channel

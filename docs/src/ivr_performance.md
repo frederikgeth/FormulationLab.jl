@@ -20,6 +20,14 @@ agrees after aligning winding location and per-coil units. This supports checkin
 constraint redundancy before tuning tolerances or scaling, while leaving the
 fastest-formulation shortlist unchanged until isolated Ipopt timing is available.
 
+The [coincident-voltage option](ivr_voltage_equalities.md) extends this principle
+to exactly fixed positive bus-voltage magnitudes. All 96 equality treatments pass
+the manufactured comparison and stricter export audit; three separate-inequality
+controls miss an objective or stricter loss-identity gate. This is an optional
+representation with unchanged defaults, not a new speed winner. A third attempt
+at isolated single-phase timing also detects another Julia workload and is
+stopped and excluded in full; its partial results remain archived.
+
 The [single-phase voltage-bound transfer](ivr_singlephase_transfer.md) admits
 all 108 full/reduced/reuse combinations with exact load-power lifting and
 aligned nameplates. A sequentially declared narrow band reaches two upper
