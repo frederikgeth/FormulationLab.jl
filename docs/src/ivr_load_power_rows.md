@@ -60,6 +60,12 @@ experiment ranks row treatments within these objective-specific finalists; it
 does not establish the best row policy for every formulation. The two off arms
 are the preceding study's column-only controls.
 
+The runner also accepts explicit `column_treatments` and `row_modes` collections;
+its original eight-arm default is unchanged. The subsequent
+[multiple-MV-site transfer](ivr_mv_scale_transfer.md) uses three column rules
+crossed with `(:off,:laws)`. All treatments remain available, and reports retain
+the selected factorial and resolved units.
+
 Use the unchanged low/high-filter voltage-dependent French MV/LV scenarios,
 with 37 added LV loads and one added MV load. Assembly and generator units stay
 10 kVA, other power lifts 1 kVA, transformer coordinates nominal, circuit rows

@@ -32,4 +32,37 @@ changed(a,b)=Set(k for k in fieldnames(IVRNLPOptions) if JSON3.write(getfield(a,
     end
     @test net==original
 end
+@testset "Declared transfer subsets preserve controls" begin
+    net=first(R.T.scenario(R.P.ivr_compiler_case(conductors=4,segments=4);load_law=:voltage_dependent))
+    columns=(:uniform_1k,:voltage_class,:nominal_max);modes=(:off,:laws)
+    for work in (:quadratic_cost,:exchange_tracking)
+        ps=R.profiles(net,work;column_treatments=columns,row_modes=modes,exchange_target_W=500.)
+        defaults=R.profiles(net,work;exchange_target_W=500.)
+        @test length(ps)==6
+        @test [p.name for p in ps]==[string(c)*"__"*string(m) for c in columns for m in modes]
+        for p in ps
+            @test p.options.load_power_bases==R.U.assignments(net,p.factors.column_treatment)
+            @test p.options.load_power_row_bases==(p.factors.row_mode==:off ? Dict() : R.U.assignments(net,:nominal_max))
+            if p.factors.column_treatment!=:voltage_class
+                original=only(q for q in defaults if q.name==p.name)
+                @test isempty(changed(p.options,original.options))
+                @test p.solver_options==original.solver_options
+            end
+        end
+    end
+    for columns in ((),(:uniform_1k,:uniform_1k),(:unknown,))
+        @test_throws ArgumentError R.profiles(net,:quadratic_cost;column_treatments=columns)
+    end
+    for modes in ((),(:laws,:laws),(:unknown,))
+        @test_throws ArgumentError R.profiles(net,:quadratic_cost;row_modes=modes)
+    end
+    mktempdir() do dir
+        input=joinpath(dir,"input.json");output=joinpath(dir,"report.json")
+        open(io->JSON3.write(io,net),input,"w")
+        report=R.benchmark(input,output;column_treatments=columns,row_modes=modes,exchange_target_W=500.)
+        @test length(report["ranking"]["eligible"])==6
+        @test report["position_balanced"] && report["source_unchanged"] && report["network_unchanged"]
+        @test Set(keys(report["factors"]))==Set(string(c)*"__"*string(m) for c in columns for m in modes)
+    end
+end
 end

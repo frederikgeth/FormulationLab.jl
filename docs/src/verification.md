@@ -1,5 +1,24 @@
 # Verification
 
+## Multiple-MV-site scaling transfer — 6 October 2026
+
+Full regression passes **121,633/121,633 assertions**. The 53 new checks verify
+explicit row/column subsets, preservation of default controls, invalid
+declarations, benchmark forwarding and position-balanced evidence. The targeted
+runner suite passes 166 assertions; all **56 executable tutorial blocks** pass.
+See the [six-MV-site transfer](ivr_mv_scale_transfer.md) for scientific scope,
+selection and results. Package defaults and all transformation options remain.
+
+All **48 admission solves**, **192 tightened-bound rejection witnesses**,
+**576 measured solves** and **96 warm-ups** pass. QA reproduces 112 paired
+contrasts and 32 interactions; SI objective discrepancy is below 2.49e-9 and
+within-cell spread below 1.94e-9. Original physical fields and limits are
+preserved. No inherited network limit is active in these endpoints, so this
+panel does not establish performance near active voltage, line or nameplate
+bounds. After isolated timing, 24 NLPDiagnostics evaluations verify the complete
+Jacobian row/column identity at common SI points to scaled error below 2.23e-16,
+without derivative failures or finite-difference fallback.
+
 ## Independent load-power rows — 6 October 2026
 
 Full regression passes **121,580/121,580 assertions**, including **21,531 new

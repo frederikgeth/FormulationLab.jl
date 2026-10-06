@@ -1896,3 +1896,34 @@ Positive equality scaling preserves exact feasibility, but changes numerical
 residual magnitudes. Keep independent SI and original-model audits when comparing
 solves. The [factorial study](ivr_load_power_rows.md) retains these gates and ranks
 only Ipopt wall time.
+
+## 54. Declare a scaling transfer panel
+
+Keep the eight-arm row study as a reproducible default, or declare a smaller
+factorial for a new network. The following six arms cross three load-column
+rules with assembly-unit or nominal-unit voltage-law rows. The electrical
+definition rows retain assembly units. The voltage-class rule uses native coil
+`v_nom`, with 1 kVA at or below 1 kV and 10 kVA above it; this experimental
+threshold is not a transformer-region inference.
+
+```@example exactivr
+transfer_columns = (:uniform_1k,:voltage_class,:nominal_max)
+transfer_rows = (:off,:laws)
+transfer_profiles = IVRLoadPowerRowStudy.profiles(load_lift_net,:quadratic_cost;
+    column_treatments=transfer_columns,row_modes=transfer_rows)
+@assert length(transfer_profiles)==6
+@assert all(p.options.load_power_lifting for p in transfer_profiles)
+@assert all(p.formulation_name=="reduced_powers" for p in transfer_profiles)
+[(name=p.name,columns=p.options.load_power_bases,rows=p.options.load_power_row_bases)
+    for p in transfer_profiles]
+```
+
+Pass the same `column_treatments` and `row_modes` to
+`IVRLoadPowerRowStudy.benchmark(input_path,output_path; ...)` to run the panel.
+Both collections must be nonempty, unique and supported. The report records the
+complete assignments, candidates, solver settings and position-balanced orders.
+Specify `exchange_target_W` when testing `workload=:exchange_tracking`. Preserve
+original input and scenario-addition manifests separately. The
+[multi-MV-site transfer](ivr_mv_scale_transfer.md) demonstrates case selection,
+strict admission and an isolated timing protocol; its outcomes do not establish
+a universal scaling policy.

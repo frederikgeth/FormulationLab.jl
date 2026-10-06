@@ -55,7 +55,15 @@ No new automatic scaling default follows. The subsequent
 and 128 warm-ups, but finds no consistently faster row policy and no iteration
 changes. Keep assembly-unit load rows (`load_power_row_scaling=:off`) with the
 1 kVA load-column control. All row modes remain experimental options. Broader
-MV sampling and original-mode sensitivity remain open.
+MV sampling and original-mode sensitivity remain open. The next
+[six-MV-site transfer](ivr_mv_scale_transfer.md) passes all 576 measured solves
+and 96 warm-ups. Nominal-demand load columns reduce low-filter tracking time
+by about 18–19% with Ipopt scaling off (37 to 29 iterations), but gradient-scaled
+tracking still gives a lower absolute time in that setting. High-filter tracking
+favours Ipopt scaling off. Cost and row-policy differences remain mixed. Keep
+nominal and voltage-class columns as conditional candidates; the common control
+and package defaults remain unchanged. This panel has no active inherited
+network limits, so active-boundary transfer remains open.
 
 ## Primary assessment: Ipopt wall-clock time
 
