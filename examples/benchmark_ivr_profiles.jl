@@ -197,12 +197,16 @@ function benchmark(net,output;repetitions=4,candidates=profiles(),solver_options
     # Compare the complete physical definition, not just the :power mode label.
     all(JSON3.write(p.options.power_terms)==JSON3.write(terms) for p in candidates) ||
         throw(ArgumentError("profiles must share power objective terms"))
-    reference=build_opf(net,IVRNLP(;objective,power_terms=terms))
+    nameplate=first(candidates).options.transformer_nameplate
+    all(p.options.transformer_nameplate==nameplate for p in candidates) ||
+        throw(ArgumentError("profiles must share transformer nameplate bounds"))
+    reference=build_opf(net,IVRNLP(;objective,power_terms=terms,transformer_nameplate=nameplate))
     rows=[Dict{String,Any}("name"=>p.name,"formulation_name"=>get(p,:formulation_name,p.name),
         "options"=>option_record(p.options),"solver_options"=>profile_solver_options(p,solver_options),
         "warmup"=>nothing,"trials"=>[]) for p in candidates]
     report=Dict{String,Any}("profiles"=>rows,"repetitions"=>repetitions,"objective"=>objective,
         "source_sha256"=>source_sha256,"network_sha256"=>bytes2hex(sha256(JSON3.write(net))),
+        "reference_transformer_nameplate"=>string(nameplate),
         "julia"=>string(VERSION),"jump"=>string(pkgversion(JuMP)),"ipopt"=>string(pkgversion(Ipopt)),
         "cpu"=>Sys.CPU_NAME,"blas_threads"=>BLAS.get_num_threads(),"julia_threads"=>Threads.nthreads(),
         "solver_options"=>solver_options,"runner_sha256"=>RUNNER_SHA,"orders"=>[],

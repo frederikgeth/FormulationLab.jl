@@ -1,5 +1,27 @@
 # Verification
 
+## Paired voltage-law timing — 6 October 2026
+
+Full regression passes **97,223/97,223 assertions**, including 129 new checks for
+matched options, independent ownership, strict benchmark admission and common
+nameplate bounds in the full reference. Mixed physical policies are refused.
+The production equations, solver timer and package defaults are unchanged.
+
+Both frozen batches complete **2304 measured trials and 192 warm-ups**. All
+1152 lifted trials and 96 lifted warm-ups pass. Original mode passes 576/1152
+trials and 48/96 warm-ups; all 624 rejected solves remain explicit. Failed
+profiles have no survivor-only timing median. Eligibility agrees across batches.
+Independent QA verifies inputs/frozen source, all options, position balance,
+reference policy, admission gates and 128 eligible paired contrasts. Objective
+reconstruction error is below 5.92e-10 and within-cell spread below 1.91e-10.
+Timing is isolated and ranks only Ipopt wall time, excluding compilation.
+
+The [study](ivr_load_power_timing.md) reports conditional benefits and slowdowns.
+Full/reduced power lifting are close for cost; reduced power with reuse is the
+tracking shortlist. Passive elimination/cap-four restrictions are inactive on
+this feeder. Original preflight/campaign admission differences remain an open
+sensitivity question; no failed historical trial is relabelled.
+
 ## Voltage-law power lifting — 6 October 2026
 
 Full regression passes **97,094/97,094 assertions**, including **3916 new checks**

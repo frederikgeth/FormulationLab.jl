@@ -129,3 +129,12 @@ timed runs from tests and other solver work. Broader feeder transfer and more
 precise derivative/KKT diagnostics remain useful before changing any default.
 All logs, rejected trials, inputs, exports, source snapshots and planning documents
 remain outside Git in `VD_DIAGNOSIS_20261006`.
+
+## Follow-up: isolated paired timing
+
+The [paired timing study](ivr_load_power_timing.md) completes two fresh-process
+batches with all alternatives retained. All 1152 lifted measured trials pass;
+576/1152 original trials pass. Speed effects depend on objective and profile,
+including some slowdowns. The complete tables and conditional shortlist supersede
+the untimed performance limitation of this initial diagnosis without changing
+its original evidence.

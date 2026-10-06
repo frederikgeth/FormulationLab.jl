@@ -40,6 +40,7 @@ makedocs(;
             "Common urban finalists"=>"ivr_urban_finalists.md",
             "Three-phase transfer and nameplates"=>"ivr_threephase_transfer.md",
             "Voltage-law power lifting"=>"ivr_load_power_lifting.md",
+            "Paired load-power timing"=>"ivr_load_power_timing.md",
             "Best-evidence numerical profiles"=>"ivr_performance.md",
             "Earlier timing and initialization studies"=>"ivr_performance_history.md",
         ],

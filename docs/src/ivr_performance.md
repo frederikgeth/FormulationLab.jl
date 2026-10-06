@@ -34,8 +34,14 @@ cell. Each failed reduced model admits a full-model feasible point. These failur
 require a robustness qualification before timing a reduced shortlist there.
 A [subsequent exact load-power extension](ivr_load_power_lifting.md) admits all
 96 combinations with unchanged strict settings. It is available as the opt-in
-`load_power_lifting=true`; it has not yet been timed in an isolated comparison.
-The original representation and all rejected outcomes remain available.
+`load_power_lifting=true`. The subsequent [isolated paired study](ivr_load_power_timing.md)
+admits all 1152 lifted measured trials, versus 576/1152 original trials. For cost,
+lifted full/reduced power profiles are closely matched; for tracking, prioritize
+lifted reduced power with generator reuse (about 7.5–37.5% below the lifted full
+control by paired median). Lifting can also slow eligible full-model tracking,
+so this is a conditional shortlist. Signed observations and inactive cap-four
+restrictions do not establish a speed advantage. All original/rejected outcomes
+and every option remain available; package defaults are unchanged.
 
 ## Primary assessment: Ipopt wall-clock time
 

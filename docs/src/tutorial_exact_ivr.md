@@ -1818,3 +1818,27 @@ load_lift_original = build_opf(load_lift_net,IVRNLP(first(ThreePhaseDemo.profile
 The [external study](ivr_load_power_lifting.md) improves admission from 74/96 to
 96/96 with this representation. This demonstrates robustness on that panel,
 not a universal speedup. Keep `load_power_lifting=false` as an explicit control.
+
+
+## 51. Construct matched load-power timing candidates
+
+The dedicated runner retains both load-power representations for each of six
+existing profiles. It enforces the same transformer nameplate policy throughout.
+
+```@example exactivr
+include(joinpath(pkgdir(FormulationLab),"examples","benchmark_ivr_load_power_lifting.jl"))
+load_power_pairs = IVRLoadPowerStudy.profiles(load_lift_net,:quadratic_cost)
+@assert length(load_power_pairs)==12
+for k in 1:6
+    @assert !load_power_pairs[k].options.load_power_lifting
+    @assert load_power_pairs[k+6].options.load_power_lifting
+    @assert load_power_pairs[k].formulation_name==load_power_pairs[k+6].formulation_name
+    @assert load_power_pairs[k].solver_options==load_power_pairs[k+6].solver_options
+end
+[(name=p.name,nameplates=p.options.transformer_nameplate) for p in load_power_pairs]
+```
+
+Run the [paired timing protocol](ivr_load_power_timing.md) in isolated Julia
+processes. A candidate with any rejected warm-up or measured repeat is ineligible;
+never report its survivor-only median as a speed estimate. Retain original failures
+alongside the auxiliary-power candidates. Compilation time does not rank profiles.
