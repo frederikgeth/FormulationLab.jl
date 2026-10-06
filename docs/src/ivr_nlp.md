@@ -605,8 +605,9 @@ Fixed isolated-winding transformers support `single_phase`, `center_tap`,
 leakage, fixed ratios and phase shifts, excitation, neutral grounding and
 side-specific current limits. Delta winding current limits apply to coils;
 other side limits apply to terminal currents. General multiwinding limits
-`i_max` and `s_max` apply to coil channels. `s_rating` is a schema power base,
-not an implicit operating limit. See [Transformer winding model](sdp_transformers.md)
+`i_max` and `s_max` apply to coil channels. By default, `s_rating` adds no
+operating limit. Exact IVR also offers the explicit
+`transformer_nameplate=:bmopftools` policy described below. See [Transformer winding model](sdp_transformers.md)
 for coefficient and orientation conventions.
 
 Ordinary transformers accept the schema `tap_ratio`, `tap_ratio_min` and
@@ -616,6 +617,39 @@ conflicting values are rejected. General multiwinding entries use `tap_ratio`
 per winding. Unequal tap bounds require an explicit fixed setting.
 Taps are fixed equipment data and cannot be
 changed through the load/generator update APIs.
+
+### Explicit transformer nameplate policy
+
+`IVRNLP(transformer_nameplate=:bmopftools)` adds the positive `s_rating` cap
+used by the inspected BMOPFTools implementation. This selects a physical feasible
+set; it is not a numerical reformulation and must be fixed across a timing panel.
+The default `:ignore` preserves the previous native problem and every older
+experiment. The build's `transformer_nameplate_report` identifies every positive
+ordinary-transformer rating and whether it is enforced.
+
+| Transformer | Rated voltage/current | Per-channel limit |
+|---|---|---|
+| Single phase, center tap | From-side coil voltage and series current | `s_rating` |
+| Delta/wye, wye/delta | Wye phase-neutral voltage and total phase-terminal current | `s_rating / 3` |
+| Single-phase autotransformer, open-delta regulator | From-side through-coil voltage and series current | `s_rating` per regulator |
+
+No aggregate three-phase norm or nominal-voltage current approximation replaces
+these products. Wye phase current includes excitation; regulator bond/ground
+currents are not substituted for the through-coil current. Missing ratings add
+no row. A supplied zero rating is rejected in this mode, matching the reference's
+input validation; the legacy mode continues to allow zero without a cap.
+General multiwinding `s_rating` remains metadata, and explicit multiwinding
+`s_max` retains the existing native per-coil interpretation. This policy does
+not claim complete BMOPFTools multiwinding, control or device-law equivalence.
+
+Direct and lifted constraints share the same original rated observations, even
+after transformer-current elimination and unit changes. The independent SI
+auditor selects the rated port separately. `physical_residuals(net, result)`
+reads the policy from the exact-IVR result; an `ACPoint` caller must pass
+`transformer_nameplate=:bmopftools` explicitly. SI exports label the policy and
+include `s`/`s_max` at the enforced reference-compatible transformer positions.
+See the [nameplate and three-phase study](ivr_threephase_transfer.md) for active
+bounds, live-reference tests, previous-study qualification and remaining gaps.
 
 ### Voltage-dependent load laws
 
@@ -695,7 +729,9 @@ for open delta. A one-terminal single-phase unit has no explicit bond channel.
 Bond power uses its **voltage drop**, which is zero at a feasible point; it is
 not a port-transfer-power observation. Side powers use total terminal currents.
 `i_max_from` and `i_max_to` constrain every rated terminal, including the bond
-and any internal neutral-ground contribution. `s_rating` adds no thermal cap.
+and any internal neutral-ground contribution. With the default nameplate
+policy, `s_rating` adds no thermal cap; the opt-in BMOPFTools policy instead
+rates each from-side through coil.
 
 Optional `r_neutral_from/to` and `x_neutral_from/to` are native dictionary
 extensions for these regulator types. An ideal internal ground and a conductive
@@ -771,8 +807,10 @@ the independent SI auditor:
 Source Q/current/apparent bounds and switch/multiwinding `s_max` are dictionary
 extensions to the pinned schema. Fixed tap bounds are checked against the
 equipment setting before construction; they are not optimization variables.
-`s_rating`, load `p_nom`/`q_nom`, nominal voltages and retained geometry ratings
-do not imply extra operating caps under this contract.
+Load `p_nom`/`q_nom`, nominal voltages and retained geometry ratings do not imply
+extra operating caps. The default `transformer_nameplate=:ignore` also leaves
+`s_rating` unenforced. This differs from BMOPFTools; choose the explicit policy
+below when preserving its ordinary-transformer nameplate limits.
 
 `test/ivr_bound_coverage_tests.jl` holds feasible physical states fixed, tightens
 individual bound entries, and requires both the actual NLP and the independent

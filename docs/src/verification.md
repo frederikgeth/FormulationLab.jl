@@ -1,5 +1,38 @@
 # Verification
 
+## Three-phase transfer and explicit nameplates — 6 October 2026
+
+The full suite passes **93,178/93,178 assertions**, including **4868 new checks**.
+The new `transformer_nameplate=:bmopftools` policy adds ordinary-transformer
+`s_rating` bounds at the correct rated ports, while retaining the previous
+`:ignore` policy and all numerical options. Independent analytical witnesses
+cover six families, reverse flow, two bases, lifting and current elimination.
+An active-cap dispatch example and SI exports agree with the live BMOPFTools
+reference in **108 optional integration assertions**. Its supplied-zero rejection
+corrected an initial assumption based only on the reference's constraint builder.
+
+The source-preserving three-phase factorial preflight covers **96 combinations**:
+**74 admitted**, **22 rejected** (17 `ALMOST_LOCALLY_SOLVED`, four `OTHER_ERROR`,
+one `LOCALLY_INFEASIBLE`). All rejections occur with voltage-dependent loads;
+full power lifting passes every cell. All 22 rejected models admit a separately
+solved full-model point. Their convergence cause remains open, so **no timing
+campaign or new speed ranking is reported**.
+
+The 74 admitted SI exports pass physical/full/reverse membership, objective
+reconstruction and round trips. All 296 tightened-bound witnesses reject.
+All 41 admitted tracking endpoints activate an inherited transformer nameplate
+phase cap. Independent input/factor/limit audits pass; objective error is below
+5.56e-10 and within-cell spread below 2.05e-10. A retrospective check of 112
+saved urban/rural endpoints finds all 912 rated observations below nameplate
+(maximum utilization 0.179210); prior timings still describe uncapped models.
+See the [study](ivr_threephase_transfer.md) and tutorial sections 48–49.
+
+Initial fixture/setup/reporting errors and all rejected admissions remain in
+the outside-Git evidence. One regression run loaded the policy before the
+zero-rating correction and failed that new test; the final full run uses the
+stable source. Existing OpenDSS precompile fallback remains nonfatal. No source
+dataset is edited and no prior transformation is deleted.
+
 ## Common urban finalists — 6 October 2026
 
 The full suite passes **88,310/88,310 assertions**, including **2214 new checks**

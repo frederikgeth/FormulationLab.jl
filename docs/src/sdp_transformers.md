@@ -121,10 +121,13 @@ bus terminals. Each vector must cover the declared map, including any explicit
 return. This corrects the earlier delta terminal-current interpretation. These
 limits use affine squared-current moments.
 
-`s_rating` is a nonnegative power-base parameter in the pinned BMOPF schema,
-not an operating apparent-power limit. It does not impose a thermal constraint.
-Use the declared winding current limits to restrict loading. This corrects an
-earlier implementation that imposed an additional, unjustified nameplate cap.
+In this shared native winding contract, `s_rating` is a nonnegative power-base
+parameter and does not impose a thermal constraint. Use explicit winding limits
+to restrict loading. This interpretation differs from BMOPFTools, which enforces
+ordinary-transformer nameplate caps. Exact IVR now offers the separate
+[`transformer_nameplate=:bmopftools` policy](ivr_nlp.md#Explicit-transformer-nameplate-policy);
+SDP/SOC assembly and the legacy native policy remain unchanged. Choosing between
+these physical bound contracts must be explicit before comparing formulations.
 
 `relaxed_powers` exposes keys `(:transformer_from, "subtype/id")` and
 `(:transformer_to, "subtype/id")` in terminal order, including excitation.

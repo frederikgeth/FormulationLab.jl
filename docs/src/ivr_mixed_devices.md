@@ -218,3 +218,9 @@ IBRs have correctness evidence here. Larger independent feeders, three-phase IBR
 timing, separate load/filter interventions and original-network preprocessing
 reconstruction remain further transfer questions. Local solutions and matching
 objectives provide no global AC optimality certificate.
+
+A subsequent [three-phase/nameplate study](ivr_threephase_transfer.md) makes the
+physical-contract qualification explicit: this historical panel used the native
+policy without `s_rating` caps. Its saved preflight endpoints pass a retrospective
+nameplate check, but these timing numbers do not measure models with the extra
+constraint rows. The raw evidence and original interpretation remain retained.

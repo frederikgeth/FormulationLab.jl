@@ -266,3 +266,9 @@ Derivative counts are not native KKT fill or factorization-memory measurements.
 The shortlist is conditional on this scenario, objective, solver policy and
 candidate set. Broader mixed-device transfer and original-network preprocessing
 reconstruction remain separate priorities.
+
+A subsequent [three-phase/nameplate study](ivr_threephase_transfer.md) makes the
+physical-contract qualification explicit: this historical panel used the native
+policy without `s_rating` caps. Its saved preflight endpoints pass a retrospective
+nameplate check, but these timing numbers do not measure models with the extra
+constraint rows. The raw evidence and original interpretation remain retained.

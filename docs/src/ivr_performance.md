@@ -23,6 +23,16 @@ units to 10 kVA under gradient scaling can add iterations and lose 10–21%,
 depending on dispatch units and reuse. The study retains full 1/10 kVA and
 full-power controls, both batches and every tail; no universal default follows.
 
+The [three-phase transfer preflight](ivr_threephase_transfer.md) identifies a
+correctness qualification and a robustness gap. Previous exact-IVR panels used
+the native policy that ignores transformer `s_rating`; the new opt-in BMOPFTools
+policy enforces its ordinary-transformer nameplate caps. All 112 retrospectively
+checked urban/rural endpoints satisfy these caps, but their recorded timings do
+not include the extra rows. On the new French feeder, 22 of 96 strict admissions
+fail, all with voltage-dependent demand, while full power lifting passes every
+cell. Each failed reduced model admits a full-model feasible point. Diagnose
+these convergence failures before promoting or timing a reduced shortlist there.
+
 ## Primary assessment: Ipopt wall-clock time
 
 The primary assessment now **excludes the cost of constructing reduced models**.

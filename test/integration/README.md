@@ -1,5 +1,11 @@
 # Optional BMOPFTools / Ipopt reference
 
+`julia --project=test/integration test/integration/ivr_nameplate_reference.jl /tmp/nameplate-reference.json`
+checks active/absent single-phase nameplate caps, dispatch and transformer result
+fields against the local BMOPFTools checkout in per unit. It also checks that
+both implementations reject a supplied zero rating. The exact-IVR run explicitly
+uses `transformer_nameplate=:bmopftools`; the default native policy is retained.
+
 The experimental native exact IVR comparison uses the same optional environment:
 
 ```sh

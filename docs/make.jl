@@ -38,6 +38,7 @@ makedocs(;
             "Physical non-unit transformer sharing"=>"ivr_nonunit_transformers.md",
             "Mixed-device rural transfer"=>"ivr_mixed_devices.md",
             "Common urban finalists"=>"ivr_urban_finalists.md",
+            "Three-phase transfer and nameplates"=>"ivr_threephase_transfer.md",
             "Best-evidence numerical profiles"=>"ivr_performance.md",
             "Earlier timing and initialization studies"=>"ivr_performance_history.md",
         ],

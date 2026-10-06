@@ -62,6 +62,14 @@ exactly matching voltage/current row pairs when lifting is enabled. Default :off
 `device_elimination=:transformer_currents` substitutes from-side coil currents
 using fixed-transformer current balance. Retains circulation, bonds and grounds;
 multiwinding devices remain explicit. Default :off.
+`transformer_nameplate=:bmopftools` enforces positive ordinary-transformer
+`s_rating` on the BMOPFTools rated port: from coil for single-phase/center-tap,
+wye phase port for Yd/Dy (one third per phase), and from through-coil for
+regulators (undivided per regulator). Missing ratings add no cap; the BMOPFTools
+policy rejects a supplied zero rating, matching its native input validation.
+Default :ignore retains the earlier native contract. This is a physical bound
+policy, not a numerical transformation. General multiwinding `s_rating` remains
+metadata in both policies; its explicit winding limits keep their native units.
 """
 Base.@kwdef struct IVRNLPOptions
     s_base::Float64 = 1e4
@@ -83,9 +91,40 @@ Base.@kwdef struct IVRNLPOptions
     observation_support_threshold::Int = 2
     observation_sharing::Symbol = :off
     device_elimination::Symbol = :off
+    transformer_nameplate::Symbol = :ignore
 end
 
 _ivrn_objective_scale(options)=something(options.objective_scale,options.s_base)
+
+# Bound observations enter the common limit path before coordinate elimination,
+# so direct and lifted formulations bind the same original physical quantity.
+function _ivrn_nameplate_limits!(net,e,policy)
+    policy in (:ignore,:bmopftools) || throw(ArgumentError("unknown transformer nameplate policy"))
+    records=Any[]
+    for (kind,table) in get(net,"transformer",Dict()),(id,d) in table
+        kind=="n_winding" && continue
+        rating=get(d,"s_rating",0.)
+        rating isa Real && !(rating isa Bool) && isfinite(rating) && rating>=0 ||
+            _ivrn_refuse("transformer/$kind/$id s_rating must be a nonnegative finite scalar")
+        policy==:bmopftools && haskey(d,"s_rating") && rating==0 &&
+            _ivrn_refuse("transformer/$kind/$id s_rating must be positive under the BMOPFTools nameplate policy")
+        rating>0 || continue
+        key="$kind/$id";side=kind=="delta_wye" ? :to : :from
+        _,_,u,j,_=only(x for x in e.devices if x[1]==Symbol("transformer_coil_",side) && x[2]==key)
+        channels=collect(eachindex(u));current_basis="series_coil"
+        if kind in ("delta_wye","wye_delta")
+            _,_,_,terminal,_=only(x for x in e.devices if x[1]==Symbol("transformer_",side) && x[2]==key)
+            neutral=get(e.neutral_map,d["bus_$side"],nothing)
+            channels=findall(!=(neutral),d["terminal_map_$side"])
+            j=terminal[channels];current_basis="wye_phase_terminal"
+        end
+        per=kind in ("delta_wye","wye_delta") ? rating/3 : rating
+        enforced=policy==:bmopftools
+        enforced && push!(e.limits,(u,j,Dict("s_max"=>fill(per,length(u)))))
+        push!(records,(;id,kind,side,channels,current_basis,limit_VA=per,enforced))
+    end
+    records
+end
 
 """An exact-IVR scope refusal, carrying a stable `code` and explanatory `message`.
 
@@ -448,6 +487,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.observation_support_threshold>=0 || throw(ArgumentError("observation support threshold must be nonnegative"))
     options.observation_sharing in (:off,:exact,:signed,:proportional) || throw(ArgumentError("unknown IVRNLP observation sharing"))
     options.device_elimination in (:off,:transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
+    options.transformer_nameplate in (:ignore,:bmopftools) || throw(ArgumentError("unknown transformer nameplate policy"))
     net=_l3f_input(input);_ivrn_check(net)
     for (id,base) in options.generator_power_bases
         haskey(get(net,"generator",Dict()),id) || throw(ArgumentError("unknown generator in generator_power_bases: $id"))
@@ -457,6 +497,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
                            delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
                            record_transformer_bonds=true,record_transformer_currents=true)
+    nameplates=_ivrn_nameplate_limits!(net,e,options.transformer_nameplate)
     z0=_ivrn_start(net,e)
     report,plan=options.specialization==:off ? ((;status=:disabled,code=:disabled,components=String[]),nothing) :
         options.specialization==:conductor_regions ? _ivrn_regions(net,e) : _ivrn_structure(net,e)
@@ -613,6 +654,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     unavailable=[(id,t) for (id,d) in net["voltage_source"] for t in d["terminal_map"]
                  if e.voltage[(d["bus"],t)]==0]
     diagnostics=Dict{Symbol,Any}(:power_model=>:exact,:delta_dispatch=>:coil,:ibr_delta_dispatch=>:conductor,
+        :transformer_nameplate=>options.transformer_nameplate,:transformer_nameplate_report=>nameplates,
         :specialization=>plan===nothing ? :off : options.specialization,
         :specialization_report=>report,:structure_analysis_count=>options.specialization==:off ? 0 : 1,
         :network_reduction=>:off,:assembly_count=>1,

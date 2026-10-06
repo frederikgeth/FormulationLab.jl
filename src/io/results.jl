@@ -111,6 +111,11 @@ function result_dict(input::Union{AbstractDict,BMOPFInput,AbstractString,PowerIO
         "initialisation_available"=>get(meta,"initialisation_available",false),
         "network_sha256"=>_result_digest(net))
     out["_formulationlab"]=extras
+    if r isa IVRNLPResult
+        extras["transformer_nameplate_policy"]=string(get(r.numerical_diagnostics,:transformer_nameplate,:ignore))
+        extras["transformer_nameplate_report"]=[Dict(string(k)=>(v isa Symbol ? string(v) : deepcopy(v))
+            for (k,v) in pairs(entry)) for entry in get(r.numerical_diagnostics,:transformer_nameplate_report,Any[])]
+    end
     haskey(meta,"objective_definition") && (extras["objective_definition"]=deepcopy(meta["objective_definition"]))
     V(b,t)=get(voltage,(b,t),_RESULT_NAN)
     function I(f,id,n)
@@ -255,6 +260,19 @@ function result_dict(input::Union{AbstractDict,BMOPFInput,AbstractString,PowerIO
             end
         end
         rec["ground"]=_result_ground(earth);rec["loss"]=loss(ports)
+        if r isa IVRNLPResult
+            for entry in get(r.numerical_diagnostics,:transformer_nameplate_report,Any[])
+                entry.id==id && entry.kind==kind && entry.enforced || continue
+                label=entry.side==:from ? "fr" : "to";port=detail[label]
+                u=[complex(x["vr"],x["vi"]) for x in port["coil_voltage"]]
+                field=entry.current_basis=="wye_phase_terminal" ? "terminal_current" : "coil_current"
+                current=[complex(x["cr"],x["ci"]) for x in port[field]]
+                rated=entry.current_basis=="wye_phase_terminal" ? current[entry.channels] : current
+                for (k,channel) in enumerate(entry.channels)
+                    merge!(rec[label][string(channel)],Dict("s"=>abs(u[k]*conj(rated[k])),"s_max"=>entry.limit_VA))
+                end
+            end
+        end
         totalp+=rec["loss"]["p_loss"];totalq+=rec["loss"]["q_loss"]
         put!("transformer",id,rec);device!("transformer",id,detail)
     end

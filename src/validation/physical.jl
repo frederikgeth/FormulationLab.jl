@@ -6,9 +6,9 @@ physical_residuals(input,result::LinIVRResult;kwargs...)=physical_residuals(inpu
     delta_dispatch=:coil,kwargs...)
 
 """Check exact IVR with coil delta generators and conductor-rated THREE_LEG IBRs."""
-physical_residuals(input,result::IVRNLPResult;kwargs...)=physical_residuals(input,
+physical_residuals(input,result::IVRNLPResult;transformer_nameplate=get(result.numerical_diagnostics,:transformer_nameplate,:ignore),kwargs...)=physical_residuals(input,
     ACPoint(voltage=result.voltage_candidate,currents=result.current_candidate);
-    delta_dispatch=:coil,ibr_delta_dispatch=:conductor,kwargs...)
+    delta_dispatch=:coil,ibr_delta_dispatch=:conductor,transformer_nameplate,kwargs...)
 
 _vcheck_array(d,k,n,default=0.0)=haskey(d,k) ? (d[k] isa Number ? fill(Float64(d[k]),n) : Float64.(d[k])) : fill(default,n)
 function _vcheck_matrix(d,prefix,n;symmetric=false)
@@ -48,9 +48,10 @@ the default `:conductor` preserves the existing SDP result convention.
 `ibr_delta_dispatch` defaults to the same convention but can be selected separately.
 For exact IVR, pass the typed result to select coil generators and conductor IBRs.
 """
-function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6,power=1e-3),delta_dispatch=:conductor,ibr_delta_dispatch=delta_dispatch)
+function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6,power=1e-3),delta_dispatch=:conductor,ibr_delta_dispatch=delta_dispatch,transformer_nameplate=:ignore)
     delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown delta dispatch convention"))
     ibr_delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown IBR dispatch convention"))
+    transformer_nameplate in (:ignore,:bmopftools) || throw(ArgumentError("unknown transformer nameplate policy"))
     net=input isa BMOPFInput ? _l3f_input(input) : input
     records=NamedTuple[];unassessed=String[]
     V(b,tm)=[get(point.voltage,(b,t),ComplexF64(NaN)) for t in tm]
@@ -204,7 +205,7 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
         inject(d["bus_from"],tm,i);inject(d["bus_to"],mt,j);rates(d,v,i,"switch/$id")
         rates(d,w,j,"switch/$id/to")
     end
-    _physical_transformers!(net,point,V,current,check,bounds,inject,unassessed)
+    _physical_transformers!(net,point,V,current,check,bounds,inject,unassessed;transformer_nameplate)
     for (id,d) in get(net,"ibr",Dict())
         tm=d["terminal_map"];top=d["topology"];n=length(d["s_max"])
         cfg=top=="FOUR_LEG" ? "WYE" : top=="THREE_LEG" ? "DELTA" : "SINGLE_PHASE"
@@ -241,7 +242,7 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
     (;passed,maxima,records,unassessed=unique(unassessed),tolerances=atol,nodal_balance=kcl)
 end
 
-function _physical_transformers!(net,point,V,current,check,bounds,inject,unassessed)
+function _physical_transformers!(net,point,V,current,check,bounds,inject,unassessed;transformer_nameplate=:ignore)
     for (kind,table) in get(net,"transformer",Dict()),(id,d) in table
         key="$kind/$id"
         if !(kind in (_SDP_TRANSFORMERS...,"n_winding"));push!(unassessed,"transformer/$key");continue;end
@@ -275,6 +276,24 @@ function _physical_transformers!(net,point,V,current,check,bounds,inject,unasses
         Df,Dt=_vcheck_incidence(pf,nf),_vcheck_incidence(pt,nt);uf,ut=Df*vf,Dt*vt
         jf=current(:transformer_coil_from,key,length(pf));jt=current(:transformer_coil_to,key,length(pt))
         cf=current(:transformer_from,key,nf);ct=current(:transformer_to,key,nt)
+        if transformer_nameplate==:bmopftools && haskey(d,"s_rating")
+            rating=d["s_rating"]
+            if !(rating isa Real && !(rating isa Bool) && isfinite(rating) && rating>0)
+                push!(unassessed,"transformer/$key invalid s_rating")
+            elseif rating>0
+                # Independently select the reference contract's rated port.
+                if kind in ("delta_wye","wye_delta")
+                    from=kind=="wye_delta";tm=from ? mf : mt
+                    bus=d[from ? "bus_from" : "bus_to"];neutral=_vcheck_neutral(net,bus)
+                    phases=findall(!=(neutral),tm)
+                    s=(from ? uf : ut).*conj.((from ? cf : ct)[phases])
+                    bound=rating/3
+                else
+                    s=uf.*conj.(jf);bound=rating
+                end
+                bounds(Dict("s_rating"=>bound),abs.(s),"__none","s_rating","transformer/$key",:power)
+            end
+        end
         zf=complex(get(d,"r_series_from",0.),get(d,"x_series_from",0.));zt=complex(get(d,"r_series_to",0.),get(d,"x_series_to",0.))
         if haskey(d,"r_series") || haskey(d,"x_series")
             z=complex(get(d,"r_series",0.),get(d,"x_series",0.));kind=="wye_delta" ? (zf=z) : (zt=z)

@@ -60,8 +60,13 @@ positions refer to the series-current terminal image. Terminal currents includin
 excitation, internal grounding and bonds are separately retained in the extension.
 
 Compatibility of result fields does not imply identical OPFs. In particular,
-FormulationLab treats transformer `s_rating` as a base, so it does not report it
-as an enforced `s_max`. Optimized taps, external DC laws and control profiles
+the default exact-IVR policy leaves transformer `s_rating` unenforced, so it
+does not report it as an enforced `s_max`. With
+`transformer_nameplate=:bmopftools`, ordinary-transformer rated positions include
+`s` and `s_max` in SI units. `_formulationlab.transformer_nameplate_policy` and
+`transformer_nameplate_report` distinguish enforced and ignored ratings. These
+fields describe the solve snapshot, independently of the numerical reduction
+chosen. See the [rated-port contract](ivr_nlp.md#Explicit-transformer-nameplate-policy). Optimized taps, external DC laws and control profiles
 are not added by this exporter. Empty `dc_bus`, `dc_branch` and
 `modeled_volt_watt` tables preserve the reference envelope for the supported scope.
 No runtime dependency or silent fallback to BMOPFTools is introduced.

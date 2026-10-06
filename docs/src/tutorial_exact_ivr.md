@@ -1729,3 +1729,66 @@ versus `powers_reuse` changes only the line-elimination policy. A signed-observa
 profile versus a power-only profile changes the observation bundle; it does not
 isolate the coefficient-sharing rule. Keep these distinctions when interpreting
 paired ratios, and retain the full 1 kVA and 10 kVA controls.
+
+## 48. Make the transformer nameplate contract explicit
+
+A 200 W load behind an ideal 100 VA single-phase transformer needs local support.
+If local generation is priced and source power is free, enforcing the nameplate
+requires 100 W locally. The historical native policy leaves that cap unenforced.
+This comparison changes physical bounds, so it must not be presented as an exact
+reformulation speed comparison.
+
+```@example exactivr
+nameplate_network = Dict{String,Any}(
+    "bus"=>Dict(b=>Dict("terminal_names"=>["p","n"],"perfectly_grounded_terminals"=>["n"]) for b in ("f","t")),
+    "voltage_source"=>Dict("s"=>Dict("bus"=>"f","terminal_map"=>["p","n"],"v_magnitude"=>[230.,0.],"v_angle"=>[0.,0.])),
+    "transformer"=>Dict("single_phase"=>Dict("tx"=>Dict("bus_from"=>"f","bus_to"=>"t",
+        "terminal_map_from"=>["p","n"],"terminal_map_to"=>["p","n"],"v_nom_from"=>230.,"v_nom_to"=>115.,"s_rating"=>100.))),
+    "load"=>Dict("d"=>Dict("bus"=>"t","terminal_map"=>["p","n"],"configuration"=>"SINGLE_PHASE","p_nom"=>[200.],"q_nom"=>[0.])),
+    "generator"=>Dict("g"=>Dict("bus"=>"t","terminal_map"=>["p","n"],"configuration"=>"SINGLE_PHASE",
+        "p_min"=>[0.],"p_max"=>[300.],"q_min"=>[0.],"q_max"=>[0.],"s_max"=>[300.])))
+nameplate_rows = map((:ignore,:bmopftools)) do policy
+    b = build_opf(nameplate_network,IVRNLP(objective=:power,
+        power_terms=[IVRPowerTerm(channels=[(:generator,"g",1)],linear=1.)],
+        objective_scale=1.,transformer_nameplate=policy,lifting=:powers,
+        device_elimination=:transformer_currents);optimizer=Ipopt.Optimizer)
+    r = solve_ivr_nlp_opf(b;solver_options=(print_level=0,tol=1e-10,bound_relax_factor=0.))
+    @assert r.solve.optimal && physical_residuals(nameplate_network,r).passed
+    @assert isapprox(r.objective,policy==:bmopftools ? 100. : 0.;atol=1e-5)
+    (policy=policy,local_generation_W=r.objective,transformer=result_dict(b,r)["transformer"]["tx"])
+end
+nameplate_rows
+```
+
+The enforced result includes transformer `s` and `s_max`; the extension records
+the selected policy and every positive ordinary-transformer nameplate. An
+`ACPoint` audit must pass the policy explicitly; a typed exact-IVR result carries
+it automatically. See the [rated-port contract](ivr_nlp.md#Explicit-transformer-nameplate-policy)
+for wye/delta, center-tap and regulator port definitions.
+
+## 49. Separate filter and load-law interventions
+
+Both treatments below contain the same additional nominal demand and DERs.
+Only filter resistance/reactance change in the first comparison; only the
+parallel demand law changes in the second. Original equipment is preserved.
+
+```@example exactivr
+include(joinpath(dirname(pathof(FormulationLab)), "..", "examples", "benchmark_ivr_threephase_transfer.jl"))
+ThreePhaseDemo = IVRThreePhaseTransferStudy
+threephase_original = ThreePhaseDemo.P.ivr_compiler_case(conductors=4,segments=4)
+threephase_scenarios = Dict()
+for filter_level in (:low,:high),load_law in (:constant_power,:voltage_dependent)
+    n,manifest = ThreePhaseDemo.scenario(threephase_original;filter_level,load_law)
+    @assert all(n["load"][id]==d for (id,d) in threephase_original["load"])
+    @assert n["bus"]==threephase_original["bus"]
+    @assert all(p.options.transformer_nameplate==:bmopftools for p in ThreePhaseDemo.profiles(n,:quadratic_cost))
+    threephase_scenarios[(filter_level,load_law)] = (network=n,manifest=manifest)
+end
+[(filter=key[1],law=key[2],generators=length(value.network["generator"]),
+  inverters=length(value.network["ibr"])) for (key,value) in threephase_scenarios]
+```
+
+This construction example establishes factor isolation, not solver robustness.
+The [external preflight](ivr_threephase_transfer.md) retains 22 failed admissions
+under strict settings despite full-model feasible witnesses. Diagnose those
+failures before using this scenario panel for timing claims.
