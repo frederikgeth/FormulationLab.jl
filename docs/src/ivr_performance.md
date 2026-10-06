@@ -38,6 +38,15 @@ average. Derivative growth and iteration changes qualify the smaller electrical
 state. Keep explicit currents with power lifting as the control and test the
 optional elimination on the actual workload; no default changes.
 
+The [coupled mixed-device extension](ivr_nwinding_network.md) admits all 48
+preflight cases up to 243 buses and 24 live non-star transformers, under quadratic
+cost and exchange tracking. It confirms recovery and bound preservation on a
+larger manufactured network. At 24 units, power-lifted elimination removes 576
+variables but increases derivative entries and selected factor-storage counts.
+Both timing campaigns were interrupted by other Julia work and remain fully
+excluded; there is no eligible larger-network speed result. The small-panel
+benefit should not be extrapolated to these cases.
+
 The [live mixed-winding comparison](ivr_nwinding_connections.md) additionally
 shows that a small scaled Ipopt error and a feasible endpoint do not establish
 objective agreement or small unscaled dual residuals. Explicit absolute

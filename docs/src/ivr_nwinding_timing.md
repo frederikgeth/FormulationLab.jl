@@ -161,8 +161,11 @@ The external archive `NWINDING_ELIMINATION_TIMING_20261006` contains frozen sour
 both complete batches, preflight, probes, isolation samples, raw verbose logs,
 analysis and validation scripts. Plans and raw evidence remain outside Git.
 
-Next, transfer this comparison to larger mixed-device networks and additional
-power objectives, where absolute solve times and factorization work are larger.
+The [mixed-device network extension](ivr_nwinding_network.md) constructs larger
+coupled cases with additional power objectives and independent recovery checks.
+External-feeder validation remains open because the supplied plain JSON inputs
+contain no explicit multiwinding records. Larger-model timing must still satisfy
+the isolation protocol before supplying a speed recommendation.
 Separately test whether retaining selected coil-current observations can reduce
 the capped-case derivative growth without sacrificing the uncapped benefit.
 Vary reconstruction gain, winding placement and power base in controlled

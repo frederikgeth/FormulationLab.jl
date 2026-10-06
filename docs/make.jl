@@ -50,6 +50,7 @@ makedocs(;
             "Four-winding non-star correspondence"=>"ivr_nwinding_nonstar.md",
             "Multiwinding current elimination"=>"ivr_nwinding_elimination.md",
             "Lifted multiwinding timing"=>"ivr_nwinding_timing.md",
+            "Mixed-device multiwinding networks"=>"ivr_nwinding_network.md",
             "Coincident voltage equalities"=>"ivr_voltage_equalities.md",
             "Voltage dependencies under power costs"=>"ivr_voltage_dependencies.md",
             "Single-phase voltage-bound transfer"=>"ivr_singlephase_transfer.md",

@@ -1,5 +1,30 @@
 # Verification
 
+## Coupled mixed-device multiwinding networks — 6 October 2026
+
+Full regression passes **158,563/158,563 assertions**, including **242 new
+network assertions**. The [manufactured network extension](ivr_nwinding_network.md)
+uses 2/8/24 live non-star units, ordinary transformer boundaries, pi-lines,
+voltage-dependent loads, filtered IBRs and two explicit power objectives.
+The tests preserve individual winding bounds and verify cross-unit supply
+coupling. Voltage-law load changes retain the existing rebuild requirement.
+
+All **48 preflight cases** pass strict status, physical and full-model membership,
+independent winding equations, live-port and objective checks. All 48 SI exports
+pass both readers. Independent checks include 19,200 KCL balances, 14,688 voltage
+bands, 29,760 line-current bounds, 6,528 coil powers, 8,304 recovered winding
+terminal currents, 3,264 coil caps and 1,088 IBR internal-power channels.
+
+Both isolated timing attempts were interrupted by competing Julia work. Both
+entire campaigns are retained and excluded from performance claims. Sixteen
+separate structural diagnostic solves and sixteen warm-ups pass, with actual
+MUMPS order 2 for request 7; their concurrent wall times are also excluded. Correctness
+and structural evidence do not require an uncontended timing window. Raw data,
+source snapshots, development failures and validation scripts remain outside Git
+in `NWINDING_FEEDER_TRANSFER_20261006`. Despite the archive name, this is
+manufactured-network evidence; the plain-JSON external inventory contains no
+explicit multiwinding records.
+
 ## Isolated lifted multiwinding timing — 6 October 2026
 
 The [four-arm comparison](ivr_nwinding_timing.md) passes **7,168/7,168 measured
