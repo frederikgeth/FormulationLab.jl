@@ -47,6 +47,7 @@ makedocs(;
             "Multiwinding power-limit units"=>"ivr_nwinding_limits.md",
             "Single-phase voltage-bound transfer"=>"ivr_singlephase_transfer.md",
             "Inherited transformer boundaries"=>"ivr_equipment_boundaries.md",
+            "Inherited line-current boundaries"=>"ivr_line_boundaries.md",
             "Best-evidence numerical profiles"=>"ivr_performance.md",
             "Earlier timing and initialization studies"=>"ivr_performance_history.md",
         ],

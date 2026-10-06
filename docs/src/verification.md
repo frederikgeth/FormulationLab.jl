@@ -1,5 +1,25 @@
 # Verification
 
+## Inherited line-current boundaries — 6 October 2026
+
+Full regression passes **124,159/124,159 assertions**, including **654 new
+assertions** for source-preserving additions, explicit objectives, single-phase
+and delta active-current boundaries, both directions and both solver policies.
+
+The [local reactive-transfer study](ivr_line_boundaries.md) passes **24/24
+real-feeder admissions** across six retained formulations, two directions and
+both Ipopt policies. Each endpoint reaches all three inherited 600 A conductor
+limits at both line ends. Transformer caps remain inactive, with at least
+13.47 kVA per-phase slack. All original electrical fields and ratings remain.
+
+An independent Python audit reconstructs native delta powers, the objective and
+the selected line's coupled voltage-drop equation from SI exports. It verifies
+9,792 line-port margins, 72 transformer margins, exact addition-manifest replay,
+source bytes and matching physical/native-device output structures. All 24
+separately tightened line-rating witnesses reject the unchanged recovered
+point in both the physical and model audits. These are correctness results;
+there is no new timing ranking or global-optimality claim.
+
 ## Inherited transformer export boundaries — 6 October 2026
 
 Full regression passes **123,505/123,505 assertions**; all **59 executable

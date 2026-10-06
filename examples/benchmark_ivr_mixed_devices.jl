@@ -50,8 +50,12 @@ function terms(net,workload;exchange_target_W=nothing)
 end
 
 function profiles(net,workload;exchange_target_W=nothing,nlp_scaling_method="none")
+    profiles_for_terms(net,terms(net,workload;exchange_target_W);nlp_scaling_method)
+end
+
+"""Retain the six formulation arms for an explicitly supplied power objective."""
+function profiles_for_terms(net,ts;nlp_scaling_method="none")
     nlp_scaling_method in ("none","gradient-based") || throw(ArgumentError("unknown solver scaling policy"))
-    ts=terms(net,workload;exchange_target_W)
     specs=[("full_powers",false,:off,:powers,:off),
         ("reduced_powers",true,:passive_blocks,:powers,:off),
         ("reduced_reuse",true,:passive_blocks,:powers,:generators),

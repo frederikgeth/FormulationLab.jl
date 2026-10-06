@@ -24,6 +24,12 @@ added voltage bounds inactive. The 36 inherited-only cases are refused because
 their voltage-dependent loads lack a positive-domain certificate. These are
 correctness/applicability results, with no new speed claim.
 
+The [local reactive-transfer study](ivr_line_boundaries.md) admits 24/24
+comparisons across six retained formulations, two directions and both solver
+policies. All three selected line conductors reach the inherited 600 A cap at
+both ends while transformer caps remain inactive. This extends correctness
+evidence at original current boundaries; it does not change timing rankings.
+
 The [mixed-device rural transfer](ivr_mixed_devices.md) adds filtered IBRs and
 voltage-dependent demand on a selected 70-bus feeder. Reduced power lifting leads
 the mixed confirmation panel; generator reuse helps constant-power tracking but

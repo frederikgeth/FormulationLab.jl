@@ -2045,3 +2045,44 @@ After solving, check its activity independently and retain all original limits.
 The [equipment-boundary study](ivr_equipment_boundaries.md) demonstrates active
 nameplates on the real feeder; this tutorial snippet declares a scenario and
 does not itself claim an active transformer bound.
+
+## 58. Stress an inherited line-current bound
+
+Opposite reactive-power targets at the ends of a line provide a different
+boundary test from aggregate source export. Start with a manufactured two-wire
+line, retain its 200 A rating, and declare two ideal reactive devices. Its short
+length is part of this fixture; the scenario factory preserves the input.
+
+```@example exactivr
+include(joinpath(@__DIR__,"..","..","examples","benchmark_ivr_line_transfer.jl"))
+line_study = IVRLineTransferStudy
+line_original = line_study.P.ivr_compiler_case(conductors=2,segments=1,loading=0.)
+line_original["line"]["l1"]["length"] = .01
+line_net, line_manifest = line_study.scenario(line_original;
+    line_id="l1",terminal_indices=[1,2],q_capacity_VAR=1.2e6)
+@assert line_net["line"]==line_original["line"]
+@assert line_net["linecode"]==line_original["linecode"]
+line_profiles = line_study.profiles(line_net,line_manifest;
+    target_VAR=6e5,nlp_scaling_method="gradient-based")
+line_profile = only(p for p in line_profiles if p.name=="reduced_reuse")
+line_build = build_opf(line_net,IVRNLP(line_profile.options);optimizer=Ipopt.Optimizer)
+line_start = line_study.M.E.S.U.G.H.S.L.start_point(line_net)
+line_encoding = ivr_nlp_point_report(line_build,line_start)
+for (variable,value) in line_encoding.variable_values
+    set_start_value(variable,value)
+end
+line_result = solve_ivr_nlp_opf(line_build;
+    solver_options=merge(line_study.P.STRICT,line_profile.solver_options))
+@assert line_result.solve.optimal && physical_residuals(line_net,line_result).passed
+line_current = abs.(line_result.current_candidate[(:line_from,"l1")])
+@assert isapprox(maximum(line_current),200.;atol=1e-5)
+(current_A=line_current,objective=line_result.objective)
+```
+
+`target_VAR` is the total per device, divided among native coils; its sign
+reverses the request. The source can supply the mismatch between achieved
+injections. Neither the target nor the capability is a numerical power base.
+For a three-conductor line, selecting its three indices creates delta devices.
+See the [real-feeder study](ivr_line_boundaries.md) for an active inherited
+600 A boundary with simultaneous inactive transformer caps, all six arms,
+both directions and independent reconstruction from SI JSON.
