@@ -2012,3 +2012,36 @@ power-flow feasibility. Evaluate `voltage_activity` again on a recovered
 band alone does not prove that any constraint is active. See the
 [single-phase transfer](ivr_singlephase_transfer.md) for the sequential
 experiment and the distinction between added and inherited limits.
+
+## 57. Change added DER capacity without changing numerical units
+
+Larger DER capability can activate an inherited transformer rating. Keep this
+physical intervention separate from load-power column or row scaling. On the
+same small fixture, the following scenario retains original equipment and
+parallel demand, increases only added DER capabilities, and adds a missing
+positive voltage floor for the load-law domain.
+
+```@example exactivr
+sp_export_net, sp_export_manifest = sp_study.scenario(sp_original;
+    voltage_band=:positive_floor,dispatch_scale=10.)
+@assert sp_original==sp_before
+@assert sp_export_net["line"]==sp_original["line"]
+@assert sp_export_net["linecode"]==sp_original["linecode"]
+@assert sp_export_net["load"]==sp_net["load"]
+@assert all(x.field=="vpn_min" && all(==(1.),x.limits_V)
+    for x in sp_export_manifest.voltage_additions)
+sp_export_profiles = sp_study.profiles(sp_export_net,:exchange_tracking;
+    exchange_target_W=-10_000.,nlp_scaling_method="gradient-based")
+@assert sp_export_profiles[1].options.load_power_bases==sp_profiles[1].options.load_power_bases
+@assert sp_export_profiles[1].options.s_base==sp_profiles[1].options.s_base
+[(family=f,id=id,p_max=d["p_max"],s_max=d["s_max"])
+    for f in ("generator","ibr") for (id,d) in sp_export_net[f]]
+```
+
+`:inherited` adds no voltage bounds, so it is only suitable for these load laws
+when the original network already certifies their positive-voltage domain.
+The 1 V floor is a research-domain constraint, not an operating recommendation.
+After solving, check its activity independently and retain all original limits.
+The [equipment-boundary study](ivr_equipment_boundaries.md) demonstrates active
+nameplates on the real feeder; this tutorial snippet declares a scenario and
+does not itself claim an active transformer bound.

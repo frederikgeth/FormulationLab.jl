@@ -1,5 +1,27 @@
 # Verification
 
+## Inherited transformer export boundaries — 6 October 2026
+
+Full regression passes **123,505/123,505 assertions**; all **59 executable
+tutorial blocks** pass. The single-phase runner
+suite passes **898 assertions**, including 446 new checks for physical capacity
+scaling, unchanged equipment and numerical units, inherited/domain-floor voltage
+policies, invalid scales, active two-wire nameplates and tightened-bound
+rejection. Every existing numerical option remains available.
+The capacity multiplier is checked in floating point before integer-valued
+ratings are multiplied, preventing silent machine-integer overflow.
+
+The [equipment-boundary study](ivr_equipment_boundaries.md) passes all **72
+supported real-feeder admissions** and retains **36 expected voltage-domain
+refusals**. Export tracking reaches all three inherited nameplate caps across
+all nine arms and both Ipopt policies. Wide-band tracking also reaches five
+upper-voltage limits; positive-floor tracking has no active added voltage bound.
+The independent SI export audit checks 29,376 inherited line-current margins,
+216 nameplate margins, power objectives, filter losses and output structure.
+All 72 tightened-nameplate witnesses and eight additional voltage/current
+rejection witnesses pass. Original line ratings remain inactive. No timing or
+global-optimality conclusion follows from this correctness panel.
+
 ## Single-phase voltage-bound transfer — 6 October 2026
 
 Full regression passes **123,059/123,059 assertions**; all **58 executable

@@ -16,6 +16,14 @@ remain pending. All 1,944 subsequent trials and 216 warm-ups pass, but a
 competing Julia workload invalidates timing isolation. The whole campaign is
 excluded from speed recommendations; its raw results are retained.
 
+The [equipment-boundary extension](ivr_equipment_boundaries.md) additionally
+admits all 72 supported comparisons at larger added DER capacity. Export tracking
+reaches all three inherited transformer caps; the wide band also activates five
+upper-voltage limits, while a separate positive-domain-floor scenario leaves
+added voltage bounds inactive. The 36 inherited-only cases are refused because
+their voltage-dependent loads lack a positive-domain certificate. These are
+correctness/applicability results, with no new speed claim.
+
 The [mixed-device rural transfer](ivr_mixed_devices.md) adds filtered IBRs and
 voltage-dependent demand on a selected 70-bus feeder. Reduced power lifting leads
 the mixed confirmation panel; generator reuse helps constant-power tracking but

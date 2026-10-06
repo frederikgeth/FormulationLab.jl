@@ -146,6 +146,14 @@ successful solve validation; do not promote a fastest profile or selectively
 reuse apparently quiet portions. A complete repeat in a separately named
 archive is required before drawing a new speed conclusion.
 
+The separately archived `SINGLEPHASE_ISOLATED_REPEAT_20261006` repeat uses the
+same input bytes, archived benchmark modules, seeds and strict gates, with the
+current package source verified against the original freeze. A competing Julia
+job also starts during this repeat. Its entire campaign is likewise excluded
+from speed claims and retained separately; the isolation criterion is unchanged.
+All 1,944 repeat trials and 216 warm-ups pass the solver, physical and active-set
+gates. This additional validation does not restore timing eligibility.
+
 The remaining boundary experiment concerns inherited equipment ratings. It
 should use declared DER-capacity and source-export workloads to approach those
 limits while retaining original equipment data. The present results do not

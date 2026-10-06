@@ -16,15 +16,39 @@ const P=U.P
 
 `:wide` adds 200–260 V; `:tight` adds 0.98–1.02 and `:narrow` adds
 0.995–1.005 times each unloaded phase-neutral voltage. Existing fields are
-preserved, even if they are looser.
+preserved, even if they are looser. `:inherited` adds no voltage bounds;
+`:positive_floor` adds a missing 1 V lower bound but no upper bound. The latter
+certifies the voltage-law domain, not an operating voltage recommendation.
 The band names do not assert feasibility or an active constraint. Bounds cover
 every non-neutral terminal at selected buses, not just the loaded phase.
+
+`dispatch_scale` multiplies only the added DER P/Q, apparent-power, current and
+DC capability limits. It leaves original equipment, parallel demand, filters,
+voltage bands and numerical units unchanged. This is a physical intervention,
+not a power-base transformation; the default one preserves the original panel.
 """
-function scenario(original;voltage_band=:wide)
-    voltage_band in (:wide,:tight,:narrow) || throw(ArgumentError("voltage_band must be :wide, :tight or :narrow"))
+function scenario(original;voltage_band=:wide,dispatch_scale=1.)
+    voltage_band in (:wide,:tight,:narrow,:inherited,:positive_floor) || throw(ArgumentError("unknown voltage band"))
+    dispatch_scale isa Real && !(dispatch_scale isa Bool) && isfinite(dispatch_scale) && dispatch_scale>0 ||
+        throw(ArgumentError("dispatch_scale must be finite and positive"))
+    # Multiply in floating point even when both the input rating and scale are
+    # integers; machine-integer overflow would otherwise silently wrap a limit.
+    dispatch_scale=Float64(dispatch_scale)
+    isfinite(dispatch_scale) && dispatch_scale>0 ||
+        throw(ArgumentError("dispatch_scale must be representable as a positive finite Float64"))
     # Check raw electrical declarations before computing a start or making additions.
     FormulationLab._ivrn_check(original)
     net,base=M.scenario(original;mixed=true)
+    for family in ("generator","ibr"),d in values(net[family])
+        dispatch_scale==1 && continue
+        for field in ("p_min","p_max","q_min","q_max","s_max","i_max","p_dc_min","p_dc_max","p_avail")
+            haskey(d,field) || continue
+            scaled=dispatch_scale.*d[field]
+            all(isfinite,scaled isa AbstractVector ? scaled : (scaled,)) ||
+                throw(ArgumentError("dispatch_scale overflows added capability $field"))
+            d[field]=scaled
+        end
+    end
     start=M.E.S.U.G.H.S.L.start_point(original)
     additions=Any[]
     buses=sort!(unique([net["load"][id]["bus"] for id in base.selected_loads]))
@@ -38,7 +62,12 @@ function scenario(original;voltage_band=:wide)
         halfwidth=voltage_band==:narrow ? .005 : .02
         for (field,factor,wide) in (("vpn_min",1-halfwidth,200.),("vpn_max",1+halfwidth,260.))
             haskey(old,field) && continue
-            limits=voltage_band==:wide ? fill(wide,length(phases)) : factor.*nominal
+            if voltage_band==:inherited || (voltage_band==:positive_floor && field=="vpn_max")
+                pop!(b,field,nothing)
+                continue
+            end
+            limits=voltage_band==:positive_floor ? fill(1.,length(phases)) :
+                voltage_band==:wide ? fill(wide,length(phases)) : factor.*nominal
             b[field]=limits
             push!(additions,(;bus=id,field,terminals=copy(phases),unloaded_voltage_V=nominal,limits_V=copy(limits)))
         end
@@ -48,7 +77,7 @@ function scenario(original;voltage_band=:wide)
         before=get(get(original,family,Dict()),id,nothing);after=net[family][id]
         isequal(before,after) || push!(changes,(;family,id,before=deepcopy(before),after=deepcopy(after)))
     end
-    net,(;voltage_band,mixed=true,selected_loads=copy(base.selected_loads),voltage_additions=additions,
+    net,(;voltage_band,dispatch_scale,mixed=true,selected_loads=copy(base.selected_loads),voltage_additions=additions,
         changes,original_fields_preserved=true,
         note="Single-phase channels on the supplied network; all original fields retained. Added voltage bands are declared scenarios, not statutory limits or evidence of activity.")
 end
