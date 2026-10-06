@@ -60,7 +60,7 @@ end
 
 # Nominal voltage levels select units only. They never alter transformer stamps,
 # infer a missing physical reference, or impose an operating voltage.
-function _ivrn_region_bases(net,e)
+function _ivrn_region_bases(net,e;multiwinding=false)
     adjacency=Dict(b=>Tuple{String,Float64}[] for b in keys(net["bus"]))
     skipped=Dict{String,String}()
     function edge(f,t,ratio)
@@ -79,6 +79,26 @@ function _ivrn_region_bases(net,e)
             edge(d["bus_from"],d["bus_to"],ratio) || (skipped[key]="invalid_nominal_ratio")
         elseif kind in ("single_phase_autotransformer","open_delta_regulator")
             edge(d["bus_from"],d["bus_to"],1.0) # Taps remain in the physical equations.
+        elseif kind=="n_winding" && multiwinding
+            # v_nom is a coil voltage. Delta uses a balanced phase-equivalent
+            # characteristic unit, not an inferred conductor-to-ground voltage.
+            # Validate the complete device before adding any graph edges.
+            ws=d["windings"]
+            units=Float64[]
+            for w in ws
+                cfg=uppercase(get(w,"configuration","WYE"))
+                push!(units,cfg in ("WYE","SINGLE_PHASE") ? Float64(w["v_nom"]) :
+                    cfg=="DELTA" ? Float64(w["v_nom"])/sqrt(3.) : NaN)
+            end
+            ratios=length(units)>=2 ? units./first(units) : Float64[]
+            valid(x)=isfinite(x) && x>0 && isfinite(inv(x))
+            if length(ratios)<2 || !all(valid,units) || !all(valid,ratios)
+                skipped[key]="invalid_multiwinding_nominal_contract"
+                continue
+            end
+            for k in 2:length(ws)
+                edge(ws[1]["bus"],ws[k]["bus"],ratios[k])
+            end
         else
             skipped[key]="unsupported_nominal_base_contract"
         end
@@ -154,7 +174,7 @@ function _ivrn_transformer_coordinates(net,e,maps,mode,power_seeds=Dict{String,F
     mode==:off && return maps,(;status=:disabled,bases=Dict{String,Float64}(),
         retained_buses=Dict{String,String}(),skipped_transformers=Dict{String,String}(),
         scaled_coordinates=NamedTuple[],retained_coordinates=Dict{Int,String}())
-    region=_ivrn_region_bases(net,e)
+    region=_ivrn_region_bases(net,e;multiwinding=mode==:nominal_multiwinding)
     power_bases=_ivrn_current_power_bases(net,e,power_seeds)
     voltage_bases=Dict(k=>region.bases[b] for ((b,_),k) in e.voltage if k!=0)
     current_factors=Dict(k=>(region.bases[b]/e.vb)*(e.sb/power_bases[b]) for ((b,_),k) in e.voltage if k!=0)

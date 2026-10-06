@@ -23,7 +23,7 @@ end
 
 """Only current-power seeds vary; composed linear row normalization responds.
 
-Multiwinding nominal voltage propagation is currently unsupported. Preserve
+This control deliberately retains the ordinary-only `:nominal` policy. Preserve
 and report the global voltage-base fallback rather than silently correcting
 it as part of this current-unit intervention.
 """

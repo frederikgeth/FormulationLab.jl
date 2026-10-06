@@ -1468,3 +1468,13 @@ mixtures or untested transformers. The repeated-update evidence covers manufactu
 and selected external feeder demand sequences, not arbitrary operating histories.
 Broader mixed-port certificates and factorization-aware selection remain
 separate priorities.
+
+### Multiwinding nominal-coordinate candidate
+
+The [nominal-coordinate panel](ivr_nwinding_coordinates.md) admits 96/96 capped
+endpoints with identical physical inputs and only the voltage-base policy
+changed. Iterations fall in 85 cases and remain unchanged in 11. A separate
+coordinate/cap factorial preflight admits both new-policy arms in all 24 cells,
+including two cases rejected by the ordinary-only uncapped control. These are
+convergence observations only. Isolated Ipopt optimizer-call wall measurements
+are still required before promoting this opt-in policy to a timing recommendation.

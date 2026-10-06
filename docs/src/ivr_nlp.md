@@ -81,12 +81,12 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates nonadjacent eligible degree-two buses; `:passive_chains` permits adjacent candidates; `:passive_blocks` also admits charged π sections through conditioned local block solves; `:passive_hybrid` caps connected groups of eliminated buses |
 | `passive_component_limit` | `4` | Positive maximum number of original buses per eliminated connected component in `:passive_hybrid`; ignored by other modes |
 | `series_selection` | `:all` | With any passive policy, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
-| `transformer_scaling` | `:off` | `:nominal` composes local voltage/current units inferred from nominal transformer ratios and source magnitudes; uncertain assignments retain global units |
+| `transformer_scaling` | `:off` | `:nominal` composes local voltage/current units from ordinary transformer ratios; `:nominal_multiwinding` additionally uses declared coil-voltage conventions; uncertain assignments retain global units |
 | `row_scaling` | `:legacy` | `:composed` normalizes linear circuit rows after all coordinate transformations, independently of local voltage/current scaling |
 | `kcl_row_max_base` | `nothing` | Optional positive ampere cap on the numerical unit of each retained KCL row; preserves existing smaller row units and every physical bound |
 | `ground_scaling` | `:off` | `:voltage` uses global-base shunt multipliers; `:regional_voltage` uses nominal regional-base multipliers; both preserve finite grounds |
 | `objective_scale` | `nothing` | Divide the physical objective by this positive scalar; `nothing` preserves division by `s_base` |
-| `current_power_bases` | empty dictionary | Explicit bus-to-VA seeds for regional current coordinates; requires `transformer_scaling=:nominal` |
+| `current_power_bases` | empty dictionary | Explicit bus-to-VA seeds for regional current coordinates; requires `transformer_scaling=:nominal` or `:nominal_multiwinding` |
 | `generator_power_bases` | empty dictionary | Generator-ID-to-VA dispatch units for both P and Q; unspecified generators use `s_base` |
 | `lifted_power_base` | `nothing` | VA unit for power auxiliaries; defaults to `s_base`, without enabling lifting |
 | `power_sharing` | `:off` | `:generators` reuses exactly matching generator P/Q definitions when lifting is enabled |
@@ -260,8 +260,11 @@ in the original physical equations; they are not absorbed into a different circu
 
 Ordinary single-phase, center-tap, delta-wye and wye-delta nominal ratios are
 supported. Fixed regulators connect the same nominal voltage level; tap deviations
-remain explicit. Open switches do not propagate a base. Multiwinding transformers
-do not yet supply a nominal-base propagation contract. Components with inconsistent
+remain explicit. Open switches do not propagate a base. The existing `:nominal` policy skips multiwinding transformers. The opt-in
+`:nominal_multiwinding` policy extends propagation using WYE/SINGLE_PHASE coil
+nominals and DELTA coil nominals divided by √3. This chooses characteristic
+units without imposing a physical neutral or ground voltage; see
+[the contract and tutorial](ivr_nwinding_coordinates.md). Components with inconsistent
 nominal cycles or source-base assignments, or without a nonzero source seed, keep
 the global base with a recorded reason. This is a units-selection fallback, not
 a conclusion that the physical network is infeasible. Nominal cycle/source

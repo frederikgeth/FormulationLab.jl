@@ -376,12 +376,10 @@ failure for this panel's three rejected endpoints; the validation summary
 checks that these agree with the original physical gates rather than silently
 turning them into passes.
 
-The next voltage-scaling experiment should introduce an opt-in, explicitly
-defined multiwinding nominal-base policy with mixed-connection, conflicting-cycle
-and floating-reference checks. Retain today's global-base fallback as a control.
-Trace scaled-to-SI residual amplification on the three reproduced rejected
-endpoints before proposing a numerical remedy. Isolated wall-time confirmation remains pending; no performance
-ranking uses these concurrent solves.
+This panel motivated a separate nominal-base policy and a trace of scaled-to-SI
+residual amplification. Both follow-ups are linked below; the historical
+global-base fallback and rejected endpoints remain controls. Isolated wall-time
+confirmation remains pending; no performance ranking uses these concurrent solves.
 
 The subsequent [KCL residual trace](ivr_kcl_residuals.md) identifies a large
 normalization conversion factor at those rows and tests an optional ampere-unit
@@ -408,3 +406,9 @@ archive retains generated inputs, preflight exports, all three timing attempts, 
 source hashes, validation scripts and inventory scope. The archive name does
 not imply successful external-feeder transfer. Plans and raw evidence remain
 outside Git.
+
+## Opt-in nominal multiwinding coordinates
+
+The subsequent [nominal-coordinate experiment](ivr_nwinding_coordinates.md)
+adds a coil-voltage units convention without changing the historical panels
+on this page. Their ordinary-only nominal policy remains a reproducible control.

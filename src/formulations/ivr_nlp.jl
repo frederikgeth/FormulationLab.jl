@@ -41,7 +41,10 @@ voltage bases and the common power base, independently of transformer scaling.
 Uncertain regional assignments retain the global base with diagnostics.
 `transformer_scaling=:nominal` composes local voltage/current units inferred
 from source magnitudes and nominal winding ratios. Uncertain assignments retain
-the global base with diagnostics. `row_scaling=:composed` independently normalizes
+the global base with diagnostics. `:nominal_multiwinding` additionally propagates
+WYE/SINGLE_PHASE coil nominals and DELTA coil nominals divided by √3; these are
+characteristic units, never an inferred ground reference. Regional ground scaling
+retains its independent ordinary-transformer policy. `row_scaling=:composed` independently normalizes
 linear circuit rows after all coordinate maps; default :legacy retains the
 previous ground-dependent normalization. Neither option changes physical data.
 `kcl_row_max_base` optionally caps the ampere unit of each retained complex KCL
@@ -613,7 +616,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         isfinite(base) && base>0 && isfinite(base/options.s_base) && base/options.s_base>0 &&
             isfinite(options.s_base/base) || throw(ArgumentError("lifted power base and coordinate ratios must be positive and finite"))
     end
-    isempty(options.current_power_bases) || options.transformer_scaling==:nominal || throw(ArgumentError("current_power_bases requires nominal transformer coordinates"))
+    isempty(options.current_power_bases) || options.transformer_scaling in (:nominal,:nominal_multiwinding) || throw(ArgumentError("current_power_bases requires nominal transformer coordinates"))
     options.load_power_row_scaling in (:off,:definitions,:laws,:both) || throw(ArgumentError("unknown load power row scaling"))
     options.load_power_row_scaling==:off || options.load_power_lifting || throw(ArgumentError("load power row scaling requires load_power_lifting=true"))
     if options.load_power_row_base!==nothing || !isempty(options.load_power_row_bases)
@@ -641,7 +644,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.passive_component_limit>0 || throw(ArgumentError("passive_component_limit must be positive"))
     options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
     options.ground_scaling in (:off,:voltage,:regional_voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
-    options.transformer_scaling in (:off,:nominal) || throw(ArgumentError("unknown IVRNLP transformer scaling"))
+    options.transformer_scaling in (:off,:nominal,:nominal_multiwinding) || throw(ArgumentError("unknown IVRNLP transformer scaling"))
     options.row_scaling in (:legacy,:composed) || throw(ArgumentError("unknown IVRNLP row scaling"))
     options.power_sharing in (:off,:generators) || throw(ArgumentError("unknown IVRNLP power sharing"))
     options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))

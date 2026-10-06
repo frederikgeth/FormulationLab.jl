@@ -1,5 +1,25 @@
 # Verification
 
+## Multiwinding nominal-coordinate contract, 6 October 2026
+
+Full regression passes **164,684/164,684 assertions**, including 530 new
+assertions, in 6m57.6s. This correctness runtime is not optimizer timing evidence.
+
+The opt-in `transformer_scaling=:nominal_multiwinding` has focused tests for
+coil-nominal units, single-phase dispatch, mixed delta/wye connections, nominal
+graph conflicts, unchanged floating-reference refusal, reversible maps,
+original current/power bounds, and recovered SI JSON. The ordinary-only policy
+and default remain unchanged. The [scientific guide](ivr_nwinding_coordinates.md)
+records the units convention, equivalence argument, usage and limits.
+
+The matched capped preflight admits 96/96 endpoints; 96 independent SI export
+audits and 96 comparisons through both result readers pass. A distinct 96-row
+coordinate/cap preflight retains the two failed ordinary-only uncapped controls,
+while both multiwinding arms pass 24/24 cells. All these runs are excluded from
+speed evidence. Plans, full input/result records, negative outcomes and hashes
+remain outside Git.
+
+
 ## KCL residual tracing and optional row-unit cap — 6 October 2026
 
 The [residual study](ivr_kcl_residuals.md) compares twelve matched solves and
@@ -30,8 +50,8 @@ All three reproduce with identical iterations/objectives in a fresh process,
 while native constraint violations remain below ``5\times10^{-13}``.
 No relaxed tolerances or timing promotion are used.
 
-Actual diagnostics reveal that general multiwinding nominal-voltage propagation
-is unsupported; secondary circuits retain the global voltage base. This study
+In the ordinary-only nominal policy used by this historical panel, multiwinding
+voltage propagation is skipped; secondary circuits retain the global base. This study
 preserves that fallback while varying only regional current-power seeds, with
 assembly/generator/auxiliary units fixed. Composed linear row normalization may
 respond. The unchanged high/high controls reproduce all 24 preceding factorial
