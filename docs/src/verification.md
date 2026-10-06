@@ -1,5 +1,36 @@
 # Verification
 
+## Five-arm coil-observation timing protocol — 7 October 2026
+
+The [coil-observation study](ivr_coil_observations.md#Prospective-wall-time-comparison)
+now includes ten-sweep Williams schedules and a fresh-process confirmation
+batch with reversed case and sweep order. The full panel plans 1,200 measured
+solves and 120 excluded warmups. Only Ipopt optimizer-call wall time is the
+performance criterion; all five options and every failed endpoint are retained.
+
+All **440 targeted assertions** pass, including nineteen new schedule and
+interruption-checkpoint checks. A deliberately nonisolated integration panel
+completes **220/220 accepted solves**, crossing both power objectives and both
+current representations on the two-unit fixture. Independent report validation
+checks every ledger entry, schedule, result count, encoded start, objective and
+input hash. Nine deliberately corrupted reports are rejected, and seven
+campaign-isolation admission checks pass. This panel validates runner behavior
+and physical acceptance; its timings are excluded.
+
+The first timing attempt was refused before launch because two competing Julia
+processes were present. Its raw record remains separate from any fresh attempt.
+The fresh retry completed ten cells before another Julia workload appeared.
+All 55 returned warmups and 534 returned measured solves were accepted, but the
+entire campaign is excluded. One started solve has unknown completion;
+confirmation never launched. The 128 process snapshots, all returned results
+and the partial ledger remain in `COIL_OBSERVATION_TIMING_20261007_RETRY1`.
+Benchmark protocol, failure records, correctness-only reports and source
+snapshots are retained outside Git in `COIL_OBSERVATION_TIMING_20261007`.
+No library formulation, default, bound or result-export schema changes in this
+checkpoint. The latest full library regression remains the 184,910-assertion
+run recorded with the selector implementation; this change runs targeted
+runner and selector validation rather than claiming a new full-suite result.
+
 ## Selective coil observations — 7 October 2026
 
 The [coil-observation selector](ivr_coil_observations.md) preserves the default

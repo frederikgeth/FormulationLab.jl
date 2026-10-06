@@ -5,6 +5,44 @@ const O=IVRCoilObservationStudy
 const N=O.N
 const F=FormulationLab
 
+@testset "Five-arm timing schedule and interruption checkpoints" begin
+    a=O.orders("exploration");b=O.orders("confirmation")
+    @test length(a)==10
+    @test b==reverse(a)
+    @test_throws ArgumentError O.orders("unknown")
+    for schedule in (a,b)
+        @test all(sort(o)==collect(1:5) for o in schedule)
+        @test all(count(o->o[k]==j,schedule)==2 for j in 1:5 for k in 1:5)
+        @test all(sum(count(==((j,k)),zip(o[1:end-1],o[2:end])) for o in schedule)==2
+            for j in 1:5 for k in 1:5 if j!=k)
+    end
+    mktempdir() do dir
+        path=joinpath(dir,"case.json")
+        report=Dict{String,Any}("complete"=>false,"ranking"=>nothing,"ledger"=>Any[],
+            "profiles"=>[Dict{String,Any}("name"=>"powers","warmup"=>nothing,"trials"=>Any[])])
+        O.record_trial!(path,report,1,"warmup",0) do
+            before=JSON3.read(read(path,String),Dict{String,Any})
+            @test only(before["ledger"])["status"]=="started"
+            @test before["profiles"][1]["warmup"]===nothing
+            Dict("accepted"=>true,"ipopt_wall_s"=>1.),:point
+        end
+        O.record_trial!(path,report,1,"measured",1) do
+            Dict("accepted"=>false,"ipopt_wall_s"=>2.),nothing
+        end
+        @test_throws ErrorException O.record_trial!(path,report,1,"measured",2) do
+            error("simulated interrupted solve")
+        end
+        saved=JSON3.read(read(path,String),Dict{String,Any})
+        @test [e["status"] for e in saved["ledger"]]==["completed","completed","started"]
+        @test saved["profiles"][1]["warmup"]["accepted"]
+        @test !only(saved["profiles"][1]["trials"])["accepted"]
+        @test !saved["complete"] && saved["ranking"]===nothing
+        @test !isfile(path*".pending")
+        @test_throws ArgumentError O.run_timing(dir,"exploration")
+        @test_throws ArgumentError O.run_timing(dir,"invalid")
+    end
+end
+
 @testset "Selection follows original coil rows before affine sharing" begin
     for selection in (:all,:coil_voltages,:coil_currents,:coils)
         m=Model();@variable(m,x[1:8],start=.1)

@@ -71,6 +71,16 @@ settings. This is an additional robustness candidate, not a fastest-profile
 promotion: iterations fall in 20 cases and rise in 17, and isolated wall timing
 remains pending. The uncapped default and all prior controls remain available.
 
+The [selective coil-observation study](ivr_coil_observations.md) separates coil
+voltage and current auxiliaries from broad observation lifting. Selective
+lifting retains more of the dimension saving after current elimination, while
+broad lifting has a smaller Hessian on the tested 24-unit tracking case. The
+new five-arm Williams runner balances positions and within-sweep predecessors,
+but its first campaign was refused and a fresh retry was interrupted by other
+Julia work. All 589 returned retry endpoints pass; the entire timing campaign
+is excluded. Neither structural counts nor those contaminated times establish
+a preferred lifting scope. Keep all five arms for an isolated confirmation.
+
 The [live mixed-winding comparison](ivr_nwinding_connections.md) additionally
 shows that a small scaled Ipopt error and a feasible endpoint do not establish
 objective agreement or small unscaled dual residuals. Explicit absolute

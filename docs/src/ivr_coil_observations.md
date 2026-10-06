@@ -148,6 +148,74 @@ construction, extraction and audit costs do not enter that ranking. These
 single-trial structural results do not establish a fastest policy, so neither
 defaults nor existing performance recommendations change.
 
+## Prospective wall-time comparison
+
+The same helper now provides `O.run_timing(output_directory, batch)`, where
+`batch` is `"exploration"` or `"confirmation"`. Each call requires an empty output
+directory. The original one-argument command remains a single-trial preflight.
+Run the two batches in separate Julia processes, under a whole-campaign
+isolation monitor:
+
+```sh
+JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --project=test --startup-file=no --compiled-modules=existing examples/benchmark_ivr_coil_observations.jl /path/to/empty/exploration exploration
+JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --project=test --startup-file=no --compiled-modules=existing examples/benchmark_ivr_coil_observations.jl /path/to/empty/confirmation confirmation
+```
+
+These commands do not themselves establish isolation. The external monitor
+must refuse an initially busy machine and exclude the entire campaign if
+competing Julia work is observed, including previously completed cells. It may
+interrupt its own benchmark session only. Source hashes must match before and
+after both batches. Sampled process isolation does not certify absence of other
+system load or competition shorter than the sampling interval.
+
+Each batch contains the same twelve cells as the preflight. A cell has one
+excluded warmup per arm, followed by ten five-arm Williams sweeps. The first
+five orders are cyclic shifts of `[1,2,5,3,4]`; the next five reverse each of
+those rows. Thus each arm appears twice in each position and each ordered pair
+appears twice as an immediate predecessor **within** a sweep. Transitions
+between sweeps and warmup positions are not balanced. Confirmation reverses
+both cell order and sweep order without adapting to observed timings. The full
+design has **1,200 measured solves and 120 excluded warmups**.
+
+All arms start from the same unloaded physical point, encoded separately in
+their own coordinates. Warmup endpoints provide membership anchors, never
+optimizer starts. Admission requires an accepted warmup and all ten accepted
+repetitions, together with the existing physical, own/full-model, reverse-anchor
+and independent winding-equation checks. Objective comparison uses the gate
+stated above. No outliers are trimmed and no failed solve is silently retried.
+Cell medians use only `ipopt_wall_s`; compilation, model construction, extraction,
+audit and checkpoint time remain outside the performance criterion.
+
+Reports store a planned schedule and a chronological ledger. Before each solve,
+an atomic checkpoint records `status="started"`; after a result returns, another
+records `status="completed"` and retains the result even when rejected. A
+surviving `started` entry means completion is unknown. Completed sweep orders
+are recorded separately. An incomplete cell retains `complete=false` and no
+ranking. Even complete cells retain `timing_eligible=false`: their provisional
+rankings require the external isolation and full-campaign audit before any
+performance interpretation. A later attempt must use new output directories;
+partial campaigns cannot be pooled.
+
+### Attempt disposition, 7 October 2026
+
+The initial attempt was refused before launch because two Julia processes were
+already running. A fresh attempt subsequently started from a quiet process
+snapshot. Its monitor later detected competing Julia work and interrupted only
+the new benchmark session. All of that attempt is excluded: **ten complete
+cells, 55 returned warmups and 534 returned measured solves**. Every returned
+endpoint was accepted, but physical acceptance cannot repair timing
+contamination. A further ledger entry remains `started`, so that solve's
+completion is unknown. Confirmation did not start. The monitor retained 128
+process snapshots; no speed ranking is admitted.
+
+The separate correctness-only integration panel completed 20 warmups and 200
+measured-path calls on the two-unit fixture, all accepted. It verifies the live
+runner and report contract under deliberately nonisolated conditions. Its
+largest within-cell objective spread is below ``2.0\times10^{-13}``; its times
+are also excluded. These records are in `COIL_OBSERVATION_TIMING_20261007` and
+the separate interrupted attempt in `COIL_OBSERVATION_TIMING_20261007_RETRY1`,
+outside Git. No defaults or fastest-profile recommendations change.
+
 ## Verification scope
 
 Tests verify original-row selection before affine sharing, ordinary and
