@@ -37,7 +37,7 @@ function _sdp_nwinding_plan(net,id,d;neutral_map=nothing)
     real(y)>=0 || _sdp_refuse("$label negative core conductance")
     (;ws,Ds,turns,Z,shunt,y)
 end
-function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing,current_blocks=nothing)
+function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing,current_blocks=nothing,equation_metadata=nothing)
     for (id,d) in get(get(net,"transformer",Dict()),"n_winding",Dict())
         neutral_map===nothing && (neutral_map=_kr_neutral_map(net))
         p=_sdp_nwinding_plan(net,id,d;neutral_map);n=length(p.ws)
@@ -47,10 +47,12 @@ function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,
         first_equation=length(equations)+1
         for c in eachindex(u[1])
             amp=_SDPRow();for k in 1:n;_sdp_add!(amp,j[k][c],p.turns[k]);end;push!(equations,amp)
+            _sdp_record_equation!(equation_metadata,equations,"transformer/n_winding/$id/balance/$c",:A)
             for i in 2:n
                 row=_sdp_add!(_SDPRow(),u[1][c],1/p.turns[1]);_sdp_add!(row,u[i][c],-1/p.turns[i])
                 for k in 2:n;_sdp_add!(row,j[k][c],p.Z[i-1,k-1]*p.turns[k]/zb);end
                 push!(equations,row)
+                _sdp_record_equation!(equation_metadata,equations,"transformer/n_winding/$id/leakage/$i/$c",:V)
             end
         end
         current_blocks===nothing || push!(current_blocks,(;id="n_winding/$id",
@@ -62,7 +64,7 @@ function _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,
             end
             currents=matrows(transpose(p.Ds[k]),cf)
             neutral=get(neutral_map,w["bus"],nothing)
-            ground=_sdp_ground!(w,"r_neutral","x_neutral",findfirst(==(neutral),w["terminal_map"]),v[k],newvar,equations,zb)
+            ground=_sdp_ground!(w,"r_neutral","x_neutral",findfirst(==(neutral),w["terminal_map"]),v[k],newvar,equations,zb;equation_metadata,label="transformer/n_winding/$id/ground/$k")
             for t in eachindex(currents);_sdp_add!(currents[t],ground[t]);end
             inject(w["bus"],w["terminal_map"],currents)
             key="n_winding/$id/$k"

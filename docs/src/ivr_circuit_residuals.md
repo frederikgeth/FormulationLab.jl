@@ -15,26 +15,45 @@ a row cap or invoke the optimizer. Existing KCL diagnostics remain available.
 
 ## Provenance before conversion
 
-The diagnostic assigns units from recorded physical stamps:
+Native IVRNLP builds now record provenance when each linear electrical row is
+assembled. `build.electrical.equation_metadata` contains its original index,
+physical label, unit (`:V` or `:A`) and positive `assembly_multiplier`. Recording
+appends metadata only; it does not modify the row or its insertion order.
 
 | Recorded row family | Physical unit | Assembly-to-SI multiplier |
 |:--|:--|:--|
 | Line series voltage drop | V | ``V_b`` |
+| Ordinary transformer leakage/voltage relation | V | ``V_b`` |
 | Ordinary transformer ampere balance | A | ``I_b`` |
+| Transformer ideal bond or ideal neutral ground | V | ``V_b`` |
 | Multiwinding ampere-turn balance | A | ``I_b`` |
 | Multiwinding leakage equation, referred through its declared turns | V | ``V_b`` |
 | Constant-impedance load current law | A | ``I_b`` |
+| Closed-switch voltage continuity | V | ``V_b`` |
+| Homogeneous source phasor relation | V | ``V_b`` |
+| Internally normalized current-form shunt law | A | ``m I_b`` |
 | Bus-terminal KCL | A | ``I_b`` |
 
-Multiwinding block records contain, for each coil, one ampere-turn balance
-followed by the leakage equations. The diagnostic checks the recorded block
-size and uses this stamp contract; it does not infer units from coefficient
-magnitudes or from whether a row contains voltage coordinates. Other circuit
-equation indices are returned as `unclassified_equations`. In particular,
-ordinary transformer voltage equations are currently outside this catalogue.
-Nonlinear load/power/operating-bound rows and fixed-variable constraints are
-also outside this diagnostic's scope. An unclassified row is not an omitted
-constraint or a failed equation.
+All current native linear electrical rows have explicit records. KCL has its
+separate known ampere provenance. The diagnostic rejects incomplete, duplicated
+or invalid metadata instead of guessing units. Its earlier partial catalogue
+remains available for older builds or external toy data without metadata;
+those can still return `unclassified_equations`. In that fallback, multiwinding
+block ordering supplies the distinction between ampere and leakage rows.
+
+The shared assembly's current-form shunt row is divided by a row admittance
+magnitude ``m`` before it reaches the formulation. Its physical current residual
+therefore requires ``m I_b``, not just ``I_b``. This multiplier is one for the
+other recorded families. Native IVRNLP uses substituted admittance shunts;
+the current-form test is a shared-assembly control, not a new solver option.
+Similarly, native IVRNLP fixes source variables directly; source phasor rows
+occur only in the shared assembly's homogeneous source mode.
+
+Completeness here means `electrical.equations` plus KCL. Nonlinear power/load-law
+rows, operating bounds and fixed-variable constraints are outside this catalogue.
+This is not a new certificate of bound-expression coverage. Finite grounding
+admittances substituted into currents do not create a separate equality; ideal
+grounding can create a voltage row, including an empty row if already fixed.
 
 Removal status follows the recorded specialization, passive-line,
 impedance-load and device-elimination reports. The diagnostic distinguishes
@@ -51,7 +70,8 @@ r_{\mathrm{SI}}=s\,aRy,\qquad
 \eta=aRy/d,\qquad G=s d.
 ```
 
-The multiplier ``s`` is ``V_b`` or ``I_b`` according to the row's provenance.
+The multiplier ``s`` is the recorded `assembly_multiplier` times ``V_b`` or
+``I_b`` according to the row's provenance.
 The cap, if present, changes ``d`` for retained KCL only. For a reporting target
 ``\epsilon`` in the row's SI unit, a sufficient componentwise normalized target
 is ``\epsilon/(\sqrt{2}G)``. This is an exact-arithmetic implication conditional
@@ -122,8 +142,9 @@ occur on different rows. “Arithmetic effect” is the largest of the nested,
 composition and composed-evaluation differences. The retained-ampere maximum
 includes the rejected controls. These row evaluations are repeated observations
 of a manufactured network family, not independent physical-network samples.
-Every endpoint has three explicitly unclassified ordinary-transformer voltage
-equations; the independent whole-network audit still checks the original physics.
+The 6 October catalogue left three ordinary-transformer voltage equations per
+endpoint explicitly unclassified; the independent whole-network audit still
+checked their original physics. The 7 October extension below classifies them.
 
 For 24 units, eliminated transformer currents and power lifting:
 
@@ -144,11 +165,41 @@ while the corresponding ordinary-only endpoint fails at approximately
 Small implied-row remainders are comparable to the arithmetic differences on
 this panel. This is not a proof of zero residual or a uniform error bound for
 other networks. No new voltage normalization cap follows from these results.
-The next extension should add explicit provenance for remaining row families
-and dependence certificates where an inherited residual bound is needed.
+The subsequent extension below supplies explicit linear-row provenance.
+Dependence certificates remain necessary where an inherited residual bound is needed.
 
 The new diagnostic regression passes **12,193 assertions**. Raw traces include
 native real/imaginary coordinates and every row result; input/source snapshots,
 failed controls and validation scripts are retained outside Git in
 `CIRCUIT_ROW_RESIDUALS_20261006`. Complete regression and documentation logs are
 archived with them. Diagnostic timings are excluded from speed evidence.
+
+## Complete linear-row provenance, 7 October 2026
+
+The repeated 32-endpoint panel adds the 96 formerly unclassified ordinary
+transformer-voltage rows: **38,240 classified evaluations, zero unclassified**.
+All native coordinate values, iteration counts and previously recorded row
+results agree exactly with the preceding stored panel. The same 30 endpoints
+pass and the same two uncapped ordinary-only KCL controls fail. No physical
+input, objective, bound, normalization policy or option default changes.
+
+The added voltage rows have maximum Float64 nested residual below
+``2.192\times10^{-12}`` V and high-precision nested residual below
+``2.185\times10^{-12}`` V. Their largest compared arithmetic effect is below
+``4.887\times10^{-14}`` V, with maximum retained voltage conversion factor
+325.269120 V (rounded upward). These observations still do not motivate a
+voltage-row cap or certify an inherited tolerance for implied equations.
+
+Regression tests compare recorded/unrecorded assemblies exactly, including
+coordinate numbering, rows, KCL, device observations, limits and source values.
+Independent SI oracles cover all six ordinary transformer/regulator types,
+both flow directions and deliberately perturbed secondary voltages. Additional
+cases cover ordinary/multiwinding grounding, closed/open switches, source modes,
+constant-impedance loads, normalized shunt currents, legacy fallback and corrupt
+metadata refusal. Full regression logs and raw comparison records are archived
+outside Git in `EQUATION_PROVENANCE_20261007`.
+
+An isolated timing retry was refused before launch because a competing Julia
+process appeared at the initial guard. It produced zero warmups and zero
+measured solves; the record is retained in `NWINDING_COORDINATE_TIMING_20261007`.
+The diagnostic comparisons above are not speed evidence.

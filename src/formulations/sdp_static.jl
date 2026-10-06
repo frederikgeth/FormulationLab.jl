@@ -88,7 +88,7 @@ end
 
 # Stamps an internal neutral-earth branch, including an exact ideal ground.
 # Return its current separately so winding and terminal ratings are distinguishable.
-function _sdp_ground!(d,rkey,xkey,neutral_index,v,newvar,equations,zb)
+function _sdp_ground!(d,rkey,xkey,neutral_index,v,newvar,equations,zb;equation_metadata=nothing,label="ground")
     result=[_SDPRow() for _ in v]
     haskey(d,rkey) || haskey(d,xkey) || return result
     neutral_index===nothing && _sdp_refuse("$rkey/$xkey require an explicit winding neutral")
@@ -96,6 +96,7 @@ function _sdp_ground!(d,rkey,xkey,neutral_index,v,newvar,equations,zb)
     real(z)>=0 && imag(z)>=0 || _sdp_refuse("negative grounding impedance")
     if iszero(z)
         push!(equations,copy(v[neutral_index]))
+        _sdp_record_equation!(equation_metadata,equations,label,:V)
         result[neutral_index]=_sdp_e(newvar())
     else
         _sdp_add!(result[neutral_index],v[neutral_index],zb/z)
@@ -103,7 +104,7 @@ function _sdp_ground!(d,rkey,xkey,neutral_index,v,newvar,equations,zb)
     result
 end
 
-function _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing)
+function _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map=nothing,equation_metadata=nothing)
     for (id,d) in get(net,"switch",Dict())
         _sdp_fields(d,("bus_from","bus_to","terminal_map_from","terminal_map_to","open_switch","i_max","s_max"),"switch/$id")
         get(d,"open_switch",nothing) isa Bool || _sdp_refuse("switch/$id needs a fixed Boolean open_switch")
@@ -111,7 +112,10 @@ function _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,de
         length(vf)==length(vt) || _sdp_refuse("switch/$id map arity mismatch")
         cf=d["open_switch"] ? [_SDPRow() for _ in vf] : [_sdp_e(newvar()) for _ in vf]
         if !d["open_switch"]
-            for k in eachindex(vf);push!(equations,_sdp_add!(copy(vf[k]),vt[k],-1));end
+            for k in eachindex(vf)
+                push!(equations,_sdp_add!(copy(vf[k]),vt[k],-1))
+                _sdp_record_equation!(equation_metadata,equations,"switch/$id/drop/$k",:V)
+            end
         end
         ct=[_sdp_add!(_SDPRow(),i,-1) for i in cf]
         inject(d["bus_from"],d["terminal_map_from"],cf);inject(d["bus_to"],d["terminal_map_to"],ct)

@@ -1201,3 +1201,14 @@ It compares small circuits without controllable dispatch, including supplied
 BMOPFTools states in the reduced model and reconstructed reduced states in full
 IVR; it is differential
 verification, not field validation or a performance benchmark.
+
+
+### Linear electrical equation provenance
+
+Native builds expose `electrical.equation_metadata`: original equation index,
+physical label, ampere/volt unit and the multiplier needed to undo any internal
+stamp normalization. These records do not change rows, maps or model dimensions.
+The [physical circuit-row guide](ivr_circuit_residuals.md) explains complete
+linear-row coverage, omission status, shared-assembly controls and the remaining
+scope limits. Nonlinear laws, operating bounds and fixed-variable constraints
+are outside that linear-row catalogue.

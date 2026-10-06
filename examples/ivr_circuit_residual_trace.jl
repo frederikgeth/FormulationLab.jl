@@ -7,7 +7,9 @@ const K=IVRKCLResidualTrace
 
 """Catalogue only equations whose physical units follow recorded stamp provenance.
 
-Unclassified equations are returned explicitly. A non-KCL row is not necessarily
+Current IVRNLP builds record every linear electrical row at assembly time.
+The older partial catalogue remains a fallback; unclassified equations are
+returned explicitly. A non-KCL row is not necessarily
 a voltage equation: winding balances and impedance-load laws have ampere units.
 The multiwinding record orders each coil's ampere balance before its leakage rows.
 """
@@ -16,31 +18,46 @@ function catalog(build)
     linear=d[:linear_elimination_report];device=d[:device_elimination_report]
     selected=Set(values(linear.selected_series_lines));loads=Set(linear.impedance_loads)
     omitted_device=Set(device.equation_indices);known=Dict{Int,Any}()
-    function add(index,label,unit,omission)
+    function add(index,label,unit,omission;multiplier=1.0)
         index in eachindex(e.equations) || throw(ArgumentError("invalid recorded circuit-row index"))
         haskey(known,index) && throw(ArgumentError("duplicate circuit-row provenance"))
+        unit in (:A,:V) && isfinite(multiplier) && multiplier>0 || throw(ArgumentError("invalid physical row unit"))
         reason=isempty(e.equations[index]) ? :empty_row : omission
         known[index]=(;kind=:equation,index,key=nothing,label,unit,
-            physical_scale=unit==:A ? e.ib : e.vb,retained_constraint=reason==:retained,reason)
+            physical_scale=(unit==:A ? e.ib : e.vb)*multiplier,retained_constraint=reason==:retained,reason)
     end
-    for l in e.lnc_lines,(k,index) in enumerate(l.equation_indices)
-        add(index,"line/$(l.id)/drop/$k",:V,l.id in selected ? :passive_elimination : :retained)
-    end
-    for tx in e.transformer_current_balances,(k,index) in enumerate(tx.equation_indices)
-        add(index,"transformer/$(tx.id)/balance/$k",:A,index in omitted_device ? :device_elimination : :retained)
-    end
-    for tx in e.nwinding_current_blocks
-        id=split(tx.id,'/';limit=2)[2];n=length(build.network["transformer"]["n_winding"][id]["windings"])
-        length(tx.equation_indices)==length(tx.current) && length(tx.current)%n==0 ||
-            throw(ArgumentError("incomplete multiwinding row provenance"))
-        for (k,index) in enumerate(tx.equation_indices)
-            coil=cld(k,n);winding=mod1(k,n);unit=winding==1 ? :A : :V
-            label=winding==1 ? "transformer/$(tx.id)/balance/$coil" : "transformer/$(tx.id)/leakage/$winding/$coil"
-            add(index,label,unit,index in omitted_device ? :device_elimination : :retained)
+    if hasproperty(e,:equation_metadata) && e.equation_metadata!==nothing
+        records=e.equation_metadata
+        length(records)==length(e.equations) && [q.index for q in records]==collect(eachindex(e.equations)) ||
+            throw(ArgumentError("incomplete circuit equation provenance"))
+        omitted_lines=Set(i for l in e.lnc_lines if l.id in selected for i in l.equation_indices)
+        omitted_loads=Set(i for l in e.impedance_loads if l.id in loads for i in l.equation_indices)
+        for q in records
+            reason=q.index in omitted_device ? :device_elimination : q.index in omitted_lines ? :passive_elimination :
+                q.index in omitted_loads ? :impedance_elimination : :retained
+            add(q.index,q.label,q.unit,reason;multiplier=q.assembly_multiplier)
         end
-    end
-    for l in e.impedance_loads,(k,index) in enumerate(l.equation_indices)
-        add(index,"load/$(l.id)/impedance/$k",:A,l.id in loads ? :impedance_elimination : :retained)
+    else
+        # Retain the narrower catalogue for older builds and external toy data.
+        for l in e.lnc_lines,(k,index) in enumerate(l.equation_indices)
+            add(index,"line/$(l.id)/drop/$k",:V,l.id in selected ? :passive_elimination : :retained)
+        end
+        for tx in e.transformer_current_balances,(k,index) in enumerate(tx.equation_indices)
+            add(index,"transformer/$(tx.id)/balance/$k",:A,index in omitted_device ? :device_elimination : :retained)
+        end
+        for tx in e.nwinding_current_blocks
+            id=split(tx.id,'/';limit=2)[2];n=length(build.network["transformer"]["n_winding"][id]["windings"])
+            length(tx.equation_indices)==length(tx.current) && length(tx.current)%n==0 ||
+                throw(ArgumentError("incomplete multiwinding row provenance"))
+            for (k,index) in enumerate(tx.equation_indices)
+                coil=cld(k,n);winding=mod1(k,n);unit=winding==1 ? :A : :V
+                label=winding==1 ? "transformer/$(tx.id)/balance/$coil" : "transformer/$(tx.id)/leakage/$winding/$coil"
+                add(index,label,unit,index in omitted_device ? :device_elimination : :retained)
+            end
+        end
+        for l in e.impedance_loads,(k,index) in enumerate(l.equation_indices)
+            add(index,"load/$(l.id)/impedance/$k",:A,l.id in loads ? :impedance_elimination : :retained)
+        end
     end
     specialized=get(d,:specialization_report,nothing)
     omitted=specialized!==nothing && hasproperty(specialized,:omitted_kcl) ? Set(specialized.omitted_kcl) : Set{Tuple{String,String}}()

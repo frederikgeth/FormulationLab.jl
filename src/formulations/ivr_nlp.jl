@@ -678,7 +678,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     end
     e=_ivr_electrical_data(net;s_base=options.s_base,line_records=true,
                            delta_dispatch=:coil,ibr_delta_dispatch=:conductor,source_mode=:affine,
-                           record_transformer_bonds=true,record_transformer_currents=true)
+                           record_transformer_bonds=true,record_transformer_currents=true,record_equations=true)
     if options.kcl_row_max_base!==nothing
         cap=options.kcl_row_max_base
         isfinite(cap) && cap>0 && isfinite(cap/e.ib) && cap/e.ib>0 ||

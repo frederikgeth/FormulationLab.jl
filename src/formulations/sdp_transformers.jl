@@ -137,7 +137,7 @@ end
 
 function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
                                  equations, devices, limits, zb; record_bonds=false,neutral_map=nothing,
-                                 current_balances=nothing)
+                                 current_balances=nothing,equation_metadata=nothing)
     for (subtype,table) in sort!(collect(get(net,"transformer",Dict()));by=first),
         (id,d) in sort!(collect(table);by=first)
         subtype=="n_winding" && continue
@@ -150,10 +150,16 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
         ef=[_sdp_add!(copy(uf[k]),jf[k],-p.Zf[k]/zb) for k in eachindex(uf)]
         et=[_sdp_add!(copy(ut[k]),jt[k],-p.Zt[k]/zb) for k in eachindex(ut)]
         coupled=matrows(p.R,ef)
-        for k in eachindex(et);push!(equations,_sdp_add!(et[k],coupled[k],-1));end
+        for k in eachindex(et)
+            push!(equations,_sdp_add!(et[k],coupled[k],-1))
+            _sdp_record_equation!(equation_metadata,equations,"$label/leakage/$k",:V)
+        end
         current=matrows(adjoint(p.R),jt)
         balance_start=length(equations)+1
-        for k in eachindex(jf);push!(equations,_sdp_add!(copy(jf[k]),current[k]));end
+        for k in eachindex(jf)
+            push!(equations,_sdp_add!(copy(jf[k]),current[k]))
+            _sdp_record_equation!(equation_metadata,equations,"$label/balance/$k",:A)
+        end
         current_balances===nothing || push!(current_balances,
             (;id="$subtype/$id",current=jf,equation_indices=collect(balance_start:length(equations))))
         cf=[_sdp_add!(copy(jf[k]),uf[k],p.Yf[k]*zb) for k in eachindex(jf)]
@@ -162,6 +168,7 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
         bond_rows=_SDPRow[];bond_drops=_SDPRow[]
         for (f,t) in p.bonds
             push!(equations,_sdp_add!(copy(vf[f]),vt[t],-1))
+            _sdp_record_equation!(equation_metadata,equations,"$label/bond/$f/$t",:V)
             bond=_sdp_e(newvar());_sdp_add!(tf[f],bond);_sdp_add!(tt[t],bond,-1)
             push!(bond_rows,bond);push!(bond_drops,_sdp_add!(copy(vf[f]),vt[t],-1))
         end
@@ -171,7 +178,7 @@ function _sdp_stamp_transformers!(net, newvar, terminal_rows, matrows, inject,
             neutral_map===nothing && (neutral_map=_kr_neutral_map(net))
             neutral=get(neutral_map,d["bus_$side"],nothing)
             ni=findfirst(==(neutral),d["terminal_map_$side"])
-            ground=_sdp_ground!(d,"r_neutral_$side","x_neutral_$side",ni,v,newvar,equations,zb)
+            ground=_sdp_ground!(d,"r_neutral_$side","x_neutral_$side",ni,v,newvar,equations,zb;equation_metadata,label="$label/ground/$side")
             for k in eachindex(terminals);_sdp_add!(terminals[k],ground[k]);end
         end
         inject(d["bus_from"],d["terminal_map_from"],tf)

@@ -57,7 +57,7 @@ end
         @test r.solve.optimal && physical_residuals(net,r).passed
         variables=value.(all_variables(b.model));trace=C.trace(b);cat=C.catalog(b)
         @test value.(all_variables(b.model))==variables
-        @test length(trace.rows)==length(cat.rows) && !isempty(trace.unclassified_equations)
+        @test length(trace.rows)==length(cat.rows) && isempty(trace.unclassified_equations)
         @test any(q->q.unit==:V && q.retained_constraint,trace.rows)
         @test any(q->q.unit==:V && !q.retained_constraint,trace.rows)
         qmap=Dict(q.label=>q for q in trace.rows)

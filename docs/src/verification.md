@@ -1,5 +1,26 @@
 # Verification
 
+## Explicit linear-equation provenance — 7 October 2026
+
+The [physical-row catalogue](ivr_circuit_residuals.md) now uses records produced
+when each shared linear electrical equation is assembled. Tests compare recorded
+and unrecorded physics, and validate SI conversions against independent perturbed
+transformer states, ideal/finite grounds, switches, source modes, impedance loads
+and internally normalized shunt currents. The partial legacy catalogue remains
+available. Nonlinear constraints and operating bounds are outside this scope.
+
+The repeated 32-endpoint panel classifies **38,240 row evaluations**, including
+96 formerly unclassified transformer-voltage rows. All native coordinates,
+iterations and previous row results are unchanged. The same 30 endpoints pass;
+the same two KCL controls fail. No voltage normalization change is introduced.
+Complete regression/documentation logs, failed test-development controls and
+frozen data are archived outside Git in `EQUATION_PROVENANCE_20261007`.
+
+The fresh timing retry was refused by the initial isolation guard before any
+benchmark process started: zero warmups, zero measured solves, no external
+workload interrupted. No eligible wall-time evidence or timing recommendation
+is added by this checkpoint.
+
 ## Physical circuit-row residuals — 6 October 2026
 
 The [read-only circuit-row diagnostic](ivr_circuit_residuals.md) passes

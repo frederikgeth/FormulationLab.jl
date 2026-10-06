@@ -1,10 +1,18 @@
+# Optional provenance records never change a stamped row or its insertion order.
+# Multipliers undo any normalization performed inside a physical stamp.
+function _sdp_record_equation!(records,equations,label,unit;multiplier=1.0)
+    records===nothing && return nothing
+    push!(records,(;index=length(equations),label,unit,assembly_multiplier=Float64(multiplier)))
+    nothing
+end
+
 # Shared, solver-independent current–voltage circuit assembly. All coordinates
 # are per unit; ideal grounds are fixed at zero, finite grounds remain shunts.
 # No Kron reduction, power approximation, lifting, or operational-bound tightening.
 function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
                               line_records=false, delta_dispatch=:conductor,
                               source_mode=:homogeneous, ibr_delta_dispatch=delta_dispatch,
-                              record_transformer_bonds=false,record_transformer_currents=false)
+                              record_transformer_bonds=false,record_transformer_currents=false,record_equations=false)
     delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown delta dispatch convention"))
     ibr_delta_dispatch in (:conductor,:coil) || throw(ArgumentError("unknown IBR dispatch convention"))
     source_mode in (:homogeneous,:affine) || throw(ArgumentError("unknown source mode"))
@@ -31,6 +39,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
     end
     kcl = Dict(key => _SDPRow() for (key,i) in voltage if i != 0)
     equations = _SDPRow[]
+    equation_metadata = record_equations ? NamedTuple[] : nothing
     function inject(bus,tm,rows,sign=1)
         for (t,row) in zip(tm,rows)
             haskey(kcl,(bus,t)) && _sdp_add!(kcl[(bus,t)],row,sign)
@@ -89,6 +98,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         equation_indices=collect(length(equations)+1:length(equations)+n)
         for k in 1:n
             push!(equations,_sdp_add!(_sdp_add!(copy(vf[k]),vt[k],-1),drop[k],-1))
+            _sdp_record_equation!(equation_metadata,equations,"line/$id/drop/$k",:V)
         end
         cf=matrows(Yf,vf); ct=matrows(Yt,vt)
         for k in 1:n;_sdp_add!(cf[k],current[k]);_sdp_add!(ct[k],current[k],-1);end
@@ -110,11 +120,11 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         push!(devices,(:line_from,id,vf,cf,Dict("passive"=>passive)));push!(devices,(:line_to,id,vt,ct,Dict()))
     end
     _sdp_stamp_transformers!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;
-                            record_bonds=record_transformer_bonds,neutral_map,
+                            record_bonds=record_transformer_bonds,neutral_map,equation_metadata,
                             current_balances=record_transformer_currents ? transformer_current_balances : nothing)
-    _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map,
+    _sdp_stamp_nwinding!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map,equation_metadata,
         current_blocks=record_transformer_currents ? nwinding_current_blocks : nothing)
-    _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map)
+    _sdp_stamp_static!(net,newvar,terminal_rows,matrows,inject,equations,devices,limits,zb;neutral_map,equation_metadata)
     for (id,d) in get(net,"shunt",Dict())
         rows=terminal_rows(d["bus"],d["terminal_map"])
         Y=_l3f_shunt_matrix(d,length(rows))*zb
@@ -129,6 +139,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
                     equation=_sdp_add!(_SDPRow(),j,1/scale)
                     for h in eachindex(rows);_sdp_add!(equation,rows[h],-Y[k,h]/scale);end
                     push!(equations,equation)
+                    _sdp_record_equation!(equation_metadata,equations,"shunt/$id/current/$k",:A;multiplier=scale)
                 end
             end
             inject(d["bus"],d["terminal_map"],currents)
@@ -173,6 +184,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
             for k in 1:n
                 y=conj(complex(p[k],q[k]))/vn[k]^2*zb
                 push!(equations,_sdp_add!(copy(ic[k]),vc[k],-y))
+                _sdp_record_equation!(equation_metadata,equations,"load/$id/impedance/$k",:A)
             end
             push!(impedance_loads,(;id,current=ic,equation_indices=collect(first_equation:length(equations))))
         end
@@ -224,6 +236,7 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
             # The first anchor equation is an algebraic tautology.
             d===source && k==anchor_k && continue
             push!(equations,_sdp_add!(copy(rows[k]),vs[anchor_k],-dvolts[k]/source_v[anchor_k]))
+            _sdp_record_equation!(equation_metadata,equations,"source/$source_id/phasor/$k",:V)
         end
         # Ideal source ground-terminal current allocation is underdetermined in
         # a common-earth model. Do not manufacture a neutral rating certificate.
@@ -248,7 +261,8 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
         end
         push!(devices,(:voltage_source,source_id,rows,is,powerdata));push!(limits,(rows,is,Dict(k=>d[k] for k in ("i_max",) if haskey(d,k))))
     end
-    (; voltage, equations, kcl, devices, limits, lnc_lines, impedance_loads, transformer_current_balances, nwinding_current_blocks, terminal_rows,
+    equation_metadata===nothing || length(equation_metadata)==length(equations) || error("incomplete circuit equation provenance")
+    (; voltage, equations, equation_metadata, kcl, devices, limits, lnc_lines, impedance_loads, transformer_current_balances, nwinding_current_blocks, terminal_rows,
        values_for, coordinate_count, newvar, fixed_source_coordinates, neutral_map,
        vs, anchor_k, anchor, source_v, vb, sb, ib, zb)
 end
