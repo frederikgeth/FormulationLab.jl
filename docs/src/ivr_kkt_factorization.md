@@ -146,7 +146,9 @@ is ``1.79\times10^{-20}``. The strict failures therefore require row-level
 interpretation; they are not evidence of physical infeasibility or uniformly
 large absolute error. The original gate remains unchanged. Future diagnostics
 should predeclare both absolute and relative criteria rather than silently
-replace this metric after observing failures.
+replace this metric after observing failures. The [rowwise follow-up](ivr_kkt_residuals.md)
+retains all strict results and reports a fixed absolute-allowance grid on all
+464 final vectors, with model provenance and independent decimal checks.
 
 The [nonlinear follow-up](ivr_nonlinear_row_scaling.md) preserves the objective
 scale and verifies initial internal states. Its native initializer changes 897

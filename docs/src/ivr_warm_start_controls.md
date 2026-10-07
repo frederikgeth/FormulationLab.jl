@@ -124,8 +124,9 @@ No instrumented timing is eligible for ranking. Automatic MUMPS preprocessing,
 production defaults and formulation recommendations remain unchanged. Preserve
 both cold and warm controls, the row-unit option and every existing formulation.
 The next useful diagnostics are a separated study of primal pushes and dual
-seeding, and the planned mixed absolute/relative residual analysis with worst-row
-provenance. Timing remains deferred.
+seeding, and the [mixed absolute/relative residual analysis](ivr_kkt_residuals.md) with
+worst-row provenance. The latter is now complete and identifies six fixed-source
+lifted scalars per broad model as an exact-simplification candidate. Timing remains deferred.
 
 ## Calibration and use
 
