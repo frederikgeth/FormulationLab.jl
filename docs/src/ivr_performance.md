@@ -21,6 +21,13 @@ Float64 or 256-bit residual accumulation. This offline result does not reproduce
 Ipopt's native refinement policy or provide eligible timing evidence; the
 formulation recommendations below remain unchanged.
 
+The [native refinement-policy calibration](ivr_native_refinement_policy.md)
+verifies the actual Ipopt control on a small nonlinear model. Increasing the
+minimum from one to three or four raises wrapper solves from 15 to 29 or 36,
+with unchanged seven-iteration endpoints. It establishes a controlled OPF
+experiment, not a benefit or a reason to change solver defaults. Timing remains
+deferred.
+
 The [isolated coil-observation confirmation](ivr_coil_observations.md#Isolated-confirmation-—-7-October-2026)
 admits all 1,200 measured solves and 120 warmups. Broad bounded observations
 win all twelve cells in both batches on the manufactured multiwinding panel.

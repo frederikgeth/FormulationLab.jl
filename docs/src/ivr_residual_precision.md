@@ -1,5 +1,9 @@
 # Residual-accumulation precision control
 
+The subsequent [native refinement-policy calibration](ivr_native_refinement_policy.md)
+verifies Ipopt's actual minimum-correction control and printed residual-ratio
+conventions on a small nonlinear problem, before attempting OPF transfer.
+
 ## Question and scope
 
 The [refinement-depth experiment](ivr_refinement_depth.md) resolved all seven
