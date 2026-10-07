@@ -43,6 +43,42 @@ def overlaps(a, b):
     return max(a[0], b[0]) <= min(a[1], b[1])
 
 
+def verify_declared_options(text, expected):
+    """Check explicitly supplied options in a restricted native options table.
+
+    This never infers an absent default. Positive use counts confirm that Ipopt
+    read the options, not that a numerical tolerance was met. The caller must
+    separately verify the supported solver version and classify its trace.
+    """
+    # Ipopt prints its banner only once per process. Subsequent option tables
+    # run directly into the version line, with no intervening blank line.
+    tables = re.findall(r'^List of options:\s*\n(.*?)(?=^\*{5,}|^This is Ipopt version )',
+                        text, re.M | re.S)
+    if len(tables) != 1 or not expected:
+        raise ValueError("one native options table and nonempty expectations required")
+    observed = {}
+    for line in tables[0].splitlines():
+        if not line.strip() or line.strip() == 'Name   Value                # times used':
+            continue
+        match = re.fullmatch(r'\s*(\w+)\s+=\s+(\S+)\s+(\d+)\s*', line)
+        if not match or match[1] in observed:
+            raise ValueError("unsupported or duplicate native option row")
+        observed[match[1]] = dict(value=match[2], uses=int(match[3]))
+    for name, wanted in expected.items():
+        if name not in observed or observed[name]['uses'] < 1:
+            raise ValueError("missing or unused declared option: " + name)
+        value = observed[name]['value']
+        if isinstance(wanted, str):
+            matches = value == wanted
+        elif type(wanted) in (int, float) and math.isfinite(wanted):
+            matches = bool(re.fullmatch(NUMBER, value)) and Decimal(value) == Decimal(str(wanted))
+        else:
+            raise ValueError("finite numeric or string expectation required")
+        if not matches:
+            raise ValueError("declared option differs: " + name)
+    return {name: observed[name] for name in expected}
+
+
 def audit_counts(text, minimum, target=1e-10):
     """Classify native work at verbosity eight without requiring vector dumps.
 

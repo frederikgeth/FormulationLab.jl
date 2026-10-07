@@ -1,5 +1,9 @@
 # Native refinement policy on per-unit OPF
 
+The subsequent [residual-target control](ivr_residual_targets.md) tests
+accuracy-triggered corrections with minimum one. It also finds no iteration
+reduction and records a native recovery acceptance above the requested target.
+
 ## Question and scope
 
 Does increasing Ipopt's minimum number of residual corrections improve the

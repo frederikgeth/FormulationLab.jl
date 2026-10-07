@@ -5,7 +5,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'examples'))
-from ivr_refinement_policy import audit, audit_counts, printed_interval, ratio_interval
+from ivr_refinement_policy import audit, audit_counts, printed_interval, ratio_interval, verify_declared_options
 
 
 def sample():
@@ -23,6 +23,27 @@ def sample():
 
 
 class PolicyTests(unittest.TestCase):
+    def test_native_declared_options(self):
+        text = ('List of options:\n\n                                    Name   Value                # times used\n'
+                ' min_refinement_steps = 1 1\n residual_ratio_max = 1e-11 1\n'
+                ' linear_solver = mumps 2\n\n**********\n')
+        expected = dict(min_refinement_steps=1, residual_ratio_max=1e-11, linear_solver='mumps')
+        result = verify_declared_options(text, expected)
+        self.assertEqual(result['residual_ratio_max']['value'], '1e-11')
+        self.assertEqual(result['linear_solver']['uses'], 2)
+        no_banner = text.replace('\n\n**********\n',
+            '\nThis is Ipopt version 3.14.19, running with linear solver MUMPS.\n')
+        self.assertEqual(verify_declared_options(no_banner, expected), result)
+        for change in ({'residual_ratio_max': 1e-10}, {'min_refinement_steps': 3},
+                       {'linear_solver': 'other'}, {'missing': 1},
+                       {'residual_ratio_max': float('nan')}, {'min_refinement_steps': True}, {}):
+            with self.assertRaises(ValueError): verify_declared_options(text, change)
+        for broken in (text.replace('1e-11 1', '1e-11 0'),
+                       text.replace('1e-11 1', 'nan 1'),
+                       text.replace('1e-11 1', '1e-11 1\n residual_ratio_max = 1e-11 1'),
+                       text.replace('linear_solver =', 'linear_solver :'), text+text, ''):
+            with self.assertRaises(ValueError): verify_declared_options(broken, expected)
+
     def test_counts_without_vector_dump(self):
         text = sample()
         result = audit_counts(text, 1)
@@ -32,6 +53,17 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(audit_counts(text, 0)['work']['excess_corrections'], 1)
         for target in (0, -1, float('nan'), float('inf')):
             with self.assertRaises(ValueError): audit_counts(text, 1, target)
+
+    def test_declared_target_controls_residual_classification(self):
+        # Reclassify a fixed synthetic trace, not a claim about new solver runs.
+        at_target = audit_counts(sample(), 1, target=5e-13)
+        below = audit_counts(sample(), 1, target=1e-13)
+        for key in ('initial_ratios_above_target', 'episode_final_ratios_above_target',
+                    'direction_final_ratios_above_target'):
+            self.assertEqual(at_target['work'][key], 0)
+            self.assertEqual(below['work'][key], 1)
+        self.assertEqual(at_target['trace']['counts'], below['trace']['counts'])
+        self.assertEqual(below['target'], 1e-13)
 
     def test_counts_recovery_and_accepted_above_target(self):
         call = 'Calling MUMPS-3 for solve.\nDone with MUMPS-3 for solve.\n'

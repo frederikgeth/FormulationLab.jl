@@ -34,6 +34,13 @@ avoids two factorizations/restarts in the eliminated-current powers profile
 while increasing linear solves from 126 to 148; minimum four takes an extra
 iteration. This remains an unmeasured tradeoff, not a new timing recommendation.
 
+The [native residual-target control](ivr_residual_targets.md) adds twelve accepted
+per-unit solves with no iteration reductions. The strictest target removes two
+factorizations/restarts in eliminated powers but raises solves from 126 to 153,
+compared with 148 for the prior minimum-three candidate. No new speed claim or
+default change follows; a requested native ratio target is not always attained
+after Ipopt recovery.
+
 The [isolated coil-observation confirmation](ivr_coil_observations.md#Isolated-confirmation-—-7-October-2026)
 admits all 1,200 measured solves and 120 warmups. Broad bounded observations
 win all twelve cells in both batches on the manufactured multiwinding panel.
