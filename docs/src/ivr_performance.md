@@ -1553,3 +1553,9 @@ Both attempted timing campaigns were excluded because competing Julia work was
 observed. Further timing is deferred at the user's request. No new wall-time
 ranking, timing-interaction estimate or default change follows from this study;
 the previous admitted comparisons remain the basis for recommendations.
+
+The [refinement reanalysis](ivr_refinement_diagnostics.md) accounts for these
+counts: with zero reduction, broad lifting reduces Ipopt correction solves from
+84 to 36 and from 90 to 37. It uses the same retained logs, adds no optimizer runs,
+and preserves the timing deferral. This identifies the recorded extra work;
+it does not measure its wall-time cost or prove improved conditioning.

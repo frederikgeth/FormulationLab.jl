@@ -157,9 +157,10 @@ entries and numerical-factorization counts relative to powers-only. Its observed
 solve-call counts fall from 118 to 73 with explicit ordinary currents and from
 126 to 74 with eliminated currents. Without zero-load elimination, broad lifting
 instead increases these counts from 100 to 111 and from 86 to 104. The solve-call
-pattern therefore changes with the combination of transformations. A subsequent
-trace should distinguish repeated residual corrections, right-hand sides and
-other solver requests before attributing this pattern to a numerical mechanism.
+pattern therefore changes with the combination of transformations. The subsequent
+[refinement audit](ivr_refinement_diagnostics.md) accounts for the call difference
+through residual corrections and recovery restarts, while leaving the underlying
+conditioning and wall-time explanation open.
 
 ## Evidence status
 
@@ -185,8 +186,8 @@ attempt must repeat both batches in full with a fresh source freeze.
 
 The harness passes 282 targeted Julia assertions; the capture parser passes
 11 Python tests. No library source changes, and the full library suite was not
-rerun for this experiment. The diagnostic observations motivate tracing repeated
-linear solves and residual corrections; they do not establish their cause.
+rerun for this experiment. A subsequent reanalysis separates repeated linear solves and residual corrections;
+see the [refinement audit](ivr_refinement_diagnostics.md) for its restricted scope.
 
 Raw inputs, preflight exports, verbose reports, excluded timings and independent
 audits are retained outside Git in `JOINT_ZERO_OBSERVATION_20261007`. The previous
