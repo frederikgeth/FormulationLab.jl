@@ -806,6 +806,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     model.ext[:ivr_equipment_limit_rows]=Any[]
     model.ext[:ivr_dispatch_rows]=Dict{Tuple{Symbol,String,String,Int},Any}()
     model.ext[:ivr_ibr_operating_rows]=Any[]
+    model.ext[:ivr_circuit_rows]=Dict{Any,Any}()
+    model.ext[:ivr_source_fixes]=Dict{Int,Any}()
     n=length(maps.projection)
     xr=@variable(model,[1:n],base_name="state_real")
     xi=@variable(model,[1:n],base_name="state_imag")
@@ -818,15 +820,23 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     for (k,v) in e.fixed_source_coordinates
         j,a=only(maps.reconstruction[k]) # Source coordinates remain singleton, possibly scaled.
         JuMP.fix(xr[j],real(v/a));JuMP.fix(xi[j],imag(v/a))
+        model.ext[:ivr_source_fixes][k]=(;coordinate=k,native_coordinate=j,coefficient=a,value=v,
+            constraints=(JuMP.FixRef(xr[j]),JuMP.FixRef(xi[j])))
     end
-    for (row,is_kcl) in Iterators.flatten(( ((row,false) for (k,row) in enumerate(e.equations) if k ∉ omitted_equations),
-                                  ((row,true) for (key,row) in e.kcl if key ∉ omitted)))
-        isempty(row) && continue
+    for (identity,row,is_kcl,eliminated) in Iterators.flatten((
+            (((:equation,k),row,false,k in omitted_equations) for (k,row) in enumerate(e.equations)),
+            (((:kcl,key),row,true,key in omitted) for (key,row) in e.kcl)))
+        if eliminated || isempty(row)
+            model.ext[:ivr_circuit_rows][identity]=(;row=copy(row),divisor=nothing,
+                status=isempty(row) ? :empty_row : :eliminated,constraints=())
+            continue
+        end
         divisor=scaled_rows ? _ivrn_scaled_row_norm(row,maps) : norm(collect(values(row)))
         is_kcl && (divisor=_ivrn_kcl_row_divisor(divisor,e.ib,options.kcl_row_max_base))
         isfinite(divisor) && divisor>0 || _ivrn_refuse("invalid circuit-row normalization")
         a=_linivr_eval(row,z)/divisor
-        @constraint(model,real(a)==0);@constraint(model,imag(a)==0)
+        cr=@constraint(model,real(a)==0);ci=@constraint(model,imag(a)==0)
+        model.ext[:ivr_circuit_rows][identity]=(;row=copy(row),divisor,status=:retained,constraints=(cr,ci))
     end
     powers=Dict{Tuple{Symbol,String},Vector{Any}}()
     loads=Dict{String,Any}();load_voltages=Dict{String,Any}();generators=Dict{String,Any}()

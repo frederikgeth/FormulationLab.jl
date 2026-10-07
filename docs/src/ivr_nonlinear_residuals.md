@@ -19,6 +19,10 @@ KCL, other circuit rows, fixed native coordinates and generic lifting definition
 “Outside scope” does not mean that a constraint is absent from the model.
 `complete_model_coverage` is deliberately `false`.
 
+The separate [combined inventory](ivr_constraint_inventory.md) joins this catalogue
+to circuit rows, source fixes and auxiliary definitions, and checks coverage
+against every current emitted solver constraint.
+
 Recording provenance introduces no variables, constraints, coefficients,
 objectives or starts. It changes neither feasibility nor the physical result
 export schema. Every transformation option remains available. This work is

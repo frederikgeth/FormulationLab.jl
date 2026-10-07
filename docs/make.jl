@@ -54,6 +54,7 @@ makedocs(;
             "KCL residual amplification"=>"ivr_kcl_residuals.md",
             "Physical circuit-row residuals"=>"ivr_circuit_residuals.md",
             "Nonlinear laws and operating limits"=>"ivr_nonlinear_residuals.md",
+            "Emitted-constraint inventory"=>"ivr_constraint_inventory.md",
             "Implied-row residual certificates"=>"ivr_implied_residuals.md",
             "Multiwinding nominal coordinates"=>"ivr_nwinding_coordinates.md",
             "Multiwinding finite-ground units"=>"ivr_nwinding_ground.md",
