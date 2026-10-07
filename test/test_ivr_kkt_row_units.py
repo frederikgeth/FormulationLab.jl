@@ -122,6 +122,17 @@ class RowUnitTests(unittest.TestCase):
         expected=max(abs(a-v)/(sum(abs(w) for w in row)+abs(v)) for a,v,row in zip(action(dense,q),b,dense))
         self.assertAlmostEqual(U.backward_error(k,q,b),expected,places=14)
 
+    def test_cancelled_zero_matrix_rejects_nonfinite_error(self):
+        # The assembled matrix is zero; sequential floating-point products can
+        # nevertheless leave a residual. An infinite error must not pass via NaN.
+        k = dict(dimensions=[1,0,0,0],W_factor=1.,
+                 W=sparse([1,1],[(1,1,1e16),(1,1,1.),(1,1,-1e16)]),
+                 x_diagonal=[0.],s_diagonal=[],c_diagonal=[],d_diagonal=[],
+                 J_c=sparse([0,1],[],[]),J_d=sparse([0,1],[],[]))
+        self.assertTrue(math.isinf(U.backward_error(k,[.1],[0.])))
+        with self.assertRaisesRegex(ValueError,'nonfinite componentwise'):
+            U.audit_call(dict(matrix=k,rhs=[0.],solution=[.1]),[],[])
+
     def test_bad_units_and_vectors_fail_closed(self):
         k, _ = fixture()
         for c,d in [([], [1.,1.]), ([0.],[1.,1.]), ([1.],[math.nan,1.]),

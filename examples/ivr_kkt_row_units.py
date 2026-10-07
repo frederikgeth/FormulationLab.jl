@@ -143,6 +143,8 @@ def audit_call(call, target_c, target_d):
             raise ValueError('residual covariance failed')
         old_be = backward_errors(k, q, call['rhs'])
         new_be = backward_errors(transformed, new_q, b)
+        if any(not math.isfinite(v) for v in old_be+new_be):
+            raise ValueError('nonfinite componentwise backward error')
         be_gap = max((abs(a-v) for a, v in zip(old_be, new_be)), default=0.)
         if be_gap > 1e-12:
             raise ValueError('componentwise backward-error covariance failed')
