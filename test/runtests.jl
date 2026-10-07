@@ -33,6 +33,7 @@ using OpenDSSDirect
     include("ivr_mixed_device_tests.jl")
     include("ivr_urban_finalist_tests.jl")
     include("ivr_threephase_transfer_tests.jl")
+    include("ivr_external_observation_tests.jl")
     include("ivr_load_power_study_tests.jl")
     include("ivr_load_power_unit_study_tests.jl")
     include("ivr_load_power_row_study_tests.jl")

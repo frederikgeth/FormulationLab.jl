@@ -343,7 +343,9 @@ and unselected line bounds. Single-phase WYE and SINGLE_PHASE fixtures optimize
 an objective expressed directly in coil power, with an independent analytical
 target and full-model membership check. SI result exports retain their original
 physical variables. These manufactured cases do not establish external-feeder
-performance transfer.
+performance transfer. The subsequent [external MV/LV study](ivr_external_observations.md)
+tests ordinary transformers on three source-preserving feeder scenarios, with
+separate admission and isolated-timing gates.
 
 Twenty additional four-unit solves span both objectives, both current
 representations and all five arms. Their SI exports pass the FormulationLab

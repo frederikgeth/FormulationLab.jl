@@ -11,10 +11,20 @@ admits all 1,200 measured solves and 120 warmups. Broad bounded observations
 win all twelve cells in both batches on the manufactured multiwinding panel.
 Confirmation geometric-mean time ratios to powers-only are 0.817 with explicit
 multiwinding currents and 0.666 with eliminated currents. This supports broad
-observations as the candidate for that workload; external transfer is still
-required. Separate actual-factor reports show larger stored factors despite
+observations as the candidate for that workload. Separate actual-factor reports show larger stored factors despite
 faster solves, and 43 versus 28 numerical factorizations in eliminated-current
 tracking. Factor storage and iteration counts alone cannot explain performance.
+
+The [external ordinary-transformer confirmation](ivr_external_observations.md)
+shows the limit of that recommendation: powers-only lifting wins all six
+case/objective cells in both batches on 17-, 110- and 333-bus French MV/LV
+scenarios. All 384 measured solves and 48 warmups pass. Confirmation broad/powers
+time ratios average 1.108 with retained currents and 1.144 with eliminated
+currents. Ordinary-current elimination wins four cells but loses the two larger
+cost cells; its average powers-only benefit is only 1.5%. Keep powers-only as the
+control and leading candidate for this external panel, and retain both current
+representations. There is no universal observation-lifting winner. All 24
+preflight SI exports preserve the physical field paths and pass both readers.
 
 The [isolated single-phase confirmation](ivr_singlephase_transfer.md#Isolated-confirmation-—-6-October-2026)
 now supplies eligible timing evidence: all 1,944 measured solves and 216 warm-ups
@@ -53,9 +63,10 @@ preflight cases up to 243 buses and 24 live non-star transformers, under quadrat
 cost and exchange tracking. It confirms recovery and bound preservation on a
 larger manufactured network. At 24 units, power-lifted elimination removes 576
 variables but increases derivative entries and selected factor-storage counts.
-All three timing campaigns were interrupted by other Julia work and remain fully
-excluded; there is no eligible larger-network speed result. The small-panel
-benefit should not be extrapolated to these cases.
+The three original timing campaigns were interrupted by other Julia work and
+remain fully excluded. Later unit and observation experiments culminate in the
+isolated coil-observation result above; those earlier interrupted times are not
+pooled with it. The small-panel benefit should not be extrapolated to these cases.
 
 The [assembly/generator factorial](ivr_nwinding_network.md#Separating-assembly-and-generator-units)
 now passes 96/96 physical preflights and SI audits. Holding assembly at 100 kVA,
@@ -89,7 +100,8 @@ new five-arm Williams runner balances positions and within-sweep predecessors,
 but its first campaign was refused and a fresh retry was interrupted by other
 Julia work. All 589 returned retry endpoints pass; the entire timing campaign
 is excluded. Neither structural counts nor those contaminated times establish
-a preferred lifting scope. Keep all five arms for an isolated confirmation.
+a preferred lifting scope. The isolated confirmation reported above subsequently
+completed; keep all five arms and preserve these excluded earlier attempts.
 
 The [live mixed-winding comparison](ivr_nwinding_connections.md) additionally
 shows that a small scaled Ipopt error and a feasible endpoint do not establish
