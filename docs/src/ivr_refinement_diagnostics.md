@@ -151,3 +151,8 @@ verifies a regional current-base change at the same physical endpoint. It finds
 that transformer rows are already normalized and that column-norm spread alone
 does not explain the correction-count difference. Historical KKT systems remain
 outside that audit's scope.
+
+The [intermediate-state capture](ivr_iterate_diagnostics.md) adds primal/dual
+snapshots and associates callback states with subsequent native direction solves.
+It keeps callback and direction barrier/regularization values separate and
+exports model derivatives without claiming to reconstruct the internal KKT.

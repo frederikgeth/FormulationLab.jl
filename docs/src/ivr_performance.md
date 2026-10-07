@@ -1566,3 +1566,12 @@ covariance passes across eight builds; transformer rows already have unit norms,
 and overall column-norm spreads barely change. Broad lifting has a larger spread
 despite fewer refinement solves in the prior traces. These diagnostics support
 neither a condition-number claim nor a new speed recommendation.
+
+The [intermediate-state capture](ivr_iterate_diagnostics.md) subsequently retains
+142 primal/dual callback states across the four zero-reduced profiles. Native
+refinement sequences match the prior controls, and all endpoint physical and
+objective gates pass. Most extra powers-only corrections occur in direction
+blocks with zero reported KKT regularization, ruling out regularization alone
+as their explanation. Model Jacobians and Lagrangian Hessians are exported at
+14 selected states; internal barrier/slack KKT reconstruction remains future
+work. Instrumented runs are excluded from timing and change no recommendation.
