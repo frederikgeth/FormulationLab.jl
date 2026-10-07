@@ -61,6 +61,48 @@ class FactorTraceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             trace.parse(report() + " INFOG (29) Number of entries in factors = 123\n")
 
+    def captures(self):
+        second = lambda job: report(job, entries=200).replace(" 20 200", " 30 200")
+        captures = {"a": report() + report(3), "b": report(3) + second(2), "process": second(3)}
+        models = {"A": dict(input_order=20, input_entries=100, wrapper_factorizations=1,
+                            wrapper_solves=2, primary_capture="a"),
+                  "B": dict(input_order=30, input_entries=200, wrapper_factorizations=1,
+                            wrapper_solves=1, primary_capture="b")}
+        return captures, models
+
+    def test_buffered_jobs_follow_signature_not_filename(self):
+        captures, models = self.captures()
+        r = trace.reconcile_captures(captures, models)
+        self.assertTrue(r["passed"])
+        self.assertFalse(r["timing_eligible"])
+        self.assertEqual(r["models"]["A"]["observed_job_counts"], {"2": 1, "3": 2})
+        self.assertEqual(r["models"]["B"]["observed_job_counts"], {"2": 1, "3": 1})
+        self.assertEqual(r["models"]["A"]["displaced_jobs"][0]["capture"], "b")
+        self.assertEqual(r["models"]["B"]["displaced_jobs"][0]["capture"], "process")
+        self.assertEqual(r["models"]["A"]["maxima"]["factor_entries"], 250)
+        self.assertEqual(set(r["capture_sha256"]), set(captures))
+
+    def test_ambiguous_signatures_refuse(self):
+        captures, models = self.captures()
+        models["B"]["input_order"] = 20; models["B"]["input_entries"] = 100
+        with self.assertRaises(ValueError): trace.reconcile_captures(captures, models)
+
+    def test_missing_extra_and_duplicated_reports_refuse(self):
+        captures, models = self.captures()
+        with self.assertRaises(ValueError): trace.reconcile_captures({"a": captures["a"], "b": captures["b"]}, models)
+        with self.assertRaises(ValueError): trace.reconcile_captures(dict(captures, extra=report(3)), models)
+        with self.assertRaises(ValueError): trace.reconcile_captures(dict(captures, extra=report(3, entries=999)), models)
+        with self.assertRaises(ValueError): trace.reconcile_captures(dict(captures, extra=report().split(" INFOG")[0]), models)
+
+    def test_invalid_declarations_refuse(self):
+        captures, models = self.captures()
+        for bad in (0, -1, True, 1.0, None):
+            altered = {k: dict(v) for k, v in models.items()}
+            altered["A"]["wrapper_solves"] = bad
+            with self.assertRaises(ValueError): trace.reconcile_captures(captures, altered)
+        with self.assertRaises(ValueError): trace.reconcile_captures({}, models)
+        with self.assertRaises(ValueError): trace.reconcile_captures(captures, {})
+
 
 if __name__ == "__main__":
     unittest.main()

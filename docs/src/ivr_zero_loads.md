@@ -201,3 +201,9 @@ The separate [observation interaction study](ivr_zero_load_observations.md)
 holds this reduction enabled and compares all five existing observation choices.
 It also checks whether differently named choices produce distinct emitted models
 before interpreting their timing differences.
+
+The [joint reduction study](ivr_joint_reductions.md) provides a protocol for measuring conditional
+zero-load benefits and interactions with both lifting and ordinary-current
+elimination, using one eight-arm balanced timing design on the large tracking case.
+Timing is deferred; the completed physical and diagnostic audits do not establish
+a new speed ranking.

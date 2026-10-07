@@ -243,3 +243,9 @@ retention/elimination in one balanced block on that tracking case. Then extend
 beyond these three scenarios and include changing zero/nonzero demand patterns.
 No universal default, global-optimality result or additional input-schema coverage
 is established by this study.
+
+The subsequent [joint reduction experiment](ivr_joint_reductions.md) places all
+eight combinations of zero-load, lifting and ordinary-current choices in the
+same balanced-block protocol. Timing is deferred after two isolation failures.
+Its completed diagnostic audit distinguishes dimensions, stored factors,
+factorization counts and solve-call counts, including buffered capture spillover.

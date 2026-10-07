@@ -326,6 +326,11 @@ counters remain unavailable. Duplicate counters within a numerical call raise
 an error. `complete_factor_reports` means that the observed calls have all
 requested fields; it cannot prove that log capture itself was complete.
 The parser is tied to observed text labels rather than a stable solver API.
+A later [capture-attribution audit](ivr_joint_reductions.md) demonstrates that
+buffered reports can cross per-model file boundaries. Historical per-file JOB=3
+counts should therefore be read as observed capture counts unless reconciled
+against independent wrapper counts across the complete capture set. That later
+audit does not retrospectively validate model attribution in these older logs.
 
 Seven parser regression tests cover actual versus estimated/storage counts,
 changing matrix sizes, truncated reports, negative counters, zero denominators

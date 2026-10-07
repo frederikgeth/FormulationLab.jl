@@ -1537,3 +1537,19 @@ coordinate/cap factorial preflight admits both new-policy arms in all 24 cells,
 including two cases rejected by the ordinary-only uncapped control. These are
 convergence observations only. Isolated Ipopt optimizer-call wall measurements
 are still required before promoting this opt-in policy to a timing recommendation.
+
+### Joint reductions: validated diagnostics, deferred timing
+
+The [eight-arm joint study](ivr_joint_reductions.md) validates zero-load elimination,
+powers/broad lifting and ordinary-current elimination together on the 333-bus
+tracking case. Broad lifting with zero-load elimination uses larger factors but
+fewer MUMPS solve calls: 118 to 73 with explicit ordinary currents, and 126 to 74
+with eliminated currents. Without zero-load elimination the counts increase.
+These corrected counts combine all captures by unique matrix signature and agree
+with independent Ipopt wrapper counts; buffered reports crossed file boundaries.
+They establish an observed solver-work interaction, not its numerical cause.
+
+Both attempted timing campaigns were excluded because competing Julia work was
+observed. Further timing is deferred at the user's request. No new wall-time
+ranking, timing-interaction estimate or default change follows from this study;
+the previous admitted comparisons remain the basis for recommendations.
