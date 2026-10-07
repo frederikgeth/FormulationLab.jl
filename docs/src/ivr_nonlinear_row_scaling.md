@@ -117,10 +117,10 @@ checks the numerical gates and preserves the input-coverage limitation; no
 solver settings, numerical tolerance or result is altered to change acceptance.
 Universal input-field completeness remains unclaimed.
 
-The next mechanistic control should supply or reconstruct coordinate-equivalent
-initial duals and slacks, and verify them from native vectors before comparing
-trajectories. A warm-start option alone is insufficient evidence: its bound
-pushes and dual initialization must be audited. Timing comparison remains
+The [warm-start follow-up](ivr_warm_start_controls.md) constructs and verifies
+coordinate-equivalent complete initial states to roundoff. Both broad profiles
+then take 32 iterations in either row convention. This uses new warm states;
+it is not a replay of the original cold starts. Timing comparison remains
 explicitly deferred until an eligible isolated campaign is authorized.
 
 ## Reproduction and limitations

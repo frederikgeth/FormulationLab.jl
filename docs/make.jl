@@ -70,6 +70,7 @@ makedocs(;
             "Exact KKT row-unit controls"=>"ivr_kkt_row_units.md",
             "Fresh KKT factorizations"=>"ivr_kkt_factorization.md",
             "Nonlinear row-scaling controls"=>"ivr_nonlinear_row_scaling.md",
+            "Equivalent warm-start states"=>"ivr_warm_start_controls.md",
             "Coincident voltage equalities"=>"ivr_voltage_equalities.md",
             "Voltage dependencies under power costs"=>"ivr_voltage_dependencies.md",
             "Single-phase voltage-bound transfer"=>"ivr_singlephase_transfer.md",

@@ -10,8 +10,10 @@ The [nonlinear row-scaling control](ivr_nonlinear_row_scaling.md) adds no eligib
 timing evidence. With objective scaling held fixed, removing 897 extra LV row
 scales changes broad-lifting iterations from 36 to 35 in both transformer-current
 representations. Native initialization also changes the mapped initial dual
-state. These results retain unit-row scaling as a candidate and do not change
-the timing-based recommendations below.
+state. The [equivalent warm-state follow-up](ivr_warm_start_controls.md) passes
+all eight solves and initial-state audits; both broad profiles take 32 iterations
+in either row convention. These results retain unit-row scaling as a candidate
+and do not change the timing-based recommendations below.
 
 The [isolated coil-observation confirmation](ivr_coil_observations.md#Isolated-confirmation-—-7-October-2026)
 admits all 1,200 measured solves and 120 warmups. Broad bounded observations
