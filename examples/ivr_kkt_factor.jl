@@ -46,6 +46,20 @@ function action(n,i,j,a,x)
     y
 end
 
+"""Correction RHS in the declared canonical triplet order, without compensation."""
+function correction_residual(n,i,j,a,q,b;precision=:bigfloat)
+    precision in (:bigfloat,:float64) || throw(ArgumentError("unsupported residual precision"))
+    r=if precision==:bigfloat
+        setprecision(BigFloat,256) do
+            Float64.(BigFloat.(b)-action(n,i,j,BigFloat.(a),BigFloat.(q)))
+        end
+    else
+        Float64.(b)-action(n,i,j,Float64.(a),Float64.(q))
+    end
+    all(isfinite,r) || throw(ArgumentError("nonfinite correction residual"))
+    r
+end
+
 """Use 256-bit accumulation on the actual Float64 matrix/RHS and direction."""
 function metrics(n,i,j,a,q,b;reference=nothing)
     all(isfinite,q) || error("nonfinite solution")
@@ -66,11 +80,17 @@ end
 The default remains two corrections. `record_solutions=true` retains independent
 copies at every stage, including the initial solve (stage zero). No acceptance
 criterion or early stopping is implied by the requested depth.
+`residual_precision` accepts `:bigfloat` (the unchanged 256-bit default),
+`:float64`, or one such symbol per RHS for comparisons using the same factor.
+Quality metrics always use 256-bit accumulation, independently of this choice.
 """
 function factor_solve(bridge,z,a,rhs_list;permutation=nothing,references=fill(nothing,length(rhs_list)),
-        refinement_steps::Int=2,record_solutions::Bool=false)
+        refinement_steps::Int=2,record_solutions::Bool=false,residual_precision=:bigfloat)
     refinement_steps>=0 || throw(ArgumentError("refinement depth must be nonnegative"))
     length(references)==length(rhs_list) || throw(ArgumentError("one reference per RHS required"))
+    precisions=residual_precision isa Symbol ? fill(residual_precision,length(rhs_list)) : collect(residual_precision)
+    length(precisions)==length(rhs_list) && all(p->p in (:bigfloat,:float64),precisions) ||
+        throw(ArgumentError("one supported residual precision per RHS required"))
     n=z.n;i=z.i;j=z.j;values=copy(a)
     all(isfinite,values) || error("nonfinite factor matrix")
     perm=permutation===nothing ? Cint[] : Cint.(permutation)
@@ -85,7 +105,7 @@ function factor_solve(bridge,z,a,rhs_list;permutation=nothing,references=fill(no
             sort(out)==collect(1:n) || error("invalid output permutation")
             # MUMPS may reorganize a supplied order for locality (guide 5.6.2).
             # The paired experiment checks equality of the two effective orders.
-            for (b,reference) in zip(rhs_list,references)
+            for (b,reference,precision) in zip(rhs_list,references,precisions)
                 length(b)==n && all(isfinite,b) || error("invalid RHS")
                 q=copy(b)
                 status=ccall(bridge.solve,Cint,(Ptr{Cvoid},Ptr{Cdouble}),ptr,q)
@@ -96,7 +116,8 @@ function factor_solve(bridge,z,a,rhs_list;permutation=nothing,references=fill(no
                     push!(stages,(;stage,report.residual_max,report.backward_error,report.reference_gap,
                         (record_solutions ? (;solution=copy(q)) : (;))...))
                     if stage<refinement_steps
-                        correction=report.residual
+                        correction=precision==:bigfloat ? report.residual :
+                            correction_residual(n,i,j,a,q,b;precision)
                         status=ccall(bridge.solve,Cint,(Ptr{Cvoid},Ptr{Cdouble}),ptr,correction)
                         status>=0 || error("MUMPS refinement solve failed: $status")
                         q+=correction

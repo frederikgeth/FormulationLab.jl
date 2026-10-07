@@ -180,3 +180,9 @@ depth on the same retained systems. Keep factorization and updates fixed, compar
 Float64 and 256-bit residual accumulation, and independently assess both using
 the same higher-precision residual criteria. Only then consider whether a
 representable native Ipopt intervention merits nonlinear validation.
+
+The [residual-precision control](ivr_residual_precision.md) now makes that
+comparison within each factorization. Both accumulation modes reach all declared
+nonzero mixed criteria by four corrections on this panel, although their later
+updates and strict classifications differ. This narrows the case for a native
+refinement-policy experiment without changing production settings.

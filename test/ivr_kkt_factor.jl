@@ -58,9 +58,32 @@ const F=IVRKKTOfflineFactor
         @test deep.rhs[1].solution≈A\b atol=1e-12
         @test_throws ArgumentError F.factor_solve(bridge,z,z.a,[b];refinement_steps=-1)
         @test_throws ArgumentError F.factor_solve(bridge,z,z.a,[b];references=[])
+        paired=F.factor_solve(bridge,z,z.a,[b,b];refinement_steps=8,record_solutions=true,
+            residual_precision=[:bigfloat,:float64])
+        @test paired.passed
+        @test paired.rhs[1]==deep.rhs[1]
+        @test paired.rhs[1].stages[1].solution==paired.rhs[2].stages[1].solution
+        low=F.factor_solve(bridge,z,z.a,[b];refinement_steps=8,record_solutions=true,residual_precision=:float64)
+        @test low.rhs[1]==paired.rhs[2]
+        for s in paired.rhs[2].stages
+            check=F.metrics(z.n,z.i,z.j,z.a,s.solution,b)
+            @test (s.residual_max,s.backward_error)==(check.residual_max,check.backward_error)
+        end
+        @test_throws ArgumentError F.factor_solve(bridge,z,z.a,[b];residual_precision=:half)
+        @test_throws ArgumentError F.factor_solve(bridge,z,z.a,[b,b];residual_precision=[:float64])
         @test_throws ErrorException F.factor_solve(bridge,z,z.a,[b];permutation=fill(1,7))
         singular=copy(z.a);fill!(singular,0.)
         failed=F.factor_solve(bridge,z,singular,[b])
         @test !failed.passed && failed.info[1]<0
     end
+end
+
+@testset "Residual accumulation cancellation control" begin
+    rows=[1,2,2,3,3,3];cols=[1,1,2,1,2,3]
+    a=[1e16,1.,2.,-1e16,0.,3.];q=ones(3);b=zeros(3)
+    hi=F.correction_residual(3,rows,cols,a,q,b)
+    lo=F.correction_residual(3,rows,cols,a,q,b;precision=:float64)
+    @test hi[1]==-1. && lo[1]==0.
+    @test hi==F.metrics(3,rows,cols,a,q,b).residual
+    @test_throws ArgumentError F.correction_residual(3,rows,cols,a,q,b;precision=:half)
 end

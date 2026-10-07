@@ -15,6 +15,12 @@ all eight solves and initial-state audits; both broad profiles take 32 iteration
 in either row convention. These results retain unit-row scaling as a candidate
 and do not change the timing-based recommendations below.
 
+The [retained-system precision control](ivr_residual_precision.md) finds that
+additional corrections resolve the selected mixed residual misses with either
+Float64 or 256-bit residual accumulation. This offline result does not reproduce
+Ipopt's native refinement policy or provide eligible timing evidence; the
+formulation recommendations below remain unchanged.
+
 The [isolated coil-observation confirmation](ivr_coil_observations.md#Isolated-confirmation-—-7-October-2026)
 admits all 1,200 measured solves and 120 warmups. Broad bounded observations
 win all twelve cells in both batches on the manufactured multiwinding panel.
