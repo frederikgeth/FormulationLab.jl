@@ -240,6 +240,29 @@ function _ivrn_equipment_upper!(model,e,z,meta,field,k,v,i,bound)
     nothing
 end
 
+# Scalar IBR budgets constrain total active power at the declared port. Keep
+# internal filter power distinct from PCC power, including three-leg dispatch.
+function _ivrn_ibr_power_record!(model,id,d,field,relation,port,v,i,expression,refs)
+    basis=port==:ibr_internal ? :filter_internal_coil :
+        d["topology"]=="THREE_LEG" ? :conductor_pcc : :connection_coil
+    push!(model.ext[:ivr_ibr_operating_rows],(;kind=:power,label="ibr/$id/$field",
+        audit_label="ibr/$id/$field",id,field,source_path=("ibr",id,field),
+        source_channel=nothing,channel=nothing,port,basis,relation,limit_SI=d[field],
+        form=JuMP.constraint_object(only(refs)).set isa JuMP.MOI.EqualTo ? :shared_equality : relation,
+        voltage_rows=copy.(v),current_rows=copy.(i),expression,constraints=refs))
+    nothing
+end
+
+function _ivrn_ibr_voltage_record!(model,id,d,k,row,expression,refs;fixed=false)
+    push!(model.ext[:ivr_ibr_operating_rows],(;kind=:voltage,label="ibr/$id/v_ref_internal/$k",
+        audit_label="ibr/$id/internal_voltage",id,field="v_ref_internal",
+        source_path=("ibr",id,"v_ref_internal"),source_channel=nothing,channel=k,
+        port=:ibr_internal,basis=:filter_internal_coil,relation=:equality,limit_SI=d["v_ref_internal"],
+        form=fixed ? :source_fixed_check : :magnitude_equality,
+        voltage_row=copy(row),expression,constraints=refs))
+    nothing
+end
+
 """An exact-IVR scope refusal, carrying a stable `code` and explanatory `message`.
 
 A failed optional conductor certificate instead produces full-model fallback
@@ -782,6 +805,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     model.ext[:ivr_lifting]=_ivrn_lifting_policy(options,e)
     model.ext[:ivr_equipment_limit_rows]=Any[]
     model.ext[:ivr_dispatch_rows]=Dict{Tuple{Symbol,String,String,Int},Any}()
+    model.ext[:ivr_ibr_operating_rows]=Any[]
     n=length(maps.projection)
     xr=@variable(model,[1:n],base_name="state_real")
     xi=@variable(model,[1:n],base_name="state_imag")
@@ -856,30 +880,37 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         elseif family==:ibr_internal
             if get(d,"dc_link_coupled",false)
                 if haskey(d,"p_dc_min") && haskey(d,"p_dc_max") && d["p_dc_min"]==d["p_dc_max"]
-                    @constraint(model,sum(p)==d["p_dc_min"]/e.sb)
+                    c=@constraint(model,sum(p)==d["p_dc_min"]/e.sb)
+                    for (field,relation) in (("p_dc_min",:lower),("p_dc_max",:upper))
+                        _ivrn_ibr_power_record!(model,id,d,field,relation,family,v,i,sum(p),Any[c])
+                    end
                 else
                     for (field,lower) in (("p_dc_min",true),("p_dc_max",false))
                         haskey(d,field) || continue
                         bound=d[field]/e.sb
-                        lower ? @constraint(model,sum(p)>=bound) : @constraint(model,sum(p)<=bound)
+                        c=lower ? @constraint(model,sum(p)>=bound) : @constraint(model,sum(p)<=bound)
+                        _ivrn_ibr_power_record!(model,id,d,field,lower ? :lower : :upper,family,v,i,sum(p),Any[c])
                     end
                 end
             end
             if get(d,"grid_forming",false)
                 ref=d["v_ref_internal"]/e.vb
-                for row in v
+                for (k,row) in enumerate(v)
                     if all(haskey(e.fixed_source_coordinates,k) for k in keys(row))
                         known=sum((a*e.fixed_source_coordinates[k] for (k,a) in row);init=0im)
                         isapprox(abs(known),ref;rtol=1e-12,atol=0) || _ivrn_refuse("ibr/$id internal voltage conflicts with fixed source")
+                        _ivrn_ibr_voltage_record!(model,id,d,k,row,_linivr_eval(row,z),Any[];fixed=true)
                         continue
                     end
                     u=_linivr_eval(row,z)
-                    @constraint(model,(real(u)/ref)^2+(imag(u)/ref)^2==1)
+                    c=@constraint(model,(real(u)/ref)^2+(imag(u)/ref)^2==1)
+                    _ivrn_ibr_voltage_record!(model,id,d,k,row,u,Any[c])
                 end
             end
         elseif family in (:generator,:voltage_source,:ibr)
             if family==:ibr && haskey(d,"p_avail")
-                @constraint(model,sum(p)<=d["p_avail"]/e.sb)
+                c=@constraint(model,sum(p)<=d["p_avail"]/e.sb)
+                _ivrn_ibr_power_record!(model,id,d,"p_avail",:upper,family,v,i,sum(p),Any[c])
             end
             for (lo,hi,x) in (("p_min","p_max",p),("q_min","q_max",q))
                 low=family==:voltage_source ? get(d,lo,nothing) : e.values_for(d,lo,count)

@@ -1,5 +1,26 @@
 # Verification
 
+## IBR operating-limit provenance — 7 October 2026
+
+The [nonlinear operating-limit trace](ivr_nonlinear_residuals.md) now records
+PCC availability, internal DC-link totals and per-coil internal-voltage
+references. Shared DC equalities retain both original declarations. Source-fixed
+references retain their build-time checks without inventing duplicate rows;
+physical voltage discrepancies remain visible at perturbed native assignments.
+
+All 9,828 targeted assertions and 534 prior/current solver-model fingerprints
+pass. The 24 multiwinding cases trace 720 IBR power declarations. A separate
+24-case grid-forming panel checks 56 voltage declarations, including 28
+source-fixed checks. All 48 canonical exports pass both readers, and exported
+IBR powers/internal voltages agree with the trace. The guide includes a
+zero-DC-budget example showing active PCC absorption for filter losses.
+Raw evidence remains outside Git in `IBR_PROVENANCE_20261007`; no performance
+ranking or default changes follow.
+
+The next task is the combined constraint inventory: reconcile circuit and
+nonlinear provenance with auxiliary definitions and fixed coordinates.
+`complete_model_coverage` remains explicitly false until that reconciliation.
+
 ## Dispatch bounds and reusable provenance — 7 October 2026
 
 The [nonlinear operating-limit trace](ivr_nonlinear_residuals.md) now includes
@@ -16,9 +37,9 @@ pass. The scientific guide includes the separate bound/definition conversion
 factors and an executable reusable-generator tutorial. Raw evidence is outside
 Git in `DISPATCH_PROVENANCE_20261007`. No performance ranking changes.
 
-IBR availability, DC-link and internal-voltage constraints remain the next
-provenance families, followed by auxiliary and fixed-coordinate classification.
-The catalogue continues to report partial coverage explicitly.
+At that checkpoint, IBR availability, DC-link and internal-voltage constraints
+remained outstanding. The IBR extension above supersedes that boundary;
+auxiliary and fixed-coordinate classification remain. Coverage is still partial.
 
 ## Equipment current and apparent-power limit provenance — 7 October 2026
 

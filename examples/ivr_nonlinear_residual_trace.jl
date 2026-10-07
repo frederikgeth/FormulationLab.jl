@@ -62,8 +62,8 @@ end
 
 """Catalogue original declarations and their emitted rows, without solving.
 
-This covers load power laws, bus/equipment limits, dispatch boxes and generator
-power definitions. Impedance
+This covers load power laws, bus/equipment limits, dispatch boxes, generator
+power definitions and IBR operating limits. Impedance
 loads belong to the linear-circuit catalogue. Other constraints are enumerated
 as outside this catalogue; they are not declared absent from the model.
 """
@@ -100,6 +100,8 @@ function catalog(build)
     haskey(model.ext,:ivr_equipment_limit_rows) || throw(ArgumentError("missing equipment-limit provenance"))
     equipment=model.ext[:ivr_equipment_limit_rows]
     dispatch,definitions=_dispatch_catalog(build)
+    haskey(model.ext,:ivr_ibr_operating_rows) || throw(ArgumentError("missing IBR operating-limit provenance"))
+    ibr=model.ext[:ivr_ibr_operating_rows]
     all(q->q.form!=:unrecorded,bounds) || throw(ArgumentError("incomplete bus-bound provenance"))
     covered=Set{Any}(q.constraint for q in loads)
     for q in loads
@@ -112,10 +114,11 @@ function catalog(build)
     for q in bounds;union!(covered,q.constraints);end
     for q in equipment;union!(covered,q.constraints);end
     for q in [dispatch;definitions];push!(covered,q.constraint);end
+    for q in ibr;union!(covered,q.constraints);end
     outside=[c for c in all_constraints(model;include_variable_in_set_constraints=true) if c ∉ covered]
-    (;loads,bounds,equipment,dispatch,definitions,linear_loads=sort!(linear_loads),outside_scope_constraints=outside,
+    (;loads,bounds,equipment,dispatch,definitions,ibr,linear_loads=sort!(linear_loads),outside_scope_constraints=outside,
         covered_constraint_count=length(covered),complete_model_coverage=false,
-        scope=(:load_power_laws,:bus_voltage_bounds,:equipment_current_power_limits,:dispatch_boxes,:generator_power_definitions))
+        scope=(:load_power_laws,:bus_voltage_bounds,:equipment_current_power_limits,:dispatch_boxes,:generator_power_definitions,:ibr_operating_limits))
 end
 
 function _residual(c,evaluate)
@@ -231,10 +234,33 @@ function trace(build;variable_values=nothing)
             electrical_power_SI=physical,modeled_power_SI=modeled,power_auxiliary_gap_SI=gap,
             native_residual_SI=native,reconciliation_error_SI=native+gap)
     end
-    (;loads,bounds,equipment,dispatch,definitions,c.linear_loads,c.scope,c.complete_model_coverage,c.covered_constraint_count,
+    ibr_power=map(filter(q->q.kind==:power,c.ibr)) do q
+        powers=[e.sb*real(observe(v)*conj(observe(i))) for (v,i) in zip(q.voltage_rows,q.current_rows)]
+        physical=sum(powers);modeled=e.sb*evaluate(q.expression);gap=modeled-physical
+        native=_residual(only(q.constraints),evaluate);residual=e.sb*native.signed_residual
+        slack=q.relation==:lower ? physical-q.limit_SI : q.limit_SI-physical
+        all(isfinite,(physical,modeled,residual,slack)) || throw(DomainError(q.label,"nonfinite IBR power budget"))
+        (;q.label,q.audit_label,q.id,q.field,q.source_path,q.source_channel,q.port,q.basis,q.relation,q.form,
+            unit=:W,q.limit_SI,channel_powers_W=powers,total_power_W=physical,modeled_power_W=modeled,
+            power_expression_gap_W=gap,slack_W=slack,violation_W=max(-slack,0.),native,
+            native_residual_W=residual,reconciliation_error_W=(physical-q.limit_SI)-(residual-gap))
+    end
+    ibr_voltage=map(filter(q->q.kind==:voltage,c.ibr)) do q
+        u=e.vb*observe(q.voltage_row);magnitude=abs(u)
+        modeled=e.vb*(evaluate(real(q.expression))+im*evaluate(imag(q.expression)))
+        residual=magnitude-q.limit_SI
+        native=[_residual(ref,evaluate) for ref in q.constraints]
+        all(isfinite,(magnitude,abs(modeled),residual)) || throw(DomainError(q.label,"nonfinite IBR internal voltage"))
+        (;q.label,q.audit_label,q.id,q.field,q.source_path,q.source_channel,q.channel,q.port,q.basis,q.relation,q.form,
+            unit=:V,limit_V=q.limit_SI,magnitude_V=magnitude,modeled_magnitude_V=abs(modeled),
+            observation_gap_V=abs(modeled-u),signed_residual_V=residual,violation_V=abs(residual),native,
+            squared_reconciliation_error=isempty(native) ? nothing :
+                (magnitude/q.limit_SI)^2-1-only(native).signed_residual)
+    end
+    (;loads,bounds,equipment,dispatch,definitions,ibr_power,ibr_voltage,c.linear_loads,c.scope,c.complete_model_coverage,c.covered_constraint_count,
         inactive_nameplates=[q for q in build.numerical_diagnostics[:transformer_nameplate_report] if !q.enforced],
         outside_scope_constraint_count=length(c.outside_scope_constraints),
-        note="Partial provenance: load power laws, bus-voltage and equipment limits, dispatch boxes and generator power definitions. Native squared-magnitude residuals have no constant SI-magnitude conversion. Float64 diagnostics, not a certificate.")
+        note="Partial provenance: load power laws, bus-voltage and equipment limits, dispatch boxes, generator definitions and IBR operating limits. Native squared-magnitude residuals have no constant SI-magnitude conversion. Source-fixed checks rely on separate fixed-coordinate constraints. Float64 diagnostics, not a certificate.")
 end
 
 function trace(build,point::ACPoint)

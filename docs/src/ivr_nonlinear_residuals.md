@@ -12,10 +12,10 @@ original SI residual and the auxiliary discrepancies that connect them.
 This is a **partial provenance catalogue**. It covers constant-power,
 constant-current, ZIP and exponential load power laws, plus every original bus
 voltage-bound declaration, equipment current/apparent-power limits, dispatch
-boxes and generator power definitions. Constant-impedance loads are identified separately;
+boxes, generator power definitions and IBR operating limits. Constant-impedance loads are identified separately;
 their equations belong to the [linear circuit catalogue](ivr_circuit_residuals.md).
 Other constraints are enumerated as outside this catalogue. These include
-KCL, other circuit rows, IBR availability/DC/internal-voltage limits and generic lifting definitions.
+KCL, other circuit rows, fixed native coordinates and generic lifting definitions.
 “Outside scope” does not mean that a constraint is absent from the model.
 `complete_model_coverage` is deliberately `false`.
 
@@ -227,6 +227,58 @@ its native box while the physical power violates that box, or conversely; the
 defining equation is essential to interpreting either observation. These are
 pointwise Float64 checks, not uniform nonlinear error bounds.
 
+## IBR availability, DC-link budgets and internal-voltage references
+
+The catalogue records the remaining supported IBR operating fields at their
+emission sites. These declarations are distinct from the per-channel P/Q boxes
+and apparent-power/current caps described above.
+
+| Field | Original physical observation | Meaning |
+|:--|:--|:--|
+| `p_avail` | Sum of active PCC powers | Upper bound in W; a nonnegative availability budget |
+| `p_dc_min` | Sum of active internal filter powers | Lower bound in W when `dc_link_coupled=true` |
+| `p_dc_max` | Sum of active internal filter powers | Upper bound in W when `dc_link_coupled=true` |
+| `v_ref_internal` | Magnitude of each internal filter-coil voltage | Equality in V when `grid_forming=true` |
+
+These are signed active-power sums, not sums of power magnitudes and not
+per-channel replicas of the scalar budget. PCC powers follow the original
+connection convention: conductor powers for three-leg IBRs, connection-coil
+powers for WYE/single-phase IBRs. Internal powers always use filter-coil
+voltages and currents. In particular, resistive filter losses separate internal
+power from PCC power; substituting one port for the other changes the DC budget.
+
+For original internal or PCC voltage/current rows, the trace reconstructs each
+channel's active power and their total:
+
+```math
+P_k=\Re\{(V_ba_{v,k}z)\overline{(I_ba_{i,k}z)}\},\qquad P_\Sigma=\sum_k P_k.
+```
+
+Power-budget rows use the assembly power base ``S_b``. For a limit ``L``, the
+trace compares ``P_\Sigma-L`` with the native signed residual multiplied by
+``S_b``, explicitly reporting any numerical difference between evaluating the
+stored expression and reconstructing the original rows. Equal DC bounds retain
+two declarations pointing to one equality. Their separate lower/upper SI
+violations remain one-sided. Absent budgets have no declaration; invalid
+nonfinite values, negative availability, uncoupled DC budgets and inconsistent
+control flags retain the compiler's existing refusals.
+
+Internal-voltage entries retain each original coil row, the scalar reference
+and the actual normalized squared-magnitude equality. They report voltage
+magnitude, signed error and absolute violation in volts; native squared-row
+residuals stay separate. A dimensionless reconciliation compares the physical
+normalized square with the stored row. There is no constant conversion from
+squared-row residual to voltage error.
+
+If an internal-voltage row depends only on prescribed source coordinates, the
+compiler checks consistency during construction and emits no duplicate voltage
+row. The catalogue labels it `source_fixed_check`. This is conditional on the
+separate source-coordinate fixes, not an unconditional identity at every native
+assignment. The trace evaluates its physical voltage even when its constraint
+list is empty. A deliberately perturbed source coordinate must therefore show
+a voltage error. Conflicting references continue to be refused at build time;
+the existing relative comparison tolerance is unchanged.
+
 ## Tutorial
 
 The following single-phase example solves a ZIP load, then inspects an
@@ -324,6 +376,39 @@ definition = only(q for q in shifted.definitions if q.quantity == :p)
  equation_base_VA=definition.row_scale, discrepancy_W=definition.power_auxiliary_gap_SI)
 ```
 
+
+A zero DC-link budget does not imply zero active power at PCC. The following
+single-phase example supplies 200 var through a 1 Ω resistive filter. The
+converter absorbs a small amount of active power at PCC to cover the filter
+loss while its internal active-power total is zero.
+
+```@example nonlinear_trace
+net_dc = Dict{String,Any}(
+    "bus" => Dict("b" => Dict("terminal_names" => ["a", "n"],
+        "perfectly_grounded_terminals" => ["n"])),
+    "voltage_source" => Dict("s" => Dict("bus" => "b", "terminal_map" => ["a", "n"],
+        "v_magnitude" => [230.0, 0.0], "v_angle" => [0.0, 0.0])),
+    "ibr" => Dict("g" => Dict("bus" => "b", "terminal_map" => ["a", "n"],
+        "topology" => "SINGLE_PHASE", "prime_mover" => "BATTERY", "s_max" => [2000.0],
+        "p_min" => [-100.0], "p_max" => [100.0], "q_min" => [200.0], "q_max" => [200.0],
+        "r_filter" => [1.0], "x_filter" => [0.0], "dc_link_coupled" => true,
+        "p_dc_min" => 0.0, "p_dc_max" => 0.0, "p_avail" => 0.0)))
+b_dc = build_opf(net_dc, IVRNLP(s_base=1e5, objective=:feasibility); optimizer=Ipopt.Optimizer)
+r_dc = solve_ivr_nlp_opf(b_dc; solver_options=(print_level=0, tol=1e-10,
+    constr_viol_tol=1e-10, acceptable_iter=0, bound_relax_factor=0.0))
+@assert r_dc.solve.optimal && physical_residuals(net_dc, r_dc).passed
+t_dc = T.trace(b_dc)
+pcc = only(q for q in t_dc.ibr_power if q.field == "p_avail")
+dc = only(q for q in t_dc.ibr_power if q.field == "p_dc_max")
+@assert pcc.total_power_W < -0.1
+@assert abs(dc.total_power_W) < 1e-6
+shared = filter(q -> startswith(q.field, "p_dc"), T.catalog(b_dc).ibr)
+@assert shared[1].constraints == shared[2].constraints
+@assert all(abs(q.reconciliation_error_W) < 1e-8 for q in t_dc.ibr_power)
+(pcc_W=pcc.total_power_W, internal_W=dc.total_power_W,
+ filter_loss_W=dc.total_power_W-pcc.total_power_W)
+```
+
 ## Verification and remaining coverage
 
 Independent manufactured states span single-phase, three-wire delta and
@@ -335,11 +420,10 @@ family is tightened and compared with the independently evaluated original
 network. Further tests cover zero limits, fixed magnitude domains, shared
 coincident rows, constant-power updates and strict JSON without infinite values.
 
-The next coverage extension is IBR availability/DC/internal-voltage constraints. Those families remain enforced
-and independently audited today, but this constraint-reference catalogue does
-not yet describe them. A
-complete emitted-row inventory must also distinguish original physical laws
-from auxiliary definitions and fixed native coordinates.
+The remaining task is to reconcile the circuit and nonlinear catalogues with
+every emitted row, including generic auxiliary definitions and fixed native
+coordinates. Covered operating fields should not be confused with a complete
+solver-row inventory; `complete_model_coverage` remains `false`.
 
 ### Controlled evidence, 7 October 2026
 
@@ -434,3 +518,36 @@ fully unbounded case. Neither required changing the solver formulation.
 Raw data, failures, scripts, source snapshots and verification logs remain
 outside Git in `DISPATCH_PROVENANCE_20261007`. This is correctness evidence;
 there is no new wall-time ranking or formulation recommendation.
+
+### IBR extension evidence, 7 October 2026
+
+The IBR extension passes **9,828 targeted assertions**. Manufactured SI states
+cover every available-power/DC field, forward and reverse flow, equal and
+one-sided budgets, single-phase/three-leg/four-leg devices, two assembly bases,
+full/reduced coordinates and direct/lifted powers. Separate balanced witnesses
+check every internal-voltage channel with shifted references, filter-free
+source-fixed checks, perturbed fixed coordinates and conflict refusals.
+
+All **534** prior/current canonical solver-model fingerprints match commit
+`dbbd972`: the preceding 354 cases plus 180 additional IBR cases. The 24-case
+multiwinding panel traces **720 IBR power declarations**, all agreeing with
+independent aggregate physical violations. A separate **24-case grid-forming
+panel** spans the three topologies, filtered/filter-free connections, two
+assembly bases and two lifting modes. Its **56 internal-voltage declarations**
+include **28 source-fixed checks**. Maximum observed voltage violation is below
+``1.2\times10^{-13}`` V, and aggregate voltage violations agree with the independent
+auditor with zero observed discrepancy.
+
+All **48 canonical exports** pass both readers. There are 888 exported IBR
+channel-power comparisons and 56 internal-voltage comparisons against the
+original-row trace. Maximum discrepancies are below ``8.6\times10^{-14}`` W and
+``2.9\times10^{-14}`` V, respectively. Maximum budget reconciliation error is
+below ``1.5\times10^{-11}`` W. These are observed Float64 discrepancies, not
+certified error bounds. Field paths remain invariant across tested lifting and
+base choices at each network size/topology.
+
+The zero-DC-budget tutorial additionally demonstrates active absorption at PCC
+for reactive delivery through a resistive filter. Raw panels, scripts, model
+fingerprints, source snapshots and verification logs are archived outside Git
+in `IBR_PROVENANCE_20261007`. These are correctness results and do not change
+any wall-time ranking, formulation default or transformation option.
