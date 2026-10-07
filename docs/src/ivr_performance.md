@@ -6,6 +6,16 @@ Recommendations here are additive; package defaults and the individual options
 are unchanged. “Fastest” always refers to a declared workload, accepted physical
 solutions, a candidate set, solver settings and a measured environment.
 
+The [isolated coil-observation confirmation](ivr_coil_observations.md#Isolated-confirmation-—-7-October-2026)
+admits all 1,200 measured solves and 120 warmups. Broad bounded observations
+win all twelve cells in both batches on the manufactured multiwinding panel.
+Confirmation geometric-mean time ratios to powers-only are 0.817 with explicit
+multiwinding currents and 0.666 with eliminated currents. This supports broad
+observations as the candidate for that workload; external transfer is still
+required. Separate actual-factor reports show larger stored factors despite
+faster solves, and 43 versus 28 numerical factorizations in eliminated-current
+tracking. Factor storage and iteration counts alone cannot explain performance.
+
 The [isolated single-phase confirmation](ivr_singlephase_transfer.md#Isolated-confirmation-—-6-October-2026)
 now supplies eligible timing evidence: all 1,944 measured solves and 216 warm-ups
 pass, with no competing Julia process detected. For the tested mixed-device rural
