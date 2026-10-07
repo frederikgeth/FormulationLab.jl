@@ -145,3 +145,9 @@ analysis, copied input logs, upstream source files and hashes are retained outsi
 Git in `REFINEMENT_DIAGNOSTICS_20261007`. No Julia library source, formulation
 option, solver tolerance or export contract changes. Timing remains deferred;
 the previous admitted speed recommendations are unchanged.
+
+The subsequent [matched-state current-unit audit](ivr_matched_jacobian.md)
+verifies a regional current-base change at the same physical endpoint. It finds
+that transformer rows are already normalized and that column-norm spread alone
+does not explain the correction-count difference. Historical KKT systems remain
+outside that audit's scope.

@@ -1559,3 +1559,10 @@ counts: with zero reduction, broad lifting reduces Ipopt correction solves from
 84 to 36 and from 90 to 37. It uses the same retained logs, adds no optimizer runs,
 and preserves the timing deferral. This identifies the recorded extra work;
 it does not measure its wall-time cost or prove improved conditioning.
+
+A [matched-state derivative audit](ivr_matched_jacobian.md) changes LV current
+power bases from 1 to 10 kVA with the same physical endpoint. Exact Jacobian
+covariance passes across eight builds; transformer rows already have unit norms,
+and overall column-norm spreads barely change. Broad lifting has a larger spread
+despite fewer refinement solves in the prior traces. These diagnostics support
+neither a condition-number claim nor a new speed recommendation.
