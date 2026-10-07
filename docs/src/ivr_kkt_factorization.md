@@ -148,8 +148,10 @@ large absolute error. The original gate remains unchanged. Future diagnostics
 should predeclare both absolute and relative criteria rather than silently
 replace this metric after observing failures.
 
-The next nonlinear control should preserve the exact objective scale and verify
-initial internal states. Automatic MUMPS preprocessing remains the baseline;
+The [nonlinear follow-up](ivr_nonlinear_row_scaling.md) preserves the objective
+scale and verifies initial internal states. Its native initializer changes 897
+lower-slack bound multipliers relative to the equivalent coordinate map.
+Automatic MUMPS preprocessing remains the baseline;
 retain the given-order/unscaled regime as a diagnostic. No production scaling
 change is justified by these results.
 

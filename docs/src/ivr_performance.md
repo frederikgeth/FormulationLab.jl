@@ -6,6 +6,13 @@ Recommendations here are additive; package defaults and the individual options
 are unchanged. “Fastest” always refers to a declared workload, accepted physical
 solutions, a candidate set, solver settings and a measured environment.
 
+The [nonlinear row-scaling control](ivr_nonlinear_row_scaling.md) adds no eligible
+timing evidence. With objective scaling held fixed, removing 897 extra LV row
+scales changes broad-lifting iterations from 36 to 35 in both transformer-current
+representations. Native initialization also changes the mapped initial dual
+state. These results retain unit-row scaling as a candidate and do not change
+the timing-based recommendations below.
+
 The [isolated coil-observation confirmation](ivr_coil_observations.md#Isolated-confirmation-—-7-October-2026)
 admits all 1,200 measured solves and 120 warmups. Broad bounded observations
 win all twelve cells in both batches on the manufactured multiwinding panel.
