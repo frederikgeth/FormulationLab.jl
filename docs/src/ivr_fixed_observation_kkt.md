@@ -140,3 +140,8 @@ export is produced. All production options and defaults remain unchanged, and
 timing remains deferred. The remaining material mixed-criterion misses from
 the broader, supplied-order study deserve attention before extending this tiny
 structural reduction on accuracy grounds.
+
+The subsequent [refinement-depth control](ivr_refinement_depth.md) revisits the
+four retained systems behind those seven mixed misses. It preserves the original
+two-step results and evaluates a predeclared eight-correction trajectory without
+changing the matrices, pivot policy or acceptance thresholds.

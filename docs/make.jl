@@ -74,6 +74,7 @@ makedocs(;
             "KKT residual magnitude and provenance"=>"ivr_kkt_residuals.md",
             "Fixed-input observation substitution"=>"ivr_fixed_observations.md",
             "Fixed-observation KKT control"=>"ivr_fixed_observation_kkt.md",
+            "Retained-system refinement depth"=>"ivr_refinement_depth.md",
             "Coincident voltage equalities"=>"ivr_voltage_equalities.md",
             "Voltage dependencies under power costs"=>"ivr_voltage_dependencies.md",
             "Single-phase voltage-bound transfer"=>"ivr_singlephase_transfer.md",

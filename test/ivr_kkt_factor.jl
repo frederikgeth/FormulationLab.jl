@@ -38,6 +38,26 @@ const F=IVRKKTOfflineFactor
         bad=deepcopy(data);bad["coordinate_map"][1]=0;@test_throws ErrorException F.input(bad)
         bad=deepcopy(data);bad["rows"][2]=bad["columns"][2]=1;@test_throws ErrorException F.input(bad)
         z=F.input(data)
+        base=F.factor_solve(bridge,z,z.a,[b])
+        deep=F.factor_solve(bridge,z,z.a,[b];refinement_steps=8,record_solutions=true)
+        zero=F.factor_solve(bridge,z,z.a,[b];refinement_steps=0,record_solutions=true)
+        @test base.passed && deep.passed && zero.passed
+        @test length(base.rhs[1].stages)==3 && length(deep.rhs[1].stages)==9
+        @test [s.stage for s in deep.rhs[1].stages]==collect(0:8)
+        @test !hasproperty(base.rhs[1].stages[1],:solution)
+        for stage in 1:3
+            a=base.rhs[1].stages[stage];d=deep.rhs[1].stages[stage]
+            @test (a.residual_max,a.backward_error,a.reference_gap)==(d.residual_max,d.backward_error,d.reference_gap)
+        end
+        @test deep.rhs[1].stages[3].solution==base.rhs[1].solution
+        @test length(zero.rhs[1].stages)==1
+        @test zero.rhs[1].solution==deep.rhs[1].stages[1].solution
+        @test deep.rhs[1].solution==last(deep.rhs[1].stages).solution
+        @test deep.rhs[1].solution!==last(deep.rhs[1].stages).solution
+        @test all(i->deep.rhs[1].stages[i].solution!==deep.rhs[1].stages[i+1].solution,1:8)
+        @test deep.rhs[1].solution≈A\b atol=1e-12
+        @test_throws ArgumentError F.factor_solve(bridge,z,z.a,[b];refinement_steps=-1)
+        @test_throws ArgumentError F.factor_solve(bridge,z,z.a,[b];references=[])
         @test_throws ErrorException F.factor_solve(bridge,z,z.a,[b];permutation=fill(1,7))
         singular=copy(z.a);fill!(singular,0.)
         failed=F.factor_solve(bridge,z,singular,[b])

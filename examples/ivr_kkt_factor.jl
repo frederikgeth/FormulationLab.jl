@@ -61,7 +61,16 @@ function metrics(n,i,j,a,q,b;reference=nothing)
     end
 end
 
-function factor_solve(bridge,z,a,rhs_list;permutation=nothing,references=fill(nothing,length(rhs_list)))
+"""Factor once and apply a fixed number of external corrections per RHS.
+
+The default remains two corrections. `record_solutions=true` retains independent
+copies at every stage, including the initial solve (stage zero). No acceptance
+criterion or early stopping is implied by the requested depth.
+"""
+function factor_solve(bridge,z,a,rhs_list;permutation=nothing,references=fill(nothing,length(rhs_list)),
+        refinement_steps::Int=2,record_solutions::Bool=false)
+    refinement_steps>=0 || throw(ArgumentError("refinement depth must be nonnegative"))
+    length(references)==length(rhs_list) || throw(ArgumentError("one reference per RHS required"))
     n=z.n;i=z.i;j=z.j;values=copy(a)
     all(isfinite,values) || error("nonfinite factor matrix")
     perm=permutation===nothing ? Cint[] : Cint.(permutation)
@@ -82,10 +91,11 @@ function factor_solve(bridge,z,a,rhs_list;permutation=nothing,references=fill(no
                 status=ccall(bridge.solve,Cint,(Ptr{Cvoid},Ptr{Cdouble}),ptr,q)
                 status>=0 || error("MUMPS solve failed: $status")
                 stages=Any[]
-                for stage in 0:2
+                for stage in 0:refinement_steps
                     report=metrics(n,i,j,a,q,b;reference)
-                    push!(stages,(;stage,report.residual_max,report.backward_error,report.reference_gap))
-                    if stage<2
+                    push!(stages,(;stage,report.residual_max,report.backward_error,report.reference_gap,
+                        (record_solutions ? (;solution=copy(q)) : (;))...))
+                    if stage<refinement_steps
                         correction=report.residual
                         status=ccall(bridge.solve,Cint,(Ptr{Cvoid},Ptr{Cdouble}),ptr,correction)
                         status>=0 || error("MUMPS refinement solve failed: $status")
