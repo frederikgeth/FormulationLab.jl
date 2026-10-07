@@ -1584,3 +1584,9 @@ powers-only does not. Separating that scaling effect from the structural lifting
 effect is the next controlled diagnostic. The affected rows are phase-to-neutral
 lower-voltage bounds on 299 LV buses. This does not change the admitted
 wall-time shortlist.
+
+The [exact KKT row-unit control](ivr_kkt_row_units.md) removes the additional LV
+bound scaling from all 58 retained systems by a consistent coordinate change.
+The mapped matrix actions, residuals and bound curvature pass verification.
+These are transformed existing directions, not independent factorization or
+nonlinear solves, and they do not change any performance recommendation.

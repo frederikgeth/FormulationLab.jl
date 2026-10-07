@@ -177,3 +177,8 @@ outside Git in `NATIVE_KKT_20261007`. The initial reader refused the scaled
 Jacobian wrapper in broad lifting; that failed audit is preserved. The final
 reader handles the explicit scale vector and checks its dual conversion. No
 solver or package source was modified.
+
+The [retained-system row-unit control](ivr_kkt_row_units.md) now verifies the
+complete coordinate congruence on all 58 selected systems, including slack-bound
+curvature and RHS/direction transformations. This supplies an algebraic control
+for later factorization and nonlinear experiments; it is not a timing result.
