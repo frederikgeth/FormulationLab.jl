@@ -163,3 +163,8 @@ alone is not a clean row-only control because it can change the objective scale.
 Slack initialization, absolute tolerances, regularization and line-search decisions
 can also change the nonlinear path. Preserve those distinctions in reporting.
 Timing remains deferred, and no formulation option or recommendation changes.
+
+The [fresh-factorization study](ivr_kkt_factorization.md) independently factors
+the paired systems with automatic preprocessing and with a common effective
+ordering and solver scaling disabled. It reports accuracy and explicit refinement
+separately from optimizer timing.

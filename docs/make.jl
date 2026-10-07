@@ -68,6 +68,7 @@ makedocs(;
             "Intermediate solver states"=>"ivr_iterate_diagnostics.md",
             "Native KKT and bound curvature"=>"ivr_native_kkt.md",
             "Exact KKT row-unit controls"=>"ivr_kkt_row_units.md",
+            "Fresh KKT factorizations"=>"ivr_kkt_factorization.md",
             "Coincident voltage equalities"=>"ivr_voltage_equalities.md",
             "Voltage dependencies under power costs"=>"ivr_voltage_dependencies.md",
             "Single-phase voltage-bound transfer"=>"ivr_singlephase_transfer.md",

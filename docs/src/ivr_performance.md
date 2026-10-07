@@ -1590,3 +1590,10 @@ bound scaling from all 58 retained systems by a consistent coordinate change.
 The mapped matrix actions, residuals and bound curvature pass verification.
 These are transformed existing directions, not independent factorization or
 nonlinear solves, and they do not change any performance recommendation.
+
+The [fresh KKT factorization study](ivr_kkt_factorization.md) completes 232
+factorizations of the retained row-unit pairs. Removing the extra LV bound scales
+changes ordering and pivot statistics but supplies no consistent accuracy gain.
+Strict componentwise failures are retained alongside independent absolute and
+normwise residual checks; tiny denominator rows explain some large relative
+errors. These offline diagnostics do not alter the Ipopt wall-time shortlist.
