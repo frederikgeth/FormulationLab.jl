@@ -65,6 +65,13 @@ physical use; the inventory does not infer an SI unit merely from its algebra.
 Use the original operating-limit and physical-residual catalogues for that
 interpretation. Objective-created lifts use the same definition registry.
 
+[Fixed-input observation substitution](ivr_fixed_observations.md) adds a
+`fixed_observation` declaration with status `inlined_fixed_inputs` and no
+defining-row references. Its live metadata retains the original affine expression
+and fixed inputs at construction. The operating-limit declarations retain their
+emitted references. This status records the construction decision, not a new
+claim that arbitrary later JuMP edits satisfy the physical update contract.
+
 ## Tutorial: coverage, added constraints, and JSON
 
 No optimization is needed to inspect the inventory:

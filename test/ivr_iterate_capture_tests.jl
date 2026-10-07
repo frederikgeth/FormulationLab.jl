@@ -33,7 +33,7 @@ const C=IVRIterateCapture
             ib=C.EXT.row(opt,optimizer_index(balance)); ic=C.EXT.row(opt,optimizer_index(curve))
             ie=C.EXT.row(opt,optimizer_index(nonlinear))
             J=sparse(d.jacobian.rows,d.jacobian.columns,d.jacobian.values,3,3)
-            H=Matrix(Symmetric(sparse(d.hessian.rows,d.hessian.columns,d.hessian.values,3,3),:L))
+            H=Matrix{Float64}(Symmetric(sparse(d.hessian.rows,d.hessian.columns,d.hessian.values,3,3),:L))
             px,py=rec.unscaled.x[jx],rec.unscaled.x[jy]
             @test J[ib,[jx,jy]]≈[1.,1.]
             @test J[ic,[jx,jy]]≈[2px,2py]

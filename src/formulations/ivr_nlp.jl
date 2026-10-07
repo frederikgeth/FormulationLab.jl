@@ -65,6 +65,12 @@ real solver variables. `observation_selection=:all` retains that default scope;
 `:coil_voltages`, `:coil_currents` and `:coils` select rows matching original
 ordinary or multiwinding coil observations, only when bounded-observation lifting
 is enabled. The threshold still applies; all physical bounds remain enforced.
+`fixed_observation_elimination=true` inlines an otherwise eligible observation
+when every nonzero affine input is fixed. It preserves the original expression,
+all bound declarations and live variable dependencies; no numerical value is
+cached. The default retains these lifts. It does not eliminate power lifts or
+infer fixedness through circuit equations.
+
 `observation_sharing=:exact` reuses identical composed
 affine observations, including constants; default :off retains separate rows.
 `:signed` also shares opposite rows; `:proportional` shares real scalar multiples
@@ -145,6 +151,7 @@ Base.@kwdef struct IVRNLPOptions
     observation_support_threshold::Int = 2
     observation_selection::Symbol = :all
     observation_sharing::Symbol = :off
+    fixed_observation_elimination::Bool = false
     coincident_voltage_bounds::Symbol = :separate
     device_elimination::Symbol = :off
     zero_load_elimination::Bool = false
@@ -444,6 +451,16 @@ _ivrn_power(v,i,z)=_linivr_eval(v,z)*conj(_linivr_eval(i,z))
 function _ivrn_lift!(model,u,key,kind;power_ratio=nothing,row_multiplier=1.0)
     policy=model.ext[:ivr_lifting]
     get!(policy.cache,key) do
+        if kind==:observation && policy.fixed_elimination
+            inputs=unique(v for part in (real(u),imag(u)) for (v,c) in part.terms if !iszero(c))
+            if all(v->JuMP.is_fixed(v) && isfinite(JuMP.fix_value(v)),inputs)
+                # Inline the original expression, not a frozen numerical value.
+                # Bounds and later dependency changes therefore remain live.
+                push!(policy.fixed_records,(;key,expression=u,
+                    inputs=[(;variable=v,value=JuMP.fix_value(v)) for v in inputs]))
+                return u
+            end
+        end
         signature=kind==:observation ? _ivrn_observation_signature(u,policy.sharing) : nothing
         if signature!==nothing && haskey(policy.observations,signature.key)
             for entry in policy.observations[signature.key]
@@ -522,6 +539,7 @@ _ivrn_lifting_policy(options,e=nothing)=(;mode=options.lifting,threshold=options
     selection=options.observation_selection,selection_rows=_ivrn_selected_observation_rows(options,e),
     power_ratio=something(options.lifted_power_base,options.s_base)/options.s_base,
     sharing=options.observation_sharing,power_sharing=options.power_sharing,
+    fixed_elimination=options.fixed_observation_elimination,fixed_records=NamedTuple[],
     generator_powers=Dict{Any,Any}(),reused_generator_count=Ref(0),
     cache=Dict{Any,Any}(),observations=Dict{Any,Any}(),
     shared_count=Ref(0),sharing_report=NamedTuple[],records=NamedTuple[])
@@ -1016,6 +1034,11 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :observation_selection=>options.observation_selection,
         :observation_selected_row_count=>model.ext[:ivr_lifting].selection_rows===nothing ? nothing : length(model.ext[:ivr_lifting].selection_rows),
         :observation_sharing=>options.observation_sharing,
+        :fixed_observation_elimination=>options.fixed_observation_elimination,
+        :fixed_observation_count=>length(model.ext[:ivr_lifting].fixed_records),
+        :fixed_observation_report=>[(;key=repr(q.key),
+            inputs=[(;variable=JuMP.name(x.variable),fixed_value_at_build=x.value) for x in q.inputs])
+            for q in model.ext[:ivr_lifting].fixed_records],
         :coincident_voltage_bounds=>options.coincident_voltage_bounds,
         :coincident_voltage_bound_report=>voltage_bound_report,
         :voltage_fixed_dependencies=>model.ext[:ivr_voltage_fixed_dependencies],

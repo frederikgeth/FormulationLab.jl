@@ -163,7 +163,8 @@ Each broad model contains **six scalar lifted observations** whose definition
 inputs are all fixed source coordinates: real and imaginary parts of the three
 source-bus line-to-line voltages. Powers-only has no such lifted candidates.
 The associated lower and upper voltage bounds are retained in the provenance
-catalogue. This is a structural candidate count, not an implemented reduction.
+catalogue. At the time of this residual study, this was a structural candidate
+count, not an implemented reduction.
 
 An opt-in constant-propagation rule could replace these auxiliaries by their
 exact defining values and remove six variables and six defining equations per
@@ -178,6 +179,13 @@ nor an Ipopt wall-time benefit has been demonstrated. The next implementation
 should first establish exactness and constant-bound behavior on small cases,
 then use the retained physical/export controls on the external panel. Timing
 remains deferred.
+
+The subsequent [fixed-input substitution study](ivr_fixed_observations.md)
+implements this candidate as an opt-in rule. It retains the original affine
+expressions and all bound rows instead of freezing numerical values. Eight
+external arms pass the physical and export controls; the six-variable reduction
+does not change iteration counts on that panel. These later results do not
+change the residual classifications above.
 
 ## Reproduction and limitations
 

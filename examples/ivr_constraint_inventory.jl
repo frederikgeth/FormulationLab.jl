@@ -92,6 +92,9 @@ function catalog(build)
     for (k,q) in enumerate(model.ext[:ivr_lifting].records)
         add("lifting/$k/$(q.kind)",:lifting_definition,(q.definition_real,q.definition_imag);metadata=q)
     end
+    for (k,q) in enumerate(model.ext[:ivr_lifting].fixed_records)
+        add("fixed_observation/$k",:fixed_observation,Any[];status=:inlined_fixed_inputs,metadata=q)
+    end
     allrefs=all_constraints(model;include_variable_in_set_constraints=true)
     uncovered=[ref for ref in allrefs if !haskey(owners,ref)]
     (;declarations,owners,uncovered_constraints=uncovered,
