@@ -188,3 +188,7 @@ The subsequent [certified zero-load implementation](ivr_zero_loads.md) makes
 this reduction opt-in, with a zero-voltage counterexample, atomic update guards
 and original-channel export checks. Its numerical evidence is kept separate
 from the unmodified scenarios and timings on this page.
+
+The [selective observation follow-up](ivr_zero_load_observations.md) then keeps
+the zero-load reduction enabled. It tests the five existing observation choices
+and identifies duplicate emitted models as controls for timing variability.

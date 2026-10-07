@@ -61,6 +61,7 @@ makedocs(;
             "Selective coil observations"=>"ivr_coil_observations.md",
             "External observation transfer"=>"ivr_external_observations.md",
             "Certified zero-power load currents"=>"ivr_zero_loads.md",
+            "Observations after zero-load elimination"=>"ivr_zero_load_observations.md",
             "Coincident voltage equalities"=>"ivr_voltage_equalities.md",
             "Voltage dependencies under power costs"=>"ivr_voltage_dependencies.md",
             "Single-phase voltage-bound transfer"=>"ivr_singlephase_transfer.md",

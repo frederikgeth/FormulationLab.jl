@@ -196,3 +196,8 @@ zero/nonzero demand patterns without rebuilding. Broad observations remain
 available and physically validated; their timing with zero-load elimination
 has not been measured in this campaign. Source freezes, all raw repeats,
 isolation snapshots and the final admission report are archived under `TIMING`.
+
+The separate [observation interaction study](ivr_zero_load_observations.md)
+holds this reduction enabled and compares all five existing observation choices.
+It also checks whether differently named choices produce distinct emitted models
+before interpreting their timing differences.

@@ -7,6 +7,7 @@ using OpenDSSDirect
     include("ivr_line_passivity_tests.jl")
     include("ivr_elimination_tests.jl")
     include("ivr_zero_load_tests.jl")
+    include("ivr_zero_load_observation_tests.jl")
     include("ivr_ground_scaling_tests.jl")
     include("ivr_transformer_scaling_tests.jl")
     include("ivr_transformer_scaling_study_tests.jl")

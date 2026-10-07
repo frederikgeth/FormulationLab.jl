@@ -39,6 +39,20 @@ transformer-current representations: their ordering interacts with the new
 reduction. All 48 preflight exports pass both readers with identical physical
 field paths; the complete regression suite passes 235,596 assertions.
 
+The [zero-reduced observation comparison](ivr_zero_load_observations.md) admits
+1,200 measured solves and 120 warmups. It refines the shortlist for the 333-bus
+tracking workload: broad lifting beats powers-only by 10.9% with explicit ordinary
+currents and 13.8% with eliminated currents in confirmation, despite 6,890 added
+variables and 36 versus 33 iterations. Powers-only remains a sensible panel-wide
+starting candidate; broad is 5.7%/3.9% slower in geometric mean across six cells
+for each current representation. Coil-current selection is inactive in this panel:
+its model text equals powers-only, while `coils` equals coil-voltage-only. These
+duplicate controls differ by up to 3.7% in median time, so nearby winners are
+not distinct formulation gains. The largest tracking exception repeats in both
+batches; a joint zero-load × lifting experiment is still needed to estimate the
+interaction rather than compare separate campaigns. All 60 preflight exports
+pass both readers and retain the same physical fields and bound declarations.
+
 The [isolated single-phase confirmation](ivr_singlephase_transfer.md#Isolated-confirmation-—-6-October-2026)
 now supplies eligible timing evidence: all 1,944 measured solves and 216 warm-ups
 pass, with no competing Julia process detected. For the tested mixed-device rural
