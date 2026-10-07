@@ -6,6 +6,44 @@ function _ivrn_compose_row(row,maps)
     out
 end
 
+# S=U*conj(I)=0 implies I=0 only on a certified nonzero coil-voltage domain.
+# Keep physical rows, input records and limits; substitute solely in the solver
+# map. Never infer a domain from nominal or solved voltages.
+function _ivrn_zero_load_coordinates(net,e,maps,enabled)
+    selected=Dict{Tuple{String,Int},Any}();retained=Any[];removed=Set{Int}()
+    report()=(;enabled,channels=[(;id,channel=k,voltage_lower_V=c.voltage_lower_V,
+        voltage_upper_V=c.voltage_upper_V,source=c.source) for ((id,k),c) in
+        sort!(collect(selected);by=first)],retained_channels=retained,
+        eliminated_complex_coordinates=length(removed))
+    enabled || return maps,selected,report()
+    range=_sdp_voltage_ranges(net,e.terminal_rows,Dict(k=>v*e.vb for (k,v) in e.fixed_source_coordinates))
+    for (family,id,v,i,d) in e.devices
+        family==:load && !_sdp_is_impedance_load(d) || continue
+        n=length(v);pn=e.values_for(d,"p_nom",n);qn=e.values_for(d,"q_nom",n)
+        pn===nothing || qn===nothing ? _ivrn_refuse("load/$id requires P and Q") : nothing
+        for k in 1:n
+            iszero(pn[k]) && iszero(qn[k]) || continue
+            lo,hi=range(v[k]);current=_ivrn_compose_row(i[k],maps.reconstruction)
+            reason=!(isfinite(lo) && 0<lo<=hi) ? :uncertified_nonzero_voltage :
+                length(current)!=1 || only(values(current)) ∉ (-1,1) ? :current_not_retained_coordinate : nothing
+            if reason!==nothing
+                push!(retained,(;id,channel=k,reason));continue
+            end
+            coordinate=only(keys(current))
+            coordinate in removed && _ivrn_refuse("aliased zero-load current coordinate")
+            push!(removed,coordinate)
+            selected[(id,k)]=(;voltage_lower_V=lo,voltage_upper_V=isfinite(hi) ? hi : nothing,
+                voltage_row=copy(v[k]),current_row=copy(i[k]),
+                source=all(haskey(e.fixed_source_coordinates,j) for j in keys(v[k])) ? :fixed_source : :declared_voltage_bound)
+        end
+    end
+    isempty(removed) && return maps,selected,report()
+    kept=[k for k in eachindex(maps.projection) if k ∉ removed]
+    numbering=Dict(k=>j for (j,k) in enumerate(kept))
+    reconstruction=[_SDPRow(numbering[k]=>a for (k,a) in row if k ∉ removed) for row in maps.reconstruction]
+    (;projection=maps.projection[kept],reconstruction),selected,report()
+end
+
 # Independent of line elimination and atomic per device. The ordinary pass
 # removes recorded from-side currents through unit pivots, without inverting
 # leakage or incidence. The broader opt-in also solves complete multiwinding

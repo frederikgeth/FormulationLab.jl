@@ -73,7 +73,8 @@ function catalog(build)
         for q in rows
             refs=hasproperty(q,:constraints) ? q.constraints : (q.constraint,)
             label=category==:bus_limit ? "bus/$(q.b)/$(q.key)/$(q.channel)" : q.label
-            add(label,category,refs;status=isempty(refs) ? :no_emitted_row : :emitted,metadata=q)
+            status=isempty(refs) ? (category==:load_law ? :eliminated_zero_power : :no_emitted_row) : :emitted
+            add(label,category,refs;status,metadata=q)
         end
     end
     # P and Q share this domain and definition: one auxiliary declaration per channel.

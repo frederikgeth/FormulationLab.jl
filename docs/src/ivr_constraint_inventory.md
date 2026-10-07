@@ -38,6 +38,12 @@ equality. Tautologies and eliminated equations retain declarations with no
 emitted references. Counting declarations as solver rows would therefore be
 incorrect. `shared_constraints` reports multiplicity explicitly.
 
+With [certified zero-load elimination](ivr_zero_loads.md), the two omitted power
+law declarations carry status `eliminated_zero_power`. Their empty reference sets
+are checked against zero nominal demand, the original physical observation rows,
+zero reconstructed current and a continuing positive coil-voltage certificate.
+Deleting that provenance or changing those conditions prevents a coverage claim.
+
 ## Circuit units and auxiliary definitions
 
 Circuit emission records the actual positive divisor ``d`` applied to the

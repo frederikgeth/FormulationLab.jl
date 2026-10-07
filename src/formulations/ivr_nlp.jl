@@ -106,6 +106,13 @@ It requires load-power lifting. `load_power_row_base` and per-load
 `load_power_row_bases` specify row units in VA, falling back to `s_base` (not
 column units). Explicit row units require an active row-scaling mode. These
 positive equality multipliers do not change physical bounds or primal recovery.
+`zero_load_elimination=true` substitutes zero for a non-impedance load coil current
+only when both nominal P and Q are exactly zero and a positive lower bound on
+that same coil voltage (or fixed nonzero source phasor) certifies equivalence.
+Uncertified channels remain explicit. Original observations/bounds and exact SI
+recovery remain available; eliminated load laws and their auxiliaries are omitted
+with provenance. Default false. Updating an eliminated channel to nonzero P/Q
+requires rebuilding; updates reject atomically before changing any load.
 `coincident_voltage_bounds=:equality` replaces a positive, exactly coincident
 bus-voltage lower/upper pair with one magnitude equality. Default :separate
 retains both inequalities. Pairs on explicitly fixed source coordinates retain
@@ -140,6 +147,7 @@ Base.@kwdef struct IVRNLPOptions
     observation_sharing::Symbol = :off
     coincident_voltage_bounds::Symbol = :separate
     device_elimination::Symbol = :off
+    zero_load_elimination::Bool = false
     transformer_nameplate::Symbol = :ignore
     load_power_lifting::Bool = false
     load_power_base::Union{Nothing,Float64} = nothing
@@ -798,6 +806,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     maps,omitted_equations,omitted,elimination=_ivrn_linear_coordinates(net,e,maps,omitted,options.linear_elimination;
                                                                     series_selection=options.series_selection,component_limit=options.passive_component_limit)
     maps,omitted_equations,device_elimination=_ivrn_device_coordinates(net,e,maps,omitted_equations,options.device_elimination)
+    maps,zero_loads,zero_load_report=_ivrn_zero_load_coordinates(net,e,maps,options.zero_load_elimination)
     maps,scaling=_ivrn_ground_coordinates(net,e,maps,options.ground_scaling)
     maps,transformer_scaling=_ivrn_transformer_coordinates(net,e,maps,options.transformer_scaling,options.current_power_bases)
     scaled_rows=options.row_scaling==:composed || !isempty(scaling.scaled_terminals)
@@ -808,6 +817,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     model.ext[:ivr_ibr_operating_rows]=Any[]
     model.ext[:ivr_circuit_rows]=Dict{Any,Any}()
     model.ext[:ivr_source_fixes]=Dict{Int,Any}()
+    model.ext[:ivr_zero_loads]=zero_loads
     n=length(maps.projection)
     xr=@variable(model,[1:n],base_name="state_real")
     xi=@variable(model,[1:n],base_name="state_imag")
@@ -873,8 +883,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
             pn=e.values_for(d,"p_nom",count);qn=e.values_for(d,"q_nom",count)
             pn===nothing || qn===nothing ? _ivrn_refuse("load/$id requires P and Q") : nothing
             if lowercase(get(d,"model","constant_power"))=="constant_power"
-                cp=[@constraint(model,p[k]==pn[k]/e.sb) for k in 1:count]
-                cq=[@constraint(model,q[k]==qn[k]/e.sb) for k in 1:count]
+                cp=[haskey(zero_loads,(id,k)) ? nothing : @constraint(model,p[k]==pn[k]/e.sb) for k in 1:count]
+                cq=[haskey(zero_loads,(id,k)) ? nothing : @constraint(model,q[k]==qn[k]/e.sb) for k in 1:count]
                 loads[id]=(;p=cp,q=cq)
             else
                 if voltage_range===nothing
@@ -990,6 +1000,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :network_reduction=>:off,:assembly_count=>1,
         :linear_elimination=>options.linear_elimination,:linear_elimination_report=>elimination,
         :device_elimination=>options.device_elimination,:device_elimination_report=>device_elimination,
+        :zero_load_elimination=>options.zero_load_elimination,:zero_load_elimination_report=>zero_load_report,
         :ground_scaling=>options.ground_scaling,:ground_scaling_report=>scaling,
         :transformer_scaling=>options.transformer_scaling,:transformer_scaling_report=>transformer_scaling,
         :row_scaling=>options.row_scaling,:composed_row_normalization=>scaled_rows,
@@ -1032,6 +1043,8 @@ end
 `updates` maps load IDs to `(p=[...], q=[...])`. Every entry is validated before
 mutation; invalid input leaves the model usable. Equipment, source phasors and
 normalization stay fixed. This does not promise rollback on optimizer errors.
+Channels removed by `zero_load_elimination` must remain at zero P and Q;
+changing them requires rebuilding. Other retained channels can still be updated.
 """
 function update_ivr_loads!(build::IVRNLPBuild,updates::AbstractDict)
     staged=Dict{String,Any}()
@@ -1044,11 +1057,14 @@ function update_ivr_loads!(build::IVRNLPBuild,updates::AbstractDict)
         p=Float64.(collect(value.p));q=Float64.(collect(value.q))
         length(p)==length(q)==n && all(isfinite,p) && all(isfinite,q) ||
             throw(ArgumentError("load/$id update requires $n finite P and Q values"))
+        all(k->!haskey(build.model.ext[:ivr_zero_loads],(id,k)) || (iszero(p[k]) && iszero(q[k])),1:n) ||
+            throw(ArgumentError("load/$id has an eliminated zero-power channel; rebuild before changing its P or Q"))
         staged[String(id)]=(;p,q)
     end
     for (id,v) in staged
         refs=build.load_constraints[id]
         for k in eachindex(v.p)
+            refs.p[k]===nothing && continue
             JuMP.set_normalized_rhs(refs.p[k],v.p[k]/build.electrical.sb)
             JuMP.set_normalized_rhs(refs.q[k],v.q[k]/build.electrical.sb)
         end

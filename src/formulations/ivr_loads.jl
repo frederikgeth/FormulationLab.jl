@@ -38,7 +38,8 @@ function _ivrn_load_law!(model,id,d,rows,p,q,z,z0,e,voltage_range;power_lifting=
         # Exact graph extension: keep quadratic electrical products separate
         # from fractional voltage laws. The common registry encodes every start
         # and recovered physical point, including these power auxiliaries.
-        lifted=[_ivrn_lift!(model,p[k]+im*q[k],(:load_law_power,id,k),:power;
+        lifted=[haskey(model.ext[:ivr_zero_loads],(id,k)) ? p[k]+im*q[k] :
+            _ivrn_lift!(model,p[k]+im*q[k],(:load_law_power,id,k),:power;
             power_ratio,row_multiplier=definition_row_multiplier) for k in eachindex(rows)]
         p=real.(lifted);q=imag.(lifted)
     end
@@ -49,6 +50,13 @@ function _ivrn_load_law!(model,id,d,rows,p,q,z,z0,e,voltage_range;power_lifting=
         row=rows[k];lo,hi=voltage_range(row)
         isfinite(lo) && 0<lo<=hi ||
             _ivrn_refuse("load/$id channel $k requires a positive lower bound on its coil voltage or a fixed nonzero source phasor")
+        if haskey(model.ext[:ivr_zero_loads],(id,k))
+            get!(()->Dict{Tuple{String,Int},Any}(),model.ext,:ivr_load_law_rows)[(id,k)]=
+                (;p=nothing,q=nothing,row_multiplier=law_row_multiplier,voltage_row=copy(row),
+                    voltage_coordinate=nothing,voltage_definition=nothing,voltage_nominal=vn[k],
+                    voltage_bounds=(lower=lo,upper=hi),power_expressions=(p=p[k],q=q[k]))
+            continue
+        end
         scale=(e.vb/vn[k])^2
         # Equal engineering bounds also fix the magnitude. Evaluate the law
         # directly; a fixed auxiliary plus its defining equality would add a

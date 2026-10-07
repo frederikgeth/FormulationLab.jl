@@ -183,3 +183,8 @@ channels must remain explicit. The census alone neither proves eligibility nor
 predicts a speed gain. A useful follow-up would compare this reduction with
 selective observation lifting under the same power objectives and admission
 gates, retaining every present control.
+
+The subsequent [certified zero-load implementation](ivr_zero_loads.md) makes
+this reduction opt-in, with a zero-voltage counterexample, atomic update guards
+and original-channel export checks. Its numerical evidence is kept separate
+from the unmodified scenarios and timings on this page.

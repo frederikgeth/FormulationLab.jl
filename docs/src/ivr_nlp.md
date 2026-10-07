@@ -96,6 +96,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `coincident_voltage_bounds` | `:separate` | `:equality` replaces exactly coincident positive bus-voltage bounds by one magnitude equality; explicitly fixed source rows retain their original representation. `:guarded_equality` additionally shares identical normalized affine observations and retains inequalities on structurally circuit-fixed voltages; see [scope and evidence](ivr_voltage_dependencies.md) |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
 | `device_elimination` | `:off` | `:transformer_currents` removes ordinary from-side coil currents; `:all_transformer_currents` also attempts complete multiwinding current blocks, retaining unsafe blocks. See [scope and solver qualifications](ivr_nwinding_elimination.md) |
+| `zero_load_elimination` | `false` | Remove exactly zero-P/Q load-coil currents only on a certified nonzero voltage domain; retain original bounds and SI observations. Nonzero demand updates require rebuilding. See [equivalence, recovery and reuse](ivr_zero_loads.md) |
 
 The [coincident-voltage study](ivr_voltage_equalities.md) gives the equality
 rewrite, its scope and retained numerical controls. It matches the same bus,

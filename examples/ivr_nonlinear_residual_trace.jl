@@ -70,6 +70,7 @@ as outside this catalogue; they are not declared absent from the model.
 function catalog(build)
     e=build.electrical;model=build.model;loads=Any[];linear_loads=String[]
     law_rows=get(model.ext,:ivr_load_law_rows,Dict())
+    zero_voltage_range=nothing
     for (family,id,v,i,_) in e.devices
         family==:load || continue
         d=build.network["load"][id];law=lowercase(get(d,"model","constant_power"))
@@ -85,10 +86,25 @@ function catalog(build)
                 haskey(law_rows,(id,k)) || throw(ArgumentError("missing load-law provenance: $id/$k"))
                 law_rows[(id,k)]
             end
+            if rec.p===nothing || rec.q===nothing
+                cert=get(get(model.ext,:ivr_zero_loads,Dict()),(id,k),nothing)
+                cert!==nothing && rec.p===nothing && rec.q===nothing &&
+                    iszero(d["p_nom"][k]) && iszero(d["q_nom"][k]) &&
+                    cert.voltage_row==v[k] && cert.current_row==i[k] &&
+                    isempty(F._ivrn_compose_row(i[k],build.coordinates.reconstruction)) ||
+                    throw(ArgumentError("invalid eliminated zero-load provenance: $id/$k"))
+                if zero_voltage_range===nothing
+                    zero_voltage_range=F._sdp_voltage_ranges(build.network,e.terminal_rows,
+                        Dict(j=>a*e.vb for (j,a) in e.fixed_source_coordinates))
+                end
+                lo,hi=zero_voltage_range(v[k])
+                isfinite(lo) && 0<lo<=hi || throw(ArgumentError("lost zero-load voltage certificate: $id/$k"))
+            end
             for quantity in (:p,:q)
+                ref=getproperty(rec,quantity)
                 push!(loads,(;label="load/$id/$(quantity)/$k",id,channel=k,quantity,law,
                     unit=quantity==:p ? :W : :var,voltage_row=copy(v[k]),current_row=copy(i[k]),
-                    constraint=getproperty(rec,quantity),physical_scale=e.sb/rec.row_multiplier,
+                    constraint=ref,constraints=ref===nothing ? () : (ref,),physical_scale=e.sb/rec.row_multiplier,
                     rec.voltage_coordinate,rec.voltage_definition,rec.voltage_nominal,rec.voltage_bounds,
                     power_expression=getproperty(rec.power_expressions,quantity)))
             end
@@ -103,7 +119,7 @@ function catalog(build)
     haskey(model.ext,:ivr_ibr_operating_rows) || throw(ArgumentError("missing IBR operating-limit provenance"))
     ibr=model.ext[:ivr_ibr_operating_rows]
     all(q->q.form!=:unrecorded,bounds) || throw(ArgumentError("incomplete bus-bound provenance"))
-    covered=Set{Any}(q.constraint for q in loads)
+    covered=Set{Any}(q.constraint for q in loads if q.constraint!==nothing)
     for q in loads
         q.voltage_definition===nothing || push!(covered,q.voltage_definition)
         if q.voltage_coordinate isa VariableRef
@@ -171,10 +187,10 @@ function trace(build;variable_values=nothing)
         actual=q.quantity==:p ? real(u*conj(i)) : imag(u*conj(i))
         nominal=e.values_for(d,q.quantity==:p ? "p_nom" : "q_nom",n)[k]
         xp=q.law=="constant_power" ? nothing : abs2(u/q.voltage_nominal)
-        xm=q.voltage_coordinate===nothing ? nothing : evaluate(q.voltage_coordinate)
+        xm=q.constraint===nothing ? xp : q.voltage_coordinate===nothing ? nothing : evaluate(q.voltage_coordinate)
         requested=nominal*_factor(d,q.law,k,n,q.quantity,xp)
         modeled_request=nominal*_factor(d,q.law,k,n,q.quantity,xm)
-        native=_residual(q.constraint,evaluate).signed_residual*q.physical_scale
+        native=q.constraint===nothing ? 0. : _residual(q.constraint,evaluate).signed_residual*q.physical_scale
         power_gap=e.sb*evaluate(q.power_expression)-actual
         demand_gap=modeled_request-requested
         physical=actual-requested

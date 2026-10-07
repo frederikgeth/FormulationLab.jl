@@ -112,6 +112,13 @@ function result_dict(input::Union{AbstractDict,BMOPFInput,AbstractString,PowerIO
         "network_sha256"=>_result_digest(net))
     out["_formulationlab"]=extras
     if r isa IVRNLPResult
+        zero=get(r.numerical_diagnostics,:zero_load_elimination_report,nothing)
+        if zero!==nothing && zero.enabled
+            extras["zero_load_elimination_report"]=Dict(
+                "eliminated_complex_coordinates"=>zero.eliminated_complex_coordinates,
+                "channels"=>[Dict(string(k)=>(v isa Symbol ? string(v) : v) for (k,v) in pairs(q)) for q in zero.channels],
+                "retained_channels"=>[Dict(string(k)=>(v isa Symbol ? string(v) : v) for (k,v) in pairs(q)) for q in zero.retained_channels])
+        end
         extras["device_elimination"]=string(get(r.numerical_diagnostics,:device_elimination,:off))
         elimination=get(r.numerical_diagnostics,:device_elimination_report,nothing)
         if elimination!==nothing

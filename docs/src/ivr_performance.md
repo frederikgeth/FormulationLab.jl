@@ -26,6 +26,19 @@ control and leading candidate for this external panel, and retain both current
 representations. There is no universal observation-lifting winner. All 24
 preflight SI exports preserve the physical field paths and pass both readers.
 
+The [certified zero-load follow-up](ivr_zero_loads.md) improves that external
+shortlist. With powers-only lifting, the opt-in zero-load reduction lowers median
+Ipopt time in all twelve matched current-representation comparisons in both
+batches. All 384 measured solves and 48 warmups pass. Confirmation geometric-mean
+reductions are 15.4% with ordinary transformer currents retained and 14.8% with
+them eliminated. The physical condition is exact zero P/Q plus a certified
+nonzero voltage on the same coil; uncertified channels remain explicit. Use
+`zero_load_elimination=true` when that structural assumption suits the workload,
+and rebuild before changing an eliminated channel to nonzero demand. Keep both
+transformer-current representations: their ordering interacts with the new
+reduction. All 48 preflight exports pass both readers with identical physical
+field paths; the complete regression suite passes 235,596 assertions.
+
 The [isolated single-phase confirmation](ivr_singlephase_transfer.md#Isolated-confirmation-—-6-October-2026)
 now supplies eligible timing evidence: all 1,944 measured solves and 216 warm-ups
 pass, with no competing Julia process detected. For the tested mixed-device rural
