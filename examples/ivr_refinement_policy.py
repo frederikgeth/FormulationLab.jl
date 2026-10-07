@@ -4,6 +4,7 @@ The norm/ratio audit checks printed full primal-dual residuals and rounding
 intervals. It does not independently reconstruct the residual equations.
 """
 from decimal import Decimal, localcontext
+import math
 import re
 
 from ivr_native_kkt import vector
@@ -42,6 +43,44 @@ def overlaps(a, b):
     return max(a[0], b[0]) <= min(a[1], b[1])
 
 
+def audit_counts(text, minimum, target=1e-10):
+    """Classify native work at verbosity eight without requiring vector dumps.
+
+    Counts include recovery episodes. Final ratios above the target remain
+    explicit: Ipopt may accept such a direction after recovery. They are not
+    themselves an OPF endpoint failure or a physical feasibility assessment.
+    The caller must independently verify the declared minimum and target against
+    the solver settings. Episode-final ratios include discarded recovery solves;
+    direction-final ratios use only the last solve in each iteration block.
+    """
+    if type(minimum) is not int or not 0 <= minimum <= 10:
+        raise ValueError("minimum must be an integer between zero and ten")
+    if not math.isfinite(target) or target <= 0:
+        raise ValueError("positive finite residual target required")
+    trace = parse(text)
+    if any(len(e['corrections']) < minimum for e in trace['episodes']):
+        raise ValueError("episode below declared minimum")
+    episodes = trace['episodes']
+    final = [e['corrections'][-1] if e['corrections'] else e['initial_ratio']
+             for e in episodes]
+    direction_final = [b['solves'][-1]['residual_ratio'] for b in trace['blocks']]
+    counts = trace['counts']
+    work = dict(episodes=len(episodes), mandatory_corrections=minimum*len(episodes),
+        excess_corrections=sum(len(e['corrections'])-minimum for e in episodes),
+        initial_ratios_above_target=sum(e['initial_ratio'] > target for e in episodes),
+        episode_final_ratios_above_target=sum(r > target for r in final),
+        direction_final_ratios_above_target=sum(r > target for r in direction_final),
+        recovery_restarts=counts['quality_restart']+counts['singularity_restart'],
+        refinement_failures=sum(e['text'].startswith('Iterative refinement failed')
+                                for e in trace['events']),
+        max_episode_final_ratio=max(final, default=0.0),
+        max_direction_final_ratio=max(direction_final, default=0.0))
+    assert work['mandatory_corrections']+work['excess_corrections'] == counts['refinement']
+    assert sum(counts.values()) == trace['wrapper_solves']
+    return dict(schema='FormulationLab.native_refinement_counts.v1', minimum=minimum,
+                target=target, work=work, trace=trace, timing_eligible=False)
+
+
 def audit(text, minimum):
     """Require supported trace, minimum counts and all eight residual blocks.
 
@@ -49,11 +88,7 @@ def audit(text, minimum):
     and aggregate norm. RHS/solution norms cannot be recovered from those
     residual vectors; their rounded printed intervals bound the denominator.
     """
-    if type(minimum) is not int or not 0 <= minimum <= 10:
-        raise ValueError("minimum must be an integer between zero and ten")
-    trace = parse(text)
-    if any(len(e['corrections']) < minimum for e in trace['episodes']):
-        raise ValueError("episode below declared minimum")
+    trace = audit_counts(text, minimum)['trace']
     lines = text.splitlines(); records = []
     with localcontext() as ctx:
         ctx.prec = 80

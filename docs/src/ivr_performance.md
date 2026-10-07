@@ -28,6 +28,12 @@ with unchanged seven-iteration endpoints. It establishes a controlled OPF
 experiment, not a benefit or a reason to change solver defaults. Timing remains
 deferred.
 
+The [twelve-solve per-unit transfer](ivr_opf_refinement_policy.md) finds no
+iteration reduction from forcing three or four corrections. Minimum three
+avoids two factorizations/restarts in the eliminated-current powers profile
+while increasing linear solves from 126 to 148; minimum four takes an extra
+iteration. This remains an unmeasured tradeoff, not a new timing recommendation.
+
 The [isolated coil-observation confirmation](ivr_coil_observations.md#Isolated-confirmation-—-7-October-2026)
 admits all 1,200 measured solves and 120 warmups. Broad bounded observations
 win all twelve cells in both batches on the manufactured multiwinding panel.

@@ -5,7 +5,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'examples'))
-from ivr_refinement_policy import audit, printed_interval, ratio_interval
+from ivr_refinement_policy import audit, audit_counts, printed_interval, ratio_interval
 
 
 def sample():
@@ -23,6 +23,41 @@ def sample():
 
 
 class PolicyTests(unittest.TestCase):
+    def test_counts_without_vector_dump(self):
+        text = sample()
+        result = audit_counts(text, 1)
+        self.assertEqual(result['work']['mandatory_corrections'], 1)
+        self.assertEqual(result['work']['excess_corrections'], 0)
+        self.assertEqual(result['work']['episode_final_ratios_above_target'], 0)
+        self.assertEqual(audit_counts(text, 0)['work']['excess_corrections'], 1)
+        for target in (0, -1, float('nan'), float('inf')):
+            with self.assertRaises(ValueError): audit_counts(text, 1, target)
+
+    def test_counts_recovery_and_accepted_above_target(self):
+        call = 'Calling MUMPS-3 for solve.\nDone with MUMPS-3 for solve.\n'
+        solve = lambda value: call+f'residual_ratio = {value}\n'
+        body = solve('1e-3')+solve('1e-4')+solve('1e-5')
+        failure = 'Iterative refinement failed with residual_ratio = 1e-5\n'
+        body += failure+'Increasing pivot tolerance for MUMPS from 1e-6 to 1e-3.\n'
+        body += solve('1e-4')+solve('1e-5')+failure+'Just accept current solution.\n'
+        text = ('This is Ipopt version 3.14.19, running with linear solver MUMPS.\n'+call+
+            '*** Solving the Primal Dual System for Iteration 0:\n'+body+
+            '*** Finding Acceptable Trial Point for Iteration 0:\nNumber of Iterations....: 1\nEXIT: Optimal Solution Found.\n')
+        result = audit_counts(text, 1); work = result['work']
+        self.assertEqual(work['mandatory_corrections'], 2)
+        self.assertEqual(work['excess_corrections'], 1)
+        self.assertEqual(work['recovery_restarts'], 1)
+        self.assertEqual(work['refinement_failures'], 2)
+        self.assertEqual(work['episode_final_ratios_above_target'], 2)
+        self.assertEqual(work['direction_final_ratios_above_target'], 1)
+        self.assertEqual(result['trace']['wrapper_solves'], 6)
+        recovered = text.replace(solve('1e-4')+solve('1e-5')+failure+
+            'Just accept current solution.\n', solve('1e-4')+solve('1e-12'))
+        work = audit_counts(recovered, 1)['work']
+        self.assertEqual(work['episode_final_ratios_above_target'], 1)
+        self.assertEqual(work['direction_final_ratios_above_target'], 0)
+        self.assertEqual(work['refinement_failures'], 1)
+
     def test_eighth_component_is_included(self):
         r = audit(sample(), 1)
         self.assertEqual(len(r['norm_ratio_checks']), 2)

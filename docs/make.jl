@@ -77,6 +77,7 @@ makedocs(;
             "Retained-system refinement depth"=>"ivr_refinement_depth.md",
             "Residual-accumulation precision"=>"ivr_residual_precision.md",
             "Native refinement-policy calibration"=>"ivr_native_refinement_policy.md",
+            "Native refinement on per-unit OPF"=>"ivr_opf_refinement_policy.md",
             "Coincident voltage equalities"=>"ivr_voltage_equalities.md",
             "Voltage dependencies under power costs"=>"ivr_voltage_dependencies.md",
             "Single-phase voltage-bound transfer"=>"ivr_singlephase_transfer.md",

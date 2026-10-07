@@ -1,5 +1,9 @@
 # Native refinement-policy calibration
 
+The subsequent [per-unit OPF experiment](ivr_opf_refinement_policy.md) completes
+the twelve-solve transfer panel. It finds a profile-specific recovery tradeoff,
+but no general advantage from increasing the minimum.
+
 ## Question and experimental boundary
 
 The [retained-system precision control](ivr_residual_precision.md) showed that
