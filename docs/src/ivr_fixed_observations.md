@@ -134,3 +134,9 @@ It remains an experimental option, without changing the best-evidence default.
 A subsequent KKT study can test whether it removes the identified trivial
 residual rows without worsening the remaining directions. An isolated paired
 Ipopt wall-time campaign is needed before any speed recommendation.
+
+The subsequent [retained-system KKT control](ivr_fixed_observation_kkt.md)
+eliminates the corresponding variable/equality pairs algebraically, preserving
+nonzero defining-row right-hand sides. It removes three particular strict
+small-denominator failures while leaving the reported mixed-criterion pass
+counts unchanged. It is not a native trajectory or timing comparison.
