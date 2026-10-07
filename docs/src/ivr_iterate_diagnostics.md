@@ -182,3 +182,8 @@ initial large-case export attempt refused mixed Hessian triangles; that attempt
 and its repair are retained. Final code, logs, input, selection, captures,
 derivatives and independent audits are archived outside Git in
 `ITERATE_DIAGNOSTICS_20261007`. Previous speed recommendations remain unchanged.
+
+The subsequent [native augmented-system audit](ivr_native_kkt.md) obtains the
+missing internal slack/bound quantities from diagnostic output and checks the
+reconstructed blocks against Ipopt's printed matrix. It also makes the additional
+automatic inequality-row scaling in broad lifting explicit.

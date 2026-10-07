@@ -1575,3 +1575,12 @@ blocks with zero reported KKT regularization, ruling out regularization alone
 as their explanation. Model Jacobians and Lagrangian Hessians are exported at
 14 selected states; internal barrier/slack KKT reconstruction remains future
 work. Instrumented runs are excluded from timing and change no recommendation.
+
+The [native KKT follow-up](ivr_native_kkt.md) verifies 58 augmented systems at
+13 selected states against model derivatives, internal bound slacks/multipliers
+and direction regularization. It also identifies a scaling interaction: broad
+lifting triggers automatic NLP scaling on 897 inequality rows, whereas
+powers-only does not. Separating that scaling effect from the structural lifting
+effect is the next controlled diagnostic. The affected rows are phase-to-neutral
+lower-voltage bounds on 299 LV buses. This does not change the admitted
+wall-time shortlist.
