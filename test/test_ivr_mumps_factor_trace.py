@@ -20,6 +20,27 @@ def report(job=2, entries=100):
 
 
 class FactorTraceTests(unittest.TestCase):
+    def test_effective_threshold_is_not_interface_message(self):
+        text = report()+" Effective threshold for pivoting, CNTL(1) = 0.1000D-05\n"
+        text += "Increasing pivot tolerance for MUMPS from 1.00e-06 to 1.00e-03.\n"
+        text += report()+" Effective threshold for pivoting, CNTL(1) = 0.1000D-05\n"
+        r = trace.parse(text)
+        self.assertTrue(r['complete_pivot_reports'])
+        self.assertEqual([f['effective_pivot_threshold'] for f in r['factors']], [1e-6, 1e-6])
+
+    def test_missing_threshold_stays_unavailable(self):
+        r = trace.parse(report())
+        self.assertFalse(r['complete_pivot_reports'])
+        self.assertIsNone(r['factors'][0]['effective_pivot_threshold'])
+        self.assertTrue(r['complete_factor_reports'])
+
+    def test_invalid_and_duplicate_thresholds_refuse(self):
+        line = " Effective threshold for pivoting, CNTL(1) = {}\n"
+        for token in ('NaN', 'inf', '-1e-6', '1.1', 'garbage', '', '1e-6 extra'):
+            with self.assertRaises(ValueError): trace.parse(report()+line.format(token))
+        with self.assertRaises(ValueError): trace.parse(report()+line.format('1e-6')*2)
+        self.assertEqual(trace.parse(report()+line.format('0'))['factors'][0]['effective_pivot_threshold'], 0)
+
     def test_actual_is_not_storage(self):
         r = trace.parse(report())
         self.assertTrue(r["complete_factor_reports"])

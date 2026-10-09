@@ -98,6 +98,8 @@ The default test environment includes Clarabel, Ipopt (for exact IVR and nonline
 
 - [Motivating exact-IVR examples](docs/src/ivr_examples.md) and the
   [executable tutorial](docs/src/tutorial_exact_ivr.md)
+- [Select an exact-IVR profile](docs/src/ivr_selection.md) and inspect the
+  [validation evidence map](docs/src/ivr_validation.md)
 - [Choose a formulation](docs/src/formulations.md) and review the shared
   [notation and conventions](docs/src/notation.md)
 - [Literature and formulation lineage](docs/src/literature.md)

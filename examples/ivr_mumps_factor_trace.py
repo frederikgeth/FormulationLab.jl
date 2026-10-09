@@ -6,6 +6,7 @@ Missing/negative counters remain unavailable; estimates never replace actuals.
 import argparse
 import hashlib
 import json
+import math
 import re
 from pathlib import Path
 
@@ -45,6 +46,16 @@ def parse(text):
         if job != 2:
             continue
         block = text[header.end():headers[k + 1].start() if k + 1 < len(headers) else len(text)]
+        threshold_tokens = re.findall(
+            r'^[ \t]*Effective threshold for pivoting, CNTL\(1\)[ \t]*=[ \t]*(.*?)[ \t]*$',
+            block, re.M)
+        if len(threshold_tokens) > 1:
+            raise ValueError("duplicate effective pivot threshold in numerical call")
+        threshold = None
+        if threshold_tokens:
+            threshold = float(threshold_tokens[0].replace('D', 'e').replace('d', 'e'))
+            if not math.isfinite(threshold) or not 0 <= threshold <= 1:
+                raise ValueError("invalid effective pivot threshold")
         raw = {}
         for code, (name, label) in FIELDS.items():
             matches = re.findall(
@@ -58,6 +69,7 @@ def parse(text):
         complete = all(x is not None for x in values.values()) and order > 0 and entries > 0
         actual = values["factor_entries"]
         factors.append(dict(call=len(factors) + 1, input_order=order, input_entries=entries,
+                            effective_pivot_threshold=threshold,
                             reported=raw, **values, complete=complete,
                             factor_to_input_entry_ratio=actual / entries
                             if actual is not None and entries > 0 else None))
@@ -67,6 +79,7 @@ def parse(text):
     return dict(schema="FormulationLab.mumps_factor_trace.v1", mumps_versions=sorted(versions),
                 available=any(r["factor_entries"] is not None for r in factors),
                 complete_factor_reports=bool(factors) and all(r["complete"] for r in factors),
+                complete_pivot_reports=bool(factors) and all(r["effective_pivot_threshold"] is not None for r in factors),
                 observed_job_counts=counts, job_records=job_records, factors=factors, maxima=maxima,
                 timing_eligible=False,
                 qualification="Observed MUMPS text reports only. Negative/encoded counters are not decoded. "

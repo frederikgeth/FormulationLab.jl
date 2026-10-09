@@ -11,6 +11,8 @@ makedocs(;
         "Home"=>"index.md",
         "Start here"=>[
             "Choosing a formulation"=>"formulations.md",
+            "Selecting an exact-IVR profile"=>"ivr_selection.md",
+            "Exact-IVR validation and evidence"=>"ivr_validation.md",
             "Notation and conventions"=>"notation.md",
             "Architecture"=>"architecture.md",
             "Component coverage"=>"coverage.md",
@@ -79,6 +81,7 @@ makedocs(;
             "Native refinement-policy calibration"=>"ivr_native_refinement_policy.md",
             "Native refinement on per-unit OPF"=>"ivr_opf_refinement_policy.md",
             "Accuracy-triggered native refinement"=>"ivr_residual_targets.md",
+            "Initial MUMPS pivot controls"=>"ivr_initial_pivot.md",
             "Coincident voltage equalities"=>"ivr_voltage_equalities.md",
             "Voltage dependencies under power costs"=>"ivr_voltage_dependencies.md",
             "Single-phase voltage-bound transfer"=>"ivr_singlephase_transfer.md",

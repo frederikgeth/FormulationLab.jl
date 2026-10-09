@@ -93,10 +93,12 @@ fixed-matrix comparison or a measured speed ordering.
 
 One final direction exceeds its run's target. At iteration 22 of eliminated
 powers with target ``10^{-11}``, the initial ratio is ``6.681874\times10^{-6}``.
-Nine corrections finish at ``1.190430\times10^{-11}``. Ipopt increases the MUMPS
+Nine corrections finish at ``1.190430\times10^{-11}``. Ipopt requests an increase of the MUMPS
 pivot tolerance from ``10^{-6}`` to ``10^{-3}`` and restarts. The printed ratio
 sequence repeats, refinement fails again, and the log reports
-`Just accept current solution.` The accepted direction remains about 19% above
+`Just accept current solution.` The later [effective-control audit](ivr_initial_pivot.md)
+shows why an increase message must not be taken as proof of an applied MUMPS
+control change. The accepted direction remains about 19% above
 the requested target. Two failed episodes here correspond to one recovery
 restart and one above-target final direction, not two failed OPF endpoints.
 

@@ -76,8 +76,11 @@ from 66 to 74 and from 51 to 67. This confirms an interaction in observed
 refinement work, rather than a general advantage of broad lifting. It also shows
 why iteration counts and maximum factor entries alone miss part of the work.
 
-Three powers-only runs each report two refinement failures. Each increases the
-MUMPS pivot tolerance once. The eliminated-current runs also restart after
+Three powers-only runs each report two refinement failures. Each logs one
+request to increase the MUMPS pivot tolerance. The subsequent
+[effective-control audit](ivr_initial_pivot.md) finds that all retained numerical
+factorizations still report the initial threshold; the message alone does not
+prove an applied change. The eliminated-current runs also restart after
 pretending the modified system is singular. The explicit-current, unreduced run
 accepts one linear solution above the refinement target after recovery; its final
 OPF endpoint nevertheless passed the original physical checks. These algorithmic

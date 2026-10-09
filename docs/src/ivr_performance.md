@@ -1,5 +1,9 @@
 # Best-evidence exact-IVR profiles
 
+For a compact decision procedure and executable full/reduced comparison, start
+with [selecting an exact-IVR profile](ivr_selection.md). This page retains the
+detailed, workload-specific evidence behind those choices.
+
 All transformation and reformulation options remain available. A configuration
 that is slower on one panel is still useful for future numerical evidence.
 Recommendations here are additive; package defaults and the individual options
@@ -40,6 +44,14 @@ factorizations/restarts in eliminated powers but raises solves from 126 to 153,
 compared with 148 for the prior minimum-three candidate. No new speed claim or
 default change follows; a requested native ratio target is not always attained
 after Ipopt recovery.
+
+The [effective pivot-threshold audit](ivr_initial_pivot.md) distinguishes requested
+recovery changes from the threshold actually used by MUMPS. Setting the initial
+threshold to `1e-3` reduces powers-only linear solves from 118/126 to 67/67 while
+preserving 33 iterations; broad profiles remain at 36 iterations and 73 solves.
+Maximum factor entries increase by 2.3–2.8%. All eight endpoints and physical
+exports pass. This supplies a bounded solver candidate for later timing, not a
+speed claim or a default change.
 
 The [isolated coil-observation confirmation](ivr_coil_observations.md#Isolated-confirmation-—-7-October-2026)
 admits all 1,200 measured solves and 120 warmups. Broad bounded observations
