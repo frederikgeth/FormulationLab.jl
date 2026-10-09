@@ -472,3 +472,58 @@ opt-in candidate with explicit equivalence and update conditions. Its initial
 training applicability does not supply a held-out performance result. The frozen
 baseline artifacts retain their original option schema; reproduce them with
 their bound source snapshot, and declare any new candidate configuration separately.
+
+## Finite post-baseline candidate follow-up
+
+`examples/ivr_candidate_followup.jl` defines a correctness-only paired follow-up.
+Baseline admission is recorded separately from execution eligibility: every
+preparation-ready problem remains eligible for a correctness attempt, including
+those on which the baseline failed. This permits observation of convergence
+improvements without discarding the original failures. These networks have now
+been examined; follow-up outcomes are post-baseline evidence, not a newly blind
+held-out cohort. Original preparation refusals remain explicit unrun cells.
+
+The declared design applies both saved power objectives to six contrasts:
+
+| Contrast | Shared configuration | Control → candidate |
+|:--|:--|:--|
+| Fixed bounds, power lifting | Full power-lifted model | `fixed_bound_elimination=false` → `true` |
+| Fixed bounds, broad lifting | Broad observations; fixed observations inlined | Same fixed-bound toggle |
+| Complex sharing | Broad observations; fixed observations retained | `proportional` → `complex_proportional` |
+| Expression support | Power lifting; passive-block elimination | `bound_support` → `expression_support` |
+| MUMPS pivot, retained currents | Saved `off__powers__zero_true` profile | `mumps_pivtol=1e-6` → `1e-3` |
+| MUMPS pivot, eliminated transformer currents | Saved `transformer_currents__powers__zero_true` profile | Same pivot contrast |
+
+The first four controls derive from the saved `full_powers` configuration with
+only the stated common changes. Both arms retain identical objective terms,
+physical starts, per-unit bases, bounds and solver controls except for the
+declared contrast. The earlier option schema is migrated explicitly by adding
+`fixed_bound_elimination=false`; unknown schemas are refused. No baseline artifact
+is overwritten. Nine ready problems yield 216 planned optimizer calls; two
+preparation refusals account for another 48 planned but unrun cells. The original
+zero-load × lifting × current-elimination factorial remains a separate design.
+
+Before external execution, the calling study must authenticate the baseline
+reports and freeze the complete pair plans, code, environment and inputs. The
+helper does not perform that study-level freeze. It attempts both arms regardless
+of either solve status, writes each trial outcome separately, and saves failed
+diagnostic primals and independent physical checks when available. Such primals
+never become accepted solutions or common anchors. Cross-model check errors
+prevent comparison admission and remain explicit in the pair report.
+
+Pair admission requires both accepted endpoints, membership in each other's
+model, matching physical-export availability, and comparable objective values.
+Acceptance includes the original physical, bound-inventory, start, unreduced-model,
+objective and JSON round-trip checks. A status of local infeasibility remains a
+solver outcome rather than an infeasibility certificate. An option that changes
+no eligible structure supplies no evidence for its proposed mechanism; retain
+and identify such no-op contrasts when interpreting compiler diagnostics.
+
+This helper records no timing ranking. Correctness admission is a prerequisite
+for later timing and does not authorize it. Future authorized timing uses two
+isolated batches, an excluded warmup per arm and sixteen alternating paired
+sweeps per contrast/objective, with Ipopt wall time as the primary metric.
+Compilation is excluded. Retain each candidate as an opt-in option and report
+performance as undetermined until admitted measurements support a recommendation.
+The missing external single-phase slot and failed external admissions remain
+explicit limitations on transferable selection rules.

@@ -187,7 +187,7 @@ function bound_activity(b;atol)
         note="Normalized emitted rows only; empty rows are unassessed, not inactive. Not a physical-unit distance or multiplier test.")
 end
 
-function trial(net,p,reference,start,anchor,stem,settings,tol)
+function trial(net,p,reference,start,anchor,stem,settings,tol;save_failed_primal=false)
     row=Dict{String,Any}("profile"=>p["name"],"accepted"=>false,"timing_eligible"=>false,
         "options"=>p["options"],"solver_options"=>settings)
     point=nothing;shape=nothing
@@ -227,6 +227,25 @@ function trial(net,p,reference,start,anchor,stem,settings,tol)
             row["accepted"]=bounds.complete_declared_bound_coverage && inventory.complete_emitted_coverage &&
                 audit.passed && own.passed && full.passed && row["anchor_in_profile"]!==false &&
                 row["objective_reconciled"] && row["native_reader_equal"]
+        elseif save_failed_primal
+            # Diagnostic output never changes acceptance or supplies an anchor.
+            meta=FormulationLab._result_metadata(r)
+            failed=get(meta,"diagnostic_point",nothing)
+            row["failed_primal_available"]=failed!==nothing
+            try
+                write_result(result_dict(b,r),stem*".failed.result.json")
+                if failed!==nothing
+                    save(stem*".failed.point.json",point_record(failed))
+                    audit=physical_residuals(net,failed;delta_dispatch=:coil,ibr_delta_dispatch=:conductor,
+                        transformer_nameplate=o.transformer_nameplate,
+                        atol=(voltage=tol["voltage_V"],current=tol["current_A"],power=tol["power_VA"]))
+                    save(stem*".failed.physical.json",audit)
+                    row["failed_primal_physical_passed"]=audit.passed
+                end
+            catch diagnostic_error
+                diagnostic_error isa InterruptException && rethrow()
+                row["failed_diagnostic_error"]=sprint(showerror,diagnostic_error)
+            end
         end
     catch err
         err isa InterruptException && rethrow()

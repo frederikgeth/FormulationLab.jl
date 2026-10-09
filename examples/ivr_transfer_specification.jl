@@ -112,7 +112,7 @@ function profiles(net,kind;common::IVRNLPOptions,exchange_target_W=nothing)
     common.specialization==:off && common.linear_elimination==:off &&
         common.device_elimination==:off && !common.zero_load_elimination &&
         common.lifting==:off && common.power_sharing==:off &&
-        !common.fixed_observation_elimination && common.coincident_voltage_bounds==:separate &&
+        !common.fixed_observation_elimination && !common.fixed_bound_elimination && common.coincident_voltage_bounds==:separate &&
         common.series_selection==:all && common.observation_selection==:all ||
         throw(ArgumentError("common options must not enable experimental reductions or selective lifting"))
     common.transformer_nameplate==:bmopftools || throw(ArgumentError("retain BMOPFTools nameplate limits"))
