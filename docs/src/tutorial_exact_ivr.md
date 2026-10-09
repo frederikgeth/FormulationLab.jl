@@ -1,9 +1,8 @@
 # Tutorial: build, verify and reuse an exact IVR model
 
-This tutorial starts with a two-wire feeder whose solution can be calculated by
-hand. It then checks conductor specialization, demand reuse, generator prices
-an inverter's internal budget, a fixed regulator and voltage-dependent demand. Finally it deliberately violates a bound and
-adds an earth-current path that invalidates the reduction certificate.
+This tutorial begins with a two-wire feeder with an analytical solution, then
+explores exact reductions, scaling, model reuse and physical validation. Later
+sections cover transformers, device variants, objectives and controlled comparisons.
 
 The learning objective is to distinguish **physical correctness**, **equivalent
 representation** and **computational reuse**. None implies global optimality.

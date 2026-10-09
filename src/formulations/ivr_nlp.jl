@@ -121,6 +121,11 @@ Uncertified channels remain explicit. Original observations/bounds and exact SI
 recovery remain available; eliminated load laws and their auxiliaries are omitted
 with provenance. Default false. Updating an eliminated channel to nonzero P/Q
 requires rebuilding; updates reject atomically before changing any load.
+`fixed_bound_elimination=true` removes immutable operating rows certified implied
+by explicit finite fixings using exact arithmetic on the represented polynomial.
+Original declarations and certificates remain; changed fixing dependencies require
+rebuilding. Mutable dispatch boxes and uncertified/violated rows remain emitted.
+
 `coincident_voltage_bounds=:equality` replaces a positive, exactly coincident
 bus-voltage lower/upper pair with one magnitude equality. Default :separate
 retains both inequalities. Pairs on explicitly fixed source coordinates retain
@@ -154,6 +159,7 @@ Base.@kwdef struct IVRNLPOptions
     observation_selection::Symbol = :all
     observation_sharing::Symbol = :off
     fixed_observation_elimination::Bool = false
+    fixed_bound_elimination::Bool = false
     coincident_voltage_bounds::Symbol = :separate
     device_elimination::Symbol = :off
     zero_load_elimination::Bool = false
@@ -1038,6 +1044,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     voltage_bound_report=_ivrn_bus_limits!(model,net,e,z;coincident=options.coincident_voltage_bounds)
     options.objective==:power && (objective=_ivrn_power_objective(model,options.power_terms,e,z,generators))
     @objective(model,Min,objective/_ivrn_objective_scale(options))
+    fixed_bound_report=options.fixed_bound_elimination ? _ivrn_remove_fixed_bounds!(model) : Any[]
     unavailable=[(id,t) for (id,d) in net["voltage_source"] for t in d["terminal_map"]
                  if e.voltage[(d["bus"],t)]==0]
     diagnostics=Dict{Symbol,Any}(:power_model=>:exact,:delta_dispatch=>:coil,:ibr_delta_dispatch=>:conductor,
@@ -1064,6 +1071,8 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         :observation_selection=>options.observation_selection,
         :observation_selected_row_count=>model.ext[:ivr_lifting].selection_rows===nothing ? nothing : length(model.ext[:ivr_lifting].selection_rows),
         :observation_sharing=>options.observation_sharing,
+        :fixed_bound_elimination=>options.fixed_bound_elimination,
+        :fixed_bound_report=>fixed_bound_report,
         :fixed_observation_elimination=>options.fixed_observation_elimination,
         :fixed_observation_count=>length(model.ext[:ivr_lifting].fixed_records),
         :fixed_observation_report=>[(;key=repr(q.key),
@@ -1100,6 +1109,7 @@ Channels removed by `zero_load_elimination` must remain at zero P and Q;
 changing them requires rebuilding. Other retained channels can still be updated.
 """
 function update_ivr_loads!(build::IVRNLPBuild,updates::AbstractDict)
+    _ivrn_validate_fixed_bounds(build.model)
     staged=Dict{String,Any}()
     for (id,value) in updates
         id isa AbstractString && haskey(build.load_constraints,id) ||
@@ -1139,6 +1149,7 @@ model usable; backend failures do not have a rollback guarantee. Source powers,
 equipment ratings, topology and per-unit bases are not updated by this API.
 """
 function update_ivr_generators!(build::IVRNLPBuild,updates::AbstractDict)
+    _ivrn_validate_fixed_bounds(build.model)
     allowed=Set((:p_min,:p_max,:q_min,:q_max,:cost))
     staged=Dict{String,Dict{Symbol,Any}}()
     for (id,entry) in updates
@@ -1223,6 +1234,7 @@ end
 
 """Solve a built IVR model. Local solver success is not a global certificate."""
 function solve_ivr_nlp_opf(build::IVRNLPBuild;solver_options=())
+    _ivrn_validate_fixed_bounds(build.model)
     _set_solver_options!(build.model,solver_options)
     export_meta=_result_export_start(build)
     JuMP.optimize!(build.model)

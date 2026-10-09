@@ -23,6 +23,7 @@ the built model's normalization. Grounded source-current allocations remain
 unobserved, as in the full IVR contract. No optimizer is needed.
 """
 function ivr_nlp_point_report(build::IVRNLPBuild,point::ACPoint;atol=1e-7)
+    _ivrn_validate_fixed_bounds(build.model)
     isfinite(atol) && atol>=0 || throw(ArgumentError("atol must be finite and nonnegative"))
     e=build.electrical;z=fill(ComplexF64(NaN),e.coordinate_count[])
     missing=String[];binding=0.0

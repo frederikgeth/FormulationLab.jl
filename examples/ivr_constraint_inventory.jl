@@ -14,6 +14,7 @@ Missing/stale provenance throws; unrecorded added constraints report incomplete.
 """
 function catalog(build)
     model=build.model;e=build.electrical
+    FormulationLab._ivrn_validate_fixed_bounds(model)
     for key in (:ivr_circuit_rows,:ivr_source_fixes,:ivr_lifting)
         haskey(model.ext,key) || throw(ArgumentError("missing inventory provenance: $key"))
     end
@@ -73,7 +74,8 @@ function catalog(build)
         for q in rows
             refs=hasproperty(q,:constraints) ? q.constraints : (q.constraint,)
             label=category==:bus_limit ? "bus/$(q.b)/$(q.key)/$(q.channel)" : q.label
-            status=isempty(refs) ? (category==:load_law ? :eliminated_zero_power : :no_emitted_row) : :emitted
+            status=isempty(refs) ? (category==:load_law ? :eliminated_zero_power :
+                get(q,:form,nothing)==:certified_fixed ? :certified_fixed : :no_emitted_row) : :emitted
             add(label,category,refs;status,metadata=q)
         end
     end

@@ -78,6 +78,7 @@ makedocs(;
             "Equivalent warm-start states"=>"ivr_warm_start_controls.md",
             "KKT residual magnitude and provenance"=>"ivr_kkt_residuals.md",
             "Fixed-input observation substitution"=>"ivr_fixed_observations.md",
+            "Certified fixed bounds"=>"ivr_fixed_bounds.md",
             "Fixed-observation KKT control"=>"ivr_fixed_observation_kkt.md",
             "Retained-system refinement depth"=>"ivr_refinement_depth.md",
             "Residual-accumulation precision"=>"ivr_residual_precision.md",

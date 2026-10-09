@@ -129,6 +129,11 @@ function result_dict(input::Union{AbstractDict,BMOPFInput,AbstractString,PowerIO
                 "block_diagnostics"=>Dict(id=>Dict(string(k)=>v for (k,v) in pairs(d))
                     for (id,d) in get(elimination,:block_diagnostics,Dict())))
         end
+        extras["fixed_bound_elimination"]=get(r.numerical_diagnostics,:fixed_bound_elimination,false)
+        extras["fixed_bound_report"]=[Dict("constraint_type"=>q.constraint_type,
+            "constraint_index"=>q.constraint_index,"value"=>q.value,"slack"=>q.slack,
+            "dependencies"=>[Dict(string(k)=>v for (k,v) in pairs(d)) for d in q.dependencies])
+            for q in get(r.numerical_diagnostics,:fixed_bound_report,Any[])]
         extras["coincident_voltage_bounds"]=string(get(r.numerical_diagnostics,:coincident_voltage_bounds,:separate))
         extras["coincident_voltage_bound_report"]=[Dict(string(k)=>(v isa Symbol ? string(v) : deepcopy(v))
             for (k,v) in pairs(entry)) for entry in get(r.numerical_diagnostics,:coincident_voltage_bound_report,Any[])]

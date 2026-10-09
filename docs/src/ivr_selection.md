@@ -430,3 +430,45 @@ and cannot fill a claim about unchanged external inputs. Compare predictions
 against all admitted alternatives, report their per-case runtime regret, and
 retain inconclusive and losing options. Timing authorization and the physical
 admission gates above remain separate requirements.
+
+
+## First frozen held-out correctness panel
+
+The 2026-10-09 baseline campaign used source commit `126ed87`, two power objectives
+and nine predeclared formulations per runnable problem. The local evidence
+manifest `FREEZE_B.json` has SHA-256
+`de99283d8b5f5bc8b1f440ecc2c3113351d5456e1567a6357ec7dbb9dc903784`.
+It binds inputs, starts, per-unit bases, solver settings and the unchanged
+selection rules. Raw evidence remains outside Git.
+
+| Role | Problems | Optimizer trials | Accepted trials | Other outcomes |
+|:--|--:|--:|--:|:--|
+| Original held-out French feeders | 6 | 108 | 0 | All locally infeasible |
+| Declared mixed-device supplements | 2 | 36 | 0 | 32 locally infeasible; 4 iteration limits |
+| Original LV inputs refused at preparation | 2 | 0 | 0 | 36 planned cells unrun: undeclared ground terminals |
+| Known training scenario | 1 | 18 | 18 | Comparable objectives and passed validation gates |
+
+All runnable cases passed the known declared-bound and emitted-row inventories;
+these checks do not certify complete input-schema coverage. The held-out result
+supports **no speed ranking or transfer claim**. Local infeasibility statuses are
+not proofs that the physical problems have no feasible solution. No timing
+campaign was run, and the original failures remain in the denominator.
+
+One subsequent diagnostic replay of the first original feeder, quadratic cost
+and `full_powers`, preserved the original problem/start/settings and saved its
+failed endpoint. Eight significant load active-power mismatches occur downstream
+of transformer `11_MVLV04468_Transformer`; a separate line voltage-drop row also
+fails. The transformer's phase ratings are 91.667 kVA. Declared downstream phase
+demands have magnitudes 60.397, 93.204 and 97.477 kVA, while total demand is
+251.078 kVA against a 275 kVA nameplate. Phases 2 and 3 are saturated at the failed
+endpoint. This identifies a per-phase capacity hypothesis missed by an aggregate
+screen; it is not a certificate, since phase coupling, losses and alternative
+feasible states have not been bounded. It must not be generalized to the other
+failed cases without inspecting their evidence.
+
+The next correctness priority is to diagnose these failures, rather than promote
+any arm. Separately, [certified fixed-bound removal](ivr_fixed_bounds.md) is an
+opt-in candidate with explicit equivalence and update conditions. Its initial
+training applicability does not supply a held-out performance result. The frozen
+baseline artifacts retain their original option schema; reproduce them with
+their bound source snapshot, and declare any new candidate configuration separately.

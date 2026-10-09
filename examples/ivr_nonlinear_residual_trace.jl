@@ -68,6 +68,7 @@ loads belong to the linear-circuit catalogue. Other constraints are enumerated
 as outside this catalogue; they are not declared absent from the model.
 """
 function catalog(build)
+    F._ivrn_validate_fixed_bounds(build.model)
     e=build.electrical;model=build.model;loads=Any[];linear_loads=String[]
     law_rows=get(model.ext,:ivr_load_law_rows,Dict())
     zero_voltage_range=nothing
@@ -138,7 +139,7 @@ function catalog(build)
 end
 
 function _residual(c,evaluate)
-    q=constraint_object(c);s=q.set;x=evaluate(q.func)
+    q=c isa JuMP.ConstraintRef ? constraint_object(c) : c;s=q.set;x=evaluate(q.func)
     if s isa JuMP.MOI.EqualTo
         r=x-s.value;return (;sense=:equality,signed_residual=r,violation=abs(r))
     elseif s isa JuMP.MOI.LessThan
@@ -211,7 +212,7 @@ function trace(build;variable_values=nothing)
         slack=q.relation==:lower ? magnitude-q.bound : q.bound-magnitude
         (;label="bus/$(q.b)/$(q.key)/$(q.channel)",bus=q.b,field=q.key,q.channel,q.relation,q.form,
             limit_V=q.bound,magnitude_V=magnitude,slack_V=slack,violation_V=max(-slack,0.),
-            native=[_residual(ref,evaluate) for ref in q.constraints])
+            native=[_residual(ref,evaluate) for ref in F._ivrn_original_bound_constraints(q)])
     end
     equipment=map(c.equipment) do q
         current=e.ib*observe(q.current_row)
@@ -225,7 +226,7 @@ function trace(build;variable_values=nothing)
             q.voltage_basis,q.current_basis,q.limit_SI,q.unit,q.form,
             magnitude_SI=magnitude,modeled_magnitude_SI=abs(modeled),
             observation_gap_SI=abs(modeled-physical),slack_SI=slack,violation_SI=max(-slack,0.),
-            native=[_residual(ref,evaluate) for ref in q.constraints])
+            native=[_residual(ref,evaluate) for ref in F._ivrn_original_bound_constraints(q)])
     end
     physical_power(q)=let s=e.sb*observe(q.voltage_row)*conj(observe(q.current_row))
         q.quantity==:p ? real(s) : imag(s)
@@ -253,7 +254,7 @@ function trace(build;variable_values=nothing)
     ibr_power=map(filter(q->q.kind==:power,c.ibr)) do q
         powers=[e.sb*real(observe(v)*conj(observe(i))) for (v,i) in zip(q.voltage_rows,q.current_rows)]
         physical=sum(powers);modeled=e.sb*evaluate(q.expression);gap=modeled-physical
-        native=_residual(only(q.constraints),evaluate);residual=e.sb*native.signed_residual
+        native=_residual(only(F._ivrn_original_bound_constraints(q)),evaluate);residual=e.sb*native.signed_residual
         slack=q.relation==:lower ? physical-q.limit_SI : q.limit_SI-physical
         all(isfinite,(physical,modeled,residual,slack)) || throw(DomainError(q.label,"nonfinite IBR power budget"))
         (;q.label,q.audit_label,q.id,q.field,q.source_path,q.source_channel,q.port,q.basis,q.relation,q.form,
@@ -265,7 +266,7 @@ function trace(build;variable_values=nothing)
         u=e.vb*observe(q.voltage_row);magnitude=abs(u)
         modeled=e.vb*(evaluate(real(q.expression))+im*evaluate(imag(q.expression)))
         residual=magnitude-q.limit_SI
-        native=[_residual(ref,evaluate) for ref in q.constraints]
+        native=[_residual(ref,evaluate) for ref in F._ivrn_original_bound_constraints(q)]
         all(isfinite,(magnitude,abs(modeled),residual)) || throw(DomainError(q.label,"nonfinite IBR internal voltage"))
         (;q.label,q.audit_label,q.id,q.field,q.source_path,q.source_channel,q.channel,q.port,q.basis,q.relation,q.form,
             unit=:V,limit_V=q.limit_SI,magnitude_V=magnitude,modeled_magnitude_V=abs(modeled),
