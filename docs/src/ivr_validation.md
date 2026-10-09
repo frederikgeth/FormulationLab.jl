@@ -48,6 +48,12 @@ flag replaces the independent physical and negative-witness tests.
 
 ## Executable evidence by requirement
 
+The [historical admission recheck](ivr_evidence_recheck.md) verifies frozen
+source identity and reproduces the principal retained timing and export audits.
+It covers 3,168 measured solves and 336 excluded warmups, with no new solve or
+timing claim. Current correctness tests and historical timing admission have
+different purposes and are not substitutes for each other.
+
 Paths in this table are relative to the repository root. The tests are included
 by `test/runtests.jl`; their fixtures are tracked in the repository. The matrix
 identifies targeted evidence, not an exhaustive Cartesian product of every

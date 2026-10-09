@@ -13,6 +13,7 @@ makedocs(;
             "Choosing a formulation"=>"formulations.md",
             "Selecting an exact-IVR profile"=>"ivr_selection.md",
             "Exact-IVR validation and evidence"=>"ivr_validation.md",
+            "Retained timing evidence recheck"=>"ivr_evidence_recheck.md",
             "Notation and conventions"=>"notation.md",
             "Architecture"=>"architecture.md",
             "Component coverage"=>"coverage.md",

@@ -9,6 +9,9 @@ configuration.
 
 The [validation evidence map](ivr_validation.md) connects these claims to
 repository tests, independent checks and reproducible commands.
+The [retained-evidence recheck](ivr_evidence_recheck.md) reproduces the four
+historical campaigns supporting the main conditional recommendations, without
+running new timing experiments.
 
 ## Establish the physical reference
 
