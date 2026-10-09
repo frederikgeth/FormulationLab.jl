@@ -35,6 +35,33 @@ Optimized taps, external DC and dynamic/time-series controls are outside this
 static contract. An inapplicable reduction should retain supported physics via
 its documented fallback, not remove a component or its bound.
 
+## General starting formulation for power objectives
+
+Use **full IVR with powers-only lifting and retained transformer currents** as
+the general numerical control. Set `lifting=:powers`, leave `specialization`,
+`linear_elimination` and `device_elimination` at `:off`, and declare the physical
+power objective and nameplate policy explicitly. This retains the general
+electrical state while introducing exact power definitions for selected
+nonlinear observations. Keep the unlifted full model available for independent
+representation comparisons.
+
+The `full_powers` arm in `examples/benchmark_ivr_mixed_devices.jl` supplies a
+reproducible version with nominal transformer coordinates, composed circuit rows
+and explicit power units. Its core tests cover cost and tracking on two-, three-
+and four-conductor mixed-device circuits under both tested NLP scaling policies.
+The [three-phase transfer study](ivr_threephase_transfer.md) also retains a
+full-power control when some reduced voltage-dependent-load profiles fail strict
+acceptance. These support a general starting control, not convergence on every
+feasible input or a universal fastest formulation.
+
+Choose finite positive bases appropriate to the declared circuit and record
+them. Transformer-local voltage units can be useful across MV/LV transitions;
+regional current, dispatch and auxiliary power bases are separate choices.
+Keep the physical objective divisor fixed when comparing bases. The subsequent
+candidate table identifies exact reductions and alternative observations to
+compare with this control; promote them only after physical and objective
+admission and workload-specific timing evidence.
+
 ## Build a small candidate set from physical structure
 
 | Observed structure or workload | Candidate to compare with the reference | Required qualification |
@@ -111,7 +138,7 @@ net = ExactIVRTutorial.two_wire_case()
 terms = [IVRPowerTerm(channels=[(:voltage_source,"grid",1)], linear=1.0)]
 common = (objective=:power, power_terms=terms, objective_scale=1.0,
           s_base=1e4, transformer_nameplate=:bmopftools)
-reference = IVRNLP(;common...)
+reference = IVRNLP(;common..., lifting=:powers)
 candidate = IVRNLP(;common..., specialization=:conductor_regions,
     linear_elimination=:passive_blocks, ground_scaling=:voltage,
     transformer_scaling=:nominal, row_scaling=:composed, lifting=:powers,
