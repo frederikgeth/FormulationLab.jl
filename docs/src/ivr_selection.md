@@ -194,3 +194,48 @@ Retain the full reference and close alternatives. Extend a promising candidate
 to additional power objectives and network structures before broadening the
 recommendation. Stop adding solver knobs when diagnostics no longer change the
 candidate decision; consolidate the reproducible portfolio instead.
+
+## Prospective transfer and prior exposure
+
+A rule supported by previously studied feeders is a hypothesis for new feeders.
+Freeze that rule before observing new outcomes, then freeze the exact inputs,
+objectives, physical starts, candidate options, solver controls and analysis
+procedure before solving the selected validation cases. A revised rule informed
+by those outcomes needs a separate validation set. Repeated timings improve
+within-case precision; they do not increase the number of independent networks.
+
+Use parent-network lineage as the unit of separation. Renamed copies, reduced
+versions and new operating scenarios of a previously solved feeder are not
+independent held-out feeders. Record structural inventory, compiler-only,
+previously solved and performance-tuning exposure separately. A compiler-only
+case can be held out from numerical solves while still having influenced the
+compiler. Missing history is unresolved exposure, not proof of novelty.
+
+The read-only helper `examples/ivr_transfer_inventory.py` inventories JSON under
+the `output` and `benchmarks` directories of a supplied dataset root:
+
+```sh
+python3 -B examples/ivr_transfer_inventory.py DATA_ROOT NEW_REPORT.json
+```
+
+An optional `--census DATASET_CENSUS.json` imports the earlier structural census.
+The helper records original byte hashes, complete JSON-content hashes, raw
+component/connection features and groups sharing an identity-preserving topology
+fingerprint. It invokes no optimizer and admits no held-out cases. Output must
+be a new file; raw input files are unchanged. Keep these reports outside Git.
+
+Content equality is insensitive to JSON object order and whitespace. Topology
+fingerprints deliberately ignore impedances and operating data, so a match is
+only a lineage-review signal. They cannot detect every relabelled, reduced or
+expanded copy. Neither fingerprint replaces upstream provenance review. Raw
+terminal counts do not establish a single-phase circuit; nominal zero load
+counts do not establish the nonzero-voltage certificate for elimination; a
+declared limit key does not establish activity or bound completeness.
+
+Select validation cases from input features before solving, preserve failures,
+and report uncovered network classes explicitly. Supplemental manufactured
+active-limit scenarios can test a mechanism, but must retain declared parentage
+and cannot fill a claim about unchanged external inputs. Compare predictions
+against all admitted alternatives, report their per-case runtime regret, and
+retain inconclusive and losing options. Timing authorization and the physical
+admission gates above remain separate requirements.
