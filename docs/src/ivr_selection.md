@@ -233,6 +233,33 @@ terminal counts do not establish a single-phase circuit; nominal zero load
 counts do not establish the nonzero-voltage certificate for elimination; a
 declared limit key does not establish activity or bound completeness.
 
+The helper also records conservative structural sampling labels. A single-phase
+label requires at most one nonneutral terminal per bus; it excludes split-phase
+circuits. Explicit-neutral four-wire sampling requires an actual four-terminal
+line with a neutral at both ends, so three-wire variants with four-terminal bus
+declarations do not qualify. MV/LV sampling uses declared transformer voltages
+on either side of 1000 V. Mixed-device sampling requires at least two families
+among transformers, generators, IBRs, switches and capacitors; source and grounding
+records alone are insufficient. These labels are input conventions for a study,
+not new compiler applicability certificates or operating-limit standards.
+
+`select_panel(candidates, reviews)` in the same helper applies the frozen stratum
+order and ascending SHA256 of source-relative paths, with at most two reviewed
+parent networks per stratum and a default 3000-bus ceiling. Supply a review for
+each encountered candidate containing its original byte hash, parent identity,
+family-wide exposure categories, lineage/history review decisions and evidence
+references. The selector checks byte identity and rejects conflicting parents
+for identical JSON content. Solved/tuned exposure anywhere in the reviewed family
+prevents primary held-out selection. It does not independently authenticate a
+reviewer's evidence or infer all possible aliases.
+
+An unreviewed candidate stops its stratum; a later case cannot silently leapfrog
+it. An explicitly unresolved exclusion needs evidence and a recorded reason.
+Already selected parents cannot fill another slot, and missing strata remain
+visible gaps. The output retains the selection order, exclusions and pending
+reviews and cannot authorize timing. Freeze the final reviewed case manifest
+alongside the exact formulation and solver settings before running new solves.
+
 Select validation cases from input features before solving, preserve failures,
 and report uncovered network classes explicitly. Supplemental manufactured
 active-limit scenarios can test a mechanism, but must retain declared parentage

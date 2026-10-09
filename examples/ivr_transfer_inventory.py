@@ -97,6 +97,144 @@ def describe(network):
                 declared_limit_key_counts=dict(limits))
 
 
+STRATA = ("single_phase", "delta", "explicit_neutral_four_wire", "mv_lv",
+          "mixed_devices", "multiwinding")
+
+
+def structural_strata(network):
+    """Conservative input-only sampling labels, not compiler certificates.
+
+    Single-phase means at most one declared nonneutral terminal per bus (so
+    split-phase circuits are not silently included). Four-wire requires an
+    actual four-terminal line with a declared/conventional neutral at both ends.
+    Ground shunts and sources alone do not count as mixed device families.
+    """
+    buses = records(network, "bus")
+    conventions = network.get("terminal_conventions", {})
+    if not isinstance(conventions, dict):
+        raise ValueError("terminal conventions must be an object")
+    neutral_names = conventions.get("neutral", ["n"])
+    if not isinstance(neutral_names, list):
+        raise ValueError("neutral convention must be a list")
+
+    def neutrals(bus):
+        declaration = buses[bus].get("neutral_terminal")
+        return {declaration} if declaration is not None else set(neutral_names)
+
+    phase_counts = []
+    for bus, record in buses.items():
+        terminals = record.get("terminal_names")
+        if not isinstance(terminals, list):
+            raise ValueError("bus terminal_names must be a list")
+        phase_counts.append(len(set(terminals) - neutrals(bus)))
+    four_wire = False
+    for line in records(network, "line").values():
+        sides = []
+        for side in ("from", "to"):
+            bus, terminals = line.get("bus_" + side), line.get("terminal_map_" + side)
+            sides.append(bus in buses and isinstance(terminals, list) and
+                         len(set(terminals)) == 4 and bool(set(terminals) & neutrals(bus)))
+        four_wire |= all(sides)
+    transformers = records(network, "transformer")
+    delta = any("delta" in kind.lower() and bool(rows) for kind, rows in transformers.items())
+    for family in ("load", "generator", "ibr"):
+        delta |= any(str(d.get("configuration", d.get("topology", ""))).upper() == "DELTA"
+                     for d in records(network, family).values())
+    mv_lv = False
+    for rows in transformers.values():
+        for record in rows.values():
+            values = [record.get("v_nom_from"), record.get("v_nom_to")]
+            windings = record.get("windings", [])
+            if not isinstance(windings, list) or any(not isinstance(w, dict) for w in windings):
+                raise ValueError("transformer windings must be a list of objects")
+            values += [w.get("v_nom") for w in windings]
+            values = [v for v in values if type(v) in (int, float) and math.isfinite(v) and v > 0]
+            mv_lv |= bool(values) and min(values) <= 1000 < max(values)
+    families = [family for family in ("generator", "ibr", "switch", "capacitor")
+                if records(network, family)]
+    if any(transformers.values()):
+        families.append("transformer")
+    return dict(single_phase=bool(phase_counts) and max(phase_counts) == 1,
+                delta=delta, explicit_neutral_four_wire=four_wire, mv_lv=mv_lv,
+                mixed_devices=len(families) >= 2,
+                multiwinding=any("winding" in kind.lower() and bool(rows)
+                                for kind, rows in transformers.items()))
+
+
+def select_panel(candidates, reviews, *, per_stratum=2, max_buses=3000):
+    """Select in frozen stratum/hash order with explicit reviewed family identity.
+
+    Unreviewed eligible candidates stop their stratum, so a later convenient
+    case cannot leapfrog unresolved history. Explicit exclusions need a reason
+    and evidence. Family-wide solved/tuned exposure dominates individual reviews.
+    Missing strata remain gaps. No numerical outcomes are accepted as features.
+    """
+    if type(per_stratum) is not int or per_stratum < 1 or type(max_buses) is not int or max_buses < 1:
+        raise ValueError("positive integer selection limits required")
+    paths = [row["path"] for row in candidates]
+    if len(paths) != len(set(paths)):
+        raise ValueError("duplicate input paths")
+    families = defaultdict(set)
+    by_path = {row["path"]: row for row in candidates}
+    for row in candidates:
+        if row.get("status") == "inventoried":
+            count = row.get("features", {}).get("buses")
+            if type(count) is not int or count <= 0:
+                raise ValueError("positive integer bus count required: " + row["path"])
+    identities = {}
+    for path, review in reviews.items():
+        if not review.get("family") or not review.get("evidence"):
+            raise ValueError("family and review evidence required: " + path)
+        if path not in by_path or not review.get("sha256") or review["sha256"] != by_path[path].get("sha256"):
+            raise ValueError("review input bytes are absent or changed: " + path)
+        content = by_path[path].get("content_sha256")
+        if content:
+            if content in identities and identities[content] != review["family"]:
+                raise ValueError("identical content assigned different parents")
+            identities[content] = review["family"]
+        families[review["family"]].update(review.get("exposures", []))
+    selected, trace, gaps, pending = [], [], [], []
+    used = set()
+    ordered = sorted(candidates, key=lambda row: hashlib.sha256(row["path"].encode()).hexdigest())
+    for stratum in STRATA:
+        count = 0
+        for row in ordered:
+            if row.get("status") != "inventoried" or row["features"]["buses"] > max_buses:
+                continue
+            labels = row.get("strata", {})
+            if set(labels) != set(STRATA) or any(type(v) is not bool for v in labels.values()):
+                raise ValueError("complete boolean structural strata required: " + row["path"])
+            if not labels[stratum]:
+                continue
+            path = row["path"]
+            review = reviews.get(path)
+            if review is None:
+                pending.append(dict(stratum=stratum, path=path, reason="unreviewed_candidate"))
+                break
+            family = review["family"]
+            if family in used:
+                trace.append(dict(stratum=stratum, path=path, decision="parent_already_selected", family=family))
+                continue
+            status = held_out_status(families[family], lineage_reviewed=review.get("lineage_reviewed", False),
+                                     history_reviewed=review.get("history_reviewed", False))
+            if status in ("held_out", "held_out_with_disclosed_inventory"):
+                selected.append(dict(stratum=stratum, path=path, family=family, exposure=status,
+                                     selection_key=hashlib.sha256(path.encode()).hexdigest()))
+                used.add(family); count += 1
+                if count == per_stratum:
+                    break
+            elif status == "unresolved" and not review.get("exclusion_reason"):
+                pending.append(dict(stratum=stratum, path=path, reason="unresolved_review"))
+                break
+            else:
+                trace.append(dict(stratum=stratum, path=path, family=family, decision=status,
+                                  reason=review.get("exclusion_reason", status)))
+        if count < per_stratum:
+            gaps.append(dict(stratum=stratum, selected=count, target=per_stratum))
+    return dict(selected=selected, trace=trace, gaps=gaps, pending=pending,
+                selection_complete=not pending, timing_eligible=False)
+
+
 def topology_signal(network):
     """ID-preserving topology only; equal hashes require lineage review.
 
@@ -134,6 +272,7 @@ def inspect_file(path, root):
             row["status"] = "not_input_bus_shape"
         else:
             row.update(status="inventoried", features=describe(network),
+                       strata=structural_strata(network),
                        content_sha256=digest(network),
                        topology_review_sha256=digest(topology_signal(network)))
     except (ValueError, TypeError, UnicodeError, OverflowError) as error:

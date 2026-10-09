@@ -119,6 +119,110 @@ class TransferInventory(unittest.TestCase):
             with self.assertRaises(ValueError):
                 I.describe(broken)
 
+    def test_strata_use_ports_and_devices_not_bus_width_alone(self):
+        net = network()
+        self.assertTrue(I.structural_strata(net)["single_phase"])
+        for bus in net["bus"].values():
+            bus["terminal_names"] = ["a", "b", "c", "n"]
+        for side in ("from", "to"):
+            net["line"]["e"]["terminal_map_" + side] = ["a", "b", "c"]
+        labels = I.structural_strata(net)
+        self.assertFalse(labels["single_phase"])
+        self.assertFalse(labels["explicit_neutral_four_wire"])
+        for side in ("from", "to"):
+            net["line"]["e"]["terminal_map_" + side].append("n")
+        self.assertTrue(I.structural_strata(net)["explicit_neutral_four_wire"])
+        net["transformer"] = {"delta_wye": {"tx": {"v_nom_from": 11000, "v_nom_to": 415}}}
+        net["shunt"] = {"ground": {}}
+        labels = I.structural_strata(net)
+        self.assertTrue(labels["delta"] and labels["mv_lv"])
+        self.assertFalse(labels["mixed_devices"])
+        net["switch"] = {"tie": {}}
+        self.assertTrue(I.structural_strata(net)["mixed_devices"])
+        net["transformer"] = {"n_winding": {"tx": {"windings": [{"v_nom": 11000}, {"v_nom": 230}]}}}
+        labels = I.structural_strata(net)
+        self.assertTrue(labels["multiwinding"] and labels["mv_lv"])
+
+    def candidates(self, count=4):
+        rows = [dict(path=f"case_{k}.json", sha256=f"bytes_{k}", content_sha256=f"content_{k}",
+                     status="inventoried", features={"buses": 10},
+                     strata={s: s in ("delta", "mv_lv") for s in I.STRATA}) for k in range(count)]
+        return sorted(rows, key=lambda r: hashlib.sha256(r["path"].encode()).hexdigest())
+
+    def reviews(self, rows):
+        return {r["path"]: dict(family=r["path"], sha256=r["sha256"], exposures=["inventory"],
+                               evidence=["reviewed/source.json"], lineage_reviewed=True,
+                               history_reviewed=True) for r in rows}
+
+    def test_selection_order_parent_separation_and_gaps(self):
+        rows = self.candidates()
+        a = I.select_panel(rows, self.reviews(rows))
+        b = I.select_panel(list(reversed(rows)), self.reviews(rows))
+        self.assertEqual(a, b)
+        self.assertTrue(a["selection_complete"])
+        self.assertEqual([r["path"] for r in a["selected"]], [r["path"] for r in rows])
+        self.assertEqual([r["stratum"] for r in a["selected"]], ["delta", "delta", "mv_lv", "mv_lv"])
+        self.assertEqual(len({r["family"] for r in a["selected"]}), 4)
+        self.assertEqual({g["stratum"] for g in a["gaps"]},
+                         {"single_phase", "explicit_neutral_four_wire", "mixed_devices", "multiwinding"})
+
+    def test_unreviewed_case_cannot_be_leapfrogged(self):
+        rows = self.candidates()
+        reviews = self.reviews(rows[1:])
+        result = I.select_panel(rows, reviews)
+        self.assertFalse(result["selection_complete"])
+        self.assertEqual(result["selected"], [])
+        self.assertEqual({p["path"] for p in result["pending"]}, {rows[0]["path"]})
+
+    def test_solved_sibling_taints_whole_parent(self):
+        rows = self.candidates()
+        reviews = self.reviews(rows)
+        for r in rows[:2]:
+            reviews[r["path"]]["family"] = "same_parent"
+        reviews[rows[1]["path"]]["exposures"] = ["solved"]
+        result = I.select_panel(rows, reviews)
+        self.assertEqual([r["path"] for r in result["selected"]], [r["path"] for r in rows[2:]])
+        self.assertTrue(any(r["decision"] == "previously_solved_family" for r in result["trace"]))
+
+    def test_stale_reviews_and_duplicate_content_refused(self):
+        rows = self.candidates()
+        reviews = self.reviews(rows)
+        reviews[rows[0]["path"]]["sha256"] = "stale"
+        with self.assertRaises(ValueError):
+            I.select_panel(rows, reviews)
+        reviews = self.reviews(rows)
+        rows[1]["content_sha256"] = rows[0]["content_sha256"]
+        with self.assertRaises(ValueError):
+            I.select_panel(rows, reviews)
+
+    def test_explicit_unresolved_exclusion_is_disclosed(self):
+        rows = self.candidates()
+        reviews = self.reviews(rows)
+        first = reviews[rows[0]["path"]]
+        first["lineage_reviewed"] = False
+        self.assertFalse(I.select_panel(rows, reviews)["selection_complete"])
+        first["exclusion_reason"] = "upstream parent unresolved after recorded review"
+        result = I.select_panel(rows, reviews)
+        self.assertTrue(result["selection_complete"])
+        self.assertTrue(any(r["decision"] == "unresolved" for r in result["trace"]))
+        self.assertNotIn(rows[0]["path"], [r["path"] for r in result["selected"]])
+
+    def test_selection_rejects_invalid_features_and_oversize_cases(self):
+        rows = self.candidates()
+        reviews = self.reviews(rows)
+        for value in (True, float("nan"), 0, -1):
+            bad = copy.deepcopy(rows)
+            bad[0]["features"]["buses"] = value
+            with self.assertRaises(ValueError):
+                I.select_panel(bad, reviews)
+        bad = copy.deepcopy(rows)
+        bad[0]["strata"]["delta"] = "yes"
+        with self.assertRaises(ValueError):
+            I.select_panel(bad, reviews)
+        rows[0]["features"]["buses"] = 3001
+        selected = I.select_panel(rows, reviews)["selected"]
+        self.assertNotIn(rows[0]["path"], [r["path"] for r in selected])
+
 
 if __name__ == "__main__":
     unittest.main()
