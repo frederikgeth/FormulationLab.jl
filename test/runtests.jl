@@ -17,6 +17,7 @@ using OpenDSSDirect
     include("ivr_matched_jacobian_tests.jl")
     include("ivr_iterate_capture_tests.jl")
     include("ivr_native_timer_tests.jl")
+    include("ivr_timing_controller_tests.jl")
     include("ivr_ground_scaling_tests.jl")
     include("ivr_transformer_scaling_tests.jl")
     include("ivr_transformer_scaling_study_tests.jl")

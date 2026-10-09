@@ -713,8 +713,59 @@ The current ledger expands to 32 training-only jobs and 2,044 planned calls,
 including 116 excluded warmups. These counts describe a finite design, not a
 runtime estimate or evidence of external transfer. Preparation does not execute
 the calls. Generated jobs retain `timing_authorized=false` and
-`execution_ready=false`: the controller's isolation checks, complete runtime
-freeze and campaign-level gates still require validation before any authorized
-measurement. Synthetic-clock integration checks against each archived compiler
+`execution_ready=false`: a complete runtime freeze and the binding of the
+launcher to campaign-level checks remain necessary before authorized measurement.
+Synthetic-clock integration checks against each archived compiler
 are available in `test/ivr_timing_adapter_integration.jl`; they use a manufactured
 single-phase transformer with a power objective, not an experimental cohort.
+
+### Worker admission and process isolation
+
+`examples/ivr_timing_controller.jl` validates the entire event sequence before
+calling an optimizer. Every event receives a separate trial record, including
+failed solves; ordinary trial failures do not remove later planned calls. An
+interruption leaves an explicit pending event and an incomplete worker report.
+Outputs must be new directories outside the repository, frozen source archive
+and prepared inputs. Non-finite numerical diagnostics are written as JSON null
+and remain inadmissible; physical exports still use the archived result writer.
+
+For each warmup group and measured sweep, the worker checks every accepted
+point in the control model and the control point in every arm. It uses declared
+arm identity, independently of the order in which the arms executed. It also
+requires equal physical-export availability and comparable objective values.
+The original physical, bound, start, model, objective and result-readback gates
+remain mandatory. No previous solution replaces the declared common physical
+start. Warmups exercise the same timer path as measured trials and are explicitly
+excluded from every performance comparison.
+
+Even a complete native worker produces only provisional admission. It records
+its process identity and Julia/BLAS thread counts; `campaign_eligible` remains
+false and no ranking is produced. A synthetic worker never supplies an admissible
+native duration. Manufactured integration tests exercise a reversed two-arm
+sweep and deliberately corrupt objectives, export shapes and recovered points
+to test rejection. They are controller checks, not evidence about formulation speed.
+
+`examples/ivr_timing_isolation.py` observes the macOS/POSIX process table without
+stopping any process. The monitor expects one worker PID and parent PID. Other
+Julia processes, failed process queries, a missing expected worker, invalid
+clock records, excessive observation gaps or an unfinished trace prevent
+admission. The default polling interval is 0.2 s and the maximum permitted gap
+is 1 s; freeze these settings before use. The gap check conservatively spans the
+start of the previous query through the end of the next query.
+
+Polling provides **sampled isolation evidence**. A process whose entire lifetime
+falls between observations can escape detection; a clean trace is not proof of
+continuous isolation. This limitation and monitoring overhead must accompany any
+later performance report. The original exclusion rule remains: any detected
+overlap rejects the whole campaign, including otherwise clean jobs. Never use
+those jobs as an outcome-selected replacement campaign.
+
+The campaign auditor reconciles every expected job and trial, excludes warmups,
+rechecks native-sample validity and objective comparisons, checks both directions
+of model membership recorded by the worker, and recomputes isolation from raw
+observations. It binds the observed worker PID to the completed report and rejects
+missing or malformed records. It does not rerun the physical equations in Python;
+those checks remain the responsibility of the authenticated Julia executor.
+Before execution, the launcher must authenticate the jobs and full runtime,
+hold each worker until monitoring begins, and enforce explicit human timing
+authorization. These controller components alone do not authorize a campaign.
