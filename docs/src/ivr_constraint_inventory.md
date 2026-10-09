@@ -14,6 +14,12 @@ Input coverage also requires the [schema inventory](schema_fields.md), independe
 physical evaluations, and component-specific equivalence tests. Neither flag
 certifies feasibility, conditioning, global optimality, or speed.
 
+The complementary [supplied-bound inventory](ivr_declared_bounds.md) enumerates
+operating declarations from normalized input and reconciles their physical
+channels with provenance. It can detect a missing bound even when both its row
+and provenance are absent. Its separate completeness flag still does not assert
+full input-schema coverage.
+
 ## Reconciliation criterion
 
 Let ``E`` be all current JuMP constraints, including variable bounds and fixes.

@@ -41,6 +41,11 @@ does not establish input-schema completeness. `complete_input_coverage=false`
 remains explicit. Neither a green test suite nor the matrix below changes that
 boundary.
 
+The [supplied-bound inventory](ivr_declared_bounds.md) adds a separate check of
+declared scalar channels, inheritance, nameplate policies and fixed-setting
+intervals. Use its declaration-coverage flag alongside emitted coverage; neither
+flag replaces the independent physical and negative-witness tests.
+
 ## Executable evidence by requirement
 
 Paths in this table are relative to the repository root. The tests are included
@@ -61,6 +66,7 @@ device, bound, topology, objective and numerical option.
 | Transformer, ground and power units | `test/ivr_transformer_scaling_tests.jl`, `test/ivr_regional_ground_scaling_tests.jl`, `test/ivr_power_base_tests.jl`, `test/ivr_base_formulation_tests.jl` | Positive coordinate changes, physical equivalence, objective normalization and complete start encoding under declared bases. |
 | Conditional reductions and updates | `test/ivr_zero_load_tests.jl`, `test/ivr_generator_updates_tests.jl`, `test/ivr_device_elimination_tests.jl` | Certificate validity, zero-voltage counterexamples, atomic update refusal, original bounds and retained observations. |
 | Emitted constraints and physical provenance | `test/ivr_constraint_inventory_tests.jl`, `test/ivr_equipment_trace_tests.jl` | Missing/stale/duplicated provenance, added constraints, inheritance, tautologies and shared declarations. |
+| Supplied operating-bound declarations | `test/ivr_declared_bound_inventory_tests.jl` | Independent input-channel enumeration; loss of both a row and its provenance; scalar/array contracts, retained tap aliases, inactive declarations and supported generator updates. Declaration and emitted completeness remain separate from full schema coverage. |
 | Canonical physical results | `test/result_export_tests.jl`, `test/result_sequence_tests.jl` | Identical physical leaf paths and recovered values across formulations, SI units, transformer/IBR/ground observations, sequence-bound phase order, owned snapshots and JSON round trips. |
 | Benchmark admission and metric | `test/ivr_profile_study_tests.jl` | Failed/incomplete trials cannot win, incompatible objectives prevent ranking, and Ipopt wall time is distinct from compilation or extraction. |
 | Unknown or unsupported inputs | `test/ivr_input_annotations_tests.jl` and device-specific scope tests | Retained metadata, electrical-field validation, unsupported controls and explicit refusals. |

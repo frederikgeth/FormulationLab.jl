@@ -222,7 +222,8 @@ function _ivr_electrical_data(net; s_base, shunt_coordinates=:admittance,
             (vr,terminal_current) : (vc,ic)
         push!(devices,(Symbol(family),id,port_v,port_i,d))
         if family in ("generator","ibr")
-            bounds=Dict(k=>d[k] for k in ("s_max",) if haskey(d,k))
+            # Scalar apparent ratings and vector current ratings can coexist.
+            bounds=Dict{String,Any}(k=>d[k] for k in ("s_max",) if haskey(d,k))
             if haskey(d,"i_max")
                 imax=d["i_max"]
                 if cfg=="DELTA" && dispatch==:coil && length(imax)==n
