@@ -527,3 +527,86 @@ Compilation is excluded. Retain each candidate as an opt-in option and report
 performance as undetermined until admitted measurements support a recommendation.
 The missing external single-phase slot and failed external admissions remain
 explicit limitations on transferable selection rules.
+
+## Completed post-baseline follow-up
+
+The finite follow-up completed at source commit `ab39d32`, with freeze-C SHA-256
+`7cd4281c3dd35c977cb772dafd8b36c8fef08657fb48d7101054ec87a00591ad`.
+The terminal audit verified all 590 frozen repository files and their archived
+copies, 989 protected evidence/environment paths, the complete pair set and both
+original preparation refusals. Raw evidence remains outside Git. These already
+examined networks provide post-baseline evidence; they are not a new blind cohort.
+
+| Role | Runnable problems | Optimizer outcomes | Accepted outcomes | Comparable pairs |
+|:--|--:|--:|--:|--:|
+| Original French feeders | 6 | 144 | 0 | 0 |
+| Declared mixed-device supplements | 2 | 48 | 0 | 0 |
+| Known training scenario | 1 | 24 | 24 | 12 |
+
+All 192 external outcomes were `LOCALLY_INFEASIBLE`; all 24 training outcomes were
+`LOCALLY_SOLVED` and passed the physical/model, objective and export gates. The two
+original LV input refusals account for another 48 planned but unrun cells. No
+input was repaired or replaced. Every runnable arm passed common-start encoding
+and the known declared-bound/emitted-row inventories. Failed primals were retained,
+and physical audits reported no unassessed channels. These facts do not establish
+exhaustive input-schema coverage or global infeasibility of the external problems.
+
+### Applicability and candidate decisions
+
+A separate optimizer-free census rebuilt the 36 complex-sharing and
+expression-selection pairs. It compared indexed constraint functions and sets,
+the objective and variable names, in addition to compiler diagnostics. All 36
+pairs produced identical indexed models. This is stronger than equal row counts;
+it is not a graph-isomorphism test or an independent recovery certificate.
+
+| Candidate | Observed mechanism in this panel | Decision supported by present evidence |
+|:--|:--|:--|
+| Certified fixed-bound removal | Six certified rows removed in each of 36 candidate arms across two lifting contexts | Retain opt-in; applicable, but no external convergence rescue and no measured speed benefit |
+| Complex-proportional sharing | Zero shared observations in both arms of all 18 pairs | Retain opt-in; added mechanism unexercised in this configuration |
+| Expression-support selection | Zero eliminated complex coordinates in both arms of all 18 pairs | Retain opt-in; added selector changes no generated model in this configuration |
+| MUMPS pivot `1e-6` → `1e-3` | Four training pairs pass; all 32 external pairs fail admission | Retain experimental setting; no promotion or runtime conclusion |
+
+The sharing contrast uses broad lifting with fixed-observation, device-current
+and zero-load elimination off. The expression-selection contrast uses power
+lifting and passive-block elimination with device-current and zero-load
+elimination off. Both retain the original scaling and power-objective definitions.
+Absence of a change in these isolation contexts does not exclude benefits after
+other compositions. In particular, this study does not test the new sharing mode
+after transformer-current elimination. The earlier factorial supplies evidence
+for its own declared factors, not for that missing interaction.
+
+On the first feeder, the bound-support and expression-support selectors both
+reject three candidate reductions because voltage-bound factors would depend on
+more coordinates. Thus the new objective-aware check adds no restriction there.
+The manufactured interior-line-power counterexample remains a valid mechanism
+test, but the external panel does not exercise that distinction.
+
+### Failure diagnosis and selection procedure
+
+Failures do not share a single established cause. The first feeder retains power
+residual maxima near 4 kVA. The second instead fails voltage checks while all
+power residual maxima remain below `6e-9` VA. On the third, power-oriented and
+broad-observation profiles terminate with different power or lower-voltage
+violations. These describe failed endpoints, not isolated causal effects of a
+single option. Residual relocation can occur between exact representations of
+the same feasible set; it does not demonstrate resolution of a physical limit.
+
+The supported procedure therefore has three distinct checks:
+
+1. **Applicability:** inspect realized substitutions, shared observations and
+   bound certificates. A candidate that produces no additional mechanism in the
+   declared context supplies no evidence of that mechanism's benefit.
+2. **Correctness and comparability:** require the common physical start, all
+   declared physical/model/bound/export gates, reverse membership and comparable
+   objective values. Preserve failures and refusals in the denominator.
+3. **Performance:** only after explicit timing authorization, compare admitted
+   pairs using measured Ipopt wall time excluding compilation. Keep objectives,
+   parents, domains and batches separate; apply the frozen promotion criteria.
+
+No new transferable speed rule or default follows from this follow-up. The
+prospective `full_powers` control remains a control, not a newly established
+universal winner. Training correctness permits preparation of its finite timing
+comparisons; it does not establish external transfer. The original factorial's
+held-out runtime interactions, bounded-pivot runtime benefit and external
+single-phase coverage remain unresolved. All options are retained, and no timing
+campaign was run.
