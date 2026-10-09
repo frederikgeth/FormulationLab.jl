@@ -358,6 +358,53 @@ inputs, or establish missing external single-phase/multiwinding coverage. Freeze
 the selected parents, voltage vectors, complete augmented inputs and objectives
 before any supplemental solve.
 
+### Preparing and executing correctness checks
+
+`examples/ivr_transfer_preflight.jl` separates preparation from optimizer calls.
+`prepare(input, new_folder; common, exchange_target_W)` saves the normalized
+compiler input, exact objective and option records for both workloads, and one
+SI start containing named bus voltages and all modeled device currents. Known
+legacy provenance is detached through the existing input boundary and retained
+in metadata; the original file hash must remain unchanged. Preparation computes
+an unloaded linear-circuit point with fixed source coordinates. This is a linear
+calculation for initialization, not an OPF solution or a feasibility claim.
+Unsupported inputs produce saved preparation refusals instead of replacements.
+
+The preparation also records strict solver settings and explicit tolerances:
+start encoding at ``10^{-10}`` per unit, model membership at ``10^{-7}``, SI
+residual limits of ``10^{-5}`` V, ``10^{-6}`` A and ``10^{-3}`` VA, and objective
+comparison with absolute/relative tolerances ``10^{-6}/10^{-8}``. Ipopt uses
+`tol=constr_viol_tol=1e-10`, no acceptable-iterate termination, zero bound
+relaxation, 500 iterations and 30 CPU seconds per trial. The declared control
+uses MUMPS ordering 7, pivot tolerance `1e-6`, and gradient-based NLP scaling.
+JSON numeric values are restored to Ipopt's required option types before use;
+for example, a zero real-valued bound-relaxation factor must remain a real option.
+
+After freezing the **whole study protocol**, call
+`run(prepared_folder, new_output_folder; expected_preparation_sha256=digest)`.
+The digest binds the preparation record and its input/start/workload file hashes;
+source bytes are checked before and after execution. A digest alone does not
+establish that a study completed its prospective freeze, nor does it authenticate
+arbitrarily rewritten evidence. External studies must freeze code/environment,
+case lineage and analysis along with these preparation artifacts.
+
+The runner attempts the two workloads across all nine arms, preserving failed
+trials and reference-model refusals. Each accepted trial needs complete declared
+and emitted bound inventories, common-start encoding, independent physical
+residuals, own/full model membership, reverse membership of a common accepted
+anchor, physical-objective reconciliation and canonical SI export round trips.
+Physical field paths and unavailable-value locations must agree across accepted
+arms. An unsupported preparation records eighteen planned but unrun trials.
+Unequal local objectives remain in correctness reporting and fail the separate
+comparison gate. Complete emitted coverage does not assert complete input-schema
+coverage. No wall times are collected or ranked by this runner.
+
+Future schedules are recorded without executing them: eighteen cyclic/reversed
+nine-arm portfolio sweeps, sixteen balanced eight-arm factorial sweeps, and
+sixteen alternating two-arm pivot sweeps. Confirmation reverses the exploration
+schedule. Portfolio positions are balanced; no predecessor-balance claim is made
+for that schedule. These declarations do not authorize timing campaigns.
+
 Select validation cases from input features before solving, preserve failures,
 and report uncovered network classes explicitly. Supplemental manufactured
 active-limit scenarios can test a mechanism, but must retain declared parentage
