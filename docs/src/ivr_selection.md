@@ -769,3 +769,76 @@ those checks remain the responsibility of the authenticated Julia executor.
 Before execution, the launcher must authenticate the jobs and full runtime,
 hold each worker until monitoring begins, and enforce explicit human timing
 authorization. These controller components alone do not authorize a campaign.
+
+### Held-worker launcher and execution freeze
+
+`examples/ivr_timing_launcher.py` supplies the remaining process boundary. A
+bootstrap process waits before executing Julia, retaining the same PID across
+`exec`. The parent registers that PID and starts monitoring first. Julia then
+loads the declared compiler and executor, records its runtime, and waits for a
+second release. No network construction or solve precedes that release. Native
+release requires the authorized job digest, matching worker and parent PIDs, and
+a one-use nonce passed through both the permit file and the worker's input pipe.
+
+The launcher's `inspect` command exercises this handshake and runtime capture
+without building or solving a network. It produces an inspection report, not a
+native worker report, and cannot pass campaign admission:
+
+```sh
+python3 examples/ivr_timing_launcher.py inspect \
+    /path/to/job.json JOB_SHA256 /path/to/pinned-environment \
+    /absolute/path/to/julia /new/external/inspection
+```
+
+The Julia executable must be the actual binary, rather than a version-manager
+launcher that creates a second Julia process. `examples/ivr_timing_runtime.jl`
+inventories the active project and manifest, complete dependency source trees
+(including extensions), selected installed host artifacts, loaded package caches
+and images, the executable, system image and readable loaded libraries. It records
+path aliases, tree membership, Julia/BLAS thread counts, relevant environment
+variables, CPU identity and OS build. No artifact is downloaded. `.git` and Python
+bytecode-cache directories are excluded from source-tree traversal. Unexpected
+directory symlinks or unresolved non-system libraries require review.
+
+On macOS, shared-cache system libraries may have no readable individual file.
+Their identities are recorded with the OS build and library names; this is an
+explicit limit on byte-level provenance. Inspection captures both compiler
+versions separately. Manufactured correctness tests compare the runtime before
+and after four synthetic-clock solves to detect newly loaded or changed files.
+This checks the exercised path, not every possible future dynamic-loading path.
+
+`examples/prepare_ivr_execution_freeze.py` authenticates the prepared job manifest,
+ledger and referenced evidence, validates both successful inspection reports and
+their raw process traces, and rechecks runtime files and tree membership. It binds
+those records to the launcher, worker, adapter and controller sources, plus the
+Python executable/build and readable loaded Python module files. It writes a new
+external `FREEZE.json` and an **unauthorized** template:
+
+```sh
+python3 examples/prepare_ivr_execution_freeze.py \
+    /path/to/jobs/MANIFEST.json MANIFEST_SHA256 \
+    /path/to/inspection-B /path/to/inspection-C /new/external/freeze
+```
+
+`execution_ready=true` in this freeze means that the execution inputs have been
+assembled and verified. It is separate from human authorization, which remains
+false. Only after an explicit human instruction may an authorization record bind
+that exact freeze digest, the ordered job subset, the instruction reference and
+one new output directory. Both exploration and confirmation batches must remain
+together for every selected comparison. The native entry point is:
+
+```sh
+python3 examples/ivr_timing_launcher.py run \
+    /path/to/FREEZE.json FREEZE_SHA256 /path/to/authorization.json \
+    /authorized/new/output
+```
+
+Before release, the launcher verifies protected bytes and compares the waiting
+worker's runtime with its frozen capture. It rechecks the runtime after native
+execution and audits the complete selected campaign. Source drift, runtime drift,
+contamination, timeouts or incomplete output prevent admission. A failed launch
+retains logs, its exit record and process observations; cleanup targets only its
+own child. The default readiness limit is 900 s and the worker limit is 21,600 s,
+recorded in the freeze as failure bounds, not runtime estimates. No timing is
+authorized by preparing these artifacts, and no performance ranking follows from
+inspection or synthetic-clock validation.
