@@ -610,3 +610,69 @@ comparisons; it does not establish external transfer. The original factorial's
 held-out runtime interactions, bounded-pivot runtime benefit and external
 single-phase coverage remain unresolved. All options are retained, and no timing
 campaign was run.
+
+## Native solver timing boundary
+
+Future authorized comparisons distinguish two measurements. In the inspected
+Ipopt.jl 1.16.0 wrapper, `JuMP.solve_time` returns `MOI.SolveTimeSec`: elapsed wall
+time from entry into `MOI.optimize!` through the return from `IpoptSolve`. That
+interval includes wrapper setup, option transfer and starting-point assignment.
+Historical example reports call it `ipopt_wall_s`; retain those reports and
+interpret that field as **wrapper-inclusive optimizer time**. It excludes the
+separate FormulationLab model build, but is not a measurement of only the native
+solver call. Do not pool the two timing definitions or relabel historical data.
+
+For the stricter measurement, `examples/prepare_ivr_native_timer.py` creates a
+separate copy of the inspected Ipopt package and inserts an opt-in recorder
+immediately around `Ipopt.IpoptSolve(inner)`. The generator refuses unsupported
+wrapper bytes, existing output directories and outputs inside the installed
+package. It verifies byte-exact restoration of the original wrapper after
+removing its three insertions, inventories every copied file (including `ext/`),
+and verifies that the installed source has not changed. Only the copied wrapper
+and added timer helper differ. The provenance JSON records those inventories;
+it is not included in its own file-hash inventory.
+
+The recorder in `examples/ivr_native_timer.jl` is disabled by default. When
+enabled, it uses monotonic nanosecond ticks around that call. The interval
+includes Ipopt's internal initialization, numerical work and callbacks. It
+excludes wrapper preparation, FormulationLab construction, result extraction
+and physical audits. Clock reads and dispatch introduce instrumentation overhead;
+declared warmups must also exclude first-use compilation on the callback path.
+This is an instrumented call measurement, not an assertion of zero overhead.
+
+A sample is cleared at each optimizer entry, including before setup failures or
+an invalid-model early return. Exceptions from the native call propagate and
+leave no admissible duration. Ordinary clock errors, noninteger ticks and
+nonpositive intervals invalidate the sample. A `completed` timer status means
+only that the call returned; it does not imply an accepted optimizer outcome.
+Physical, objective, bound, export and solve-status gates remain mandatory.
+The recorder is intended for one serial study process and does not enforce
+campaign authorization or process isolation itself.
+
+Preparation and focused tests can be run without a timing campaign:
+
+```sh
+python3 -m unittest discover -s test -p test_prepare_ivr_native_timer.py
+julia --project=test --startup-file=no test/ivr_native_timer_tests.jl
+python3 examples/prepare_ivr_native_timer.py /path/to/Ipopt /new/external/Ipopt-copy
+```
+
+Load the copy through a separate, pinned Julia environment, retaining the
+original dependency versions and changing only the Ipopt manifest entry to its
+copied path. Do not modify the project test environment or installed package.
+The explicit integration check verifies which package loaded and solves a
+manufactured scalar quadratic with recording disabled and with a synthetic
+clock:
+
+```sh
+julia --project=/path/to/pinned-environment --startup-file=no --threads=1 \
+    test/ivr_native_timer_integration.jl /new/external/Ipopt-copy
+```
+
+These checks validate the measurement boundary, result preservation and stale
+sample handling; they provide no speed evidence. A future execution freeze must
+authenticate the instrumented source, complete dependency extensions, runner,
+environment and accepted finite schedule. The package-copy manifest explicitly
+sets `timing_authorized=false` and `execution_ready=false`. Preparation does not
+authorize measurement, change the frozen correctness results, or promote any
+formulation.
