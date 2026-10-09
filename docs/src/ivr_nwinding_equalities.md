@@ -172,8 +172,12 @@ not an all-rows-passed claim. The dependency remains BMOPFTools revision
 initial writer/audit failures and their corrections are retained outside Git in
 `NWINDING_EQUALITIES_20261006`.
 
-Next steps are a frozen, diverse, isolated Ipopt timing panel and a broader
-inventory of coincident nonlinear bounds. Non-unit reference tap fields,
-four-winding non-star live leakage, general multiwinding-current elimination
-and complex-proportional sharing remain open. All existing transformation
-options and the unmodified reference controls remain available.
+Subsequent work adds [four-winding non-star comparisons](ivr_nwinding_nonstar.md),
+[multiwinding-current elimination](ivr_nwinding_elimination.md), and
+[admitted observation-lifting timing](ivr_coil_observations.md). These are
+separate studies; their conclusions do not supply a timing result for this
+fixed-Q intervention. Non-unit reference tap fields and complex-proportional
+sharing are outside this study's demonstrated correspondence. The current
+[reference-domain review](ivr_reference_domains.md) records the retained scope
+and exclusions. All existing transformation options and the unmodified
+reference controls remain available.

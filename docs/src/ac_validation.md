@@ -58,8 +58,8 @@ and conductor-rated THREE_LEG inverter conventions. For a bare `ACPoint`, set
 Both assessments remain necessary: compiled-constraint evaluation checks the
 encoding, while the independent SI evaluator checks the stated physical model.
 See [the exact-IVR tutorial](tutorial_exact_ivr.md) for a fixed-state neutral-bound
-violation and full/reduced mapping checks. The exact formulation has a narrower
-component scope than the relaxation containment suite described below.
+violation and full/reduced mapping checks. Consult the [exact-IVR contract](ivr_nlp.md)
+for its accepted component scope and explicit refusals.
 
 ## Coverage of the new containment suite
 
@@ -79,10 +79,11 @@ The suite constructs feasible states without solving the relaxation:
   which must be rejected.
 
 This adds evidence for the implemented equations, not exhaustive coverage of
-all parameter combinations. Terminal permutations, every regulator connection,
-all explicit excitation placements and external multiwinding NLP comparisons
-remain useful extensions. Existing OpenDSS and analytical tests complement these
-new checks.
+all parameter combinations. Terminal permutations and every regulator connection
+are not exhaustively covered. Later [multiwinding reference studies](ivr_reference_domains.md)
+add mixed connections, explicit excitation placements and non-star leakage;
+their declared domains and exclusions remain separate. OpenDSS and analytical
+tests complement these checks.
 
 ## BMOPFTools / Ipopt findings — 11 September 2026
 
@@ -108,7 +109,7 @@ combined-leakage case then passes: the parser migrates combined fields onto the
 wye winding. It also materializes explicit `no_load_shunt` records, which raw
 solve dictionaries bypass. The table above describes the retained **raw-input**
 audit, not failures of the parsed-input Dy model. The Yd initialization crash and
-center-tap convention discrepancy persist after parsing.
+center-tap convention discrepancy persisted after parsing in that follow-up.
 
 The incompatible cases are retained as findings, not counted as passing
 validation. No model or input convention is silently changed to force agreement.
@@ -123,10 +124,11 @@ fields, reduces the respective reconstruction residuals to approximately
 `2.3e-15` and `5.1e-16` pu for the 1.06-tap forward case. These are
 convention probes, not accepted corrections to the original input.
 
-Before claiming cross-engine coverage for every transformer, resolve the tap /
-leakage referral and excitation conventions and the wye–delta initialization
-failure. BMOPFTools remains a useful reference, but cannot presently be treated
-as an unquestioned oracle for those cases.
+Cross-engine coverage for every transformer would require resolving or freshly
+retesting the tap/leakage referral, excitation conventions and wye–delta
+initialization findings. This historical audit does not establish their status
+at the current reference revision. The [reference-domain review](ivr_reference_domains.md)
+states which later comparisons have actually been checked.
 
 ## Cone-distance detail
 

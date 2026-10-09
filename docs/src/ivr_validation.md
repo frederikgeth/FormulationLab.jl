@@ -121,6 +121,11 @@ and the BMOPFTools JSON reader (108 assertions). These are per-unit correctness
 checks, not isolated performance trials or complete transformer-family parity.
 The original result-schema reference remains documented in [physical results](results.md).
 
+The [reference-domain review](ivr_reference_domains.md) adds the fresh scalar
+multiwinding comparison and reconciles the retained mixed-connection, excitation
+and non-star evidence. It distinguishes reference-model interventions and
+excluded endpoints from unmodified-reference agreement and JSON-reader support.
+
 Manufactured fixtures make the component and mixed-network tests reproducible
 without the external feeder collection. Larger empirical conclusions also
 depend on their declared input data, transformations and environment. The

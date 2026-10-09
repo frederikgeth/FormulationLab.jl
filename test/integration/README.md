@@ -50,6 +50,34 @@ reference solves and incompatible states remain explicit report entries; they
 are never silently accepted or used for objective comparisons. The known-good
 single-phase and regulator cases are assertions, so regressions fail the run.
 
-See `docs/src/ac_validation.md` for current transformer disagreements. The older
+See `docs/src/ac_validation.md` for the dated transformer audit and
+`docs/src/ivr_reference_domains.md` for the scope of the later reference evidence. The older
 `replay.jl` callback tests remain available, but the transformer audit is standalone
 and does not require running the default suite first.
+
+## Multiwinding correctness panels
+
+All panels use declared per-unit bases. Run from the repository root, using a
+separate output directory for each panel:
+
+```sh
+julia --project=test/integration --startup-file=no test/integration/ivr_nwinding_limits_reference.jl /tmp/nwinding-limits.json
+julia --project=test/integration --startup-file=no test/integration/ivr_nwinding_connections_reference.jl /tmp/nwinding-connections/report.json
+julia --project=test/integration --startup-file=no test/integration/ivr_nwinding_equalities_reference.jl /tmp/nwinding-equalities/report.json
+julia --project=test/integration --startup-file=no test/integration/ivr_nwinding_equalities_reference.jl /tmp/nwinding-excitation/report.json --excitation
+julia --project=test/integration --startup-file=no test/integration/ivr_nwinding_nonstar_reference.jl /tmp/nwinding-nonstar/report.json
+```
+
+The limits panel asserts single/three-phase all-wye scalar-cap agreement. The
+connections panel retains mixed wye/delta outcomes under two stopping policies.
+The equality and excitation panels retain both the original reference fixed-Q
+inequalities and an exact equality intervention on a private model. The non-star
+panel adds four windings, pair leakage, excitation and bound perturbations.
+The reference checkout is not modified by the intervention.
+
+For the latter four commands, inspect individual `accepted`, status, physical,
+membership and comparison fields: successful process exit is not an all-cases-pass
+claim. Failed endpoints remain in their reports. Reader round trips are distinct
+from physical and optimization agreement. These correctness panels provide no
+isolated runtime ranking; preserve their reference revisions and source hashes
+when interpreting or reproducing them.
