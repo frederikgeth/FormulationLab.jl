@@ -162,6 +162,31 @@ physical_objective(terms,r)=sum(terms) do t
     t.linear*x+t.quadratic*x^2
 end
 
+"""Normalized emitted-row activity, not a multiplier or physical-distance test."""
+function row_activity(c;atol,value_of=JuMP.value)
+    y=c.func isa Number ? c.func : value_of(c.func)
+    set=c.set
+    slack=if set isa JuMP.MOI.LessThan
+        set.upper-y
+    elseif set isa JuMP.MOI.GreaterThan
+        y-set.lower
+    elseif set isa JuMP.MOI.EqualTo
+        -abs(y-set.value)
+    elseif set isa JuMP.MOI.Interval
+        min(y-set.lower,set.upper-y)
+    else
+        return (;assessed=false,reason="non-scalar bound set")
+    end
+    require(W.finite_real(slack),"nonfinite emitted bound slack")
+    (;assessed=true,normalized_slack=slack,near_boundary=abs(slack)<=atol)
+end
+function bound_activity(b;atol)
+    rows=[(;D._portable(q)...,emitted_rows=[row_activity(constraint_object(c);atol) for c in q.constraints])
+        for q in D.catalog(b).matched]
+    (;schema="FormulationLab.emitted_bound_activity.v1",normalized_tolerance=atol,rows,
+        note="Normalized emitted rows only; empty rows are unassessed, not inactive. Not a physical-unit distance or multiplier test.")
+end
+
 function trial(net,p,reference,start,anchor,stem,settings,tol)
     row=Dict{String,Any}("profile"=>p["name"],"accepted"=>false,"timing_eligible"=>false,
         "options"=>p["options"],"solver_options"=>settings)
@@ -190,6 +215,7 @@ function trial(net,p,reference,start,anchor,stem,settings,tol)
             row["physical_passed"]=audit.passed;row["own_model_passed"]=own.passed;row["full_model_passed"]=full.passed
             row["anchor_in_profile"]=anchor===nothing ? nothing : ivr_nlp_point_report(b,anchor;atol=tol["model_pu"]).passed
             save(stem*".physical.json",audit)
+            save(stem*".activity.json",bound_activity(b;atol=tol["model_pu"]))
             obj=physical_objective(o.power_terms,r);row["physical_power_objective"]=obj
             row["objective_reconciled"]=all(isapprox(a,obj;atol=tol["objective_atol"],rtol=tol["objective_rtol"])
                 for a in (r.objective,own.objective,full.objective))

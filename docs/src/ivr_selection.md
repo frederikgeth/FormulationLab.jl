@@ -405,6 +405,24 @@ sixteen alternating two-arm pivot sweeps. Confirmation reverses the exploration
 schedule. Portfolio positions are balanced; no predecessor-balance claim is made
 for that schedule. These declarations do not authorize timing campaigns.
 
+`examples/ivr_transfer_analysis.py` supplies descriptive statistics for admitted
+timing sweeps. It reports per-arm medians, both ratios of medians and medians of
+paired ratios, and the complete paired log-ratio samples. These estimands differ
+and must retain their labels. Its eight-arm contrasts separate zero-load,
+lifting and current-elimination effects from two- and three-factor interactions.
+Parent summaries first average log ratios within each parent and then weight
+parents equally; supplemental variants are not additional independent networks.
+Domains, objectives and batches must be summarized separately. Missing, failed,
+nonpositive or nonfinite timing entries are refused rather than dropped.
+
+For the prospective general-control policy, selector regret is the median time
+of the predeclared `full_powers` choice divided by the best admitted arm's median
+on that case/objective/batch. The latter is a retrospective comparison, not a
+prospective prediction. Conditional reduction hypotheses remain separately
+testable contrasts. The analysis helper does not authenticate physical/timing
+admission, promote defaults or count failed cases; retain those failures in the
+study's applicability and robustness denominator before interpreting summaries.
+
 Select validation cases from input features before solving, preserve failures,
 and report uncovered network classes explicitly. Supplemental manufactured
 active-limit scenarios can test a mechanism, but must retain declared parentage

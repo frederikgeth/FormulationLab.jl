@@ -1,9 +1,18 @@
 module IVRTransferPreflightTests
-using Test, FormulationLab, JSON3
+using Test, FormulationLab, JSON3, JuMP
 include("../examples/ivr_transfer_preflight.jl")
 include("sdp_transformer_fixtures.jl")
 const P=IVRTransferPreflight
 json(x)=JSON3.read(JSON3.write(x),Dict{String,Any})
+@testset "Activity distinguishes inactive and violated rows" begin
+    m=Model();@variable(m,x)
+    c=@build_constraint(x<=2)
+    @test P.row_activity(c;atol=1e-7,value_of=f->2.).near_boundary
+    @test !P.row_activity(c;atol=1e-7,value_of=f->1.).near_boundary
+    violated=P.row_activity(c;atol=1e-7,value_of=f->3.)
+    @test !violated.near_boundary && violated.normalized_slack<0
+    @test_throws ArgumentError P.row_activity(c;atol=1e-7,value_of=f->NaN)
+end
 @testset "Typed solver controls and frozen finite orders" begin
     settings=P.solver_settings(json(P.SETTINGS))
     @test settings["bound_relax_factor"] isa Float64
@@ -68,6 +77,8 @@ end
             stem=joinpath(output,r["workload"]*"__"*r["profile"])
             @test P.readjson(stem*".trial.json")==r
             @test isfile(stem*".result.json") && P.readjson(stem*".physical.json")["passed"]
+            activity=P.readjson(stem*".activity.json")
+            @test activity["normalized_tolerance"]==P.TOLERANCES.model_pu
         end
         @test_throws ArgumentError P.run(folder,output;expected_preparation_sha256=digest)
         startfile=joinpath(folder,"START.json");raw=read(startfile);write(startfile,[raw;0x20])
