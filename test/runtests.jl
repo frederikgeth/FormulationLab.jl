@@ -11,6 +11,7 @@ using OpenDSSDirect
     include("ivr_joint_reduction_tests.jl")
     include("ivr_joint_preflight_tests.jl")
     include("ivr_transfer_specification_tests.jl")
+    include("ivr_transfer_scenario_tests.jl")
     include("ivr_matched_jacobian_tests.jl")
     include("ivr_iterate_capture_tests.jl")
     include("ivr_ground_scaling_tests.jl")

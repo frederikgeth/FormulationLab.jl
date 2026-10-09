@@ -326,6 +326,38 @@ full/reduced membership, physical residuals and canonical SI export round trips.
 They distinguish aggregate-source and internal/PCC accounting. These correctness
 checks are not evidence of external-network transfer or runtime improvement.
 
+### Explicit supplemental dispatch scenarios
+
+`examples/ivr_transfer_scenarios.jl` defines a bounded mixed-device experiment
+when unchanged inputs lack dispatch. Within each of WYE and DELTA demand, it
+selects the first two positive three-coil loads in ascending SHA256 of load ID.
+The first receives a generator and the second an IBR: four added devices per
+parent. Missing configurations make this particular recipe inapplicable; they
+do not justify selecting a later parent after observing solver outcomes.
+
+Every original record, annotation and bound is retained. For a selected demand
+with nominal coil powers ``p_k``, each added coil receives active bounds
+``[0,c]``, reactive bounds ``[-c/2,c/2]`` and apparent-power cap ``c``, where
+``c=2\sum_{k=1}^3p_k/3``. An explicit positive voltage vector supplied by the
+experiment defines ``Z_k=V_k^2/c`` for the new IBR filters. Their resistance and
+reactance are ``0.005Z_k`` and ``0.002Z_k``; shunt susceptance is
+``0.002/\operatorname{mean}(Z)``. Internal DC active power has bounds
+``[0,0.6(3c)]`` and availability ``0.8(3c)``. These are scenario parameters;
+the voltage vector does not replace any original voltage limit or per-unit base.
+
+The returned manifest records the four sites, all added records, and which
+component tables were previously absent. Tests replay and reverse the additions,
+and check physical residuals, declared-bound coverage, internal/PCC filter-loss
+accounting, and canonical result recovery on a manufactured mixed-device circuit.
+The bounds create opportunities for active-limit tests; activity must be measured
+at accepted endpoints and is not guaranteed by this construction.
+
+Supplementals remain separate physical problems with shared parentage. They do
+not increase the number of independent held-out parents, repair invalid original
+inputs, or establish missing external single-phase/multiwinding coverage. Freeze
+the selected parents, voltage vectors, complete augmented inputs and objectives
+before any supplemental solve.
+
 Select validation cases from input features before solving, preserve failures,
 and report uncovered network classes explicitly. Supplemental manufactured
 active-limit scenarios can test a mechanism, but must retain declared parentage
