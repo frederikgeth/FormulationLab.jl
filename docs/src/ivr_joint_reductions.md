@@ -79,6 +79,65 @@ terminate unrelated work. Timing admission also requires every physical audit,
 own/full-model and reverse-anchor check, SI objective check, balanced order and
 frozen source/input digest to pass. Only optimizer-call wall time is ranked.
 
+### Read-only preflight validation
+
+`IVRJointReductionStudy.validate_preflight(folder)` inspects the current
+sixteen-trial preflight before `run_timing` creates any output. It requires the
+declared eight profiles for each of quadratic cost and exchange tracking, in
+their prescribed order. Aggregate success flags alone are insufficient.
+
+For each trial, the saved row must agree with its separate trial artifact and
+with the current profile options and solver controls. The validator checks the
+recorded physical, own/full-model, reverse-anchor, objective and start gates;
+emitted and [declared-bound inventories](ivr_declared_bounds.md); and canonical
+SI exports. Exported objectives and normalized-network digests must agree with
+the preflight. Physical leaf paths and unavailable-value locations must match
+across formulations within each objective, and recorded physical voltage starts
+must agree. Equal local objective values are required; equal optimizer endpoints
+are not required for a problem with multiple optima.
+
+| Check | Required evidence |
+|:---|:---|
+| Complete design | Exactly sixteen ordered, distinct workload/profile identities; no pending trial. |
+| Current controls | Exact recorded option and solver-setting agreement, including power bases and objective terms. |
+| Physical acceptance | Every trial's recorded SI, own/full-model, reverse-anchor and objective gates passes. |
+| Bound accounting | Both inventories pass; missing, mismatched and unexpected declarations are empty; fixed-setting checks pass. |
+| Result consistency | Canonical reader succeeds; SI units, physical power products, network digest, objective, physical paths and availability agree. |
+| Common initialization | Complete-start gate is recorded and exported voltage starts agree within `atol=1e-8`, `rtol=1e-10`. |
+| Artifact identity | Input bytes and network digest match; all inspected files are hashed and checked again before return. |
+
+The validator runs no optimizer and writes no files. It returns the inspected
+artifact hashes and `timing_eligible=false`. A subsequent explicitly requested
+timing run saves this record as `PREFLIGHT_VALIDATION.json`. To inspect evidence
+without starting timings:
+
+```julia
+include("examples/benchmark_ivr_joint_reductions.jl")
+validation = IVRJointReductionStudy.validate_preflight("/path/to/preflight")
+@assert validation.passed && !validation.timing_eligible
+```
+
+Future external/zero-load preflights save a `.bounds.json` declaration inventory
+for every trial. Older reports without this evidence, or with different current
+options, are refused for reuse; they are not silently filled with current
+defaults. Their historical validity must be assessed against their own frozen
+source and original admission protocol. Preserve them unchanged and generate a
+fresh correctness preflight when reuse is required.
+
+This gate reconciles **recorded evidence**. It does not independently replay
+all circuit equations, prove every schema field supported, authenticate a set of
+jointly falsified artifacts, or establish process isolation. Start-current
+encoding is covered by the recorded complete-start check, while the canonical
+initialization export contains bus voltages. Package-source freezing, a fresh
+confirmation process and whole-campaign timing admission remain separate
+requirements. `complete_input_coverage` remains false.
+
+`test/ivr_joint_preflight_tests.jl` produces a small mixed-device sixteen-solve
+correctness preflight and exercises missing/duplicate/reordered trials, changed
+controls, failed gates, damaged inventories, missing artifacts, changed result
+paths and altered starts. The timing entry point must reject invalid evidence
+before creating its output directory. These test solves supply no speed claim.
+
 This executable example constructs independent multiplicative factor effects.
 All three interactions must be one; the helper must not mistake an ordinary
 zero-load speedup for an interaction:

@@ -69,6 +69,7 @@ device, bound, topology, objective and numerical option.
 | Supplied operating-bound declarations | `test/ivr_declared_bound_inventory_tests.jl` | Independent input-channel enumeration; loss of both a row and its provenance; scalar/array contracts, retained tap aliases, inactive declarations and supported generator updates. Declaration and emitted completeness remain separate from full schema coverage. |
 | Canonical physical results | `test/result_export_tests.jl`, `test/result_sequence_tests.jl` | Identical physical leaf paths and recovered values across formulations, SI units, transformer/IBR/ground observations, sequence-bound phase order, owned snapshots and JSON round trips. |
 | Benchmark admission and metric | `test/ivr_profile_study_tests.jl` | Failed/incomplete trials cannot win, incompatible objectives prevent ranking, and Ipopt wall time is distinct from compilation or extraction. |
+| Joint preflight evidence | `test/ivr_joint_preflight_tests.jl` | Complete cost/tracking design, current controls, raw trial/artifact agreement, bound inventories and canonical exports are checked before timing output is created. This read-only gate does not establish isolation. |
 | Unknown or unsupported inputs | `test/ivr_input_annotations_tests.jl` and device-specific scope tests | Retained metadata, electrical-field validation, unsupported controls and explicit refusals. |
 
 No finite set of numerical tests proves that no bound was forgotten. Confidence

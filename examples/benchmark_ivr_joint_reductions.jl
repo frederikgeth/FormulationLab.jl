@@ -54,18 +54,19 @@ function contrasts(times)
         three_way_interaction=exp(interaction(:transformer_currents)-interaction(:off)))
 end
 
+include("ivr_joint_preflight.jl")
+
 function run_timing(preflight_folder,folder,batch)
     schedule=orders(batch)
     isdir(folder) && !isempty(readdir(folder)) && throw(ArgumentError("use a new empty timing folder"))
+    validation=validate_preflight(preflight_folder)
     pre=JSON3.read(read(joinpath(preflight_folder,"REPORT.json"),String),Dict{String,Any})
-    all(pre[k] for k in ("all_trials_accepted","objectives_comparable","network_unchanged","source_unchanged")) ||
-        throw(ArgumentError("accepted preflight required"))
-    bytes2hex(sha256(read(pre["input"])))==pre["source_sha256"] || throw(ArgumentError("input changed after preflight"))
     net=JSON3.read(read(pre["input"],String),Dict{String,Any})
     bytes2hex(sha256(JSON3.write(net)))==pre["network_sha256"] || throw(ArgumentError("network digest differs from preflight"))
     ps=profiles(net;exchange_target_W=pre["exchange_target_W"])
     [p.name for p in ps]==arms() || error("unexpected factorial arm order")
     mkpath(folder);BLAS.set_num_threads(1)
+    E.save(joinpath(folder,"PREFLIGHT_VALIDATION.json"),validation)
     E.save(joinpath(folder,"STATE.json"),(;batch,status="started",timing_eligible=false))
     path=joinpath(folder,"REPORT.json")
     r=P.benchmark(net,path;repetitions=length(schedule),candidates=ps,solver_options=E.SETTINGS,

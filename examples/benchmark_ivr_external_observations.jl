@@ -6,11 +6,12 @@ not an isolated timing campaign or a change to the formulation defaults.
 module IVRExternalObservationStudy
 using FormulationLab, JuMP, Ipopt, JSON3, SHA, LinearAlgebra
 include("benchmark_ivr_threephase_transfer.jl")
-include("ivr_constraint_inventory.jl")
+include("ivr_declared_bound_inventory.jl")
 const T=IVRThreePhaseTransferStudy
 const M=T.M
 const P=T.P
-const I=IVRConstraintInventory
+const D=IVRDeclaredBoundInventory
+const I=D.I
 const SETTINGS=merge(P.STRICT,(nlp_scaling_method="gradient-based",linear_solver="mumps",mumps_pivot_order=7))
 save(path,x)=open(io->JSON3.write(io,x),path,"w")
 start_point(net)=M.E.S.U.G.H.S.L.start_point(net)
@@ -58,6 +59,8 @@ function preflight_trial(net,profile,reference,anchor,start,stem)
     try
         b=build_opf(net,IVRNLP(profile.options);optimizer=Ipopt.Optimizer)
         inventory=I.report(b);save(stem*".inventory.json",inventory)
+        declarations=D.report(b);save(stem*".bounds.json",declarations)
+        row["complete_declared_bound_coverage"]=declarations.complete_declared_bound_coverage
         row["complete_emitted_coverage"]=inventory.complete_emitted_coverage
         row["complete_input_coverage"]=inventory.complete_input_coverage
         row["variables"]=num_variables(b.model)
@@ -89,7 +92,8 @@ function preflight_trial(net,profile,reference,anchor,start,stem)
                 isapprox(r.objective,si;atol=1e-6,rtol=1e-8)
             exported=result_dict(b,r);write_result(exported,stem*".result.json")
             row["native_reader_equal"]=isequal(read_result(stem*".result.json"),exported)
-            row["accepted"]=inventory.complete_emitted_coverage && audit.passed && own.passed && full.passed &&
+            row["accepted"]=inventory.complete_emitted_coverage && declarations.complete_declared_bound_coverage &&
+                audit.passed && own.passed && full.passed &&
                 row["anchor_in_profile"]!==false && row["objective_reconciled"] && row["native_reader_equal"]
         end
     catch err
