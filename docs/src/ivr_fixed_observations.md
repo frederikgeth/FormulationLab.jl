@@ -92,7 +92,7 @@ io = IOBuffer(); write_result(data, io); seekstart(io)
 ```
 
 Focused regression cases also cover single-phase two-wire and three-phase
-four-wire networks, all four sharing policies, eligibility thresholds, lower
+four-wire networks, the original four sharing policies, eligibility thresholds, lower
 and zero-upper bounds, live dependencies and load/generator updates.
 
 ## Retained external experiment

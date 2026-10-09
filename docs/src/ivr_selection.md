@@ -72,6 +72,7 @@ admission and workload-specific timing evidence.
 | MV/LV transformer transitions and finite grounding | Nominal transformer coordinates, voltage-ground scaling, composed rows and explicit regional current bases | Positive coordinate changes preserve the physical problem; inspect actual NLP scaling and initialization. Smaller bases are not universally faster. |
 | Power-based cost or tracking | Powers-only lifting and explicit power-unit controls | Match physical coefficients and objectives. Separate assembly, dispatch and auxiliary-power units. |
 | Many bounded affine coil observations | Broad or selective bounded-observation lifting | Include a powers-only control. Benefits depend on the network, objective and other reductions. |
+| Exactly complex-proportional affine observations after composition | `observation_sharing=:complex_proportional` with bounded-observation lifting | Require the complete coefficient certificate and representable factor. Correctness tests include nonreal admittance; no wall-time or held-out benefit is established. See [affine sharing](ivr_affine_sharing.md). |
 | Ordinary or multiwinding transformer currents | Applicable exact device-current elimination | Retain winding, excitation, grounding and nameplate observations. Test both current representations. |
 | Repeated demand, generator-bound or price updates | Reuse through the supported update APIs | Equipment/topology changes and invalidated certificates require rebuilding. Build savings do not count toward the Ipopt-only speed criterion. |
 

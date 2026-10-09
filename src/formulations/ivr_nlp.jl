@@ -76,7 +76,9 @@ affine observations, including constants; default :off retains separate rows.
 `:signed` also shares opposite rows; `:proportional` shares real scalar multiples
 only when all coefficients and constants have an exact binary-rational
 certificate and the reconstruction factor is a finite nonzero Float64.
-Neither control changes power lifting or removes operating bounds.
+`:complex_proportional` additionally admits complex scalar multiples, certified
+over exact complex binary rationals with both factor components representable
+as Float64. These controls do not merge power lifts or remove operating bounds.
 `power_sharing=:generators` reuses existing generator dispatch definitions for
 exactly matching voltage/current row pairs when lifting is enabled. Default :off.
 `device_elimination=:transformer_currents` substitutes from-side coil currents
@@ -499,6 +501,7 @@ function _ivrn_observation_signature(u,sharing)
     sharing==:off && return nothing
     raw=_ivrn_affine_key(u)
     sharing==:exact && return (;key=raw,pivot=1.0)
+    sharing==:complex_proportional && return _ivrn_complex_observation_signature(raw)
     coefficients=[c for part in raw for c in (part[1],last.(part[2])...)]
     all(isfinite,coefficients) || return nothing
     k=findfirst(!iszero,coefficients)
@@ -519,6 +522,33 @@ function _ivrn_observation_factor(pivot,representative)
     factor=pivot/representative
     isfinite(factor) && !iszero(factor) || return nothing
     Rational{BigInt}(factor)*Rational{BigInt}(representative)==Rational{BigInt}(pivot) ? factor : nothing
+end
+_ivrn_exact_complex(z)=complex(Rational{BigInt}(real(z)),Rational{BigInt}(imag(z)))
+function _ivrn_complex_observation_signature(raw)
+    # Pair real/imaginary coefficients by solver variable, not by their position
+    # in the separate sparse rows: rotation may move a coefficient between rows.
+    terms=Dict{Int,ComplexF64}()
+    for (axis,part) in enumerate(raw),(v,c) in part[2]
+        terms[v]=get(terms,v,0im)+(axis==1 ? complex(c,0.) : complex(0.,c))
+    end
+    pairs=sort!(collect(terms);by=first)
+    constant=complex(raw[1][1],raw[2][1])
+    coefficients=[constant;last.(pairs)]
+    all(isfinite,coefficients) || return nothing
+    k=findfirst(!iszero,coefficients)
+    k===nothing && return nothing
+    pivot=coefficients[k];q=_ivrn_exact_complex(pivot)
+    normalize(z)=_ivrn_exact_complex(z)/q
+    (;key=(normalize(constant),Tuple((v,normalize(c)) for (v,c) in pairs)),pivot)
+end
+function _ivrn_observation_factor(pivot::Complex,representative::Complex)
+    all(isfinite,(pivot,representative)) && !iszero(pivot) && !iszero(representative) || return nothing
+    # Divide exactly before conversion: floating complex division can overflow
+    # intermediate products or round a nonrepresentable ratio into a false match.
+    q=_ivrn_exact_complex(pivot)/_ivrn_exact_complex(representative)
+    factor=complex(Float64(real(q)),Float64(imag(q)))
+    isfinite(factor) && !iszero(factor) || return nothing
+    _ivrn_exact_complex(factor)==q ? factor : nothing
 end
 function _ivrn_selected_observation_rows(options,e)
     options.lifting==:bounded_observations && options.observation_selection!=:all || return nothing
@@ -779,7 +809,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.lifting in (:off,:powers,:bounded_observations) || throw(ArgumentError("unknown IVRNLP lifting"))
     options.observation_support_threshold>=0 || throw(ArgumentError("observation support threshold must be nonnegative"))
     options.observation_selection in (:all,:coil_voltages,:coil_currents,:coils) || throw(ArgumentError("unknown IVRNLP observation selection"))
-    options.observation_sharing in (:off,:exact,:signed,:proportional) || throw(ArgumentError("unknown IVRNLP observation sharing"))
+    options.observation_sharing in (:off,:exact,:signed,:proportional,:complex_proportional) || throw(ArgumentError("unknown IVRNLP observation sharing"))
     options.coincident_voltage_bounds in (:separate,:equality,:guarded_equality) || throw(ArgumentError("unknown coincident voltage bound policy"))
     options.device_elimination in (:off,:transformer_currents,:all_transformer_currents) || throw(ArgumentError("unknown IVRNLP device elimination"))
     options.transformer_nameplate in (:ignore,:bmopftools) || throw(ArgumentError("unknown transformer nameplate policy"))

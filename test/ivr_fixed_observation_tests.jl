@@ -3,7 +3,7 @@ isdefined(@__MODULE__,:IVRLiftingBlockStudy) || include("../examples/benchmark_i
 isdefined(@__MODULE__,:IVRConstraintInventory) || include("../examples/ivr_constraint_inventory.jl")
 @testset "Fixed-input observation inlining" begin
     F=FormulationLab
-    for sharing in (:off,:exact,:signed,:proportional)
+    for sharing in (:off,:exact,:signed,:proportional,:complex_proportional)
         m=Model();@variable(m,x[1:4]);fix.(x,[1.,2.,3.,4.])
         m.ext[:ivr_lifting]=F._ivrn_lifting_policy(IVRNLPOptions(
             lifting=:bounded_observations,observation_sharing=sharing,fixed_observation_elimination=true))

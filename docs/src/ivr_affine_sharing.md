@@ -1,4 +1,4 @@
-# Signed and proportional affine sharing
+# Exact affine observation sharing
 
 Two original operating observations may become identical, opposite or proportional
 after exact coordinate composition. Reusing one auxiliary can reduce an extended
@@ -23,8 +23,9 @@ opposite line ends. This preserves a unique extension of every original feasible
 point. The proof and signed-power example are in the [theory](ivr_theory.md);
 [API details](ivr_nlp.md) describe diagnostics and composition.
 
-Constants must scale with the variable coefficients. There is no free translation,
-complex rotation, conjugation, tolerance, coefficient truncation, or matching
+Constants must scale with the variable coefficients. The real-only policies
+introduce no free translation, complex rotation, conjugation, tolerance,
+coefficient truncation, or matching
 based only on feasible circuit solutions. Fixed variables are not substituted
 during the certificate. Different floating-point construction histories can
 prevent reuse; they retain separate exact definitions.
@@ -46,7 +47,7 @@ SI starts and outputs and supported CP/dispatch update semantics.
 
 ## Correctness evidence
 
-The focused suite passes **1972 assertions**. Direct affine tests cover constants,
+The original real-sharing focused suite passed **1972 assertions**. Direct affine tests cover constants,
 negative and non-unit factors, changed coefficients, conjugates, duplicate visits,
 nonrepresentable ratios, overflow/underflow refusal and perturbed auxiliaries.
 Arbitrary-coordinate evaluation checks the whole reconstructed observation, not
@@ -69,7 +70,41 @@ are retained, and no physical tolerance was relaxed. These tests establish the
 stated static domain; they are not an interval proof for arbitrary floating-point
 solver arithmetic or a claim of full control-model coverage.
 
-## Numerical protocol
+## Complex-proportional extension
+
+`observation_sharing=:complex_proportional` admits a complex factor after
+certifying the complete affine relation over exact complex binary rationals.
+Both real and imaginary parts of the factor must be representable exactly as
+finite `Float64` values. An unsafe ratio retains a separate definition. All
+existing modes and the default `:off` remain available. This is an optional
+correctness-qualified candidate; it has no established wall-time benefit.
+
+A motivating physical relation is an eliminated constant-impedance load,
+``i=Yu``, with nonreal admittance ``Y``. If its voltage and current both qualify
+for observation lifting and their stored coefficients pass the certificate,
+one complex auxiliary can represent both. Real-only proportional sharing cannot
+reuse this pair when ``\Im Y\ne0``. The original power remains
+``s=u\overline{i}=\overline Y|u|^2``; the sign of reactive power must survive
+the substitution. Other circuit elements can prevent this affine match even
+when a relationship holds at a particular operating point.
+
+The [equivalence argument](ivr_theory.md) gives the real rotation/scaling map
+and the two-factor power formula. `test/ivr_complex_sharing_tests.jl` checks
+arbitrary-coordinate recovery, sparse real/imaginary support exchange, constants,
+conjugate refusal, representability failures, distinct ratings and separate
+power definitions. Its manufactured circuit tests cover power cost/tracking,
+common physical starts, bidirectional membership and SI result round trips.
+The existing affine-sharing tests additionally exercise the new mode against
+ordinary transformer winding bounds, interior terminal/sequence voltage bounds,
+line limits and live CP/dispatch updates. Fixed-observation tests check that
+inlining and its live dependencies retain precedence over sharing.
+
+The numerical protocol and results below concern the historical real-only
+portfolio. They do not establish performance or external-network transfer for
+the complex extension. Different floating-point construction histories can
+prevent exact matches; the mode does not approximate coefficients to create them.
+
+## Historical numerical protocol
 
 `examples/benchmark_ivr_affine_sharing.jl` supplies six candidates: `full_powers`,
 `reduced_powers`, and reduced bounded-observation lifting with `off`, `exact`,

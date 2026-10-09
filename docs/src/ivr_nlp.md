@@ -92,7 +92,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `power_sharing` | `:off` | `:generators` reuses exactly matching generator P/Q definitions when lifting is enabled |
 | `observation_selection` | `:all` | With bounded-observation lifting, restrict to `:coil_voltages`, `:coil_currents` or `:coils`; original bounds remain enforced |
 | `observation_support_threshold` | `2` | Lift affine observations only when their distinct real-variable support is strictly larger; nonnegative integer |
-| `observation_sharing` | `:off` | `:exact` shares identical composed affine observations; `:signed` also shares opposite rows; `:proportional` admits certified real multiples, including constants |
+| `observation_sharing` | `:off` | `:exact` shares identical composed affine observations; `:signed` also shares opposite rows; `:proportional` admits certified real multiples; `:complex_proportional` also admits certified complex multiples, including constants |
 | `fixed_observation_elimination` | `false` | Substitute otherwise eligible fixed-input observations by their original affine expressions; retain every bound and dependency. See [exactness, tutorial and evidence](ivr_fixed_observations.md) |
 | `coincident_voltage_bounds` | `:separate` | `:equality` replaces exactly coincident positive bus-voltage bounds by one magnitude equality; explicitly fixed source rows retain their original representation. `:guarded_equality` additionally shares identical normalized affine observations and retains inequalities on structurally circuit-fixed voltages; see [scope and evidence](ivr_voltage_dependencies.md) |
 | `lifting` | `:off` | `:powers` adds exact P/Q definitions at apparent-power limits; `:bounded_observations` additionally materializes compound bounded voltage/current expressions |
@@ -410,13 +410,20 @@ matches the entire normalized tuple. The candidate-to-representative ratio must
 itself be exactly representable as a finite nonzero `Float64`. Otherwise the
 candidate keeps a separate definition, even in the same proportional class.
 There is no tolerance or rounding in this certificate.
+`:complex_proportional` pairs real/imaginary coefficients by solver-variable
+identity and normalizes over exact complex binary rationals. It admits a complex
+multiplier only when both components are exactly representable as finite
+`Float64` values and the multiplier is nonzero. This mode retains the real-only
+options and their defaults. Exact arithmetic is used during compilation; its
+cost is separate from Ipopt wall time.
 
 The first encountered representative retains its original definition and units;
 each shared observation returns `factor * representative`. Thus all original
 limits and native power expressions retain their sign and scale. Constants must
 scale too: `2u` may share with `u`, whereas `2u + 1` generally cannot. Additive
-translations, complex rotations, conjugation and equality that holds only on
-circuit solutions are outside these new certificates. Fixed variables are not
+translations, conjugation as a separate operation and equality that holds only on
+circuit solutions are outside these certificates. Complex rotation requires
+`:complex_proportional`; the other modes remain real-only. Fixed variables are not
 substituted during matching. Different floating-point construction histories may
 miss reuse; such misses preserve separate definitions.
 

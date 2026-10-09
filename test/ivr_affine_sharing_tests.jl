@@ -61,7 +61,7 @@ end
         rf=solve_ivr_nlp_opf(full;solver_options=A.P.STRICT)
         @test rf.solve.optimal && physical_residuals(net,rf).passed
         p=ACPoint(voltage=rf.voltage_candidate,currents=rf.current_candidate)
-        for sharing in (:exact,:signed,:proportional)
+        for sharing in (:exact,:signed,:proportional,:complex_proportional)
             opts=(;objective=:source_import,lifting=:bounded_observations,observation_sharing=sharing,
                 specialization=:conductor_regions,linear_elimination=:passive_blocks,observation_support_threshold=0,
                 transformer_scaling=:nominal,row_scaling=:composed,lifted_power_base=1e3,power_sharing=:generators)
@@ -125,7 +125,7 @@ include("ac_validation_fixtures.jl")
         tx=net["transformer"][kind]["tx"]
         for side in ("from","to");tx["i_max_$side"]=max.(tx["i_max_$side"],1e-6);end
         @test physical_residuals(net,p;delta_dispatch=:coil).passed
-        for sharing in (:signed,:proportional),sb in (1e3,1e5)
+        for sharing in (:signed,:proportional,:complex_proportional),sb in (1e3,1e5)
             opts=(;s_base=sb,objective=:source_import,lifting=:bounded_observations,
                 observation_support_threshold=0,observation_sharing=sharing,
                 device_elimination=:transformer_currents,transformer_scaling=:nominal,row_scaling=:composed)
@@ -143,7 +143,7 @@ include("ac_validation_fixtures.jl")
 end
 
 @testset "Affine sharing preserves each interior sequence and terminal voltage family" begin
-    for m in (2,3,4),sharing in (:signed,:proportional)
+    for m in (2,3,4),sharing in (:signed,:proportional,:complex_proportional)
         net=A.H.case(conductors=m,segments=4,charged=true)
         full=build_opf(net,IVRNLP(objective=:source_import);optimizer=Ipopt.Optimizer)
         result=solve_ivr_nlp_opf(full;solver_options=A.P.STRICT)

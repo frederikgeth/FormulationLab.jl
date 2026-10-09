@@ -568,7 +568,50 @@ it keeps a new definition. A later ``2u`` can reuse that new representative.
 The `:signed` subcase restricts multipliers to ``\pm1``. First-representative
 selection can affect auxiliary counts and conditioning; no optimal grouping
 or speed improvement is guaranteed. Constants are not freely translated,
-and complex rotations/conjugation are not included. See [methods and tests](ivr_affine_sharing.md).
+and this real-only policy does not include complex rotations or conjugation.
+See [methods and tests](ivr_affine_sharing.md).
+
+### Certified complex proportional observation sharing
+
+The optional `:complex_proportional` policy permits
+``\alpha_j\in\mathbb C\setminus\{0\}`` under the same complete affine identity
+``c_j=\alpha_j c_r``, ``A_j=\alpha_j A_r``. Pair the real and imaginary
+coefficients by their common real solver variable before normalizing: rotation
+can move a coefficient from one sparse row to the other. Interpret each stored
+component as an exact binary rational and perform normalization in
+``\mathbb Q(i)``. Equality of these normalized tuples certifies the entire
+affine identity, including the constant. Both components of the reconstruction
+factor must then be exactly representable by finite `Float64` values; otherwise
+retain a separate representative. Floating complex division alone does not
+provide this certificate.
+
+Writing ``\alpha=a+ib``, reconstruction is the real linear map
+
+```math
+\begin{bmatrix}\Re u_j\\\Im u_j\end{bmatrix}
+=\begin{bmatrix}a&-b\\b&a\end{bmatrix}
+\begin{bmatrix}\Re w\\\Im w\end{bmatrix}.
+```
+
+The representative equality still defines a unique extension, and the matrix
+has determinant ``a^2+b^2>0``. Every original magnitude bound stays on
+``|\alpha w|^2=|\alpha|^2|w|^2`` with its original limit. If voltage and current
+share representatives ``v=\alpha w_v`` and ``i=\beta w_i``, power is
+``s=\alpha\overline\beta\,w_v\overline{w_i}``. Its real and imaginary parts
+can mix; retaining only magnitude or applying the real-factor power formula
+would be incorrect. The implementation substitutes the complete complex
+expressions before constructing each distinct power definition.
+
+No tolerance, free translation, conjugation rule or equality inferred only on
+feasible circuit solutions is introduced. A conjugate expression can share only
+if it independently satisfies the same coefficient certificate (for example,
+a purely real affine expression). Fixed-variable substitution remains a separate
+policy. Exactness refers to the mathematical model defined by the stored
+coefficients; finite-precision solver residuals still require independent checks.
+This policy expands applicability, not a claim of smaller models or faster solves
+on every network. Historical real-sharing timing results do not validate it.
+
+### Charged-section elimination
 
 For charged-section elimination, partition a selected set of surviving linear
 equations into targeted coordinates ``x`` and retained coordinates ``y``:
@@ -754,6 +797,7 @@ controlled timing and original-unit feasibility checks.
 | Charged blocks and exact lifting | `src/compilation/ivr_elimination.jl`, `src/formulations/ivr_nlp.jl` | `test/ivr_lifting_blocks_tests.jl`: inverse maps, omitted equations, lifted definitions, bound witnesses, refusal/rollback and reuse |
 | Composed affine sharing and support thresholds | `src/formulations/ivr_nlp.jl` | `test/ivr_observation_policy_tests.jl`: offsets, exact coefficient identity, signs, sequential starts, physical equivalence and updates; extended negative-bound tests |
 | Certified signed/proportional sharing | `src/formulations/ivr_nlp.jl` | `test/ivr_affine_sharing_tests.jl`: exact rational certificates, arbitrary-coordinate graphs, real-factor refusals, native powers, transformer and interior-bound witnesses, updates and SI exports |
+| Certified complex-proportional sharing | `src/formulations/ivr_nlp.jl` | `test/ivr_complex_sharing_tests.jl`: exact complex-rational certificates, rotation/support pairing, factor refusal, distinct bounds and powers, power cost/tracking and physical nonreal-admittance recovery; extended affine/fixed-observation tests |
 | Matched structural experiments | `examples/benchmark_ivr_lifting_blocks.jl` | `test/ivr_lifting_study_tests.jl`: complete shared starts, analytical 920 W midpoint case, active limits and transformer fixtures |
 | Optional series selection | `src/compilation/ivr_elimination.jl`, shared `_ivrn_each_bus_limit` visitor | `test/ivr_series_selection_tests.jl`: all voltage-bound families, apparent-power rows, rollback, reconstruction, ground scaling and updates |
 | Transformer-local coordinate/row scaling | `src/compilation/ivr_scaling.jl` | `test/ivr_transformer_scaling_tests.jl`: independent SI states, large ratios, fixed sources, original bounds, map composition and fallback |
