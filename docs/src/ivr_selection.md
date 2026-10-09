@@ -676,3 +676,45 @@ environment and accepted finite schedule. The package-copy manifest explicitly
 sets `timing_authorized=false` and `execution_ready=false`. Preparation does not
 authorize measurement, change the frozen correctness results, or promote any
 formulation.
+
+### Frozen correctness adapters and finite job preparation
+
+The B and C studies use different compiler checkpoints. Timing preparation must
+not silently move B configurations to the current compiler. The helper
+`examples/ivr_timing_adapter.jl` checks that the loaded FormulationLab package is
+the declared archive and authenticates the archived correctness executor against
+its known SHA-256. It adds a post-solve observer to an in-memory copy of that
+executor; reversing the insertions must restore the original bytes. Nested
+includes resolve within the same archive. No archived file is edited.
+
+The observer reads the native sample before the optimizer can become unreachable.
+Existing physical, model, objective, bound and SI-export checks remain in the
+archived executor. `disabled` mode is the default. `synthetic` mode requires an
+injected test clock and writes only a separately labeled synthetic duration;
+it always leaves `native_ipopt_wall_s` empty. `native` mode requires explicit
+authorization from the caller. Every exit restores a disabled recorder and
+clears its samples. This low-level adapter does not establish process isolation,
+runtime provenance, sweep comparability or campaign admission.
+
+`examples/prepare_ivr_timing_jobs.py` authenticates the admission ledger, its
+referenced evidence, both complete source archives, prepared inputs and original
+case bytes. It reconciles each arm, solver configuration and measured order with
+the corresponding frozen workload or candidate plan. It then writes one job
+record per admitted batch, including its reference model, tolerances and every
+planned call. The previously unspecified warmup ordering is declared as ascending
+arm index, one excluded warmup per arm; measured orders are unchanged.
+
+```sh
+python3 examples/prepare_ivr_timing_jobs.py \
+    /path/to/admission/MANIFEST.json EXPECTED_SHA256 /new/external/jobs
+```
+
+The current ledger expands to 32 training-only jobs and 2,044 planned calls,
+including 116 excluded warmups. These counts describe a finite design, not a
+runtime estimate or evidence of external transfer. Preparation does not execute
+the calls. Generated jobs retain `timing_authorized=false` and
+`execution_ready=false`: the controller's isolation checks, complete runtime
+freeze and campaign-level gates still require validation before any authorized
+measurement. Synthetic-clock integration checks against each archived compiler
+are available in `test/ivr_timing_adapter_integration.jl`; they use a manufactured
+single-phase transformer with a power objective, not an experimental cohort.
