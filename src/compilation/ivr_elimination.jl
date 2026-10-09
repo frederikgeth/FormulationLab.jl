@@ -150,9 +150,10 @@ end
 
 # A series candidate touches only its bus voltages and one line's currents.
 # Device boundaries are excluded, so other device equations/objectives are
-# unchanged. Index the same bus-bound rows and physical limit records used by
-# the compiler; output-only power observations are deliberately not a score.
-function _ivrn_series_bound_index(net,e,maps,adjacency,blocked;all_bounds=false)
+# unchanged for boundary-device objectives. Explicit line-power objectives can
+# touch a candidate: the expression-support policy also indexes their factors.
+# Output-only observations remain outside both selection scores.
+function _ivrn_series_bound_index(net,e,maps,adjacency,blocked;all_bounds=false,power_terms=())
     # A superset of possible targets: ignoring shunts/terminal mismatches and
     # future neighbour protection here can only retain extra index records.
     buses=Set{String}();coordinates=Set{Int}()
@@ -165,11 +166,11 @@ function _ivrn_series_bound_index(net,e,maps,adjacency,blocked;all_bounds=false)
     end
     all_bounds && union!(buses,keys(net["bus"]))
     bounds=NamedTuple[];index=Dict{Int,Vector{Int}}()
-    function add!(label,rows)
+    function add!(label,rows;aggregate=false)
         all_bounds || any(row->any(in(coordinates),keys(row)),rows) || return
         touched=Set(k for row in rows for k in keys(row) if k in coordinates)
         transformed=map(row->_ivrn_compose_row(row,maps.reconstruction),rows)
-        push!(bounds,(;label,rows=transformed));id=length(bounds)
+        push!(bounds,(;label,rows=transformed,aggregate));id=length(bounds)
         for k in touched
             push!(get!(Vector{Int},index,k),id)
         end
@@ -185,7 +186,47 @@ function _ivrn_series_bound_index(net,e,maps,adjacency,blocked;all_bounds=false)
             smax===nothing || add!("limit/$id/s_max/$k",(v[k],i[k]))
         end
     end
+    devices=Dict((f,id)=>(v,i) for (f,id,v,i,_) in e.devices)
+    for (t,term) in enumerate(power_terms)
+        factors=Any[]
+        for (j,(family,id,k)) in enumerate(term.channels)
+            haskey(devices,(family,id)) || throw(ArgumentError("unknown objective power channel $family/$id"))
+            v,i=devices[(family,id)]
+            1<=k<=length(v) || throw(ArgumentError("objective power channel index out of range: $family/$id/$k"))
+            add!("objective/$t/channel/$j/$family/$id/$k",(v[k],i[k]))
+            append!(factors,(v[k],i[k]))
+        end
+        # Include all assembled channels, even zero-weight contributions: the
+        # objective builder may still emit their power-lift definitions.
+        length(term.channels)>1 && add!("objective/$t/aggregate",Tuple(factors);aggregate=true)
+    end
     (;bounds,index)
+end
+
+function _ivrn_expression_support_width(entry,active)
+    entry.aggregate || return _ivrn_bound_support_width(entry.rows,active)
+    support=Set{Int}()
+    for k in 1:2:length(entry.rows)
+        a=active(entry.rows[k]);b=active(entry.rows[k+1])
+        (isempty(a) || isempty(b)) && continue
+        union!(support,keys(a),keys(b))
+    end
+    length(support)
+end
+
+# Compare physical-factor supports in the complete coordinate maps. This is a
+# conservative structural score, not the sparsity of the lifted NLP Hessian.
+function _ivrn_final_expression_expansions(net,e,control,candidate,power_terms)
+    descriptors(maps)=_ivrn_series_bound_index(net,e,maps,Dict(),Set{String}();all_bounds=true,power_terms).bounds
+    before=descriptors(control);after=descriptors(candidate)
+    length(before)==length(after) || error("expression-support declaration count changed")
+    expansions=NamedTuple[]
+    for (index,(a,b)) in enumerate(zip(before,after))
+        a.label==b.label || error("expression-support declaration order changed")
+        x=_ivrn_expression_support_width(a,identity);y=_ivrn_expression_support_width(b,identity)
+        y>x && push!(expansions,(;index,label=a.label,before=x,after=y))
+    end
+    expansions
 end
 
 function _ivrn_bound_support_width(rows,active)
@@ -221,7 +262,7 @@ function _ivrn_block_substitution(rows,targets)
     (;substitutions,condition,relative_residual=residual,dimension=n),"accepted"
 end
 
-function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:all,component_limit=4)
+function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:all,component_limit=4,power_terms=())
     substitutions=Dict{Int,_SDPRow}();omitted_equations=Set{Int}()
     loads=String[];buses=String[];retained=Dict{String,String}()
     selected_lines=Dict{String,String}()
@@ -320,15 +361,17 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
                 # coordinate eliminated here. Check every original bound after
                 # composition; the local physical-coordinate index is insufficient.
                 affected=Int[];before=Int[]
-                if series_selection==:bound_support
-                    bound_index===nothing && (bound_index=_ivrn_series_bound_index(net,e,maps,adjacency,blocked;all_bounds=chains))
+                if series_selection in (:bound_support,:expression_support)
+                    bound_index===nothing && (bound_index=_ivrn_series_bound_index(net,e,maps,adjacency,blocked;
+                        all_bounds=chains || series_selection==:expression_support,
+                        power_terms=series_selection==:expression_support ? power_terms : ()))
                     physical=union(Set(e.voltage[(b,t)] for t in terminals),
                                    (Set(keys(row)) for row in line.current)...)
-                    affected=chains ? collect(eachindex(bound_index.bounds)) :
+                    affected=chains || series_selection==:expression_support ? collect(eachindex(bound_index.bounds)) :
                         sort!(unique!([id for k in physical for id in get(bound_index.index,k,Int[])]))
                     cache=Dict{Int,_SDPRow}()
                     resolve(row)=_ivrn_resolve_row(row,substitutions,cache)
-                    before=[_ivrn_bound_support_width(bound_index.bounds[id].rows,resolve) for id in affected]
+                    before=[_ivrn_expression_support_width(bound_index.bounds[id],resolve) for id in affected]
                 end
                 current_candidates=Set(k for row in line.current for k in keys(active(row)))
                 voltage_candidates=Set(k for t in terminals for k in keys(active(_sdp_e(e.voltage[(b,t)]))))
@@ -360,12 +403,12 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
                     cache=Dict{Int,_SDPRow}() # Never reuse a pre-substitution cache.
                     resolve_after(row)=_ivrn_resolve_row(row,substitutions,cache)
                     for (id,width) in zip(affected,before)
-                        bound=bound_index.bounds[id];after=_ivrn_bound_support_width(bound.rows,resolve_after)
+                        bound=bound_index.bounds[id];after=_ivrn_expression_support_width(bound,resolve_after)
                         after>width && push!(expansions,(;label=bound.label,before=width,after))
                     end
                     if !isempty(expansions)
                         for k in added;delete!(substitutions,k);end
-                        retained[b]="operating_bound_support_expansion";support_rejections[b]=expansions
+                        retained[b]=series_selection==:expression_support ? "expression_support_expansion" : "operating_bound_support_expansion";support_rejections[b]=expansions
                         continue
                     end
                 end
@@ -387,4 +430,27 @@ function _ivrn_linear_coordinates(net,e,maps,omitted_kcl,mode;series_selection=:
     reconstruction=[_SDPRow(numbering[k]=>a for (k,a) in _ivrn_resolve_row(row,substitutions,cache))
                     for row in maps.reconstruction]
     ((;projection=maps.projection[kept],reconstruction),omitted_equations,omitted_kcl,report())
+end
+
+
+# A final-map guard covers interactions with downstream coordinate changes.
+# On expansion, retain all passive candidates while preserving the independent
+# impedance/device/zero-load/scaling policies through the same finishing map.
+function _ivrn_expression_selection_guard(net,e,initial_maps,initial_omitted,
+        candidate,omitted,elimination,options,finish)
+    cm,ce,ck,cr=_ivrn_linear_coordinates(net,e,initial_maps,copy(initial_omitted),:impedance_loads;
+        series_selection=:expression_support,component_limit=options.passive_component_limit)
+    control=finish(cm,ce)
+    expansions=_ivrn_final_expression_expansions(net,e,control.maps,candidate.maps,options.power_terms)
+    attempted=copy(elimination.series_buses)
+    if !isempty(expansions)
+        candidate=control;omitted=ck
+        elimination=merge(cr,(;retained_series_buses=merge(elimination.retained_series_buses,
+            Dict(b=>"final_expression_support_expansion" for b in attempted)),
+            component_limit=options.linear_elimination==:passive_hybrid ? options.passive_component_limit : nothing,
+            bound_support_rejections=elimination.bound_support_rejections))
+    end
+    elimination=merge(elimination,(;final_expression_support=(;checked=true,
+        fallback=!isempty(expansions),attempted_series_buses=attempted,expansions)))
+    (;final=candidate,omitted,elimination)
 end

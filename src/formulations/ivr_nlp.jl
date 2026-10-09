@@ -121,6 +121,11 @@ Uncertified channels remain explicit. Original observations/bounds and exact SI
 recovery remain available; eliminated load laws and their auxiliaries are omitted
 with provenance. Default false. Updating an eliminated channel to nonzero P/Q
 requires rebuilding; updates reject atomically before changing any load.
+`series_selection=:expression_support` additionally protects explicit power-
+objective factors and checks completed maps against a control retaining passive
+buses; a final support expansion reverts all passive substitutions. This is a
+structural heuristic, not a solver-graph sparsity or runtime guarantee.
+
 `fixed_bound_elimination=true` removes immutable operating rows certified implied
 by explicit finite fixings using exact arithmetic on the represented polynomial.
 Original declarations and certificates remain; changed fixing dependencies require
@@ -807,7 +812,7 @@ function _build_ivr_nlp_opf(input,optimizer,options)
     options.specialization in (:off,:conductor_difference,:conductor_regions) || throw(ArgumentError("unknown IVRNLP specialization"))
     options.linear_elimination in (:off,:impedance_loads,:passive,:passive_chains,:passive_blocks,:passive_hybrid) || throw(ArgumentError("unknown IVRNLP linear elimination"))
     options.passive_component_limit>0 || throw(ArgumentError("passive_component_limit must be positive"))
-    options.series_selection in (:all,:bound_support) || throw(ArgumentError("unknown IVRNLP series selection"))
+    options.series_selection in (:all,:bound_support,:expression_support) || throw(ArgumentError("unknown IVRNLP series selection"))
     options.ground_scaling in (:off,:voltage,:regional_voltage,:regional_multiwinding_voltage) || throw(ArgumentError("unknown IVRNLP ground scaling"))
     options.transformer_scaling in (:off,:nominal,:nominal_multiwinding) || throw(ArgumentError("unknown IVRNLP transformer scaling"))
     options.row_scaling in (:legacy,:composed) || throw(ArgumentError("unknown IVRNLP row scaling"))
@@ -857,12 +862,24 @@ function _build_ivr_nlp_opf(input,optimizer,options)
         options.specialization==:conductor_regions ? _ivrn_regions(net,e) : _ivrn_structure(net,e)
     maps=_ivrn_coordinates(e,plan)
     omitted=plan===nothing ? Set{Tuple{String,String}}() : Set(plan.omitted_kcl)
+    initial_maps=maps;initial_omitted=copy(omitted)
     maps,omitted_equations,omitted,elimination=_ivrn_linear_coordinates(net,e,maps,omitted,options.linear_elimination;
-                                                                    series_selection=options.series_selection,component_limit=options.passive_component_limit)
-    maps,omitted_equations,device_elimination=_ivrn_device_coordinates(net,e,maps,omitted_equations,options.device_elimination)
-    maps,zero_loads,zero_load_report=_ivrn_zero_load_coordinates(net,e,maps,options.zero_load_elimination)
-    maps,scaling=_ivrn_ground_coordinates(net,e,maps,options.ground_scaling)
-    maps,transformer_scaling=_ivrn_transformer_coordinates(net,e,maps,options.transformer_scaling,options.current_power_bases)
+        series_selection=options.series_selection,component_limit=options.passive_component_limit,power_terms=options.power_terms)
+    finish(maps,equations)=begin
+        maps,equations,device=_ivrn_device_coordinates(net,e,maps,equations,options.device_elimination)
+        maps,zeros,zero_report=_ivrn_zero_load_coordinates(net,e,maps,options.zero_load_elimination)
+        maps,ground=_ivrn_ground_coordinates(net,e,maps,options.ground_scaling)
+        maps,transformer=_ivrn_transformer_coordinates(net,e,maps,options.transformer_scaling,options.current_power_bases)
+        (;maps,equations,device,zeros,zero_report,ground,transformer)
+    end
+    final=finish(maps,omitted_equations)
+    if options.series_selection==:expression_support && options.linear_elimination in (:passive,:passive_chains,:passive_blocks,:passive_hybrid)
+        guarded=_ivrn_expression_selection_guard(net,e,initial_maps,initial_omitted,
+            final,omitted,elimination,options,finish)
+        final=guarded.final;omitted=guarded.omitted;elimination=guarded.elimination
+    end
+    maps=final.maps;omitted_equations=final.equations;device_elimination=final.device
+    zero_loads=final.zeros;zero_load_report=final.zero_report;scaling=final.ground;transformer_scaling=final.transformer
     scaled_rows=options.row_scaling==:composed || !isempty(scaling.scaled_terminals)
     model=optimizer===nothing ? JuMP.Model() : JuMP.Model(optimizer)
     model.ext[:ivr_lifting]=_ivrn_lifting_policy(options,e)

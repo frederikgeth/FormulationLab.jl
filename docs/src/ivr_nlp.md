@@ -80,7 +80,7 @@ not one transaction. Use the APIs rather than modifying the owned snapshot.
 | `specialization` | `:off` | `:conductor_difference` certifies one complete section; `:conductor_regions` certifies pendant regions behind retained boundaries |
 | `linear_elimination` | `:off` | `:impedance_loads` substitutes impedance-load currents; `:passive` additionally eliminates nonadjacent eligible degree-two buses; `:passive_chains` permits adjacent candidates; `:passive_blocks` also admits charged π sections through conditioned local block solves; `:passive_hybrid` caps connected groups of eliminated buses |
 | `passive_component_limit` | `4` | Positive maximum number of original buses per eliminated connected component in `:passive_hybrid`; ignored by other modes |
-| `series_selection` | `:all` | With any passive policy, `:bound_support` rejects a candidate when an affected operating bound gains solver-coordinate dependencies |
+| `series_selection` | `:all` | With any passive policy, `:bound_support` protects operating-bound support; `:expression_support` also protects explicit power-objective factors and checks completed coordinate maps |
 | `transformer_scaling` | `:off` | `:nominal` composes local voltage/current units from ordinary transformer ratios; `:nominal_multiwinding` additionally uses declared coil-voltage conventions; uncertain assignments retain global units |
 | `row_scaling` | `:legacy` | `:composed` normalizes linear circuit rows after all coordinate transformations, independently of local voltage/current scaling |
 | `kcl_row_max_base` | `nothing` | Optional positive ampere cap on the numerical unit of each retained KCL row; preserves existing smaller row units and every physical bound |
@@ -533,6 +533,63 @@ ignores output-only power-polynomial expansion, coefficient magnitudes,
 solver preprocessing and factorization ordering. It can reject reductions that
 would solve faster. Default `:all` preserves the existing elimination choices;
 see [measured evidence](verification.md) before choosing this opt-in policy.
+
+### Selection including power-objective expressions
+
+`series_selection=:expression_support` extends the bound-support rule to the
+voltage/current factors of explicit `IVRPowerTerm` channels. It applies to the
+same four passive-elimination modes and retains the same exact substitution and
+recovery maps. For each channel it counts the union of complex-coordinate support
+of its two factors; for a multi-channel term it also counts the union across
+nonzero products. The criterion includes all assembled channels, including
+zero-weight contributions whose power lifts may still be constructed. Weighted
+cancellation is not used to reduce the score. The existing `:all` and
+`:bound_support` behaviors remain available, and the default remains `:all`.
+
+A line-power objective can involve the voltage at a passive interior bus even
+though no physical device is connected there. In a manufactured three-section
+feeder, `:bound_support` accepts elimination of `b1`, but the factors for
+`(:line_to, "l1", 1)` increase from two complex coordinates to three, four and five
+in single-phase, three-wire delta and four-wire wye cases. This occurs with
+lifting off, power lifting and broad observation lifting. The new rule retains
+that candidate when the expansion is detected. By contrast, a source-power
+objective in the sparse fixture still allows both passive interior buses to be
+eliminated. These are structural observations, not measured runtime benefits.
+
+The local filter checks every indexed bound/objective expression after each
+tentative substitution, including earlier eliminated buses. A second guard
+compares the **completed** reconstruction maps after device-current elimination,
+zero-load elimination and numerical coordinate scaling against a control that
+retains passive buses. That control preserves the independently requested
+impedance-load, device-current, zero-load and scaling transformations. If any
+indexed expression expands, all passive substitutions are abandoned and the
+control maps are used. This conservative fallback prevents a local score from
+being mistaken for a statement about later composition.
+
+The indexed scope is the shared bus-voltage rows, physical current/apparent-power
+limit records, and the factors/aggregates of explicit power-objective terms.
+The score is not an enumeration of all nonlinear expressions or an exact
+Jacobian/Hessian sparsity computation. In particular, lifted auxiliaries,
+fixed-variable preprocessing and weighted polynomial cancellations can change
+the solver graph. No claim about KKT fill, conditioning or Ipopt time follows.
+Physical bounds outside this score remain enforced by the compiler.
+
+The elimination report retains `bound_support_rejections` for compatibility;
+with this mode it can also contain `objective/<term>/channel/...` and
+`objective/<term>/aggregate` labels. Local rejections use
+`expression_support_expansion`. `final_expression_support` records the final
+check, attempted passive buses, any expansions and whether the global fallback
+was used; affected buses then record `final_expression_support_expansion`.
+
+`test/ivr_expression_selection_tests.jl` checks the counterexample, a successful
+sparse boundary-objective reduction, and the final guard with an actual expanding
+Schur candidate. Cost and tracking objectives are tested in all four passive
+modes with conductor-region specialization and physical/model/export checks.
+A separate no-optimizer probe verifies objective and reconstruction identities
+at 216 arbitrary points in the reconstructed linear subspace; those points are
+not claimed to solve or satisfy the full OPF. Selection changes neither the
+objective nor the feasible-set equivalence of an accepted exact substitution.
+Held-out applicability and Ipopt wall-time benefits remain unestablished.
 
 The [profile study](ivr_performance.md) compares complete option combinations
 without removing any alternative or changing package defaults. It prioritizes

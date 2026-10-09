@@ -31,6 +31,7 @@ using OpenDSSDirect
     include("ivr_lifted_unit_tests.jl")
     include("ivr_power_interaction_tests.jl")
     include("ivr_series_selection_tests.jl")
+    include("ivr_expression_selection_tests.jl")
     include("ivr_chain_tests.jl")
     include("ivr_lifting_blocks_tests.jl")
     include("ivr_hybrid_tests.jl")
