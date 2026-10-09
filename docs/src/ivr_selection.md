@@ -260,6 +260,72 @@ visible gaps. The output retains the selection order, exclusions and pending
 reviews and cannot authorize timing. Freeze the final reviewed case manifest
 alongside the exact formulation and solver settings before running new solves.
 
+### Power workloads on original and supplemental cases
+
+`examples/ivr_transfer_specification.jl` constructs explicit workloads without
+requiring a dispatch device. This matters when unchanged input networks contain
+only fixed demand. Such cases exercise objective representation and recovery;
+they do not establish transfer to economic dispatch. The returned declaration
+separately records active and reactive dispatch-box freedom. Even nonzero box
+width does not prove feasible freedom after all circuit constraints are applied.
+
+For this versioned experiment, let ``P_0,Q_0`` denote aggregate source exchange,
+and let ``P_j,Q_j`` denote each generator or IBR PCC coil power, all expressed in
+kW/kvar. Let ``P_j^{\mathrm{int}}`` denote generator power or IBR internal power.
+The declared cost is
+
+```math
+C=0.25P_0+0.02P_0^2+0.002Q_0^2+
+  \sum_j\left(0.10P_j^{\mathrm{int}}+0.02P_j^2+0.002Q_j^2\right).
+```
+
+The tracking workload, for an explicitly declared source target ``P_0^\star``, is
+
+```math
+T=(P_0-P_0^\star)^2+Q_0^2+
+  0.01\sum_j\left[(P_j-\bar P_j)^2+Q_j^2\right],
+\qquad \bar P_j=(P_j^{\min}+P_j^{\max})/2.
+```
+
+The implementation converts these coefficients to W/var and uses physical
+objective divisor one. These are experimental coefficients, not imported tariffs.
+Both sums over dispatch devices are empty for original fixed-load cases. Source
+quadratics act on the **aggregate** exchange, not separately on each source
+terminal. IBR internal active-power cost includes filter losses; its quadratic
+and tracking terms use PCC power. Legacy `cost` fields do not alter these declared
+workloads. Compared with the earlier mixed-device driver, this definition adds
+source P/Q quadratic terms to cost; historical objective values are therefore
+not directly comparable and existing drivers remain unchanged.
+
+For example, after loading an input dictionary as `net`:
+
+```julia
+include("examples/ivr_transfer_specification.jl")
+S = IVRTransferSpecification
+common = IVRNLPOptions(s_base=1e5,
+    transformer_nameplate=:bmopftools, transformer_scaling=:nominal,
+    row_scaling=:composed, ground_scaling=:voltage,
+    observation_sharing=:signed, lifted_power_base=500.,
+    load_power_lifting=true)
+declaration = S.profiles(net, :exchange_tracking;
+    common, exchange_target_W=350.) # illustrative target; freeze a case-specific value
+```
+
+The declaration contains a full powers-only control and the eight combinations
+of transformer-current elimination, powers/broad lifting and zero-load
+elimination. Each arm owns its options and shares the objective and unit policy.
+An additional unlifted full reference is for representation checks. Supplied
+unrelated reductions are rejected to avoid hidden experimental factors. This
+constructor has no transformer-kind filter and does not certify applicability;
+compiler refusals must remain recorded outcomes. Explicit regional bases can be
+supplied through `common`, and must be frozen with the other settings.
+
+Manufactured tests compare both objectives with closed-form single-bus solutions,
+including a binding generator active-power limit, common-start encoding,
+full/reduced membership, physical residuals and canonical SI export round trips.
+They distinguish aggregate-source and internal/PCC accounting. These correctness
+checks are not evidence of external-network transfer or runtime improvement.
+
 Select validation cases from input features before solving, preserve failures,
 and report uncovered network classes explicitly. Supplemental manufactured
 active-limit scenarios can test a mechanism, but must retain declared parentage
