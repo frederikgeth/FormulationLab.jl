@@ -172,9 +172,16 @@ function result_dict(input::Union{AbstractDict,BMOPFInput,AbstractString,PowerIO
         if length(phases)==3
             a=cis(2pi/3)
             record["phase_to_phase"]=[_result_voltage(u[k]-u[mod1(k+1,3)]) for k in 1:3]
-            record["positive_sequence"]=_result_voltage(sum([1,a,a^2].*u)/3)
-            record["negative_sequence"]=_result_voltage(sum([1,a^2,a].*u)/3)
-            record["zero_sequence"]=_result_voltage(sum(u)/3)
+            # Match the sequence-bound convention without changing the local
+            # indexing of phase-to-phase observations above. Bus storage order
+            # alone must not swap positive and negative sequence components.
+            order=get(get(net,"terminal_conventions",Dict()),"phase",["a","b","c"])
+            length(order)==3 && allunique(order) && all(t->t in phases,order) || (order=["a","b","c"])
+            all(t->t in phases,order) || (order=phases)
+            sequence_u=[V(b,t)-vn for t in order]
+            record["positive_sequence"]=_result_voltage(sum([1,a,a^2].*sequence_u)/3)
+            record["negative_sequence"]=_result_voltage(sum([1,a^2,a].*sequence_u)/3)
+            record["zero_sequence"]=_result_voltage(sum(sequence_u)/3)
         end
         device!("bus",b,record)
     end

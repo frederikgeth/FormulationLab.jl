@@ -101,7 +101,7 @@ function physical_residuals(input,point::ACPoint;atol=(voltage=1e-5,current=1e-6
                 push!(unassessed,"bus/$b sequence limits without three phases")
             else
                 order=get(get(net,"terminal_conventions",Dict()),"phase",["a","b","c"])
-                all(t->t in tm[ph],order) && length(order)==3 || (order=["a","b","c"])
+                all(t->t in tm[ph],order) && length(order)==3 && allunique(order) || (order=["a","b","c"])
                 all(t->t in tm[ph],order) && length(order)==3 || (order=tm[ph])
                 vals=[v[findfirst(==(t),tm)]-vn for t in order];a=cis(2pi/3)
                 bounds(d,[abs((vals[1]+a*vals[2]+a^2*vals[3])/3)],"vpos_min","vpos_max","bus/$b",:voltage)

@@ -102,6 +102,7 @@ using OpenDSSDirect
     include("ivr_ibr_trace_tests.jl")
     include("ivr_constraint_inventory_tests.jl")
     include("result_export_tests.jl")
+    include("result_sequence_tests.jl")
     include("sdp_tests.jl")
     include("branch_flow_sdp_tests.jl")
     include("branch_flow_sdp_extended_tests.jl")

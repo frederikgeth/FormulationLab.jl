@@ -149,7 +149,7 @@ function _sdp_voltage_maps(net,b,terminal_rows;neutral=get(_kr_neutral_map(net),
     if length(ph)==3
         a=cis(2pi/3)
         declared=get(get(net,"terminal_conventions",Dict()),"phase",["a","b","c"])
-        if !(length(declared)==3 && all(t->t in tm[ph],declared));declared=["a","b","c"];end
+        if !(length(declared)==3 && allunique(declared) && all(t->t in tm[ph],declared));declared=["a","b","c"];end
         seq=length(declared)==3 && all(t->t in tm[ph],declared) ? [findfirst(==(t),tm[ph]) for t in declared] : collect(1:3)
         for (name,coef) in (("vpos",[1,a,a^2]),("vneg",[1,a^2,a]),("vzero",[1,1,1]))
             r=_SDPRow();for k in 1:3;_sdp_add!(r,pn[seq[k]],coef[k]/3);end

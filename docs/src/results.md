@@ -101,9 +101,23 @@ be substituted for each other when an additional shunt or bond is present.
 
 For three ordered phases and ``a=\exp(2\pi\mathrm{i}/3)``, the exported sequence
 voltages are ``u_+=(u_a+au_b+a^2u_c)/3``,
-``u_-=(u_a+a^2u_b+au_c)/3`` and ``u_0=(u_a+u_b+u_c)/3``. Phase order is the
-declared terminal order with the neutral removed; relabelling phases changes the
-sequence interpretation and must be performed consistently in the input.
+``u_-=(u_a+a^2u_b+au_c)/3`` and ``u_0=(u_a+u_b+u_c)/3``. Sequence order follows
+the operating-bound convention: use `terminal_conventions.phase` when it names
+exactly the three distinct local phases; otherwise use `a,b,c` when those names are present;
+otherwise use local terminal order with the neutral removed. A network-wide
+phase vocabulary containing additional names therefore does not override local
+`a,b,c` ordering. Merely permuting bus storage must not swap positive and
+negative sequence when a named order is available. Relabelling phases changes
+the interpretation and must be performed consistently in the input.
+Repeated phase labels do not define a three-phase order and use the same fallback.
+
+The `phase_to_phase` array separately retains local phase order, matching the
+indexing of `vpp_min`/`vpp_max`. It is not reordered to match the sequence
+convention. `test/result_sequence_tests.jl` uses independent unbalanced physical
+states with nonzero positive, negative and zero components, custom names,
+permuted storage and a displaced neutral. It checks full and reduced/lifted
+models, both SI and model rejection of tightened sequence bounds, recovered
+complex values and JSON round trips.
 
 All exact-IVR coordinate options use the same physical observation rows.
 Eliminated impedance currents, conductor currents and adjacent-chain voltages

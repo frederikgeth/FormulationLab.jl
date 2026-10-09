@@ -61,7 +61,7 @@ device, bound, topology, objective and numerical option.
 | Transformer, ground and power units | `test/ivr_transformer_scaling_tests.jl`, `test/ivr_regional_ground_scaling_tests.jl`, `test/ivr_power_base_tests.jl`, `test/ivr_base_formulation_tests.jl` | Positive coordinate changes, physical equivalence, objective normalization and complete start encoding under declared bases. |
 | Conditional reductions and updates | `test/ivr_zero_load_tests.jl`, `test/ivr_generator_updates_tests.jl`, `test/ivr_device_elimination_tests.jl` | Certificate validity, zero-voltage counterexamples, atomic update refusal, original bounds and retained observations. |
 | Emitted constraints and physical provenance | `test/ivr_constraint_inventory_tests.jl`, `test/ivr_equipment_trace_tests.jl` | Missing/stale/duplicated provenance, added constraints, inheritance, tautologies and shared declarations. |
-| Canonical physical results | `test/result_export_tests.jl` | Identical physical leaf paths and recovered values across formulations, SI units, transformer/IBR/ground observations, owned snapshots and JSON round trips. |
+| Canonical physical results | `test/result_export_tests.jl`, `test/result_sequence_tests.jl` | Identical physical leaf paths and recovered values across formulations, SI units, transformer/IBR/ground observations, sequence-bound phase order, owned snapshots and JSON round trips. |
 | Benchmark admission and metric | `test/ivr_profile_study_tests.jl` | Failed/incomplete trials cannot win, incompatible objectives prevent ranking, and Ipopt wall time is distinct from compilation or extraction. |
 | Unknown or unsupported inputs | `test/ivr_input_annotations_tests.jl` and device-specific scope tests | Retained metadata, electrical-field validation, unsupported controls and explicit refusals. |
 
@@ -97,6 +97,16 @@ comparisons; see `test/integration/README.md`. For example,
 These require the declared reference checkout and are not implied by a passing
 core suite. Keep comparator failures and differences visible; independently
 reconstructed currents are not independent measurements.
+
+The 9 October 2026 correctness checkpoint reran both optional comparisons against
+the clean BMOPFTools revision `a8b52e069bfd4a7a57434c91bc0470ac03cfdd55`.
+All four 2/3/4-wire cases pass the reference/native SI checks, physical source
+import comparison and bidirectional full/reduced membership checks (36 assertions).
+The nameplate comparison passes all 12 native combinations of active/absent cap,
+two power bases and three lifting choices, including transformer result fields
+and the BMOPFTools JSON reader (108 assertions). These are per-unit correctness
+checks, not isolated performance trials or complete transformer-family parity.
+The original result-schema reference remains documented in [physical results](results.md).
 
 Manufactured fixtures make the component and mixed-network tests reproducible
 without the external feeder collection. Larger empirical conclusions also
