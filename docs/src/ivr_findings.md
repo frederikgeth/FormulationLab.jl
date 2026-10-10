@@ -113,12 +113,25 @@ Use them for correctness checks, not for ranking formulations.
 
 ## Robustness
 
-Loads were scaled to 0.5/1.0/1.5/2.0× on 10 feeders. Most 1.5× and 2.0×
-instances are infeasible for every arm, and BMOPFTools agrees. On the 14
-feasible instances every arm except broad lifting solved everything, and
-`reduced_scaled` was fastest on all 14 under Ipopt (0.44×). Outright failures
-of unscaled models appear on the larger feeders of the scaling sweep, as
-described above.
+Loads were scaled to 0.5/1.0/1.5/2.0× on 10 feeders. Most 1.5× and 2.0× instances
+are infeasible for every arm under both solvers, and BMOPFTools agrees on the
+scaling-sweep feeders. That leaves 20 feasible instances:
+
+| Arm | Ipopt solved | Ipopt time ratio | MadNLP solved | MadNLP time ratio |
+|:---|---:|---:|---:|---:|
+| `powers` (control) | 19/20 | 1.00 | 20/20 | 1.00 |
+| `full` | 20/20 | 0.88 | 20/20 | 1.01 |
+| `powers` + zero loads | 19/20 | 1.20 | 20/20 | 0.88 |
+| `reduced` | 20/20 | 1.19 | 20/20 | 0.95 |
+| `reduced` + transformer-current elimination | 20/20 | 1.25 | 20/20 | 1.01 |
+| `reduced` + broad lifting | 15/20 | 1.74 | 20/20 | 1.62 |
+| `reduced` + all scaling | **20/20** | **0.40** | 20/20 | 0.80 |
+
+Under Ipopt the scaled model was fastest on all 20 instances. No other arm
+came within 1.5× of it on more than 15% of them (performance profile in
+`robustness_report.md`). MadNLP solved every arm everywhere.
+Its formulation differences are mostly within its noise (median 11%), except
+that broad lifting was consistently slower.
 
 ## Build cost
 
