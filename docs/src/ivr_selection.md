@@ -5,7 +5,7 @@
 Start from a named profile and the recommended Ipopt options:
 
 ```julia
-f = IVRNLP(profile=:fast, objective=:power, power_terms=terms,
+f = IVRNLP(profile=:scaled, objective=:power, power_terms=terms,
            transformer_nameplate=:bmopftools)
 result = solve_opf(net, f; optimizer=Ipopt.Optimizer,
                    solver_options=ivr_ipopt_options())
@@ -13,8 +13,8 @@ result = solve_opf(net, f; optimizer=Ipopt.Optimizer,
 
 | Profile | Enables | Use when |
 |:---|:---|:---|
-| `:fast` | power lifting, conductor regions, passive blocks, certified zero-load elimination, per-zone transformer coordinates | default for performance |
-| `:scaled` | power lifting, per-zone transformer coordinates | no structural reductions wanted, e.g. a zero load will become nonzero without rebuilding |
+| `:scaled` | power lifting, per-zone transformer coordinates | default for performance |
+| `:fast` | `:scaled` plus conductor regions, passive blocks, certified zero-load elimination | about 13% faster on the MV/LV feeders tested, slower on a 22k-bus network; benchmark first |
 | `:reference` | nothing (all `IVRNLPOptions` defaults) | correctness comparisons |
 
 The evidence, its mechanism and its limits are on the [findings](ivr_findings.md)

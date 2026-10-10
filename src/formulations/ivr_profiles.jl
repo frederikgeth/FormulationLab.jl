@@ -7,15 +7,15 @@ and refuse or fall back when their certificates do not hold.
 
 - `:reference`: the unreduced, unlifted model with global per-unit bases. Use it
   for correctness comparisons.
-- `:fast`: power lifting, conductor-region specialization, bounded passive-block
-  elimination, certified zero-load elimination and per-voltage-zone
-  (transformer-nominal) coordinates. On the 2026-10 MV/LV benchmark this was the
-  fastest and most reliable Ipopt configuration. Most of the gain comes from the
-  per-zone coordinates. See `docs/src/ivr_findings.md`.
-- `:scaled`: power lifting and per-zone coordinates without structural
-  reductions. This is a conservative choice when a reduction certificate is
-  undesirable, for example before changing an eliminated zero load to nonzero
-  demand.
+- `:scaled`: power lifting and per-voltage-zone (transformer-nominal)
+  coordinates. This is the recommended default. In the 2026-10 benchmark the
+  per-zone coordinates carried almost all of the Ipopt speedup, and this profile
+  was within 1.5x of the best arm on every instance tested.
+- `:fast`: `:scaled` plus conductor-region specialization, bounded
+  passive-block elimination and certified zero-load elimination. It was about
+  13% faster than `:scaled` on French MV/LV feeders but 2.1x slower on a 22k-bus
+  network under default Ipopt, so benchmark it on your workload before
+  preferring it. See `docs/src/ivr_findings.md`.
 """
 const IVR_PROFILES = Dict{Symbol,NamedTuple}(
     :reference => (;),

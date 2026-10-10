@@ -16,7 +16,7 @@ julia --project=examples/ivrbench examples/ivrbench/analyze.jl scaling.jsonl > s
 | `ablation` | 5 feeders, scaling-option ablation, default Ipopt and `mumps_pivtol=1e-3` |
 | `baseline` | BMOPFTools IVR-EN vs FormulationLab arms, 6 feeders × load 1.0/1.5 |
 | `validation` | packaged `:fast`/`:scaled` profiles on the 10 robustness feeders (held out from the ablation), three solver settings |
-| `large`, `large_nominal` | 22k-bus Texas pilot at 0.5× load; at nominal load Ipopt reported local infeasibility |
+| `large`, `large_nominal` | 22k-bus Texas pilot at 0.5× load, one solve per cell under default Ipopt, `mumps_pivtol=1e-3` and MadNLP; `large_nominal` is the nominal-load attempt (local infeasibility). The MadNLP and pivot-tolerance rows predate the digest fix, which affects wall clock outside the solver only |
 
 Jobs ran concurrently (single-threaded each) on a 16-core Apple-silicon
 machine; the `powers_dup` arm in each report measures the resulting noise.

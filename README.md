@@ -18,7 +18,7 @@ Implemented:
   and the [build–verify–reuse tutorial](docs/src/tutorial_exact_ivr.md).
   Optional exact P/Q/observation lifting and charged π-section block elimination
   preserve original physical limits and result observations. For performance,
-  use `IVRNLP(profile=:fast, ...)` with `solver_options=ivr_ipopt_options()`;
+  use `IVRNLP(profile=:scaled, ...)` with `solver_options=ivr_ipopt_options()`;
   see the [performance findings](docs/src/ivr_findings.md) and the
   [benchmark method](docs/src/ivr_benchmarking.md).
 - **LinIVR (experimental)**: no-load current–voltage approximation retaining

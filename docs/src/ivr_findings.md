@@ -21,23 +21,31 @@ The raw results and generated reports are in `examples/ivrbench/results/`.
    With them, it refactorizes about once.
 3. **The solver configuration matters as much as the formulation.**
    `mumps_pivtol=1e-3` alone gives 0.50×, and MadNLP (also MUMPS) on unchanged
-   models gives 0.26–0.28×. Both converge in about 20 iterations whatever the
+   models gives 0.26–0.28× on the French feeders (but not at 22k buses, see
+   below). Both converge in about 20 iterations whatever the
    formulation.
 4. **Reductions and lifting are second-order.** Once conditioning is fixed,
    conductor-region specialization, passive blocks and zero-load elimination
    save another 15–25% through smaller factors. Without fixed conditioning they
    are as likely to slow Ipopt down, and on the largest feeders they make it
    fail. Broad observation lifting was the slowest arm under every solver.
-5. **The new `:fast` profile** is power lifting, the safe reductions and
-   per-zone coordinates. On 18 held-out instances it is 0.40× the old control
-   under default Ipopt and 0.36× with `ivr_ipopt_options()`, and it was fastest
-   in 18 of 19 solvable instances.
+5. **The new `:scaled` profile** (power lifting and per-zone coordinates) is the
+   recommended default. On 18 held-out instances it is 0.46× the old control
+   under default Ipopt. On a 22k-bus network it was the fastest profile under
+   both Ipopt settings: 3.4× faster than the control under default Ipopt.
+   `:fast` adds the safe reductions. It was 13% faster than `:scaled` on the
+   French feeders (0.40×, fastest on 18 of 19) but 2.1× slower than `:scaled`
+   on the 22k-bus network.
+6. **Wrapper overhead had swamped the solver at scale.** Hashing the network for
+   result provenance took about 10 minutes per solve on the 22k-bus network,
+   against 7 s in Ipopt, and one reduction made builds quadratic. Both are fixed
+   (below).
 
 | Configuration (held-out panel, 18 instances) | Time vs old control | Median time |
 |:---|---:|---:|
 | Ipopt, `powers` (old control) | 1.00 | 694 ms |
 | Ipopt, `:reference` | 0.89 | 633 ms |
-| Ipopt, `:scaled` | 0.46 | 369 ms |
+| Ipopt, `:scaled` (recommended) | 0.46 | 369 ms |
 | Ipopt, `:fast` | 0.40 | 329 ms |
 | Ipopt + `mumps_pivtol=1e-3`, `powers` | 0.50 | 445 ms |
 | Ipopt + `mumps_pivtol=1e-3`, `:fast` | 0.36 | 311 ms |
@@ -133,21 +141,47 @@ came within 1.5× of it on more than 15% of them (performance profile in
 Its formulation differences are mostly within its noise (median 11%), except
 that broad lifting was consistently slower.
 
-## Build cost
+## A 22k-bus network
 
-Model construction is now a visible share of end-to-end time at scale. Zero-load
-elimination recomputed the network-wide neutral map for every bus, which made
-the build quadratic. That took 85% of a 995-bus build, and a reduced build of a
-22k-bus network took about 15 minutes before the fix. The map is now computed once (2.13 s → 0.40 s at 995 buses).
-Structural reductions still cost build time, so reuse builds through the update
-APIs when solving repeatedly.
+The Texas pilot (22,081 buses, 2 transformers, about 229k variables) was run at
+0.5× load with added DER. Ipopt reported local infeasibility at nominal load for
+every arm.
+
+| Profile | Default Ipopt | Ipopt, `mumps_pivtol=1e-3` | MadNLP |
+|:---|---:|---:|---:|
+| `powers` (control) | 26.8 s, 47 it, 98 factorizations | 7.3 s, 23 it | 12.0 s, 23 it |
+| `:scaled` | **8.0 s**, 20 it, 21 factorizations | **6.3 s**, 20 it | 19.8 s, 22 it |
+| `:fast` | 17.1 s, 29 it, 45 factorizations | 7.7 s, 20 it | 14.6 s, 22 it |
+
+The conditioning mechanism appears again: under default Ipopt the control
+refactorizes about twice per iteration and the scaled model about once. Here the
+structural reductions in `:fast` *cost* factorizations. At this size, Ipopt with
+the pivot tolerance was faster than MadNLP. MadNLP's advantage on the French
+feeders therefore does not carry over to every network or size. These are single
+solves per cell.
+
+## End-to-end overhead
+
+At scale, the solver was not the bottleneck:
+
+- **Network digest.** Every solve hashes a canonical JSON of the network for
+  result provenance. SHA.jl hashed the String through a slow `CodeUnits` path:
+  4.35 s at 995 buses (three times the Ipopt solve) and about 570 s at 22k buses
+  (75 times the solve). Hashing the bytes gives the same digest in 7 ms.
+- **Quadratic build.** Zero-load elimination recomputed the network-wide neutral
+  map for every bus: 85% of a 995-bus build, and about 15 minutes for a reduced
+  build at 22k buses. Computing it once gives 0.40 s and 79 s respectively.
+
+Both fixes are committed and the full test suite passes. Build time for the
+22k-bus network is now about 75 s for every profile. That is still ten times
+the solve, so reuse builds through the update APIs when solving repeatedly.
 
 ## What this does not show
 
-- **One network family.** All timed feeders are French MV/LV networks with
-  ordinary transformers. SAPN networks are refused by the compiler (bus field
-  `grounding_assumption`). On the 22k-bus Texas pilot, Ipopt reported local
-  infeasibility at nominal load.
+- **Mostly one network family.** All but one timed network are French MV/LV
+  feeders with ordinary transformers. The 22k-bus Texas pilot was run once per
+  cell. SAPN networks are refused by the compiler (bus field
+  `grounding_assumption`).
 - **No licensed HSL, no GPU.** Rankings may change with MA27/MA57/MA86, and
   MadNLP's GPU path (condensed KKT, cuDSS) was not tested.
 - **MadNLP timing is noisy** (median noise 7–10%, occasional outliers to 76%).
@@ -159,8 +193,8 @@ APIs when solving repeatedly.
 
 ## Recommendations
 
-1. Use `IVRNLP(profile=:fast, ...)` with `solver_options=ivr_ipopt_options()`.
-   Use `:scaled` when structural reductions are unwanted.
+1. Use `IVRNLP(profile=:scaled, ...)` with `solver_options=ivr_ipopt_options()`.
+   Try `:fast` on MV/LV workloads like the French feeders, and benchmark it first.
 2. Make per-zone coordinates (`transformer_scaling=:nominal`) the default.
    It is a pure change of variables, and it is the one choice that matters.
 3. Evaluate MadNLP as the primary solver. An ExaModels backend is the logical
