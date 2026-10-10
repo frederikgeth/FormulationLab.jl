@@ -1,0 +1,160 @@
+# Exact-IVR performance findings
+
+This page summarizes what makes the exact current–voltage OPF fast and reliable
+under Ipopt-like interior-point solvers. It reports the October 2026 benchmark.
+The [benchmarking method](ivr_benchmarking.md) page describes how it was run.
+The raw results and generated reports are in `examples/ivrbench/results/`.
+
+## Summary
+
+1. **Ipopt's time is (number of KKT factorizations) × (factor size).** A
+   log-linear fit over 97 (instance, arm) cells gives
+   ``T \propto N_{\mathrm{fact}}^{0.95} \cdot \mathrm{fill}^{1.03}`` with
+   ``R^2 = 0.994``. Derivative evaluation is 3–5% of Ipopt's time, and the
+   primal-dual solve is 80–95%. A formulation helps only if it reduces the
+   number of factorizations or the fill.
+2. **Per-voltage-zone coordinates are the formulation choice that matters.**
+   `transformer_scaling=:nominal` alone cuts Ipopt time to 0.43× and iterations
+   to 0.68× of the power-lifted control. Composed rows and ground scaling add
+   nothing. Without per-zone coordinates, a single base spans 20 kV and 400 V,
+   MUMPS meets tiny pivots, and Ipopt refactorizes about twice per iteration.
+   With them, it refactorizes about once.
+3. **The solver configuration matters as much as the formulation.**
+   `mumps_pivtol=1e-3` alone gives 0.50×, and MadNLP (also MUMPS) on unchanged
+   models gives 0.26–0.28×. Both converge in about 20 iterations whatever the
+   formulation.
+4. **Reductions and lifting are second-order.** Once conditioning is fixed,
+   conductor-region specialization, passive blocks and zero-load elimination
+   save another 15–25% through smaller factors. Without fixed conditioning they
+   are as likely to slow Ipopt down, and on the largest feeders they make it
+   fail. Broad observation lifting was the slowest arm under every solver.
+5. **The new `:fast` profile** is power lifting, the safe reductions and
+   per-zone coordinates. On 18 held-out instances it is 0.40× the old control
+   under default Ipopt and 0.36× with `ivr_ipopt_options()`, and it was fastest
+   in 18 of 19 solvable instances.
+
+| Configuration (held-out panel, 18 instances) | Time vs old control | Median time |
+|:---|---:|---:|
+| Ipopt, `powers` (old control) | 1.00 | 694 ms |
+| Ipopt, `:reference` | 0.89 | 633 ms |
+| Ipopt, `:scaled` | 0.46 | 369 ms |
+| Ipopt, `:fast` | 0.40 | 329 ms |
+| Ipopt + `mumps_pivtol=1e-3`, `powers` | 0.50 | 445 ms |
+| Ipopt + `mumps_pivtol=1e-3`, `:fast` | 0.36 | 311 ms |
+| MadNLP, `powers` | 0.28 | 231 ms |
+| MadNLP, `:fast` | 0.26 | 220 ms |
+
+## Mechanism: conditioning, not size
+
+The scaling ablation (5 feeders, 110–995 buses) varied one coordinate choice at
+a time on top of the reduced model.
+
+| Arm | Default Ipopt | Ipopt, `mumps_pivtol=1e-3` |
+|:---|---:|---:|
+| `powers` (control) | 1.00 | 1.00 |
+| `reduced` (no scaling) | 1.11 | 0.84 |
+| `reduced` + ground scaling | 1.11 | 0.82 |
+| `reduced` + composed rows | 0.95 | 0.82 |
+| `reduced` + transformer coordinates | **0.43** | **0.73** |
+| `reduced` + all three | 0.46 | 0.78 |
+| `powers` + all three (no reductions) | 0.50 | 0.95 |
+
+Values are geometric-mean ratios of median Ipopt time. The noise floor (the
+identical-model duplicate arm) was at most 2.7%.
+
+Transformer coordinates carry the whole effect, with or without reductions.
+Raising the MUMPS pivot tolerance removes most of the penalty of poor scaling,
+and all arms then converge in about 21 iterations. That is the signature of a
+conditioning problem: with the default threshold of `1e-6`, Ipopt keeps raising
+the pivot tolerance and refactorizing. On the 498-bus feeder, `powers` needed
+92 factorizations for 47 iterations, while the scaled model needed 31 for 25.
+
+The repository's earlier refinement, residual-precision and pivot-threshold
+studies were circling the same effect. Its earlier observation that a 1e-3
+pivot threshold cuts linear solves from 118 to 67 is the same mechanism seen
+from the solver side.
+
+## Scale and failures
+
+The 6-feeder scaling sweep runs from 110 to 1,583 buses, with priced DER at
+every fifth load. The results:
+
+- **Time ratio.** Per-zone coordinates were 0.42× under Ipopt, and the gap
+  widens with size. At 995 buses, `full` took 11.8 s (82 iterations) while
+  `reduced_scaled` took 1.35 s (20 iterations).
+- **Failures.** At 995 and 1,583 buses, several unscaled arms stopped at
+  `ALMOST_LOCALLY_SOLVED` or worse in every repetition. These include
+  `powers` at 995 buses and all unscaled reduced arms at 1,583. The scaled
+  model solved every instance.
+- **MadNLP.** It solved every arm at every size. At 1,583 buses most
+  formulations took 1.4–1.5 s; broad lifting and zero-load elimination alone
+  were slower.
+- **Iterations.** For `full`, Ipopt's iteration count grew from 20 at 110 buses
+  to 82 at 995 buses. The scaled model stayed at 20.
+
+## External baseline
+
+BMOPFTools' independent IVR-EN implementation (PowerModelsDistribution
+convention, per-unit, same Ipopt settings) ran at 0.86× the `powers` control
+and was faster than FormulationLab's `:reference` model. The scaled reduced
+model was 0.43×, between 1.35× and 3.4× faster than BMOPFTools. At 1,583 buses
+it took 2.2 s, against 7.5 s for BMOPFTools and 15.5 s for `:reference`.
+Before this work, FormulationLab's default exact IVR model was slower than an
+existing implementation.
+
+## Historical strict settings
+
+The campaign settings (`tol=constr_viol_tol=1e-10`, `bound_relax_factor=0`, no
+acceptable exit) leave the main conclusion unchanged: `reduced_scaled` ran at
+0.37×. They do reorder the unscaled arms (`full` beat `powers`, for example),
+which shows how fragile the earlier single-digit rankings were. Strict
+tolerances shrink the objective spread between arms from about 1e-4 to 1e-9.
+Use them for correctness checks, not for ranking formulations.
+
+## Robustness
+
+Loads were scaled to 0.5/1.0/1.5/2.0× on 10 feeders. Most 1.5× and 2.0×
+instances are infeasible for every arm, and BMOPFTools agrees. On the 14
+feasible instances every arm except broad lifting solved everything, and
+`reduced_scaled` was fastest on all 14 under Ipopt (0.44×). Outright failures
+of unscaled models appear on the larger feeders of the scaling sweep, as
+described above.
+
+## Build cost
+
+Model construction is now a visible share of end-to-end time at scale. Zero-load
+elimination recomputed the network-wide neutral map for every bus, which made
+the build quadratic. That took 85% of a 995-bus build, and a reduced build of a
+22k-bus network took about 15 minutes before the fix. The map is now computed once (2.13 s → 0.40 s at 995 buses).
+Structural reductions still cost build time, so reuse builds through the update
+APIs when solving repeatedly.
+
+## What this does not show
+
+- **One network family.** All timed feeders are French MV/LV networks with
+  ordinary transformers. SAPN networks are refused by the compiler (bus field
+  `grounding_assumption`). On the 22k-bus Texas pilot, Ipopt reported local
+  infeasibility at nominal load.
+- **No licensed HSL, no GPU.** Rankings may change with MA27/MA57/MA86, and
+  MadNLP's GPU path (condensed KKT, cuDSS) was not tested.
+- **MadNLP timing is noisy** (median noise 7–10%, occasional outliers to 76%).
+  Its formulation differences are mostly within that noise.
+- **One objective.** All instances use linear prices on source import and DER.
+  The power-objective workloads of the earlier campaigns were not rerun.
+- **Local solutions.** Arms can reach slightly different objectives at default
+  tolerances (relative spread up to about 2e-4). No arm was rejected for that.
+
+## Recommendations
+
+1. Use `IVRNLP(profile=:fast, ...)` with `solver_options=ivr_ipopt_options()`.
+   Use `:scaled` when structural reductions are unwanted.
+2. Make per-zone coordinates (`transformer_scaling=:nominal`) the default.
+   It is a pure change of variables, and it is the one choice that matters.
+3. Evaluate MadNLP as the primary solver. An ExaModels backend is the logical
+   next step, now that function evaluation is shown to be cheap and the KKT
+   solve dominates.
+4. Retire options whose effect is below the noise floor or negative
+   (`bounded_observations` lifting, ground scaling, composed rows, the
+   separate power-unit bases), or keep them only behind explicit opt-in.
+5. Benchmark further changes against this harness on larger, more varied
+   networks, starting with closing the SAPN schema gap.

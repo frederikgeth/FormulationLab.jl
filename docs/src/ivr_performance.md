@@ -1,5 +1,11 @@
 # Best-evidence exact-IVR profiles
 
+!!! note "Superseded"
+    This page records the September–October 2026 timing campaigns. Their
+    recommendations are superseded by the [performance findings](ivr_findings.md),
+    which use near-default solver settings, larger feeders, a second solver and a
+    measured noise floor. The records below remain accurate for their settings.
+
 For a compact decision procedure and executable full/reduced comparison, start
 with [selecting an exact-IVR profile](ivr_selection.md). This page retains the
 detailed, workload-specific evidence behind those choices.
