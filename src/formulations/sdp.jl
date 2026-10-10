@@ -239,7 +239,8 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
     # Exact zero upper bounds expose a face of the PSD cone. Eliminate the
     # corresponding linear state maps before lifting, including sequence maps.
     face_rows=0
-    for (bus,_) in net["bus"], rows in values(_sdp_voltage_maps(net,bus,terminal_rows)), row in rows
+    neutral_map=_kr_neutral_map(net)
+    for (bus,_) in net["bus"], rows in values(_sdp_voltage_maps(net,bus,terminal_rows;neutral=get(neutral_map,bus,nothing))), row in rows
         _,hi=voltage_range(row)
         if iszero(hi) && !isempty(row)
             push!(equations,copy(row));face_rows+=1
@@ -302,7 +303,8 @@ function build_sdp_opf(input, optimizer=default_sdp_optimizer(); options::SDPOpt
         for (v,i,_) in limits,k in eachindex(v)
             push!(supports,union(collect(keys(v[k])),collect(keys(i[k]))))
         end
-        for (bus,_) in net["bus"], rows in values(_sdp_voltage_maps(net,bus,terminal_rows)),row in rows
+        neutral_map=_kr_neutral_map(net)
+        for (bus,_) in net["bus"], rows in values(_sdp_voltage_maps(net,bus,terminal_rows;neutral=get(neutral_map,bus,nothing))),row in rows
             push!(supports,collect(keys(row)))
         end
         for spec in options.voltage_lncs

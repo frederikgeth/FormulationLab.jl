@@ -35,9 +35,10 @@ function _sdp_bound_profile(net,terminal_rows,fixed,equations,devices,limits,n,v
         end
     end
     for (i,value) in fixed;seed(_sdp_e(i),abs(value),abs(value),"fixed source");end
+    neutral_map=_kr_neutral_map(net)
     for (bus,_) in sort!(collect(net["bus"]);by=first)
         d=net["bus"][bus]
-        for (prefix,rows) in sort!(collect(_sdp_voltage_maps(net,bus,terminal_rows));by=first)
+        for (prefix,rows) in sort!(collect(_sdp_voltage_maps(net,bus,terminal_rows;neutral=get(neutral_map,bus,nothing)));by=first)
             for row in rows;register(row,"bus/$bus/$prefix");end
             fields=startswith(prefix,"v_") ? (prefix,) : (prefix*"_min",prefix*"_max")
             for field in fields
