@@ -1,7 +1,7 @@
 function _l3f_reference_hash(voltage)
     records = ["$(bus)\0$(terminal)\0$(repr(real(value)))\0$(repr(imag(value)))"
                for ((bus, terminal), value) in sort!(collect(voltage); by=first)]
-    bytes2hex(SHA.sha256(join(records, "\n")))
+    bytes2hex(SHA.sha256(Vector{UInt8}(join(records, "\n"))))
 end
 
 function _l3f_explicit_reference(reference)
