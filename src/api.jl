@@ -1,11 +1,17 @@
 """An electrical formulation, independent of the optimizer used to solve it."""
 abstract type AbstractFormulation end
 
-"""Exact static current-voltage model; nonlinear solves may be only local."""
+"""Exact static current-voltage model; nonlinear solves may be only local.
+
+`IVRNLP(profile=:fast; kwargs...)` starts from a named option set (see
+`IVR_PROFILES`); explicit keywords override it. Without `profile`, every option
+takes its `IVRNLPOptions` default, which is the `:reference` model.
+"""
 struct IVRNLP <: AbstractFormulation
     options::IVRNLPOptions
 end
-IVRNLP(;kwargs...)=IVRNLP(IVRNLPOptions(;kwargs...))
+IVRNLP(;profile::Union{Nothing,Symbol}=nothing,kwargs...)=
+    IVRNLP(profile===nothing ? IVRNLPOptions(;kwargs...) : _ivr_profile_options(profile;kwargs...))
 formulation_kind(::IVRNLP)=:exact
 build_opf(input,f::IVRNLP;optimizer=nothing,kwargs...)=
     build_ivr_nlp_opf(input,optimizer;options=f.options,kwargs...)

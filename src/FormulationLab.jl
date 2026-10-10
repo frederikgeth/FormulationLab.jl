@@ -69,6 +69,7 @@ include("formulations/ivr_loads.jl")
 include("formulations/ivr_objectives.jl")
 include("compilation/ivr_fixed_bounds.jl")
 include("formulations/ivr_nlp.jl")
+include("formulations/ivr_profiles.jl")
 include("api.jl")
 include("validation/containment.jl")
 include("validation/physical.jl")
@@ -95,7 +96,8 @@ export AbstractFormulation, LinDist3Flow, IVRSDP, BranchFlowSDP,
 export LinIVR, LinIVROptions, LinIVRBuild, LinIVRResult, LinIVRInapplicableError,
        build_linivr_opf, solve_linivr_opf
 export IVRNLP, IVRNLPOptions, IVRNLPBuild, IVRNLPResult, IVRNLPInapplicableError, IVRPowerTerm,
-       build_ivr_nlp_opf, solve_ivr_nlp_opf, update_ivr_loads!, update_ivr_generators!, ivr_nlp_point_report
+       build_ivr_nlp_opf, solve_ivr_nlp_opf, update_ivr_loads!, update_ivr_generators!, ivr_nlp_point_report,
+       IVR_PROFILES, ivr_ipopt_options
 export SDPOptions, SDPBuild, SDPResult, SDPInapplicableError, build_sdp_opf, solve_sdp_opf
 export BMOPFInput, read_bmopf, SolveStatus, solve_status, solve_diagnostics
 export kron_reduce_bmopf, reduce_bmopf_neutrals, kron_reduce_neutrals

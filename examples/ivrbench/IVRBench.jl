@@ -19,11 +19,16 @@ using FormulationLab, JuMP, Ipopt, JSON3, LinearAlgebra, Statistics
 
 const PROVENANCE_KEYS = ("_pmd", "_simplification_log", "_merged_from")
 
-"""Read a BMOPF JSON file into the compiler's input dictionary."""
+"""Read a BMOPF JSON file into the compiler's input dictionary.
+
+Provenance annotations and component-level `meta` records are dropped; they
+carry no electrical data but the compiler refuses unknown fields.
+"""
 function load_case(path)
     net = FormulationLab._l3f_input(JSON3.read(read(path, String), Dict{String,Any}))
-    strip!(x) = x isa AbstractDict ? (foreach(k -> k in PROVENANCE_KEYS ? delete!(x, k) : strip!(x[k]), collect(keys(x))); x) : x
-    strip!(net)
+    strip!(x, depth) = x isa AbstractDict ? (foreach(k -> (k in PROVENANCE_KEYS || (k == "meta" && depth >= 2)) ?
+        delete!(x, k) : strip!(x[k], depth + 1), collect(keys(x))); x) : x
+    strip!(net, 0)
 end
 
 """Copy `net`, scale load P/Q by `load_factor` and add priced DER generators.
