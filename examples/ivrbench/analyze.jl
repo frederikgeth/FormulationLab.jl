@@ -169,6 +169,7 @@ function cost_model(io, cells, diagcells)
     fits = (("iterations only", hcat(ones(length(rows)), log.([r.it for r in rows]))),
             ("factor size only", hcat(ones(length(rows)), log.([r.factor for r in rows]))),
             ("iterations + factor size", hcat(ones(length(rows)), log.([r.it for r in rows]), log.([r.factor for r in rows]))),
+            ("factorizations + factor size", hcat(ones(length(rows)), log.([max(1, r.nfac) for r in rows]), log.([r.factor for r in rows]))),
             ("iterations + factor size + derivative nnz", hcat(ones(length(rows)), log.([r.it for r in rows]), log.([r.factor for r in rows]), log.([r.nnz for r in rows]))))
     println(io, "### Cost model\n")
     println(io, "Least squares on log median solve time over $(length(rows)) (instance, arm) cells.\n")
