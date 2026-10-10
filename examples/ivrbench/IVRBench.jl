@@ -154,6 +154,8 @@ function trial(net, arm, solver; logfile=nothing, level=5)
     row
 end
 
+const WARMED = Set{String}()
+
 """Run every arm × solver on one instance, appending JSON lines to `out`.
 
 Arm order rotates across repetitions so drift does not favour one arm.
@@ -161,6 +163,8 @@ Arm order rotates across repetitions so drift does not favour one arm.
 function run_instance(out, net, meta; arms=DEFAULT_ARMS, solvers=["ipopt"], reps=5, workdir=mktempdir())
     emit(row) = open(io -> (JSON3.write(io, merge(row, meta)); println(io)), out, "a")
     for solver in solvers
+        # Untimed compile warm-up, so no recorded diagnostic includes JIT time.
+        solver in WARMED || (trial(net, first(arms), solver); push!(WARMED, solver))
         # Diagnostic solve per arm: also serves as compile warm-up.
         for arm in arms
             log = startswith(solver, "ipopt") ? joinpath(workdir, "diag_$(arm).log") : nothing
