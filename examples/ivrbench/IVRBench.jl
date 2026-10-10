@@ -56,6 +56,7 @@ function instance(net; load_factor=1.0, der_every=5, source_price=0.25, der_pric
 end
 
 const COMMON = (objective=:cost, s_base=1e5, transformer_nameplate=:bmopftools)
+const SCALED = (transformer_scaling=:nominal, row_scaling=:composed, ground_scaling=:voltage)
 const REDUCED = (specialization=:conductor_regions, linear_elimination=:passive_blocks,
                  lifting=:powers, zero_load_elimination=true)
 
@@ -68,8 +69,14 @@ const ARMS = Dict{String,NamedTuple}(
     "reduced" => REDUCED,
     "reduced_broad" => merge(REDUCED, (lifting=:bounded_observations,)),
     "reduced_txelim" => merge(REDUCED, (device_elimination=:transformer_currents,)),
-    "reduced_scaled" => merge(REDUCED, (transformer_scaling=:nominal, row_scaling=:composed,
-                                        ground_scaling=:voltage)),
+    "reduced_scaled" => merge(REDUCED, SCALED),
+    # Scaling ablations: which coordinate choice carries the effect?
+    "full_scaled" => SCALED,
+    "powers_scaled" => merge((lifting=:powers,), SCALED),
+    "reduced_tscale" => merge(REDUCED, (transformer_scaling=:nominal,)),
+    "reduced_rscale" => merge(REDUCED, (row_scaling=:composed,)),
+    "reduced_gscale" => merge(REDUCED, (ground_scaling=:voltage,)),
+    "reduced_tr" => merge(REDUCED, (transformer_scaling=:nominal, row_scaling=:composed)),
 )
 const DEFAULT_ARMS = ["full", "powers", "powers_dup", "powers_zero", "reduced",
                       "reduced_broad", "reduced_txelim", "reduced_scaled"]
@@ -82,6 +89,8 @@ const SOLVERS = Dict{String,NamedTuple}(
     "ipopt_strict" => (print_level=0, tol=1e-10, constr_viol_tol=1e-10, acceptable_iter=0,
                        bound_relax_factor=0.0, max_iter=3000, max_wall_time=600.0),
     "madnlp" => (max_iter=3000, max_wall_time=600.0),
+    # Mechanism check: larger initial MUMPS pivot tolerance avoids pivot retries.
+    "ipopt_pivtol" => (print_level=0, max_iter=3000, max_wall_time=600.0, mumps_pivtol=1e-3),
 )
 
 function optimizer(solver)
