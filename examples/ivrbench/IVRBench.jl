@@ -82,6 +82,9 @@ const ARMS = Dict{String,NamedTuple}(
     "reduced_rscale" => merge(REDUCED, (row_scaling=:composed,)),
     "reduced_gscale" => merge(REDUCED, (ground_scaling=:voltage,)),
     "reduced_tr" => merge(REDUCED, (transformer_scaling=:nominal, row_scaling=:composed)),
+    # The packaged profiles, exactly as users get them.
+    "profile_fast" => FormulationLab.IVR_PROFILES[:fast],
+    "profile_scaled" => FormulationLab.IVR_PROFILES[:scaled],
 )
 const DEFAULT_ARMS = ["full", "powers", "powers_dup", "powers_zero", "reduced",
                       "reduced_broad", "reduced_txelim", "reduced_scaled"]
