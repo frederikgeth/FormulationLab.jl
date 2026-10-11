@@ -11,7 +11,9 @@ _result_canonical(x::AbstractVector)="["*join(_result_canonical.(x),",")*"]"
 # large integer annotations through Float64 or conflating booleans with numbers.
 _result_canonical(x::AbstractFloat)=isfinite(x) && isinteger(x) ? string(BigInt(x)) : JSON3.write(x;allow_inf=true)
 _result_canonical(x)=JSON3.write(x;allow_inf=true)
-_result_digest(net)=bytes2hex(SHA.sha256(_result_canonical(net)))
+# Hash bytes, not the String: SHA.jl's CodeUnits path is ~600x slower and made
+# every exact-IVR solve on a 22k-bus network spend ~10 minutes here.
+_result_digest(net)=bytes2hex(SHA.sha256(Vector{UInt8}(_result_canonical(net))))
 _result_voltage(v)=Dict{String,Any}("vr"=>real(v),"vi"=>imag(v),"vm"=>abs(v),"va"=>angle(v))
 _result_current(i)=Dict{String,Any}("cr"=>real(i),"ci"=>imag(i),"cm"=>abs(i))
 _result_ground(i)=Dict{String,Any}("cg_r"=>real(i),"cg_i"=>imag(i),"cgm"=>abs(i))

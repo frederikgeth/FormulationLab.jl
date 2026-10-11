@@ -167,8 +167,9 @@ function _sdp_voltage_maps(net,b,terminal_rows;neutral=get(_kr_neutral_map(net),
     maps
 end
 function _sdp_bus_limits!(model,net,terminal_rows,lift,vb;fixed=Dict())
+    neutral_map=_kr_neutral_map(net)
     for (b,d) in net["bus"]
-        maps=_sdp_voltage_maps(net,b,terminal_rows)
+        maps=_sdp_voltage_maps(net,b,terminal_rows;neutral=get(neutral_map,b,nothing))
         if haskey(model.ext,:soc_policy) && model.ext[:soc_policy].physical
             for rows in values(maps), r in rows
                 @constraint(model,real(lift(r,r))>=0)

@@ -104,8 +104,10 @@ include("../examples/benchmark_ivr_power_finalists.jl")
     ps=G.profiles(net,:quadratic_cost)
     @test length(ps)==10 && allunique(p.name for p in ps)
     by=Dict(p.name=>p for p in ps)
+    # Equal dictionaries can serialize keys in different orders; sort them first.
+    canonical(x)=x isa AbstractDict ? sort!(collect(x);by=first) : x
     changed(a,b)=[k for k in fieldnames(IVRNLPOptions) if
-        G.JSON3.write(getfield(a.options,k))!=G.JSON3.write(getfield(b.options,k))]
+        G.JSON3.write(canonical(getfield(a.options,k)))!=G.JSON3.write(canonical(getfield(b.options,k)))]
     @test changed(by["reduced_lifts_1k"],by["reduced_lifts_10k"])==[:lifted_power_base]
     @test changed(by["reduced_lifts_100k"],by["reduced_lifts_10k"])==[:lifted_power_base]
     @test changed(by["reduced_reuse"],by["reduced_lifts_10k"])==[:power_sharing]

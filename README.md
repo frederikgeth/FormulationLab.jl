@@ -17,8 +17,10 @@ Implemented:
   solves carry no global optimality guarantee. See [exact IVR](docs/src/ivr_nlp.md), its [equations](docs/src/ivr_theory.md)
   and the [build–verify–reuse tutorial](docs/src/tutorial_exact_ivr.md).
   Optional exact P/Q/observation lifting and charged π-section block elimination
-  preserve original physical limits and result observations; their performance
-  remains workload dependent.
+  preserve original physical limits and result observations. For performance,
+  use `IVRNLP(profile=:scaled, ...)` with `solver_options=ivr_ipopt_options()`;
+  see the [performance findings](docs/src/ivr_findings.md) and the
+  [benchmark method](docs/src/ivr_benchmarking.md).
 - **LinIVR (experimental)**: no-load current–voltage approximation retaining
   explicit neutrals and power decision variables, without Kron reduction or a
   loaded starting point. Includes SOC physical limits, optional quadratic

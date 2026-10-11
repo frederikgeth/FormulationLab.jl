@@ -1,5 +1,37 @@
 # Selecting an exact-IVR formulation
 
+## Current recommendation (October 2026)
+
+Start from a named profile and the recommended Ipopt options:
+
+```julia
+f = IVRNLP(profile=:scaled, objective=:power, power_terms=terms,
+           transformer_nameplate=:bmopftools)
+result = solve_opf(net, f; optimizer=Ipopt.Optimizer,
+                   solver_options=ivr_ipopt_options())
+```
+
+| Profile | Enables | Use when |
+|:---|:---|:---|
+| `:scaled` | power lifting, per-zone transformer coordinates | default for performance |
+| `:fast` | `:scaled` plus conductor regions, passive blocks, certified zero-load elimination | about 13% faster on the MV/LV feeders tested, slower on a 22k-bus network; benchmark first |
+| `:reference` | nothing (all `IVRNLPOptions` defaults) | correctness comparisons |
+
+The evidence, its mechanism and its limits are on the [findings](ivr_findings.md)
+page. In brief:
+
+- per-voltage-zone coordinates (`transformer_scaling=:nominal`) are the formulation
+  choice that matters for Ipopt;
+- `mumps_pivtol=1e-3` removes most of the remaining penalty of poor scaling;
+- the solver matters more than any formulation choice (MadNLP was 2–4× faster
+  than Ipopt on the same models).
+
+The rest of this page is the earlier, campaign-era decision procedure. It is kept
+for its correctness and validation guidance; its performance statements are
+superseded by the findings page.
+
+## Campaign-era guidance (archived)
+
 This page gives a decision procedure for a new workload. The
 [performance guide](ivr_performance.md) retains detailed numerical evidence;
 the [scope contract](ivr_nlp.md) and [equivalence arguments](ivr_theory.md)

@@ -121,8 +121,9 @@ function _linivr_norm_limit!(model,z,bound)
 end
 
 function _linivr_bus_limits!(model,net,e,z,z0)
+    neutral_map=_kr_neutral_map(net)
     for (b,d) in net["bus"]
-        maps=_sdp_voltage_maps(net,b,e.terminal_rows)
+        maps=_sdp_voltage_maps(net,b,e.terminal_rows;neutral=get(neutral_map,b,nothing))
         for key in ("v_min","v_max","vpn_min","vpn_max","vpp_min","vpp_max",
                     "vn_max","vpos_min","vpos_max","vneg_max","vzero_max")
             haskey(d,key) || continue

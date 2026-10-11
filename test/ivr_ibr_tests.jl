@@ -27,7 +27,10 @@ function _ibr_state(m;reverse=false)
     net,ACPoint(voltage=volts,currents=currents),sp,si
 end
 _ibr_audit(net,p)=physical_residuals(net,p;delta_dispatch=:coil,ibr_delta_dispatch=:conductor)
-_ibr_solve(b)=solve_ivr_nlp_opf(b;solver_options=(print_level=0,tol=1e-11,constr_viol_tol=1e-11,bound_relax_factor=0.))
+isdefined(@__MODULE__,:strict_solve) || include("strict_solve.jl")
+# tol=1e-11 sat at the limit of double precision for these cases: one solve ended
+# at ALMOST_LOCALLY_SOLVED on x86-64 Linux while passing on macOS.
+_ibr_solve(b)=strict_solve(b,(print_level=0,tol=1e-10,constr_viol_tol=1e-10,bound_relax_factor=0.))
 
 @testset "Power objectives retain IBR internal and PCC conventions" begin
     for m in (2,3,4),sb in (1e3,1e5),lifting in (:off,:powers)

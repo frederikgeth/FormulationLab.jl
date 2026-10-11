@@ -3,6 +3,7 @@ using Test,FormulationLab,JuMP,Ipopt,JSON3
 include("../examples/benchmark_ivr_joint_boundaries.jl")
 const J=IVRJointBoundaryStudy
 const L=J.L
+include("strict_solve.jl")
 violations(r)=Set(x.label for x in r.records if x.residual>getproperty(r.tolerances,x.unit))
 
 @testset "Declared joint-boundary interventions and reporting" begin
@@ -51,7 +52,7 @@ end
                 enc=ivr_nlp_point_report(b,start)
                 @test isempty(enc.missing_channels) && length(enc.variable_values)==num_variables(b.model)
                 for (v,x) in enc.variable_values;set_start_value(v,x);end
-                r=solve_ivr_nlp_opf(b;solver_options=merge(L.P.STRICT,profile.solver_options))
+                r=strict_solve(b,merge(L.P.STRICT,profile.solver_options))
                 @test r.solve.optimal && physical_residuals(net,r).passed
                 point=ACPoint(voltage=r.voltage_candidate,currents=r.current_candidate)
                 @test ivr_nlp_point_report(ref,point).passed && ivr_nlp_point_report(b,point).passed

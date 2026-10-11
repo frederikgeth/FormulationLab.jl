@@ -21,6 +21,7 @@ using OpenDSSDirect
     include("ivr_timing_worker_tests.jl")
     include("ivr_ground_scaling_tests.jl")
     include("ivr_transformer_scaling_tests.jl")
+    include("ivr_profile_tests.jl")
     include("ivr_transformer_scaling_study_tests.jl")
     include("ivr_transformer_stress_tests.jl")
     include("ivr_regional_ground_scaling_tests.jl")

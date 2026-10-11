@@ -106,8 +106,9 @@ end
 
 function _sdp_voltage_ranges(net,terminal_rows,fixed)
     ranges=Dict{Tuple,Tuple{Float64,Float64}}()
+    neutral_map=_kr_neutral_map(net) # once, not per bus: the map is network-wide
     for (bus,d) in net["bus"]
-        for (prefix,rows) in _sdp_voltage_maps(net,bus,terminal_rows)
+        for (prefix,rows) in _sdp_voltage_maps(net,bus,terminal_rows;neutral=get(neutral_map,bus,nothing))
             fields=startswith(prefix,"v_") ? (prefix,) : (prefix*"_min",prefix*"_max")
             for field in fields
                 haskey(d,field) || continue

@@ -3,6 +3,7 @@ using Test,FormulationLab,JuMP,Ipopt,JSON3
 include("../examples/benchmark_ivr_joint_boundaries.jl")
 const J=IVRJointBoundaryStudy
 const F=FormulationLab
+include("strict_solve.jl")
 
 @testset "Exact coincident voltage-row selection" begin
     for family in ("v","vpn","vpp","vpos"),lifting in (:off,:bounded_observations),
@@ -46,7 +47,7 @@ end
             b=build_opf(net,IVRNLP(opts);optimizer=Ipopt.Optimizer)
             start=ivr_nlp_point_report(b,J.L.M.E.S.U.G.H.S.L.start_point(net))
             for (v,x) in start.variable_values;set_start_value(v,x);end
-            r=solve_ivr_nlp_opf(b;solver_options=merge(J.L.P.STRICT,p.solver_options))
+            r=strict_solve(b,merge(J.L.P.STRICT,p.solver_options))
             @test r.solve.optimal && physical_residuals(net,r).passed
             point=ACPoint(voltage=r.voltage_candidate,currents=r.current_candidate)
             @test ivr_nlp_point_report(full,point).passed && ivr_nlp_point_report(b,point).passed
