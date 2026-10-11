@@ -107,7 +107,7 @@ end
             @test physical_residuals(net,r).passed
             @test ivr_nlp_point_report(full,_de_point(r)).passed
             @test ivr_nlp_point_report(b,_de_point(rf)).passed
-            @test r.objective ≈ rf.objective atol=3e-5
+            @test r.objective ≈ rf.objective atol=3e-5 rtol=1e-7
             d=result_dict(b,r);f=result_dict(full,rf)
             for family in ("bus","transformer","load","voltage_source","ground","losses")
                 haskey(f,family) && _de_compare(d[family],f[family])

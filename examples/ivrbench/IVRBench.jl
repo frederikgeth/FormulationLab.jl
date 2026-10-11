@@ -60,7 +60,9 @@ function instance(net; load_factor=1.0, der_every=5, source_price=0.25, der_pric
     x
 end
 
-const COMMON = (objective=:cost, s_base=1e5, transformer_nameplate=:bmopftools)
+# Arms name every coordinate choice explicitly; unscaled arms stay unscaled even
+# though IVRNLPOptions now defaults to per-zone coordinates.
+const COMMON = (objective=:cost, s_base=1e5, transformer_nameplate=:bmopftools, transformer_scaling=:off)
 const SCALED = (transformer_scaling=:nominal, row_scaling=:composed, ground_scaling=:voltage)
 const REDUCED = (specialization=:conductor_regions, linear_elimination=:passive_blocks,
                  lifting=:powers, zero_load_elimination=true)

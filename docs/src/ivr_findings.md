@@ -195,8 +195,10 @@ the solve, so reuse builds through the update APIs when solving repeatedly.
 
 1. Use `IVRNLP(profile=:scaled, ...)` with `solver_options=ivr_ipopt_options()`.
    Try `:fast` on MV/LV workloads like the French feeders, and benchmark it first.
-2. Make per-zone coordinates (`transformer_scaling=:nominal`) the default.
-   It is a pure change of variables, and it is the one choice that matters.
+2. *Done (October 2026):* per-zone coordinates (`transformer_scaling=:nominal`)
+   are now the `IVRNLPOptions` default. It is a pure change of variables, and it
+   is the one choice that matters. Pass `transformer_scaling=:off` for a single
+   global base.
 3. Evaluate MadNLP as the primary solver. An ExaModels backend is the logical
    next step, now that function evaluation is shown to be cheap and the KKT
    solve dominates.

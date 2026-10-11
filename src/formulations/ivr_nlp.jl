@@ -41,9 +41,10 @@ voltage bases and the common power base, independently of transformer scaling.
 `:regional_multiwinding_voltage` also propagates multiwinding characteristic
 voltage units when selecting that multiplier; it creates no physical reference.
 Uncertain regional assignments retain the global base with diagnostics.
-`transformer_scaling=:nominal` composes local voltage/current units inferred
-from source magnitudes and nominal winding ratios. Uncertain assignments retain
-the global base with diagnostics. `:nominal_multiwinding` additionally propagates
+`transformer_scaling=:nominal` (the default) composes local voltage/current
+units inferred from source magnitudes and nominal winding ratios; `:off` keeps a
+single global base. Uncertain assignments retain the global base with
+diagnostics. `:nominal_multiwinding` additionally propagates
 WYE/SINGLE_PHASE coil nominals and DELTA coil nominals divided by √3; these are
 characteristic units, never an inferred ground reference. `:regional_voltage`
 retains its independent ordinary-transformer policy. `row_scaling=:composed` independently normalizes
@@ -156,7 +157,7 @@ Base.@kwdef struct IVRNLPOptions
     passive_component_limit::Int = 4
     series_selection::Symbol = :all
     ground_scaling::Symbol = :off
-    transformer_scaling::Symbol = :off
+    transformer_scaling::Symbol = :nominal
     row_scaling::Symbol = :legacy
     kcl_row_max_base::Union{Nothing,Float64} = nothing
     lifting::Symbol = :off

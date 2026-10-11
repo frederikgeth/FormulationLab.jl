@@ -20,11 +20,11 @@ result = solve_opf(net, f; optimizer=Ipopt.Optimizer,
 The evidence, its mechanism and its limits are on the [findings](ivr_findings.md)
 page. In brief:
 
-- per-voltage-zone coordinates (`transformer_scaling=:nominal`) are the formulation
-  choice that matters for Ipopt;
+- per-voltage-zone coordinates (`transformer_scaling=:nominal`, now the default)
+  are the formulation choice that matters for Ipopt;
 - `mumps_pivtol=1e-3` removes most of the remaining penalty of poor scaling;
-- the solver matters more than any formulation choice (MadNLP was 2–4× faster
-  than Ipopt on the same models).
+- the solver matters as much as the formulation (MadNLP was about 3.5× faster
+  than default Ipopt on the French feeders, but not at 22k buses).
 
 The rest of this page is the earlier, campaign-era decision procedure. It is kept
 for its correctness and validation guidance; its performance statements are

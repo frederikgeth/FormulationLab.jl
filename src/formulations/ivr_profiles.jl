@@ -5,10 +5,11 @@ Explicit keywords passed alongside a profile override its settings. Every
 profile solves the same physical problem; the reductions it enables are exact
 and refuse or fall back when their certificates do not hold.
 
-- `:reference`: the unreduced, unlifted model with global per-unit bases. Use it
-  for correctness comparisons.
+- `:reference`: the unreduced, unlifted model with the default per-zone
+  coordinates. Use it for correctness comparisons. Pass
+  `transformer_scaling=:off` for a single global per-unit base.
 - `:scaled`: power lifting and per-voltage-zone (transformer-nominal)
-  coordinates. This is the recommended default. In the 2026-10 benchmark the
+  coordinates. This is the recommended default profile. In the 2026-10 benchmark the
   per-zone coordinates carried almost all of the Ipopt speedup, and this profile
   was within 1.5x of the best arm on every instance tested.
 - `:fast`: `:scaled` plus conductor-region specialization, bounded
