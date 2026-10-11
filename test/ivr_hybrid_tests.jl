@@ -3,9 +3,8 @@ using Test, FormulationLab, JuMP, Ipopt, JSON3
 include("../examples/benchmark_ivr_hybrid.jl")
 const H=IVRHybridStudy
 point(r)=ACPoint(voltage=r.voltage_candidate,currents=r.current_candidate)
-# mumps_pivtol=1e-3 avoids platform-dependent pivot retries that ended these
-# strict solves at ALMOST_LOCALLY_SOLVED on x86-64 Linux (see ivr_findings.md).
-solve(b)=solve_ivr_nlp_opf(b;solver_options=merge(H.P.STRICT,(mumps_pivtol=1e-3,)))
+include("strict_solve.jl")
+solve(b)=strict_solve(b,H.P.STRICT)
 # Independent graph traversal, without consulting the compiler's component map.
 function groups(net,selected)
     todo=Set(selected);result=Vector{String}[]
