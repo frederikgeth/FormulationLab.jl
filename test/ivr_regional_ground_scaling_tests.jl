@@ -23,7 +23,8 @@ isdefined(@__MODULE__,:_ground_scaling_case) || include("ivr_ground_scaling_test
         @test only(b.numerical_diagnostics[:ground_scaling_report].scaled_terminals).scale≈2*230^2/s_base
     end
     net=C.case(segments=2)
-    b=build_opf(net,IVRNLP())
+    # Unscaled maps are the input to the ground-coordinate pass under test.
+    b=build_opf(net,IVRNLP(transformer_scaling=:off))
     net["voltage_source"]["conflict"]=Dict("bus"=>"mv","terminal_map"=>["a"],"v_magnitude"=>[1000.],"v_angle"=>[0.])
     # Test unit selection separately: this deliberately contradictory source
     # assignment is correctly refused by the full no-load circuit builder.
@@ -33,7 +34,7 @@ isdefined(@__MODULE__,:_ground_scaling_case) || include("ivr_ground_scaling_test
     @test_throws IVRNLPInapplicableError build_opf(net,IVRNLP(ground_scaling=:regional_voltage))
     net=C.case(segments=2);net["shunt"]["finite_ground"]["G_1_1"]=floatmax(Float64)
     @test_throws IVRNLPInapplicableError build_opf(net,IVRNLP(ground_scaling=:regional_voltage))
-    net=C.case(segments=2);b=build_opf(net,IVRNLP())
+    net=C.case(segments=2);b=build_opf(net,IVRNLP(transformer_scaling=:off))
     j=only(keys(b.coordinates.reconstruction[b.electrical.voltage[("b2","n")]]))
     maps=(;projection=b.coordinates.projection,reconstruction=deepcopy(b.coordinates.reconstruction))
     maps.reconstruction[end]=FormulationLab._SDPRow(j=>nextfloat(0.))

@@ -87,7 +87,7 @@ end
     net=C.case(segments=2)
     @test_throws ArgumentError build_opf(net,IVRNLP(objective_scale=0.))
     @test_throws ArgumentError build_opf(net,IVRNLP(objective_scale=Inf))
-    @test_throws ArgumentError build_opf(net,IVRNLP(current_power_bases=Dict("b0"=>1e3)))
+    @test_throws ArgumentError build_opf(net,IVRNLP(transformer_scaling=:off,current_power_bases=Dict("b0"=>1e3)))
     for seeds in (Dict("absent"=>1e3),Dict("b0"=>0.),Dict("b0"=>Inf),Dict("b0"=>1e3,"b2"=>2e3))
         @test_throws ArgumentError build_opf(net,IVRNLP(transformer_scaling=:nominal,current_power_bases=seeds))
     end

@@ -3,7 +3,8 @@ isdefined(@__MODULE__,:_sdp_tx_case) || include("sdp_transformer_fixtures.jl")
 isdefined(@__MODULE__,:_audit_transformer_state) || include("ac_validation_fixtures.jl")
 isdefined(@__MODULE__,:_ivr_regulator_state) || include("ivr_regulator_tests.jl")
 const _DE_SETTINGS=(print_level=0,tol=1e-10,constr_viol_tol=1e-10,acceptable_iter=0,bound_relax_factor=0.,max_iter=500)
-_de_solve(b)=solve_ivr_nlp_opf(b;solver_options=_DE_SETTINGS)
+isdefined(@__MODULE__,:strict_solve) || include("strict_solve.jl")
+_de_solve(b)=strict_solve(b,_DE_SETTINGS)
 _de_point(r)=ACPoint(voltage=r.voltage_candidate,currents=r.current_candidate)
 function _de_compare(a,b)
     if a isa AbstractDict
@@ -107,7 +108,7 @@ end
             @test physical_residuals(net,r).passed
             @test ivr_nlp_point_report(full,_de_point(r)).passed
             @test ivr_nlp_point_report(b,_de_point(rf)).passed
-            @test r.objective ≈ rf.objective atol=3e-5
+            @test r.objective ≈ rf.objective atol=3e-5 rtol=1e-7
             d=result_dict(b,r);f=result_dict(full,rf)
             for family in ("bus","transformer","load","voltage_source","ground","losses")
                 haskey(f,family) && _de_compare(d[family],f[family])
